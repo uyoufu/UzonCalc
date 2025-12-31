@@ -1,0 +1,17 @@
+{
+  "python.analysis.extraPaths": ["./"],
+  "cSpell.words": [
+    "astpretty",
+    "BINOP",
+    "handcalc",
+    "mathrm",
+    "Mult",
+    "uzon",
+    "uzoncalc"
+  ],
+  "python.testing.pytestArgs": ["core"],
+  "python.testing.unittestEnabled": false,
+  "python.testing.pytestEnabled": true,
+  "python.defaultInterpreterPath": "D:\\scoop\\apps\\miniconda3\\current\\envs\\py12\\python.exe",
+  "editor.tabSize": 2
+}
