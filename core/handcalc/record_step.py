@@ -10,20 +10,15 @@ def record_step(
     name: str,
     expr: str,
     substitution: Any,
+    value: Any = None,
     locals_map: Mapping[str, Any] | None = None,
 ) -> None:
-
-    def _has_format_fields(fmt: str) -> bool:
-        # Detect whether fmt uses any `{field}` placeholders (escaped braces are ignored).
-        for _, field_name, _, _ in string.Formatter().parse(fmt):
-            if field_name is not None:
-                return True
-        return False
 
     locals_map = locals_map or {}
     expr_str = str(expr)
     substitution_str = str(substitution)
-    needs_substitution = _has_format_fields(substitution_str)
+    # needs_substitution = _has_format_fields(substitution_str)
+    needs_substitution = True
 
     if needs_substitution:
         substitution_out = substitution_str.format(**locals_map)
@@ -31,16 +26,19 @@ def record_step(
         substitution_out = substitution_str
 
     expr_str_out = expr_str.format(**locals_map)
-    if needs_substitution:
-        substitution_out = substitution_str.format(**locals_map)
 
-        if name:
-            ctx.append_content(f"{name} = {expr_str_out} = {substitution_out}")
-        else:
-            ctx.append_content(f"{expr_str_out} = {substitution_out}")
+    value_part = str(value) if value is not None else ""
 
-    else:
-        if name:
-            ctx.append_content(f"{name} = {expr_str_out}")
-        else:
-            ctx.append_content(expr_str_out)
+    parts = [name if name else "", expr_str_out]
+
+    if needs_substitution and substitution_out not in parts:
+        parts.append(substitution_out)
+
+    # 添加 value 部分
+    if value_part not in parts:
+        parts.append(str(value_part))
+
+    # 过滤空部分
+    parts = [part for part in parts if part]
+    if parts:
+        ctx.append_content(" = ".join(parts))

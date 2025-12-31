@@ -2,8 +2,7 @@
 from pint import UnitRegistry
 
 unit = UnitRegistry()
-unit.formatter.default_format = "~"
-
+unit.formatter.default_format = "~P"
 
 if __name__ == "__main__":
     q = 2.3e-6 * unit.m**3 / (unit.s**2 * unit.kg)

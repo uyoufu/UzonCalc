@@ -47,11 +47,13 @@ def disable_substitution():
 
 # region inline
 def inline():
-    pass
+    ctx = get_current_instance()
+    ctx.start_inline()
 
 
 def endline():
-    pass
+    ctx = get_current_instance()
+    ctx.end_inline()
 
 
 # endregion

@@ -11,3 +11,7 @@ class FormattedAstNode:
     start_unit: bool = False
     # 末尾是单位
     end_unit: bool = False
+
+    @property
+    def full_unit(self) -> bool:
+        return self.start_unit and self.end_unit

@@ -1,12 +1,12 @@
 import ast
 from core.handcalc.field_names import FieldNames
 from core.handcalc.token_handlers.latex_writer import LaTeXWriter
-from core.handcalc.recorders.base_recorder import BaseRecorder, RecordedNode
+from core.handcalc.recorders.base_recorder import BaseRecorder
 
 
 class AssignRecorder(BaseRecorder):
 
-    def record(self, node: ast.Assign) -> ast.AST:
+    def record(self, node: ast.Assign) -> ast.AST | list[ast.stmt]:
         """
         将赋值语句转换手写公式
         """
@@ -25,8 +25,8 @@ class AssignRecorder(BaseRecorder):
         # 属性赋值
         # 下标赋值
         # 带*的解包
-        target = node.targets[0]
-        if not isinstance(target, ast.Name):
+        first_target = node.targets[0]
+        if not isinstance(first_target, ast.Name):
             return node
 
         # 私有变量（以 _ 开头）可在运行时根据 ctx.options 决定是否抑制；
@@ -44,12 +44,17 @@ class AssignRecorder(BaseRecorder):
                 keywords=[
                     ast.keyword(
                         arg="name",
-                        value=ast.Constant(value=result.targets or target.id),
+                        value=ast.Constant(value=result.targets or first_target.id),
                     ),
                     ast.keyword(arg="expr", value=ast.Constant(value=result.latex)),
                     ast.keyword(
                         arg="substitution",
                         value=ast.Constant(value=result.substitution),
+                    ),
+                    # 新增：传入变量的运行时值
+                    ast.keyword(
+                        arg="value",
+                        value=ast.Name(id=first_target.id, ctx=ast.Load()),
                     ),
                     ast.keyword(
                         arg="locals_map",

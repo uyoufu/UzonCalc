@@ -35,5 +35,3 @@ class ContextOptions:
 
         # 别名映射
         self.aliases: dict[str, str] = {}
-        # Back-compat alias
-        self.alias = self.aliases

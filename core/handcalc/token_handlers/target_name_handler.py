@@ -26,5 +26,5 @@ class TargetNameHandler(BaseTokenHandler):
         return FormattedAstNode(
             targets=target_name,
             latex=format_field_name_latex(target_name),
-            substitution=f"{{{target_name}}}",
+            substitution=f"{target_name}",
         )

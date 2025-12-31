@@ -1,15 +1,55 @@
 import ast
 
 from core.handcalc.field_names import FieldNames
-from core.handcalc.recorders.base_recorder import BaseRecorder, RecordedNode
+from core.handcalc.recorders.base_recorder import BaseRecorder
 from core.handcalc.token_handlers.latex_writer import LaTeXWriter
 
 
 class ExprRecorder(BaseRecorder):
-    def record(self, node: ast.Expr) -> RecordedNode:
-        # Skip instrumenter-inserted nodes or other explicitly skipped nodes.
+    def record(self, node: ast.Expr) -> ast.AST | list[ast.stmt]:
+        # 跳过不记录的节点
         if getattr(node, FieldNames.skip_record, False):
             return node
+
+        # 忽略函数调用表达式
+        if isinstance(node.value, ast.Call):
+            return node
+
+        # 形如：
+        # b
+        # 的表达式语句（ast.Expr(value=ast.Name)），希望渲染为：b = <value>
+        # 通过把 name 设为变量名、并传入运行时 value 来实现。
+        if isinstance(node.value, ast.Name) and isinstance(node.value.ctx, ast.Load):
+            record_call = ast.Expr(
+                value=ast.Call(
+                    func=ast.Name(id=FieldNames.uzon_record_step, ctx=ast.Load()),
+                    args=[ast.Name(id=FieldNames.ctx, ctx=ast.Load())],
+                    keywords=[
+                        ast.keyword(
+                            arg="name", value=ast.Constant(value=node.value.id)
+                        ),
+                        ast.keyword(arg="expr", value=ast.Constant(value="")),
+                        ast.keyword(
+                            arg="substitution",
+                            value=ast.Constant(value=""),
+                        ),
+                        ast.keyword(
+                            arg="value",
+                            value=ast.Name(id=node.value.id, ctx=ast.Load()),
+                        ),
+                        ast.keyword(
+                            arg="locals_map",
+                            value=ast.Call(
+                                func=ast.Name(id="locals", ctx=ast.Load()),
+                                args=[],
+                                keywords=[],
+                            ),
+                        ),
+                    ],
+                )
+            )
+            ast.copy_location(record_call, node)
+            return [node, record_call]
 
         # Literal string statements (non-docstring) should be recorded as plain text.
         if isinstance(node.value, ast.Constant) and isinstance(node.value.value, str):
@@ -19,7 +59,9 @@ class ExprRecorder(BaseRecorder):
                     args=[ast.Name(id=FieldNames.ctx, ctx=ast.Load())],
                     keywords=[
                         ast.keyword(arg="name", value=ast.Constant(value="")),
-                        ast.keyword(arg="expr", value=ast.Constant(value=node.value.value)),
+                        ast.keyword(
+                            arg="expr", value=ast.Constant(value=node.value.value)
+                        ),
                         ast.keyword(
                             arg="substitution",
                             value=ast.Constant(value=""),
@@ -65,6 +107,7 @@ class ExprRecorder(BaseRecorder):
             ast.copy_location(record_call, node)
             return [node, record_call]
 
+        # 其它表达式，使用 LaTeX 格式化
         formatter = LaTeXWriter()
         result = formatter.format_expr(node.value)
         if result is None:

@@ -24,15 +24,6 @@ class BinOpHandler(BaseTokenHandler):
     ) -> FormattedAstNode | None:
         assert isinstance(ast_token, ast.BinOp)
 
-        def _unit_attr_name(node: ast.AST) -> str | None:
-            if (
-                isinstance(node, ast.Attribute)
-                and isinstance(node.value, ast.Name)
-                and node.value.id == "unit"
-            ):
-                return node.attr
-            return None
-
         left_node = handlers.handle(ast_token.left)
         right_node = handlers.handle(ast_token.right)
         if left_node is None or right_node is None:
@@ -67,31 +58,6 @@ class BinOpHandler(BaseTokenHandler):
                 latex=f"\\frac{latex_group(left_expr)}{latex_group(right_expr)}",
                 substitution=f"\\frac{latex_group(left_substitution)}{latex_group(right_substitution)}",
             )
-
-        # pint: `10 * unit.meter` -> `10 meter` (avoid showing `unit` / UnitRegistry repr)
-        if isinstance(ast_token.op, ast.Mult):
-            left_unit = _unit_attr_name(ast_token.left)
-            right_unit = _unit_attr_name(ast_token.right)
-            if left_unit or right_unit:
-                if left_unit and right_unit:
-                    unit_expr = f"{left_unit} {right_unit}"
-                    return FormattedAstNode(
-                        targets=None, latex=unit_expr, substitution=unit_expr
-                    )
-
-                if right_unit:
-                    return FormattedAstNode(
-                        targets=None,
-                        latex=f"{left_expr} {right_unit}",
-                        substitution=f"{left_substitution} {right_unit}",
-                    )
-
-                # left_unit only
-                return FormattedAstNode(
-                    targets=None,
-                    latex=f"{right_expr} {left_unit}",
-                    substitution=f"{right_substitution} {left_unit}",
-                )
 
         op_node = handlers.handle(ast_token.op)
         symbol = op_node.latex if op_node is not None else "?"

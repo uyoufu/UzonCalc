@@ -14,7 +14,7 @@ def latex_literal(text: str) -> str:
 def latex_group(inner: str) -> str:
     """Wrap inner in literal braces, preserving any {placeholders} inside."""
 
-    return "{{" + inner + "}}"
+    return r"{{" + inner + r"}}"
 
 
 def wrap_parens(inner: str) -> str:
@@ -94,4 +94,4 @@ def format_field_name_latex(name: str) -> str:
 
     main = latex_literal(parts[0])
     sub = latex_literal("".join(parts[1:]))
-    return f"{main}_{latex_group(sub)}"
+    return f"{main}_{sub}"

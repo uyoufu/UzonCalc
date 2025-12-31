@@ -71,7 +71,7 @@ class BinOpPintHandler(BaseTokenHandler):
         # 相除时，使用 / 符号连接
         elif isinstance(ast_token.op, ast.Div):
             latex = f"{left_node.latex}/{right_node.latex}"
-            substitution = f"{left_node.substitution}/{right_node.substitution}"
+            substitution = f"{left_node.substitution} / {right_node.substitution}"
 
         # 幂运算时，latex 使用 ^{{}} 形式
         elif isinstance(ast_token.op, ast.Pow):
