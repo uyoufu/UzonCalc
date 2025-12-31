@@ -1,4 +1,8 @@
+import base64
+import io
 from typing import List
+
+from matplotlib.figure import Figure
 
 from core.setup import get_current_instance
 
@@ -69,3 +73,14 @@ def laTex(content: str):
     :param content: latex content
     """
     h("latex", children=content)
+
+
+def plot(fig: Figure):
+    # 更常见做法：
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    buf.seek(0)
+    svg_bytes = buf.getvalue()
+    svg_base64 = base64.b64encode(svg_bytes).decode("ascii")
+    svg_data_uri = f"data:image/png;base64,{svg_base64}"
+    h("img", {"src": svg_data_uri})

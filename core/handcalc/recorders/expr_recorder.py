@@ -1,12 +1,12 @@
 import ast
 
 from core.handcalc.field_names import FieldNames
-from core.handcalc.recorders.base_recorder import BaseRecorder, RecordedNode
+from core.handcalc.recorders.base_recorder import BaseRecorder
 from core.handcalc.token_handlers.latex_writer import LaTeXWriter
 
 
 class ExprRecorder(BaseRecorder):
-    def record(self, node: ast.Expr) -> RecordedNode:
+    def record(self, node: ast.Expr) -> ast.AST | list[ast.stmt]:
         # Skip instrumenter-inserted nodes or other explicitly skipped nodes.
         if getattr(node, FieldNames.skip_record, False):
             return node
@@ -19,7 +19,9 @@ class ExprRecorder(BaseRecorder):
                     args=[ast.Name(id=FieldNames.ctx, ctx=ast.Load())],
                     keywords=[
                         ast.keyword(arg="name", value=ast.Constant(value="")),
-                        ast.keyword(arg="expr", value=ast.Constant(value=node.value.value)),
+                        ast.keyword(
+                            arg="expr", value=ast.Constant(value=node.value.value)
+                        ),
                         ast.keyword(
                             arg="substitution",
                             value=ast.Constant(value=""),

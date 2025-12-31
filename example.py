@@ -1,3 +1,4 @@
+from matplotlib import pyplot as plt
 from pint import UnitRegistry
 from core.setup import uzon_calc
 
@@ -5,10 +6,17 @@ from core.setup import uzon_calc
 @uzon_calc()
 def sheet(*, unit: UnitRegistry):
 
-    from core.renders.elements import p, div, span, input
+    from core.renders.elements import p, div, span, input, plot
     from core.renders.options import hide, show
 
-    speed2 = 10 * unit.m / unit.second**2
+    h = 400 * unit.mm
+    b = 300 * unit.mm
+    f"截面尺寸: b={b}, h={h}, 面积 A_s={b*h}"
+    f"截面尺寸: b={b}, h={h}, 面积 {(A_s :=b*h)}"
+
+    p(f"截面尺寸: b={(c := 300)}, h={(d := 400)} 面积 {(A_s :=b*h)}")
+
+    p(f"面积: {A_s}")
 
 
 if __name__ == "__main__":

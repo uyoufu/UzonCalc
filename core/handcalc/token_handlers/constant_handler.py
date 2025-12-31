@@ -33,4 +33,4 @@ class ConstantHandler(BaseTokenHandler):
             s = str(v)
 
         lit = latex_literal(s)
-        return FormattedAstNode(targets=None, latex=lit, substitution=lit)
+        return FormattedAstNode(targets=None, latex=s, substitution=s)

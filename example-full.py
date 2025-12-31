@@ -38,11 +38,13 @@ def sheet(*, unit: UnitRegistry):
 
     from core.renders.options import inline, endline
 
+    inline()
     "钢筋强度"
     h = 400
     b = 300
     f"截面尺寸: b={b}, h={h}, 面积 A_s={b*h}"
     f"截面尺寸: b={(b := 300)} m, h={(h := 400)} m, 面积 {(A_s :=b*h)} m^2"
+    endline()
 
     # 下标
     x_1 = 10

@@ -2,9 +2,6 @@ import ast
 from typing import Any
 
 
-RecordedNode = ast.AST | list[ast.stmt]
-
-
 class BaseRecorder:
-    def record(self, node: Any) -> RecordedNode:
+    def record(self, node: Any) -> ast.AST | list[ast.stmt]:
         raise NotImplementedError("Subclasses should implement this method.")

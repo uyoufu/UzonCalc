@@ -10,6 +10,7 @@ def record_step(
     name: str,
     expr: str,
     substitution: Any,
+    value: Any = None,
     locals_map: Mapping[str, Any] | None = None,
 ) -> None:
 
@@ -23,7 +24,8 @@ def record_step(
     locals_map = locals_map or {}
     expr_str = str(expr)
     substitution_str = str(substitution)
-    needs_substitution = _has_format_fields(substitution_str)
+    # needs_substitution = _has_format_fields(substitution_str)
+    needs_substitution = True
 
     if needs_substitution:
         substitution_out = substitution_str.format(**locals_map)
@@ -31,16 +33,14 @@ def record_step(
         substitution_out = substitution_str
 
     expr_str_out = expr_str.format(**locals_map)
-    if needs_substitution:
-        substitution_out = substitution_str.format(**locals_map)
 
-        if name:
-            ctx.append_content(f"{name} = {expr_str_out} = {substitution_out}")
-        else:
-            ctx.append_content(f"{expr_str_out} = {substitution_out}")
+    target_part = f"{name} = " if name else ""
+    value_part = f"{value}" if value is not None else ""
+    progression_part = ""
 
+    if needs_substitution and substitution_out:
+        progression_part = f"{expr_str_out} = {substitution_out}"
     else:
-        if name:
-            ctx.append_content(f"{name} = {expr_str_out}")
-        else:
-            ctx.append_content(expr_str_out)
+        progression_part = expr_str_out
+
+    ctx.append_content(target_part + progression_part + value_part)
