@@ -10,7 +10,7 @@ def sheet(*, unit: UnitRegistry):
 
     speed2 = 10 * unit.m / unit.second + (2 * unit.m / unit.second)
 
-    virtual_number = 1 + 2j
+    complex_number = 1 + 2j
 
     pint_unit = 10 * unit.meter
 

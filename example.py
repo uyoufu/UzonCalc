@@ -9,16 +9,16 @@ def sheet(*, unit: UnitRegistry):
     from core.renders.elements import p, div, span, input, plot
     from core.renders.options import hide, show, inline, endline
 
-    h = 400 * unit.mm
+    h_x = 400 * unit.mm
     b = 300 * unit.mm
 
     inline()
     "截面尺寸："
     b
     ","
-    h
+    h_x
     ", 面积："
-    A = b * h
+    A = b * h_x
     endline()
     
 
