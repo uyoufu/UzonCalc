@@ -38,10 +38,10 @@ class AssignHandler(BaseTokenHandler):
 
         # 组合成最终的赋值表达式
         if target_node and value_node:
-            latex = f"{target_node.latex} = {value_node.latex}"
+            latex = f"{target_node.expr} = {value_node.expr}"
             substitution = f"{target_node.substitution} = {value_node.substitution}"
             return FormattedAstNode(
                 targets=target_node.targets,
-                latex=latex,
+                expr=latex,
                 substitution=substitution,
             )

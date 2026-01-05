@@ -29,8 +29,8 @@ class BinOpHandler(BaseTokenHandler):
         if left_node is None or right_node is None:
             return None
 
-        left_expr, left_substitution = left_node.latex, left_node.substitution
-        right_expr, right_substitution = right_node.latex, right_node.substitution
+        left_expr, left_substitution = left_node.expr, left_node.substitution
+        right_expr, right_substitution = right_node.expr, right_node.substitution
 
         # 添加括号
         if needs_parens_in_binop(
@@ -48,22 +48,28 @@ class BinOpHandler(BaseTokenHandler):
         if isinstance(ast_token.op, ast.Pow):
             return FormattedAstNode(
                 targets=None,
-                latex=f"{left_expr}^{latex_group(right_expr)}",
-                substitution=f"{left_substitution}^{latex_group(right_substitution)}",
+                expr=handlers.formatter.format_pow(left_expr, right_expr),
+                # 带上括号，是为了解决带单位的幂运算问题
+                # 需要后处理：若括号中仅数值时，去掉括号
+                substitution=handlers.formatter.format_pow(
+                    f"({left_substitution})", right_substitution
+                ),
             )
 
         if isinstance(ast_token.op, ast.Div):
             return FormattedAstNode(
                 targets=None,
-                latex=f"\\frac{latex_group(left_expr)}{latex_group(right_expr)}",
-                substitution=f"\\frac{latex_group(left_substitution)}{latex_group(right_substitution)}",
+                expr=handlers.formatter.format_frac(left_expr, right_expr),
+                substitution=handlers.formatter.format_frac(
+                    left_substitution, right_substitution
+                ),
             )
 
         op_node = handlers.handle(ast_token.op)
-        symbol = op_node.latex if op_node is not None else "?"
+        symbol = op_node.expr if op_node is not None else "?"
 
         return FormattedAstNode(
             targets=None,
-            latex=f"{left_expr} {symbol} {right_expr}",
+            expr=f"{left_expr} {symbol} {right_expr}",
             substitution=f"{left_substitution} {symbol} {right_substitution}",
         )

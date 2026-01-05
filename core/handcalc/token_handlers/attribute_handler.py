@@ -24,28 +24,16 @@ class AttributeHandler(BaseTokenHandler):
         """
         assert isinstance(ast_token, ast.Attribute)
 
-        base_node = handlers.handle(ast_token.value)
-        if base_node is None:
-            return None
-
-        base_expr = base_node.latex
-        base_substitution = base_node.substitution
-
-        if isinstance(ast_token.value, ast.BinOp):
-            base_expr = wrap_parens(base_expr)
-            base_substitution = wrap_parens(base_substitution)
-
-        # 生成 LaTeX 表达式
-        # 示例：{obj.attr}
-        substitution = r"{" + f"{ast_token.value.id}.{ast_token.attr}" + r"}"
-
         # 判断是否有单位关键字
-        with_unit = ast_token.value.id == FieldNames.unit
+        is_unit = ast_token.value.id == FieldNames.unit
+        substitution = r"{" + f"{ast_token.value.id}.{ast_token.attr}" + r"}"
+        base_expr = substitution
 
         return FormattedAstNode(
             targets=None,
-            latex=substitution,
+            expr=base_expr,
             substitution=substitution,
-            start_unit=with_unit,
-            end_unit=with_unit,
+            start_unit=is_unit,
+            end_unit=is_unit,
+            contains_variable=not is_unit,
         )

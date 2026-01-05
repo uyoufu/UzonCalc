@@ -2,6 +2,7 @@ from __future__ import annotations
 from typing import List
 
 from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.htm_formatter import HTMLFormatter
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
 
 from core.handcalc.token_handlers.assign_handler import AssignHandler
@@ -17,7 +18,8 @@ from core.handcalc.token_handlers.py_operator_handler import (
     SubOperatorHandler,
     PowOperatorHandler,
 )
-from core.handcalc.token_handlers.target_name_handler import TargetNameHandler
+from core.handcalc.token_handlers.name_load_handler import NameLoadHandler
+from core.handcalc.token_handlers.name_store_handler import NameStoreHandler
 from core.handcalc.token_handlers.unaryop_handler import UnaryOpHandler
 
 
@@ -26,7 +28,11 @@ class TokenHandlerFactory:
         self.handlers: List[BaseTokenHandler] = []
         self.is_sorted = True
 
+        # 注册内置处理器
         self.__register_builtin_handlers()
+
+        # 格式化器实例
+        self.formatter = HTMLFormatter()
 
     # 注册系统内置处理器
     def __register_builtin_handlers(self):
@@ -41,7 +47,8 @@ class TokenHandlerFactory:
             BinOpPintHandler,
             CallHandler,
             ConstantHandler,
-            TargetNameHandler,
+            NameLoadHandler,
+            NameStoreHandler,
             UnaryOpHandler,
             AddOperatorHandler,
             SubOperatorHandler,

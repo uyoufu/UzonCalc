@@ -33,8 +33,8 @@ class CallHandler(BaseTokenHandler):
                 return None
             return FormattedAstNode(
                 targets=None,
-                latex=f"\\left|{n.latex}\\right|",
-                substitution=f"\\left|{n.substitution}\\right|",
+                expr=f"|{n.expr}|",
+                substitution=f"|{n.substitution}|",
             )
 
         # Keep function name literal when it is a simple Name.
@@ -45,7 +45,7 @@ class CallHandler(BaseTokenHandler):
             func_node = handlers.handle(ast_token.func)
             if func_node is None:
                 return None
-            func_expr = func_node.latex
+            func_expr = func_node.expr
             func_tmpl = func_node.substitution
 
         arg_exprs: list[str] = []
@@ -55,7 +55,7 @@ class CallHandler(BaseTokenHandler):
             n = handlers.handle(a)
             if n is None:
                 return None
-            arg_exprs.append(n.latex)
+            arg_exprs.append(n.expr)
             arg_tmpls.append(n.substitution)
 
         for kw in ast_token.keywords:
@@ -63,14 +63,14 @@ class CallHandler(BaseTokenHandler):
             if n is None:
                 return None
             if kw.arg is None:
-                arg_exprs.append(f"**{n.latex}")
+                arg_exprs.append(f"**{n.expr}")
                 arg_tmpls.append(f"**{n.substitution}")
             else:
-                arg_exprs.append(f"{kw.arg}={n.latex}")
+                arg_exprs.append(f"{kw.arg}={n.expr}")
                 arg_tmpls.append(f"{kw.arg}={n.substitution}")
 
         return FormattedAstNode(
             targets=None,
-            latex=f"{func_expr}({', '.join(arg_exprs)})",
+            expr=f"{func_expr}({', '.join(arg_exprs)})",
             substitution=f"{func_tmpl}({', '.join(arg_tmpls)})",
         )

@@ -3,9 +3,14 @@ import ast
 from core.handcalc.recorders.assign_recorder import AssignRecorder
 from core.handcalc.recorders.expr_recorder import ExprRecorder
 from core.handcalc.field_names import FieldNames
+from core.handcalc.token_handlers.handlers_factory import TokenHandlerFactory
 
 
 class AstNodeVisitor(ast.NodeTransformer):
+    def __init__(self) -> None:
+        super().__init__()
+        self._handlers = TokenHandlerFactory()
+
     def _mark_docstring_skip(self, body: list[ast.stmt] | None) -> None:
         if not body:
             return
@@ -41,7 +46,7 @@ class AstNodeVisitor(ast.NodeTransformer):
         self.generic_visit(node)
 
         # 调用格式化器
-        recorder = AssignRecorder()
+        recorder = AssignRecorder(self._handlers)
         return recorder.record(node)
 
     def visit_Expr(self, node: ast.Expr) -> ast.AST | list[ast.stmt]:
@@ -56,5 +61,5 @@ class AstNodeVisitor(ast.NodeTransformer):
         self.generic_visit(node)
 
         # 调用格式化器
-        recorder = ExprRecorder()
+        recorder = ExprRecorder(self._handlers)
         return recorder.record(node)

@@ -41,4 +41,4 @@ def record_step(
     # 过滤空部分
     parts = [part for part in parts if part]
     if parts:
-        ctx.append_content(" = ".join(parts))
+        ctx.append_content(f"<p>{" = ".join(parts)}</p>")

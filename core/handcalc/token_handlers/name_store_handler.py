@@ -11,9 +11,9 @@ if TYPE_CHECKING:
     )
 
 
-class TargetNameHandler(BaseTokenHandler):
+class NameStoreHandler(BaseTokenHandler):
     def can_handle_core(self, ast_token: ast.AST) -> bool:
-        return isinstance(ast_token, ast.Name)
+        return isinstance(ast_token, ast.Name) and isinstance(ast_token.ctx, ast.Store)
 
     def handle(
         self, ast_token: ast.AST, handlers: "TokenHandlerFactory"
@@ -25,6 +25,6 @@ class TargetNameHandler(BaseTokenHandler):
 
         return FormattedAstNode(
             targets=target_name,
-            latex=format_field_name_latex(target_name),
+            expr=handlers.formatter.format_variable(target_name),
             substitution=f"{target_name}",
         )

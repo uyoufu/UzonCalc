@@ -2,10 +2,14 @@ import ast
 
 from core.handcalc.field_names import FieldNames
 from core.handcalc.recorders.base_recorder import BaseRecorder
-from core.handcalc.token_handlers.latex_writer import LaTeXWriter
+from core.handcalc.token_handlers.handlers_factory import TokenHandlerFactory
 
 
 class ExprRecorder(BaseRecorder):
+    def __init__(self, handlersFactory: TokenHandlerFactory) -> None:
+        super().__init__()
+        self._handlers = handlersFactory
+
     def record(self, node: ast.Expr) -> ast.AST | list[ast.stmt]:
         # 跳过不记录的节点
         if getattr(node, FieldNames.skip_record, False):
@@ -108,8 +112,7 @@ class ExprRecorder(BaseRecorder):
             return [node, record_call]
 
         # 其它表达式，使用 LaTeX 格式化
-        formatter = LaTeXWriter()
-        result = formatter.format_expr(node.value)
+        result = self._handlers.handle(node)
         if result is None:
             return node
 
@@ -120,7 +123,7 @@ class ExprRecorder(BaseRecorder):
                 args=[ast.Name(id=FieldNames.ctx, ctx=ast.Load())],
                 keywords=[
                     ast.keyword(arg="name", value=ast.Constant(value="")),
-                    ast.keyword(arg="expr", value=ast.Constant(value=result.latex)),
+                    ast.keyword(arg="expr", value=ast.Constant(value=result.expr)),
                     ast.keyword(
                         arg="substitution",
                         value=ast.Constant(value=result.substitution),

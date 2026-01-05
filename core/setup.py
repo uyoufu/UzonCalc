@@ -2,6 +2,7 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 from functools import wraps
 import inspect
+import time
 
 from core.context import CalcContext
 from core.handcalc.ast_instrument import instrument_function
@@ -62,10 +63,10 @@ def uzon_calc(name: str | None = None):
 
             @wraps(fn)
             def wrapper(*args, **kwargs):
+
                 with uzon_calc_core(name) as ctx:
                     valid_kwargs = _prepare_valid_kwargs(kwargs, ctx)
                     instrumented_fn(*args, **valid_kwargs)
-
                     return ctx
 
             return wrapper

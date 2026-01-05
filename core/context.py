@@ -19,6 +19,7 @@ class CalcContext:
     def contents(self):
         return self.__contents
 
+    # region content recording
     def append_content(self, content: str):
         if self.options.skip_content:
             return
@@ -42,3 +43,11 @@ class CalcContext:
             combined = " ".join(self.__inline_values)
             self.__contents.append(combined)
             self.__inline_values = None
+
+    # endregion
+
+    # region result generation
+    def html_content(self) -> str:
+        return "\n".join(self.__contents)
+
+    # endregion

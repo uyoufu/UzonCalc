@@ -1,10 +1,10 @@
 from pint import UnitRegistry
+from core.html_template import get_html_template
 from core.setup import uzon_calc
 
 
 @uzon_calc()
 def sheet(*, unit: UnitRegistry):
-
     from core.renders.elements import p, div, span, input
     from core.renders.options import hide, show
 
@@ -40,8 +40,8 @@ def sheet(*, unit: UnitRegistry):
 
     inline()
     "钢筋强度"
-    h = 400
-    b = 300
+    h = 400 * unit.m
+    b = 300 * unit.m
     f"截面尺寸: b={b}, h={h}, 面积 A_s={b*h}"
     f"截面尺寸: b={(b := 300)} m, h={(h := 400)} m, 面积 {(A_s :=b*h)} m^2"
     endline()
@@ -64,7 +64,7 @@ def sheet(*, unit: UnitRegistry):
     # 带单位
     length = 5 * unit.meter
     speed = 10 * unit.m / unit.s
-    time = length / speed
+    timex = length / speed
 
     square_value = length**2
 
@@ -81,7 +81,7 @@ def sheet(*, unit: UnitRegistry):
     total = sub_func(length, length)
     total
 
-    p(f"time = {time}")
+    p(f"time = {timex}")
 
 
 if __name__ == "__main__":
@@ -92,5 +92,11 @@ if __name__ == "__main__":
     # 异步调用 setup
     ctx = sheet()  # type: ignore
     print("\n".join(ctx.contents))
+
+    html_content = get_html_template("\n".join(ctx.contents))
+    # 保存为 HTML 文件
+    with open("calculation_sheet.html", "w", encoding="utf-8") as f:
+        f.write(html_content)
+
     t1 = time.perf_counter()
-    print(f"Execution time: {t1 - t0} seconds")
+    # print(f"Execution time: {t1 - t0} seconds")

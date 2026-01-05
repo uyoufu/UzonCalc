@@ -20,7 +20,7 @@ class AddOperatorHandler(BaseTokenHandler):
     ) -> FormattedAstNode:
         return FormattedAstNode(
             targets=None,
-            latex="+",
+            expr="+",
             substitution="+",
         )
 
@@ -35,7 +35,7 @@ class SubOperatorHandler(BaseTokenHandler):
     ) -> FormattedAstNode:
         return FormattedAstNode(
             targets=None,
-            latex="-",
+            expr="-",
             substitution="-",
         )
 
@@ -50,8 +50,8 @@ class MultOperatorHandler(BaseTokenHandler):
     ) -> FormattedAstNode:
         return FormattedAstNode(
             targets=None,
-            latex=r"\cdot",
-            substitution=r"\cdot",
+            expr=r"",
+            substitution=r"·",
         )
 
 
@@ -64,7 +64,7 @@ class DivOperatorHandler(BaseTokenHandler):
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
         # BinOpHandler 会对 ast.Div 做 \frac 特殊渲染；这里提供兜底符号。
-        return FormattedAstNode(targets=None, latex="/", substitution="/")
+        return FormattedAstNode(targets=None, expr="/", substitution="/")
 
 
 class FloorDivOperatorHandler(BaseTokenHandler):
@@ -74,7 +74,7 @@ class FloorDivOperatorHandler(BaseTokenHandler):
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
-        return FormattedAstNode(targets=None, latex="//", substitution="//")
+        return FormattedAstNode(targets=None, expr="//", substitution="//")
 
 
 class ModOperatorHandler(BaseTokenHandler):
@@ -84,7 +84,7 @@ class ModOperatorHandler(BaseTokenHandler):
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
-        return FormattedAstNode(targets=None, latex=r"\bmod", substitution=r"\bmod")
+        return FormattedAstNode(targets=None, expr=r"\bmod", substitution=r"\bmod")
 
 
 class MatMultOperatorHandler(BaseTokenHandler):
@@ -94,7 +94,7 @@ class MatMultOperatorHandler(BaseTokenHandler):
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
-        return FormattedAstNode(targets=None, latex=r"\cdot", substitution=r"\cdot")
+        return FormattedAstNode(targets=None, expr=r"·", substitution=r"·")
 
 
 class PowOperatorHandler(BaseTokenHandler):
@@ -104,4 +104,4 @@ class PowOperatorHandler(BaseTokenHandler):
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
-        return FormattedAstNode(targets=None, latex="^", substitution="^")
+        return FormattedAstNode(targets=None, expr="^", substitution="^")

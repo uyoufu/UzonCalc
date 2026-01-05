@@ -36,7 +36,7 @@ class UnaryOpHandler(BaseTokenHandler):
         if operand_node is None:
             return None
 
-        operand_expr = operand_node.latex
+        operand_expr = operand_node.expr
         operand_tmpl = operand_node.substitution
 
         if isinstance(ast_token.operand, ast.BinOp) and precedence(
@@ -47,6 +47,6 @@ class UnaryOpHandler(BaseTokenHandler):
 
         return FormattedAstNode(
             targets=None,
-            latex=f"{op}{operand_expr}",
+            expr=f"{op}{operand_expr}",
             substitution=f"{op}{operand_tmpl}",
         )
