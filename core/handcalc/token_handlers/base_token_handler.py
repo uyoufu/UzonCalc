@@ -15,10 +15,11 @@ class BaseTokenHandler:
     # 数值越小优先级越高，只会调用第一个匹配的处理器
     order: int = 10000
 
-    def __init__(self) -> None:
+    def __init__(self, factory: "TokenHandlerFactory") -> None:
+        self.handlers_factory = factory
         self.ignore_tokens = set()
 
-    def can_handle(self, ast_token: Any) -> bool:
+    def can_handle(self, ast_token: Any, parent: Any | None = None) -> bool:
         """
         Determine if this handler can process the given token.
         """
@@ -27,11 +28,13 @@ class BaseTokenHandler:
 
         return self.can_handle_core(ast_token)
 
-    def can_handle_core(self, ast_token: Any) -> bool:
+    def can_handle_core(self, ast_token: Any, parent: Any | None = None) -> bool:
         raise NotImplementedError("Subclasses must implement can_handle_core method.")
 
     def handle(
-        self, ast_token: Any, handlers: "TokenHandlerFactory"
+        self,
+        ast_token: Any,
+        parent: FormattedAstNode | None = None,
     ) -> FormattedAstNode | None:
         """
         Process the given token and return the result.

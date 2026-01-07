@@ -1,5 +1,5 @@
 from __future__ import annotations
-from typing import List
+from typing import Any, List
 
 from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.formatters.html_formatter import HTMLFormatter
@@ -60,10 +60,12 @@ class TokenHandlerFactory:
             self.register_handler(handler_type)
 
     def register_handler(self, handler_type: type[BaseTokenHandler]) -> None:
-        self.handlers.append(handler_type())
+        self.handlers.append(handler_type(self))
         self.is_sorted = False
 
-    def handle(self, ast_node) -> FormattedAstNode | None:
+    def handle(
+        self, ast_node: Any, parent: Any | None = None
+    ) -> FormattedAstNode | None:
         # 仅在需要时排序处理器
         if not self.is_sorted:
             self.handlers.sort(key=lambda h: h.order)
@@ -71,11 +73,11 @@ class TokenHandlerFactory:
 
         # 只调用第一个匹配的处理器
         for handler in self.handlers:
-            if not handler.can_handle(ast_node):
+            if not handler.can_handle(ast_node, parent=parent):
                 continue
 
             # 传入 self 作为 factory 参数
-            result = handler.handle(ast_node, self)
+            result = handler.handle(ast_node, parent=parent)
             if result is not None:
                 return result
 

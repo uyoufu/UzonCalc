@@ -12,6 +12,9 @@ if TYPE_CHECKING:
 
 
 class UnaryOpHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     def can_handle_core(self, ast_token: ast.AST) -> bool:
         return isinstance(ast_token, ast.UnaryOp)
 

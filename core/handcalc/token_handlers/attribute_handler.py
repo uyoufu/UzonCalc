@@ -1,5 +1,5 @@
 import ast
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
 from core.handcalc.field_names import FieldNames
 from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
@@ -13,11 +13,14 @@ if TYPE_CHECKING:
 
 
 class AttributeHandler(BaseTokenHandler):
-    def can_handle_core(self, ast_token: ast.AST) -> bool:
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
+    def can_handle_core(self, ast_token: ast.AST, parent: Any | None = None) -> bool:
         return isinstance(ast_token, ast.Attribute)
 
     def handle(
-        self, ast_token: ast.AST, handlers: "TokenHandlerFactory"
+        self, ast_token: ast.AST, parent: Any | None = None
     ) -> FormattedAstNode | None:
         """
         处理属性访问，如 obj.attr

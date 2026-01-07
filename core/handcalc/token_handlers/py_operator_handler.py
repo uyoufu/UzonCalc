@@ -11,6 +11,9 @@ if TYPE_CHECKING:
 
 
 class AddOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     # 是否是加法操作符
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, (ast.Add, ast.UAdd))
@@ -26,6 +29,9 @@ class AddOperatorHandler(BaseTokenHandler):
 
 
 class SubOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     # 是否是减法操作符
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, (ast.Sub, ast.USub))
@@ -41,6 +47,9 @@ class SubOperatorHandler(BaseTokenHandler):
 
 
 class MultOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     # 是否是乘法操作符
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, ast.Mult)
@@ -56,6 +65,9 @@ class MultOperatorHandler(BaseTokenHandler):
 
 
 class DivOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     # 是否是除法操作符
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, ast.Div)
@@ -70,6 +82,9 @@ class DivOperatorHandler(BaseTokenHandler):
 
 
 class FloorDivOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, ast.FloorDiv)
 
@@ -80,6 +95,9 @@ class FloorDivOperatorHandler(BaseTokenHandler):
 
 
 class ModOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, ast.Mod)
 
@@ -93,6 +111,9 @@ class ModOperatorHandler(BaseTokenHandler):
 
 # 矩阵乘法
 class MatMultOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, ast.MatMult)
 
@@ -105,6 +126,9 @@ class MatMultOperatorHandler(BaseTokenHandler):
 
 
 class PowOperatorHandler(BaseTokenHandler):
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, ast.Pow)
 

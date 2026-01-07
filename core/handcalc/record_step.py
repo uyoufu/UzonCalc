@@ -42,7 +42,7 @@ def record_step(
         parts.append(str(value_part))
 
     # 过滤空部分
-    parts = [f"<mrow>{part}</mrow>" for part in parts if part]
+    parts = [part for part in parts if part]
     if parts:
         ctx.append_content(
             f"<p><math xmlns='http://www.w3.org/1998/Math/MathML'><mrow>{"<mo>=</mo>".join(parts)}</mrow></math></p>"

@@ -13,6 +13,9 @@ class BinOpPintHandler(BaseTokenHandler):
     # 相较于默认的 BinOp 处理器，优先级更高
     order: int = 9900
 
+    def __init__(self, handlers_factory: "TokenHandlerFactory") -> None:
+        super().__init__(handlers_factory)
+
     def can_handle_core(self, ast_token: ast.BinOp) -> bool:
         # 仅处理 pint 相乘、相除、幂运算的情况
         handling_ops = (ast.Mult, ast.Div, ast.Pow)
