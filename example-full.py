@@ -5,8 +5,8 @@ from core.setup import uzon_calc
 
 @uzon_calc()
 def sheet(*, unit: UnitRegistry):
-    from core.renders.elements import p, div, span, input
-    from core.renders.options import hide, show
+    from core.utils.elements import p, div, span, input
+    from core.utils.options import hide, show
 
     speed2 = 10 * unit.m / unit.second + (2 * unit.m / unit.second)
 
@@ -16,6 +16,10 @@ def sheet(*, unit: UnitRegistry):
 
     x_value = 1
     y_value = x_value + abs(-3) + (3 + 2) / 2 + 5**2
+
+    # 字母
+    x_alpha = 100 * unit.meter
+    x_Alpha = 200 * unit.meter
 
     p("calculation sheet started.")
     p(
@@ -36,7 +40,7 @@ def sheet(*, unit: UnitRegistry):
     selection = input("")
     f"混凝土强度: {concrete__code} MPa, 砂率: {selection} %"
 
-    from core.renders.options import inline, endline
+    from core.utils.options import inline, endline
 
     inline()
     "钢筋强度"

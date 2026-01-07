@@ -1,7 +1,7 @@
 import ast
 from typing import TYPE_CHECKING
 
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
 
 
@@ -33,8 +33,8 @@ class CallHandler(BaseTokenHandler):
                 return None
             return FormattedAstNode(
                 targets=None,
-                expr=f"|{n.expr}|",
-                substitution=f"|{n.substitution}|",
+                expr=handlers.formatter.format_abs(n.expr),
+                substitution=handlers.formatter.format_abs(n.substitution),
             )
 
         # Keep function name literal when it is a simple Name.

@@ -1,6 +1,6 @@
 import ast
 from typing import TYPE_CHECKING
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
 
 if TYPE_CHECKING:

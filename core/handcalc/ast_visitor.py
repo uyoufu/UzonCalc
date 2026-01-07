@@ -9,7 +9,7 @@ from core.handcalc.token_handlers.handlers_factory import TokenHandlerFactory
 class AstNodeVisitor(ast.NodeTransformer):
     def __init__(self) -> None:
         super().__init__()
-        self._handlers = TokenHandlerFactory()
+        self.__handlersFactory = TokenHandlerFactory()
 
     def _mark_docstring_skip(self, body: list[ast.stmt] | None) -> None:
         if not body:
@@ -46,7 +46,7 @@ class AstNodeVisitor(ast.NodeTransformer):
         self.generic_visit(node)
 
         # 调用格式化器
-        recorder = AssignRecorder(self._handlers)
+        recorder = AssignRecorder(self.__handlersFactory)
         return recorder.record(node)
 
     def visit_Expr(self, node: ast.Expr) -> ast.AST | list[ast.stmt]:
@@ -61,5 +61,5 @@ class AstNodeVisitor(ast.NodeTransformer):
         self.generic_visit(node)
 
         # 调用格式化器
-        recorder = ExprRecorder(self._handlers)
+        recorder = ExprRecorder(self.__handlersFactory)
         return recorder.record(node)

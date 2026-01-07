@@ -1,6 +1,6 @@
 import ast
 from typing import TYPE_CHECKING
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
 
 
@@ -13,30 +13,30 @@ if TYPE_CHECKING:
 class AddOperatorHandler(BaseTokenHandler):
     # 是否是加法操作符
     def can_handle_core(self, ast_token: ast.operator):
-        return isinstance(ast_token, ast.Add)
+        return isinstance(ast_token, (ast.Add, ast.UAdd))
 
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
         return FormattedAstNode(
             targets=None,
-            expr="+",
-            substitution="+",
+            expr="<mo>+</mo>",
+            substitution="<mo>+</mo>",
         )
 
 
 class SubOperatorHandler(BaseTokenHandler):
     # 是否是减法操作符
     def can_handle_core(self, ast_token: ast.operator):
-        return isinstance(ast_token, ast.Sub)
+        return isinstance(ast_token, (ast.Sub, ast.USub))
 
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
         return FormattedAstNode(
             targets=None,
-            expr="-",
-            substitution="-",
+            expr="<mo>-</mo>",
+            substitution="<mo>-</mo>",
         )
 
 
@@ -50,8 +50,8 @@ class MultOperatorHandler(BaseTokenHandler):
     ) -> FormattedAstNode:
         return FormattedAstNode(
             targets=None,
-            expr=r"",
-            substitution=r"·",
+            expr=r"<mo>·</mo>",
+            substitution=r"<mo>·</mo>",
         )
 
 
@@ -64,7 +64,9 @@ class DivOperatorHandler(BaseTokenHandler):
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
         # BinOpHandler 会对 ast.Div 做 \frac 特殊渲染；这里提供兜底符号。
-        return FormattedAstNode(targets=None, expr="/", substitution="/")
+        return FormattedAstNode(
+            targets=None, expr="<mo>/</mo>", substitution="<mo>/</mo>"
+        )
 
 
 class FloorDivOperatorHandler(BaseTokenHandler):
@@ -84,9 +86,12 @@ class ModOperatorHandler(BaseTokenHandler):
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
-        return FormattedAstNode(targets=None, expr=r"\bmod", substitution=r"\bmod")
+        return FormattedAstNode(
+            targets=None, expr="<mo>%</mo>", substitution="<mo>%</mo>"
+        )
 
 
+# 矩阵乘法
 class MatMultOperatorHandler(BaseTokenHandler):
     def can_handle_core(self, ast_token: ast.operator):
         return isinstance(ast_token, ast.MatMult)
@@ -94,7 +99,9 @@ class MatMultOperatorHandler(BaseTokenHandler):
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
-        return FormattedAstNode(targets=None, expr=r"·", substitution=r"·")
+        return FormattedAstNode(
+            targets=None, expr="<mo>·</mo>", substitution="<mo>·</mo>"
+        )
 
 
 class PowOperatorHandler(BaseTokenHandler):
@@ -104,4 +111,6 @@ class PowOperatorHandler(BaseTokenHandler):
     def handle(
         self, ast_token: ast.operator, handlers: "TokenHandlerFactory"
     ) -> FormattedAstNode:
-        return FormattedAstNode(targets=None, expr="^", substitution="^")
+        return FormattedAstNode(
+            targets=None, expr="<mo>^</mo>", substitution="<mo>^</mo>"
+        )

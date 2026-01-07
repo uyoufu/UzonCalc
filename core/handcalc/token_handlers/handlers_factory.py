@@ -1,8 +1,8 @@
 from __future__ import annotations
 from typing import List
 
-from core.handcalc.formatted_ast_node import FormattedAstNode
-from core.handcalc.formatters.htm_formatter import HTMLFormatter
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.html_formatter import HTMLFormatter
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
 
 from core.handcalc.token_handlers.assign_handler import AssignHandler

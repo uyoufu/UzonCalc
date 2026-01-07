@@ -13,6 +13,9 @@ def record_step(
     value: Any = None,
     locals_map: Mapping[str, Any] | None = None,
 ) -> None:
+    # 如果跳过内容记录，直接返回
+    if ctx.options.skip_content:
+        return
 
     locals_map = locals_map or {}
     expr_str = str(expr)
@@ -39,6 +42,8 @@ def record_step(
         parts.append(str(value_part))
 
     # 过滤空部分
-    parts = [part for part in parts if part]
+    parts = [f"<mrow>{part}</mrow>" for part in parts if part]
     if parts:
-        ctx.append_content(f"<p>{" = ".join(parts)}</p>")
+        ctx.append_content(
+            f"<p><math xmlns='http://www.w3.org/1998/Math/MathML'><mrow>{"<mo>=</mo>".join(parts)}</mrow></math></p>"
+        )

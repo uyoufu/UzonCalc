@@ -1,4 +1,5 @@
-from core.renders.step_renderers import StepRenderer
+from core.handcalc.post_handlers.base_post_handler import BasePostHandler
+from core.handcalc.post_handlers.post_pipeline import get_default_post_handlers
 
 
 class ContextOptions:
@@ -8,8 +9,7 @@ class ContextOptions:
         enable_debug: bool = False,
         enable_substitution: bool = True,
         suppress_private_assignments: bool = True,
-        record_structured_steps: bool = True,
-        step_renderer: str | StepRenderer | None = "text",
+        record_structured_steps: bool = True
     ):
         # 是否启用调试模式，记录更多步骤信息
         self.enable_debug: bool = enable_debug
@@ -25,9 +25,6 @@ class ContextOptions:
         # 记录结构化步骤（不仅是字符串），便于后续渲染或调试
         self.record_structured_steps: bool = record_structured_steps
 
-        # 渲染步骤的器件，可以是 renderer 名称或实现 render(event) 的对象
-        self.step_renderer: str | StepRenderer | None = step_renderer
-
         # 是否跳过内容记录
         # 若为 True，则不会记录内容到 ctx.contents 中
         # 逻辑在 CalcContext.append_content 方法中实现
@@ -35,3 +32,6 @@ class ContextOptions:
 
         # 别名映射
         self.aliases: dict[str, str] = {}
+
+        # 自定义的后处理器列表
+        self.post_handlers: list[BasePostHandler] = get_default_post_handlers()

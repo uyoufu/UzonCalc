@@ -34,8 +34,7 @@ def get_html_template(content: str) -> str:
             font-size: 1.2em;
         }
     </style>
-    <!-- MathJax for LaTeX rendering -->
-    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <!-- MathJax for LaTeX rendering -->    
 </head>
 <body>
     <div class="content">

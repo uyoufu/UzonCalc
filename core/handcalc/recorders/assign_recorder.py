@@ -1,6 +1,6 @@
 import ast
 from core.handcalc.field_names import FieldNames
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.handlers_factory import TokenHandlerFactory
 from core.handcalc.recorders.base_recorder import BaseRecorder
 
@@ -8,7 +8,7 @@ from core.handcalc.recorders.base_recorder import BaseRecorder
 class AssignRecorder(BaseRecorder):
     def __init__(self, handlersFactory: TokenHandlerFactory) -> None:
         super().__init__()
-        self._handlers = handlersFactory
+        self.__handlersFactory = handlersFactory
 
     def record(self, node: ast.Assign) -> ast.AST | list[ast.stmt]:
         """
@@ -82,8 +82,8 @@ class AssignRecorder(BaseRecorder):
             return None
 
         first_target = node.targets[0]
-        target_node = self._handlers.handle(first_target)
-        value_node = self._handlers.handle(node.value)
+        target_node = self.__handlersFactory.handle(first_target)
+        value_node = self.__handlersFactory.handle(node.value)
 
         if target_node is None or value_node is None:
             return None

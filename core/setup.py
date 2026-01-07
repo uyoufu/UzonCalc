@@ -2,12 +2,11 @@ from contextvars import ContextVar
 from contextlib import contextmanager
 from functools import wraps
 import inspect
-import time
 
 from core.context import CalcContext
 from core.handcalc.ast_instrument import instrument_function
 
-from core.unit import unit
+from core.units import unit
 
 _calc_instance = ContextVar[CalcContext | None]("calc_ctx", default=None)
 

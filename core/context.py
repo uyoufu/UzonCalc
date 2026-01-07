@@ -1,7 +1,6 @@
 from typing import Any
 
 from core.context_options import ContextOptions
-from core.renders.step_renderers import StepEvent
 
 
 class CalcContext:
@@ -12,7 +11,7 @@ class CalcContext:
 
         # 记录结果
         self.__contents = []
-
+        # 记录行内内容的临时存储
         self.__inline_values: list[str] | None = None
 
     @property
@@ -23,6 +22,10 @@ class CalcContext:
     def append_content(self, content: str):
         if self.options.skip_content:
             return
+
+        # 对 content 进行后处理
+        for handler in self.options.post_handlers:
+            content = handler.handle(content)
 
         # 若有 row_values，则添加到 row_values 中
         # 在其它地方将其转换成一行内容

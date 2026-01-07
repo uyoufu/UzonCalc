@@ -1,9 +1,9 @@
 import ast
 from typing import TYPE_CHECKING
 
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
-from core.handcalc.token_handlers.latex_utils import precedence, wrap_parens
+from core.handcalc.token_handlers.token_utils import precedence, wrap_parens
 
 if TYPE_CHECKING:
     from core.handcalc.token_handlers.handlers_factory import (
@@ -15,11 +15,11 @@ class UnaryOpHandler(BaseTokenHandler):
     def can_handle_core(self, ast_token: ast.AST) -> bool:
         return isinstance(ast_token, ast.UnaryOp)
 
-    def _op(self, op: ast.unaryop) -> str:
+    def _op(self, op: ast.unaryop, handlers: "TokenHandlerFactory") -> str:
         if isinstance(op, ast.UAdd):
-            return "+"
+            return handlers.handle(op).expr
         if isinstance(op, ast.USub):
-            return "-"
+            return handlers.handle(op).expr
         if isinstance(op, ast.Not):
             return r"\lnot "
         if isinstance(op, ast.Invert):
@@ -31,7 +31,7 @@ class UnaryOpHandler(BaseTokenHandler):
     ) -> FormattedAstNode | None:
         assert isinstance(ast_token, ast.UnaryOp)
 
-        op = self._op(ast_token.op)
+        op = self._op(ast_token.op, handlers)
         operand_node = handlers.handle(ast_token.operand)
         if operand_node is None:
             return None

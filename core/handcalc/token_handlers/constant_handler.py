@@ -1,9 +1,9 @@
 import ast
 from typing import TYPE_CHECKING
 
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
-from core.handcalc.token_handlers.latex_utils import latex_literal
+from core.handcalc.token_handlers.token_utils import latex_literal
 
 if TYPE_CHECKING:
     from core.handcalc.token_handlers.handlers_factory import (
@@ -32,4 +32,5 @@ class ConstantHandler(BaseTokenHandler):
         else:
             s = str(v)
 
-        return FormattedAstNode(targets=None, expr=s, substitution=s)
+        mathml_s = "<mn>" + s + "</mn>"
+        return FormattedAstNode(targets=None, expr=mathml_s, substitution=mathml_s)

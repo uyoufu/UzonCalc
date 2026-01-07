@@ -2,9 +2,9 @@ import ast
 from typing import TYPE_CHECKING
 
 from core.handcalc.field_names import FieldNames
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
-from core.handcalc.token_handlers.latex_utils import wrap_parens
+from core.handcalc.token_handlers.token_utils import wrap_parens
 
 if TYPE_CHECKING:
     from core.handcalc.token_handlers.handlers_factory import (

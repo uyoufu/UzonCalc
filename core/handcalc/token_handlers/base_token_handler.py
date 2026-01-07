@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import ast
 from typing import Any
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 
 from typing import TYPE_CHECKING
 

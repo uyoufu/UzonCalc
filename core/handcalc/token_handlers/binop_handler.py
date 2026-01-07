@@ -1,9 +1,9 @@
 import ast
 from typing import TYPE_CHECKING
 
-from core.handcalc.formatted_ast_node import FormattedAstNode
+from core.handcalc.formatters.formatted_ast_node import FormattedAstNode
 from core.handcalc.token_handlers.base_token_handler import BaseTokenHandler
-from core.handcalc.token_handlers.latex_utils import (
+from core.handcalc.token_handlers.token_utils import (
     latex_group,
     needs_parens_in_binop,
     wrap_parens,

@@ -1,5 +1,4 @@
 from core.setup import get_current_instance
-from core.renders.step_renderers import StepRenderer
 
 # region show/hide content recording
 
@@ -59,32 +58,6 @@ def endline():
 # endregion
 
 
-# region renderer selection
-def set_renderer(renderer: str | StepRenderer):
-    """
-    Update the step renderer for the current context.
-    renderer can be a registered renderer name or an object implementing render(event).
-    """
-
-    ctx = get_current_instance()
-    ctx.options.step_renderer = renderer
-
-
-def use_text_renderer():
-    set_renderer("text")
-
-
-def use_latex_renderer():
-    set_renderer("latex")
-
-
-def use_html_renderer():
-    set_renderer("html")
-
-
-# endregion
-
-
 # region define variable symbols
 def alias(name, value):
     """
@@ -94,7 +67,7 @@ def alias(name, value):
     """
     ctx = get_current_instance()
     # 将别名保存到上下文的别名字典中
-    ctx.aliases[name] = value
+    ctx.options.aliases[name] = value
 
     return value
 

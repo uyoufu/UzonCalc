@@ -8,7 +8,7 @@ from core.handcalc.token_handlers.handlers_factory import TokenHandlerFactory
 class ExprRecorder(BaseRecorder):
     def __init__(self, handlersFactory: TokenHandlerFactory) -> None:
         super().__init__()
-        self._handlers = handlersFactory
+        self.__handlersFactory = handlersFactory
 
     def record(self, node: ast.Expr) -> ast.AST | list[ast.stmt]:
         # 跳过不记录的节点
@@ -112,7 +112,7 @@ class ExprRecorder(BaseRecorder):
             return [node, record_call]
 
         # 其它表达式，使用 LaTeX 格式化
-        result = self._handlers.handle(node)
+        result = self.__handlersFactory.handle(node)
         if result is None:
             return node
 
