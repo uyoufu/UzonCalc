@@ -50,7 +50,7 @@ def format_unit_html(unit, registry, **options) -> str:
 
 
 # unit.formatter = MathmlFormatter(unit)
-unit.formatter.default_format = "L"
+unit.formatter.default_format = "~P"
 
 if __name__ == "__main__":
     q = 2.3e-6 * unit.m**8 / (unit.s**2 * unit.kg)

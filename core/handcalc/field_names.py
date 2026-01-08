@@ -4,6 +4,6 @@ class FieldNames:
     uzon_record_step = "__uzon_record_step__"
     ctx = "ctx"
     get_current_instance = "get_current_instance"
-    # 使用 _ 防止与 StrEnum 成员冲突
-    _value = "value"
+    uzon_ir = "__uzon_ir__"
+    value = "value"
     unit = "unit"

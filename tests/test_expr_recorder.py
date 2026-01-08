@@ -3,30 +3,12 @@ import ast
 from core.context import CalcContext
 from core.handcalc.field_names import FieldNames
 from core.handcalc.record_step import record_step
-from core.handcalc.recorders.expr_recorder import ExprRecorder
+from core.handcalc.ast_visitor import AstNodeVisitor
 
 
 def test_expr_name_stmt_records_as_name_equals_value():
-    module = ast.parse("b")
-    expr_stmt = module.body[0]
-    assert isinstance(expr_stmt, ast.Expr)
-
-    recorder = ExprRecorder()
-    recorded = recorder.record(expr_stmt)
-    assert isinstance(recorded, list)
-    assert len(recorded) == 2
-
-    # Build a runnable module that defines b and then runs the recorded statements.
-    run_module = ast.Module(
-        body=[
-            ast.Assign(
-                targets=[ast.Name(id="b", ctx=ast.Store())],
-                value=ast.Constant(value=2),
-            ),
-            *recorded,
-        ],
-        type_ignores=[],
-    )
+    run_module = ast.parse("b = 2\nb\n'hi'\nf\"x={b}\"\n")
+    run_module = AstNodeVisitor().visit(run_module)
     ast.fix_missing_locations(run_module)
 
     ctx = CalcContext(name="test")
@@ -37,4 +19,16 @@ def test_expr_name_stmt_records_as_name_equals_value():
 
     exec(compile(run_module, filename="<ast>", mode="exec"), env, env)
 
-    assert ctx.contents[-1] == "b = 2"
+    # 1) assignment line recorded (no nested <math>)
+    assert ctx.contents[0].count("<math") == 1
+    assert "<mi>b</mi>" in ctx.contents[0]
+
+    # 2) bare name expression recorded as name=value (no nested <math>)
+    assert ctx.contents[1].count("<math") == 1
+    assert "<mi>b</mi>" in ctx.contents[1]
+
+    # 3) pure string expression is output
+    assert ctx.contents[2] == "<p>hi</p>"
+
+    # 4) f-string expression is output (via value channel)
+    assert ctx.contents[3] == "<p>x=2</p>"

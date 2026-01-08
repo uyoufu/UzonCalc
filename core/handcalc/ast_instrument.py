@@ -78,10 +78,10 @@ def instrument_function(func: Callable[..., Any]) -> FunctionType:
                 node.body
                 and isinstance(node.body[0], ast.Expr)
                 and isinstance(
-                    getattr(node.body[0], FieldNames._value, None), ast.Constant
+                    getattr(node.body[0], FieldNames.value, None), ast.Constant
                 )
                 and isinstance(
-                    getattr(node.body[0].value, FieldNames._value, None), str
+                    getattr(node.body[0].value, FieldNames.value, None), str
                 )
             ):
                 insert_at = 1
@@ -121,6 +121,11 @@ def instrument_function(func: Callable[..., Any]) -> FunctionType:
         from core.setup import get_current_instance
 
         glb[FieldNames.get_current_instance] = get_current_instance
+
+        # Inject v2 IR module for building MathNode dataclasses at runtime.
+        from core.handcalc.v2 import ir as uzon_ir
+
+        glb[FieldNames.uzon_ir] = uzon_ir
 
         loc: Dict[str, Any] = {}
         # 真正执行编译后的代码：这一步会运行模块级语句，通常会把被插桩后的函数定义放进 loc

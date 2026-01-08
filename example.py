@@ -10,6 +10,16 @@ def sheet(*, unit: UnitRegistry):
     from core.utils.elements import p, div, span, input, plot
     from core.utils.options import hide, show, inline, endline
 
+    arr = [1, 2, 3, 4, 5]
+    arr2 = [x**2 for x in arr]
+
+    arr3 = [x + 1 for x in arr if x % 2 == 0]
+
+    q = 2.3e-6 * unit.m**8 / (unit.s**2 * unit.kg) * 5 * unit.N
+
+    x_value = 1
+    y_value = x_value + abs(-3) + (3 + 2) / 2 + 5**2
+
     z = -3
 
     "Welcome to UzonCalc calculation sheet."
@@ -21,17 +31,12 @@ def sheet(*, unit: UnitRegistry):
     # greeting = __add(str1, str2)
     greeting = str1 + str2
 
-    # speed2 = 10 * unit.m / unit.second + (2 * unit.m / unit.second)**2    
+    # speed2 = 10 * unit.m / unit.second + (2 * unit.m / unit.second)**2
     # speed2 = 10*__format__(unit.m / unit.second) + (2*__format__(unit.m / unit.second))**2
-
-    q = 2.3e-6 * unit.m**8 / (unit.s**2 * unit.kg)
 
     complex_number = 1 + 2j
 
     pint_unit = 10 * unit.meter
-
-    x_value = 1
-    y_value = x_value + abs(-3) + (3 + 2) / 2 + 5**2
 
     join = "字符串1" + "字符串2"
 
@@ -109,6 +114,12 @@ def sheet(*, unit: UnitRegistry):
 if __name__ == "__main__":
     import time
 
+    # # tracemalloc 示例
+    # import tracemalloc
+
+    # tracemalloc.start()
+    # # 执行你的转换/渲染工作
+
     t0 = time.perf_counter()
     props = {"field1"}  # 这里按你的业务填入 inputs
     # 异步调用 setup
@@ -122,3 +133,8 @@ if __name__ == "__main__":
 
     t1 = time.perf_counter()
     print(f"Execution time: {t1 - t0} seconds")
+
+    # snapshot = tracemalloc.take_snapshot()
+    # for stat in snapshot.statistics("lineno")[:10]:
+    #     print(stat)
+    # print("traced:", tracemalloc.get_traced_memory())

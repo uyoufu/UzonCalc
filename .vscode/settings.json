@@ -3,9 +3,17 @@
   "cSpell.words": [
     "astpretty",
     "BINOP",
+    "cmpop",
     "handcalc",
     "mathml",
     "mathrm",
+    "mfenced",
+    "mfrac",
+    "mrow",
+    "msqrt",
+    "msub",
+    "msup",
+    "mtext",
     "Mult",
     "uzon",
     "uzoncalc"
