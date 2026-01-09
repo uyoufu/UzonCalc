@@ -39,22 +39,18 @@ class MathmlFormatter(DefaultFormatter):
 
 # 自定义格式化器
 # 参考 https://pint.readthedocs.io/en/stable/user/formatting.html
-@pint.register_unit_format("html")
-def format_unit_html(unit, registry, **options) -> str:
-    uspec = "H"
-    formatted = registry.formatter.get_formatter(uspec).format_unit(
-        unit, uspec, registry.formatter.default_sort_func, **options
-    )
-    # 将空格转换成点号
-    return f"<mtext class='unit'>{formatted.replace(" ", "·")}</mtext>"
+# @pint.register_unit_format("html")
+# def format_unit_html(unit, registry, **options) -> str:
+#     uspec = "H"
+#     formatted = registry.formatter.get_formatter(uspec).format_unit(
+#         unit, uspec, registry.formatter.default_sort_func, **options
+#     )
+#     # 将空格转换成点号
+#     return f"<mtext class='unit'>{formatted.replace(" ", "·")}</mtext>"
 
 
 # unit.formatter = MathmlFormatter(unit)
 unit.formatter.default_format = "~P"
 
 if __name__ == "__main__":
-    q = 2.3e-6 * unit.m**8 / (unit.s**2 * unit.kg)
-    print(q)
-    print(100 * unit.m * unit.s**2 / (unit.kg * unit.m**2))
-    speed2 = 1000 * unit.m / unit.second + (2 * unit.m / unit.second)
-    print(speed2)
+    print(unit.parse_units("meter**1*second**-2*kg**-1"))

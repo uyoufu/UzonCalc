@@ -5,5 +5,6 @@ class FieldNames:
     ctx = "ctx"
     get_current_instance = "get_current_instance"
     uzon_ir = "__uzon_ir__"
+    uzon_steps = "__uzon_steps__"
     value = "value"
     unit = "unit"

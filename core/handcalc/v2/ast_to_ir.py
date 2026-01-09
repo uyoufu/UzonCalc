@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import ast
-from typing import Any, List
-
+from typing import Any, List, Optional
+from core.units import unit
+from pint.util import UnitsContainer
 from . import ir
 
 
@@ -25,7 +26,6 @@ def target_to_ir(node: ast.AST) -> ir.MathNode:
 def expr_to_ir(node: ast.AST) -> ir.MathNode:
     """
     Convert a Python AST expression node into a Math IR node.
-    This is a best-effort conversion for common expressions.
     """
 
     # Basic atoms
@@ -62,10 +62,9 @@ def expr_to_ir(node: ast.AST) -> ir.MathNode:
 
     # Binary
     if isinstance(node, ast.BinOp):
-        # 判断后者是否为单位，若是单位，提取所有子 ast 节点，进行单位求值
-        if isinstance(node.op, (ast.Mult, ast.Div, ast.Pow)):
-            # 判断右侧是否为单位
-            pass
+        folded = _try_fold_unit_expr_as_single_mu(node)
+        if folded is not None:
+            return folded
 
         left = expr_to_ir(node.left)
         right = expr_to_ir(node.right)
@@ -90,7 +89,7 @@ def expr_to_ir(node: ast.AST) -> ir.MathNode:
     # BoolOp
     if isinstance(node, ast.BoolOp):
         op = "and" if isinstance(node.op, ast.And) else "or"
-        items: List[ir.Math] = []
+        items: List[ir.MathNode] = []
         for idx, v in enumerate(node.values):
             if idx:
                 items.append(ir.mo(op))
@@ -99,7 +98,7 @@ def expr_to_ir(node: ast.AST) -> ir.MathNode:
 
     # Compare
     if isinstance(node, ast.Compare):
-        items: List[ir.Math] = [expr_to_ir(node.left)]
+        items: List[ir.MathNode] = [expr_to_ir(node.left)]
         for op, comp in zip(node.ops, node.comparators):
             items.append(ir.mo(_cmp_op_to_str(op)))
             items.append(expr_to_ir(comp))
@@ -117,19 +116,23 @@ def expr_to_ir(node: ast.AST) -> ir.MathNode:
             return ir.msqrt(args[0])
 
         # Generic function call: f(a, b)
-        arg_nodes: List[ir.Math] = []
+        # NOTE: avoid <mfenced> for better MathML Core compatibility (some renderers
+        # drop mfenced parentheses). Emit explicit '(' and ')' operators instead.
+        arg_nodes: List[ir.MathNode] = []
         for idx, a in enumerate(args):
             if idx:
                 arg_nodes.append(ir.mo(","))
             arg_nodes.append(a)
 
-        return ir.mrow([ir.mtext(func_name), ir.mfenced(ir.mrow(arg_nodes))])
+        return ir.mrow([ir.mtext(func_name), ir.mo("("), *arg_nodes, ir.mo(")")])
 
     # Attribute
     # like unit.meter
     if isinstance(node, ast.Attribute):
-        # 将 unit.meter 转换为 {unit.meter} 以便后续处理
-        return ir.mi(_unparse(node))
+        if isinstance(node.value, ast.Name) and node.value.id == "unit":
+            return ir.mu(node.attr)
+        else:
+            return ir.mi(_unparse(node))
 
     # Subscript/Tuple/List/Dict/Set/etc.
     return ir.mtext(_unparse(node))
@@ -159,48 +162,117 @@ def _cmp_op_to_str(op: ast.cmpop) -> str:
     return op.__class__.__name__
 
 
-def is_unit_multiplication_chain(node: ast.AST) -> bool:
+def _try_fold_unit_expr_as_single_mu(node: ast.AST) -> Optional[ir.MathNode]:
     """
-    判断节点是否为纯单位乘除法链。
-    例如: unit.m**2 / unit.s 或 unit.kg * unit.m / unit.s**2
+    遍历乘除法表达式树，提取出其中的单位及其幂次，构造一个单一的 ir.Mu 节点表示该单位表达式
+    若没有符合的单位乘除法表达式，返回 None
     """
-    if isinstance(node, ast.BinOp):
-        # 检查操作符是否为乘法或除法
-        if not isinstance(node.op, (ast.Mult, ast.Div)):
-            return False
-        # 递归检查左右两侧
-        return is_unit_multiplication_chain(node.left) and is_unit_multiplication_chain(
-            node.right
-        )
 
-    elif isinstance(node, ast.Attribute):
-        # 检查是否为 unit.xxx 形式
-        if isinstance(node.value, ast.Name) and node.value.id == "unit":
+    if not isinstance(node, ast.BinOp) or not isinstance(
+        node.op, (ast.Mult, ast.Div, ast.Pow)
+    ):
+        return None
+
+    coeff: float = 1.0
+    unit_powers: dict[str, float] = {}
+
+    def add_unit(name: str, power: float) -> None:
+        """
+        添加单位及其幂次到字典中
+        """
+        prev = unit_powers.get(name, 0.0)
+        new = prev + power
+        if abs(new) < 1e-12:
+            unit_powers.pop(name, None)
+        else:
+            unit_powers[name] = new
+
+    def walk(n: ast.AST, sign: int) -> bool:
+        nonlocal coeff
+
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Mult):
+            return walk(n.left, sign) and walk(n.right, sign)
+
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div):
+            return walk(n.left, sign) and walk(n.right, -sign)
+
+        # unit.xxx
+        if (
+            isinstance(n, ast.Attribute)
+            and isinstance(n.value, ast.Name)
+            and n.value.id == "unit"
+        ):
+            add_unit(n.attr, float(sign))
             return True
+
+        # unit.xxx ** k
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Pow):
+            if (
+                isinstance(n.left, ast.Attribute)
+                and isinstance(n.left.value, ast.Name)
+                and n.left.value.id == "unit"
+            ):
+                exp = _get_const_number(n.right)
+                if exp is None:
+                    return False
+                add_unit(n.left.attr, float(sign) * float(exp))
+                return True
+            return False
+
+        # numeric constant
+        num = _get_const_number(n)
+        if num is not None:
+            if sign == -1 and float(num) == 0.0:
+                return False
+            coeff = coeff * float(num) if sign == 1 else coeff / float(num)
+            return True
+
         return False
 
-    elif isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
-        # 允许幂运算，如 unit.m**2
-        return is_unit_multiplication_chain(node.left)
+    if not walk(node, +1):
+        return None
 
-    elif isinstance(node, ast.Constant):
-        # 允许常量（如数字）
-        return True
+    if not unit_powers:
+        return None
 
-    return False
+    units = unit.parse_units(_unit_powers_to_unit_expr(unit_powers))
+    unit_node: ir.MathNode = ir.mu(str(units))
+
+    # 系数为 1 时直接输出单位表达式
+    coeff_node = _number_to_mn(coeff)
+    if coeff_node.value == "1":
+        return unit_node
+
+    return ir.mrow([coeff_node, ir.mo(""), unit_node])
 
 
-def is_pure_unit_expression(node: ast.AST) -> bool:
+def _get_const_number(node: ast.AST) -> Optional[float]:
+    if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
+        return float(node.value)
+
+    # 处理 unit.m**-2 这类指数：UnaryOp(USub, Constant)
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, (ast.UAdd, ast.USub)):
+        inner = _get_const_number(node.operand)
+        if inner is None:
+            return None
+        return inner if isinstance(node.op, ast.UAdd) else -inner
+
+    return None
+
+
+def _number_to_mn(value: float) -> ir.Mn:
+    if float(value).is_integer():
+        return ir.mn(int(value))
+    return ir.mn(value)
+
+
+def _unit_powers_to_unit_expr(unit_powers: dict[str, float]) -> str:
     """
-    判断表达式是否为: 数字 * 单位乘除法链
-    例如: 2.3e-6 * unit.m**8 / (unit.s**2 * unit.kg)
+    将单位及其幂次字典转换为字符串表达式
+    例如: {'meter': 2, 'second': -1} -> "meter**2/second"
     """
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Mult):
-        # 左侧是数字，右侧是单位链
-        left_is_number = isinstance(node.left, (ast.Constant, ast.Constant))
-        right_is_units = is_unit_multiplication_chain(node.right)
 
-        if left_is_number and right_is_units:
-            return True
-
-    return is_unit_multiplication_chain(node)
+    return "*".join(
+        f"{name}**{power}" if power != 1 else name
+        for name, power in unit_powers.items()
+    )

@@ -127,6 +127,11 @@ def instrument_function(func: Callable[..., Any]) -> FunctionType:
 
         glb[FieldNames.uzon_ir] = uzon_ir
 
+        # Inject Step classes module for building Step objects at runtime.
+        from core.handcalc import steps as uzon_steps
+
+        glb[FieldNames.uzon_steps] = uzon_steps
+
         loc: Dict[str, Any] = {}
         # 真正执行编译后的代码：这一步会运行模块级语句，通常会把被插桩后的函数定义放进 loc
         exec(code, glb, loc)

@@ -10,12 +10,15 @@ def sheet(*, unit: UnitRegistry):
     from core.utils.elements import p, div, span, input, plot
     from core.utils.options import hide, show, inline, endline
 
+    length = 5 * unit.meter
+    square_value = length**2
+
+    q = 2.3 * unit.m**8 / (unit.s**2 * unit.kg) * 5 * unit.N * unit.m
+
     arr = [1, 2, 3, 4, 5]
     arr2 = [x**2 for x in arr]
 
     arr3 = [x + 1 for x in arr if x % 2 == 0]
-
-    q = 2.3e-6 * unit.m**8 / (unit.s**2 * unit.kg) * 5 * unit.N
 
     x_value = 1
     y_value = x_value + abs(-3) + (3 + 2) / 2 + 5**2

@@ -4,6 +4,7 @@
     "astpretty",
     "BINOP",
     "cmpop",
+    "coeff",
     "handcalc",
     "mathml",
     "mathrm",
@@ -15,6 +16,7 @@
     "msup",
     "mtext",
     "Mult",
+    "subscriptify",
     "uzon",
     "uzoncalc"
   ],
