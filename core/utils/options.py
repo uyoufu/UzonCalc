@@ -1,3 +1,4 @@
+from typing import Any
 from core.setup import get_current_instance
 
 # region show/hide content recording
@@ -70,6 +71,38 @@ def alias(name, value):
     ctx.options.aliases[name] = value
 
     return value
+
+
+# endregion
+
+
+# region 页面设置
+def doc_title(title: str):
+    """
+    设置页面标题
+    :param title: 页面标题
+    """
+    ctx = get_current_instance()
+    ctx.options.page_title = title
+
+
+def page_size(size: str):
+    """
+    设置页面大小
+    :param size: 页面大小，如 'A4', 'Letter' 等
+    """
+    ctx = get_current_instance()
+    ctx.options.page_size = size
+
+
+def style(name: str, value: dict[str, Any]):
+    """
+    设置页面样式
+    :param name: 样式名称
+    :param value: 样式内容，字典形式
+    """
+    ctx = get_current_instance()
+    ctx.options.styles[name] = dict(value)
 
 
 # endregion

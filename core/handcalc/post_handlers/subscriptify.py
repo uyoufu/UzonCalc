@@ -37,7 +37,7 @@ class Subscriptify(BasePostHandler):
 
             base_xml = f"<mi>{parts[0]}</mi>"
             for sub in parts[1:]:
-                sub_xml = f"<mn>{sub}</mn>" if sub.isdigit() else f"<mi>{sub}</mi>"
+                sub_xml = f"<mtext>{sub}</mtext>"
                 base_xml = f"<msub>{base_xml}{sub_xml}</msub>"
 
             return base_xml

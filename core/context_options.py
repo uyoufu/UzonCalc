@@ -35,3 +35,11 @@ class ContextOptions:
 
         # 自定义的后处理器列表
         self.post_handlers: list[BasePostHandler] = get_default_post_handlers()
+
+        # 页面标题
+        self.page_title: str = "UzonCalc Calculation Sheet"
+
+        # 页面大小
+        self.page_size: str = "A4"  # 默认页面大小
+
+        self.styles: dict[str, dict] = {}  # 自定义样式字典

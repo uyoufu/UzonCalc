@@ -2,29 +2,102 @@ import ast
 
 from core.handcalc.field_names import FieldNames
 from core.handcalc import steps
-from core.handcalc.v2.ast_to_ir import expr_to_ir, target_to_ir
-from core.handcalc.v2 import ir
+from core.handcalc.ast_to_ir import expr_to_ir, target_to_ir
+from core.handcalc import ir
 
 
 class AstNodeVisitor(ast.NodeTransformer):
     def __init__(self) -> None:
         super().__init__()
+        # When disabled, we do not instrument/visit subsequent statements
+        # (same-level and child statements) until a show() directive appears.
+        self._recording_enabled: bool = True
 
     def visit_Module(self, node: ast.Module) -> ast.AST:
         self._mark_docstring_skip(node.body)
-        return self.generic_visit(node)
+        prev = self._recording_enabled
+        self._recording_enabled = True
+        node.body = self._transform_stmt_block(node.body)
+        self._recording_enabled = prev
+        return node
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:
         self._mark_docstring_skip(node.body)
-        return self.generic_visit(node)
+
+        # Each function gets its own instrumentation toggle scope.
+        prev = self._recording_enabled
+        self._recording_enabled = True
+        node.body = self._transform_stmt_block(node.body)
+        self._recording_enabled = prev
+        return node
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AST:
         self._mark_docstring_skip(node.body)
-        return self.generic_visit(node)
+
+        prev = self._recording_enabled
+        self._recording_enabled = True
+        node.body = self._transform_stmt_block(node.body)
+        self._recording_enabled = prev
+        return node
 
     def visit_ClassDef(self, node: ast.ClassDef) -> ast.AST:
         self._mark_docstring_skip(node.body)
-        return self.generic_visit(node)
+
+        prev = self._recording_enabled
+        self._recording_enabled = True
+        node.body = self._transform_stmt_block(node.body)
+        self._recording_enabled = prev
+        return node
+
+    def visit_If(self, node: ast.If) -> ast.AST:
+        # Only rewrite statement lists; expressions can use generic_visit.
+        node.test = self.visit(node.test)  # type: ignore[assignment]
+        node.body = self._transform_stmt_block(node.body)
+        node.orelse = self._transform_stmt_block(node.orelse)
+        return node
+
+    def visit_For(self, node: ast.For) -> ast.AST:
+        node.target = self.visit(node.target)  # type: ignore[assignment]
+        node.iter = self.visit(node.iter)  # type: ignore[assignment]
+        node.body = self._transform_stmt_block(node.body)
+        node.orelse = self._transform_stmt_block(node.orelse)
+        return node
+
+    def visit_AsyncFor(self, node: ast.AsyncFor) -> ast.AST:
+        node.target = self.visit(node.target)  # type: ignore[assignment]
+        node.iter = self.visit(node.iter)  # type: ignore[assignment]
+        node.body = self._transform_stmt_block(node.body)
+        node.orelse = self._transform_stmt_block(node.orelse)
+        return node
+
+    def visit_While(self, node: ast.While) -> ast.AST:
+        node.test = self.visit(node.test)  # type: ignore[assignment]
+        node.body = self._transform_stmt_block(node.body)
+        node.orelse = self._transform_stmt_block(node.orelse)
+        return node
+
+    def visit_With(self, node: ast.With) -> ast.AST:
+        node.items = [self.visit(i) for i in node.items]  # type: ignore[assignment]
+        node.body = self._transform_stmt_block(node.body)
+        return node
+
+    def visit_AsyncWith(self, node: ast.AsyncWith) -> ast.AST:
+        node.items = [self.visit(i) for i in node.items]  # type: ignore[assignment]
+        node.body = self._transform_stmt_block(node.body)
+        return node
+
+    def visit_Try(self, node: ast.Try) -> ast.AST:
+        node.body = self._transform_stmt_block(node.body)
+        node.orelse = self._transform_stmt_block(node.orelse)
+        node.finalbody = self._transform_stmt_block(node.finalbody)
+        node.handlers = [self.visit(h) for h in node.handlers]  # type: ignore[assignment]
+        return node
+
+    def visit_ExceptHandler(self, node: ast.ExceptHandler) -> ast.AST:
+        if node.type is not None:
+            node.type = self.visit(node.type)  # type: ignore[assignment]
+        node.body = self._transform_stmt_block(node.body)
+        return node
 
     def visit_Assign(self, node: ast.Assign) -> ast.AST | list[ast.stmt]:
         """
@@ -72,6 +145,13 @@ class AstNodeVisitor(ast.NodeTransformer):
 
         # Skip when marked.
         if getattr(node, FieldNames.skip_record, False):
+            return node
+
+        # Control directives: used to toggle instrumentation; never recorded.
+        if self._is_toggle_directive(node, "hide") or self._is_toggle_directive(
+            node, "show"
+        ):
+            setattr(node, FieldNames.skip_record, True)
             return node
 
         if isinstance(node.value, ast.Call):
@@ -233,5 +313,54 @@ class AstNodeVisitor(ast.NodeTransformer):
             and isinstance(first.value.value, str)
         ):
             setattr(first, FieldNames.skip_record, True)
+
+    def _is_toggle_directive(self, node: ast.AST, name: str) -> bool:
+        return (
+            isinstance(node, ast.Expr)
+            and isinstance(node.value, ast.Call)
+            and isinstance(node.value.func, ast.Name)
+            and node.value.func.id == name
+            and len(node.value.args) == 0
+            and len(node.value.keywords) == 0
+        )
+
+    def _transform_stmt_block(self, body: list[ast.stmt]) -> list[ast.stmt]:
+        """Transform a list of statements in lexical order.
+
+        When hidden (after hide()), statements are left untouched and we do not
+        visit/instrument their child nodes until a show() directive appears.
+        """
+
+        if not body:
+            return body
+
+        out: list[ast.stmt] = []
+        for stmt in body:
+            if self._is_toggle_directive(stmt, "hide"):
+                self._recording_enabled = False
+                setattr(stmt, FieldNames.skip_record, True)
+                out.append(stmt)
+                continue
+
+            if self._is_toggle_directive(stmt, "show"):
+                self._recording_enabled = True
+                setattr(stmt, FieldNames.skip_record, True)
+                out.append(stmt)
+                continue
+
+            if not self._recording_enabled:
+                # Do not visit / instrument this statement or any children.
+                out.append(stmt)
+                continue
+
+            visited = self.visit(stmt)
+            if visited is None:
+                continue
+            if isinstance(visited, list):
+                out.extend(visited)
+            else:
+                out.append(visited)  # type: ignore[arg-type]
+
+        return out
 
     # endregion

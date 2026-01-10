@@ -2,8 +2,8 @@ import ast
 
 from core.context import CalcContext
 from core.handcalc.field_names import FieldNames
-from core.handcalc.record_step import record_step
 from core.handcalc.ast_visitor import AstNodeVisitor
+from core.handcalc.recorder import record_step
 
 
 def test_expr_name_stmt_records_as_name_equals_value():

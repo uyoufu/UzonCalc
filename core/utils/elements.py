@@ -7,13 +7,20 @@ from matplotlib.figure import Figure
 from core.setup import get_current_instance
 
 
-def h(tag: str, props: dict | None = None, children: str | List[str] | None = None):
+def h(
+    tag: str,
+    children: str | List[str] | None = None,
+    *,
+    props: dict | None = None,
+    prevent: bool = False,
+) -> str:
     """
     Create an HTML string representation.
 
     :param tag: The HTML tag name (e.g., 'div', 'span').
-    :param props: A dictionary of attributes (e.g., {'class': 'example'}).
     :param children: A string or a list of child elements.
+    :param props: A dictionary of attributes (e.g., {'class': 'example'}).
+    :param prevent: If True, do not append to the current context.
     :return: A string representing the HTML.
     """
     props = props or {}
@@ -31,32 +38,83 @@ def h(tag: str, props: dict | None = None, children: str | List[str] | None = No
 
     # the HTML string
     html_result = f"<{tag}{props_str}>{children_str}</{tag}>"
-    ctx = get_current_instance()
-    ctx.append_content(html_result)
+
+    if not prevent:
+        ctx = get_current_instance()
+        ctx.append_content(html_result)
+
+    return html_result
 
 
-def p(content: str):
+def h1(
+    content: str | List[str],
+    *,
+    props: dict | None = None,
+    prevent: bool = False,
+) -> str:
+    """
+    render a level 1 heading
+    :param content: heading content
+    """
+    return h(
+        "h1",
+        children=content,
+        props=props,
+        prevent=prevent,
+    )
+
+
+def p(
+    content: str | List[str],
+    *,
+    props: dict | None = None,
+    prevent: bool = False,
+) -> str:
     """
     render a paragraph
     :param content: paragraph content
     """
-    h("p", children=content)
+    return h("p", children=content, props=props, prevent=prevent)
 
 
-def div(content: str):
+def div(
+    content: str | List[str],
+    *,
+    props: dict | None = None,
+    prevent: bool = False,
+):
     """
     render a div
     :param content: div content
     """
-    h("div", children=content)
+    h("div", children=content, props=props, prevent=prevent)
 
 
-def span(content: str):
+def span(
+    content: str | List[str],
+    *,
+    props: dict | None = None,
+    prevent: bool = False,
+):
     """
     render a span
     :param content: span content
     """
-    h("span", children=content)
+    h("span", children=content, props=props, prevent=prevent)
+
+
+def row(
+    content: str | List[str],
+    *,
+    props: dict | None = None,
+    prevent: bool = False,
+    tag: str = "div",
+):
+    """
+    render a row
+    :param content: row content
+    """
+    return h(tag, children=content, props=props, prevent=prevent)
 
 
 def input(content: str):

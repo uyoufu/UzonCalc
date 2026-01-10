@@ -7,8 +7,8 @@ from typing import Any, Mapping, Protocol
 import pint
 
 from core.context import CalcContext
-from core.handcalc.v2 import ir
-from core.handcalc.v2.converters import transform_ir
+from core.handcalc import ir
+from core.handcalc.transformers import transform_ir
 
 
 class Step(Protocol):

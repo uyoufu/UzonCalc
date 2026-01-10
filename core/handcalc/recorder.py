@@ -3,7 +3,6 @@ from __future__ import annotations
 from typing import Any, Mapping
 
 from core.context import CalcContext
-
 from core.handcalc.steps import Step
 
 
@@ -16,8 +15,8 @@ def record_step(
 ) -> None:
     """Record a structured step.
 
-    The logic lives on the step subclasses; this function is only an entry point
-    used by AST instrumentation.
+    This is the runtime entry point injected by AST instrumentation.
+    The actual behavior lives on the Step subclasses.
     """
 
     step.record(ctx, locals_map=locals_map, value=value)

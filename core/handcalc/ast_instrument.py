@@ -80,9 +80,7 @@ def instrument_function(func: Callable[..., Any]) -> FunctionType:
                 and isinstance(
                     getattr(node.body[0], FieldNames.value, None), ast.Constant
                 )
-                and isinstance(
-                    getattr(node.body[0].value, FieldNames.value, None), str
-                )
+                and isinstance(getattr(node.body[0].value, FieldNames.value, None), str)
             ):
                 insert_at = 1
             node.body.insert(insert_at, assign_ctx)
@@ -112,9 +110,9 @@ def instrument_function(func: Callable[..., Any]) -> FunctionType:
 
         glb: Dict[str, Any] = dict(func.__globals__)
         # 注入记录步骤的函数
-        from core.handcalc import record_step
+        from core.handcalc import recorder
 
-        glb[FieldNames.uzon_record_step] = record_step.record_step
+        glb[FieldNames.uzon_record_step] = recorder.record_step
 
         # 注入 get_current_instance，供插桩后函数体使用。
         # 采用运行时导入避免模块导入阶段的循环依赖。
@@ -123,7 +121,7 @@ def instrument_function(func: Callable[..., Any]) -> FunctionType:
         glb[FieldNames.get_current_instance] = get_current_instance
 
         # Inject v2 IR module for building MathNode dataclasses at runtime.
-        from core.handcalc.v2 import ir as uzon_ir
+        from core.handcalc import ir as uzon_ir
 
         glb[FieldNames.uzon_ir] = uzon_ir
 
