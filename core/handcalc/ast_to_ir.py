@@ -6,7 +6,7 @@ from typing import Any, List, Optional
 from core.units import unit
 from pint.util import UnitsContainer
 from . import ir
-from .unit_collector import UnitExpressionCollector
+from .unit_collector import UnitExpressionCollector, unit_powers_to_expr
 
 
 def _unparse(node: ast.AST) -> str:
@@ -74,9 +74,14 @@ def _expr_unary(node: ast.UnaryOp) -> ir.MathNode:
 @expr_to_ir.register(ast.BinOp)
 def _expr_binop(node: ast.BinOp) -> ir.MathNode:
     # 特殊处理单位表达式
-    folded = _try_fold_unit_expr_as_single_mu(node)
-    if folded is not None:
-        return folded
+    folded_result = _try_fold_unit_expr_as_single_mu(node)
+    if folded_result is not None:
+        # 提取数值计算部分和单位部分
+        numeric_part = _extract_numeric_part(node)
+        if numeric_part is not None:
+            # 构建完整的表达式：数值计算 * 单位
+            return ir.mrow([numeric_part, ir.mo(""), folded_result])
+        return folded_result
 
     left = expr_to_ir(node.left)
     right = expr_to_ir(node.right)
@@ -191,5 +196,56 @@ def _try_fold_unit_expr_as_single_mu(node: ast.AST) -> Optional[ir.MathNode]:
     if not collector.unit_powers:
         return None
 
-    # 构建单位节点
-    return collector.build_unit_node()
+    # 构建单位节点（只包含单位部分，不包含系数）
+    units = unit.parse_units(unit_powers_to_expr(collector.unit_powers))
+    return ir.mu(str(units))
+
+
+def _extract_numeric_part(node: ast.AST) -> Optional[ir.MathNode]:
+    """
+    从包含单位的表达式中提取纯数值计算部分
+    
+    例如：0.1 * 8 * 24 * unit.kN / unit.m**3 
+    返回：0.1 * 8 * 24
+    """
+    if not isinstance(node, ast.BinOp):
+        return None
+    
+    def _extract_numbers(n: ast.AST) -> Optional[ir.MathNode]:
+        """递归提取数值部分"""
+        # 如果是数值常量，直接转换
+        if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
+            return ir.mn(n.value)
+        
+        # 如果是单位相关的节点，返回 None
+        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "unit":
+            return None
+        
+        # 如果是幂运算且基数是单位，返回 None
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Pow):
+            if isinstance(n.left, ast.Attribute) and isinstance(n.left.value, ast.Name) and n.left.value.id == "unit":
+                return None
+        
+        # 如果是二元运算
+        if isinstance(n, ast.BinOp):
+            left_nums = _extract_numbers(n.left)
+            right_nums = _extract_numbers(n.right)
+            
+            # 如果左右都是数值部分，构建运算
+            if left_nums is not None and right_nums is not None:
+                if isinstance(n.op, ast.Mult):
+                    return ir.mrow([left_nums, ir.mo("·"), right_nums])
+                elif isinstance(n.op, ast.Div):
+                    return ir.mfrac(left_nums, right_nums)
+            
+            # 如果只有左边是数值（右边是单位），返回左边
+            if left_nums is not None and right_nums is None:
+                return left_nums
+            
+            # 如果只有右边是数值（左边是单位），返回右边
+            if left_nums is None and right_nums is not None:
+                return right_nums
+        
+        return None
+    
+    return _extract_numbers(node)

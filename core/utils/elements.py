@@ -1,139 +1,488 @@
 import base64
+from dataclasses import dataclass, field
 import io
-from typing import List
+from typing import Any, List
 
 from matplotlib.figure import Figure
 
 from core.setup import get_current_instance
 
 
+# region Data Classes
+@dataclass
+class Props:
+    """
+    HTML element properties class.
+
+    Supports standard HTML attributes and custom attributes.
+
+    Example:
+        Props(id="my-id", classes="foo bar", styles={"color": "red"})
+        Props(id="my-id", classes=["foo", "bar"], data_value="123")
+    """
+
+    classes: str | list[str] | None = None
+    styles: dict[str, str] | None = None
+    id: str | None = None
+    custom: dict[str, Any] = field(default_factory=dict)
+
+    def __post_init__(self):
+        """Process any additional keyword arguments as custom attributes."""
+        pass
+
+    def to_dict(self) -> dict[str, str]:
+        """
+        Convert Props to a dictionary of HTML attributes.
+
+        :return: Dictionary mapping attribute names to their string values.
+        """
+        attrs = {}
+
+        # Handle id
+        if self.id:
+            attrs["id"] = self.id
+
+        # Handle classes
+        if self.classes:
+            if isinstance(self.classes, list):
+                attrs["class"] = " ".join(self.classes)
+            else:
+                attrs["class"] = self.classes
+
+        # Handle styles
+        if self.styles:
+            style_str = "; ".join(f"{k}: {v}" for k, v in self.styles.items())
+            attrs["style"] = style_str
+
+        # Handle custom attributes
+        if self.custom:
+            for key, value in self.custom.items():
+                # Convert underscores to hyphens for HTML attributes (e.g., data_value -> data-value)
+                html_key = key.replace("_", "-")
+                attrs[html_key] = str(value)
+
+        return attrs
+
+
+def props(**kwargs) -> Props:
+    """
+    Convenience function to create Props with custom attributes.
+
+    Example:
+        props(id="my-id", classes="foo bar", data_value="123", aria_label="Label")
+
+    :param kwargs: Keyword arguments for Props attributes.
+    :return: Props instance.
+    """
+    # Extract known attributes
+    classes = kwargs.pop("classes", None)
+    styles = kwargs.pop("styles", None)
+    id_attr = kwargs.pop("id", None)
+
+    # Remaining kwargs become custom attributes
+    return Props(classes=classes, styles=styles, id=id_attr, custom=kwargs)
+
+
+# endregion
+
+
 def h(
     tag: str,
     children: str | List[str] | None = None,
     *,
-    props: dict | None = None,
-    prevent: bool = False,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+    is_self_closing: bool = False,
 ) -> str:
     """
     Create an HTML string representation.
 
     :param tag: The HTML tag name (e.g., 'div', 'span').
     :param children: A string or a list of child elements.
-    :param props: A dictionary of attributes (e.g., {'class': 'example'}).
-    :param prevent: If True, do not append to the current context.
+    :param classes: CSS classes to apply (overrides props.classes).
+    :param props: Props instance with HTML attributes.
+    :param persist: If True, will append to the current document context.
     :return: A string representing the HTML.
     """
-    props = props or {}
     children = children or []
 
-    # Convert props dictionary to HTML attributes
-    props_str = " ".join(f"{key}='{value}'" for key, value in props.items())
-    props_str = f" {props_str}" if props_str else ""
+    # Handle classes override
+    if classes is not None:
+        if props is None:
+            props = Props(classes=classes)
+        else:
+            props = Props(
+                classes=classes, styles=props.styles, id=props.id, custom=props.custom
+            )
+
+    # Convert Props to HTML attributes
+    if props:
+        attrs = props.to_dict()
+        props_str = " ".join(f'{key}="{value}"' for key, value in attrs.items())
+        props_str = f" {props_str}" if props_str else ""
+    else:
+        props_str = ""
 
     # Handle children
     if isinstance(children, list):
         children_str = "".join(children)
     else:
-        children_str = children
+        children_str = children if children else ""
 
     # the HTML string
-    html_result = f"<{tag}{props_str}>{children_str}</{tag}>"
+    if is_self_closing:
+        html_result = f"<{tag}{props_str} />"
+    else:
+        html_result = f"<{tag}{props_str}>{children_str}</{tag}>"
 
-    if not prevent:
+    if persist:
         ctx = get_current_instance()
         ctx.append_content(html_result)
 
     return html_result
 
 
+def H(content: str | List[str], *, props: Props | None = None):
+    """
+    render a level 0 heading
+    :param content: heading content
+    """
+    h(
+        "h0",
+        children=content,
+        props=props,
+        persist=True,
+    )
+
+
 def h1(
     content: str | List[str],
     *,
-    props: dict | None = None,
-    prevent: bool = False,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
 ) -> str:
     """
     render a level 1 heading
     :param content: heading content
+    :param classes: CSS classes to apply (overrides props.classes)
     """
     return h(
         "h1",
         children=content,
+        classes=classes,
         props=props,
-        prevent=prevent,
+        persist=persist,
+    )
+
+
+def H1(content: str | List[str], *, props: Props | None = None):
+    """
+    render a level 1 heading
+    :param content: heading content
+    """
+    h(
+        "h1",
+        children=content,
+        props=props,
+        persist=True,
+    )
+
+
+def h2(
+    content: str | List[str],
+    *,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+) -> str:
+    """
+    render a level 2 heading
+    :param content: heading content
+    :param classes: CSS classes to apply (overrides props.classes)
+    """
+    return h(
+        "h2",
+        children=content,
+        classes=classes,
+        props=props,
+        persist=persist,
+    )
+
+
+def H2(content: str | List[str], *, props: Props | None = None):
+    """
+    render a level 2 heading
+    :param content: heading content
+    """
+    h2(
+        content,
+        props=props,
+        persist=True,
+    )
+
+
+def h3(
+    content: str | List[str],
+    *,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+) -> str:
+    """
+    render a level 3 heading
+    :param content: heading content
+    :param classes: CSS classes to apply (overrides props.classes)
+    """
+    return h(
+        "h3",
+        children=content,
+        classes=classes,
+        props=props,
+        persist=persist,
+    )
+
+
+def H3(content: str | List[str], *, props: Props | None = None):
+    """
+    render a level 3 heading
+    :param content: heading content
+    """
+    h3(
+        content,
+        props=props,
+        persist=True,
     )
 
 
 def p(
     content: str | List[str],
     *,
-    props: dict | None = None,
-    prevent: bool = False,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
 ) -> str:
     """
     render a paragraph
     :param content: paragraph content
+    :param classes: CSS classes to apply (overrides props.classes)
     """
-    return h("p", children=content, props=props, prevent=prevent)
+    return h("p", children=content, classes=classes, props=props, persist=persist)
+
+
+def P(content: str | List[str], *, props: Props | None = None):
+    """
+    render a paragraph
+    :param content: paragraph content
+    """
+    p(content, props=props, persist=True)
 
 
 def div(
     content: str | List[str],
     *,
-    props: dict | None = None,
-    prevent: bool = False,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
 ):
     """
     render a div
     :param content: div content
+    :param classes: CSS classes to apply (overrides props.classes)
     """
-    h("div", children=content, props=props, prevent=prevent)
+    return h("div", children=content, classes=classes, props=props, persist=persist)
+
+
+def Div(
+    content: str | List[str],
+    *,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+):
+    return h("div", children=content, classes=classes, props=props, persist=True)
 
 
 def span(
     content: str | List[str],
     *,
-    props: dict | None = None,
-    prevent: bool = False,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
 ):
     """
     render a span
     :param content: span content
+    :param classes: CSS classes to apply (overrides props.classes)
     """
-    h("span", children=content, props=props, prevent=prevent)
+    return h("span", children=content, classes=classes, props=props, persist=persist)
+
+
+def Span(content: str | List[str], *, props: Props | None = None):
+    """
+    render a span
+    :param content: span content
+    """
+    span(content, props=props, persist=True)
+
+
+def br():
+    """
+    render a line break
+    """
+    return h("br", persist=False, is_self_closing=True)
+
+
+def Br():
+    """
+    render a line break
+    """
+    h("br", persist=True, is_self_closing=True)
 
 
 def row(
     content: str | List[str],
     *,
-    props: dict | None = None,
-    prevent: bool = False,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
     tag: str = "div",
 ):
     """
     render a row
     :param content: row content
+    :param classes: CSS classes to apply (overrides props.classes)
     """
-    return h(tag, children=content, props=props, prevent=prevent)
+    return h(tag, children=content, classes=classes, props=props, persist=persist)
 
 
-def input(content: str):
+def Row(
+    content: str | List[str],
+    *,
+    props: Props | None = None,
+    tag: str = "div",
+):
+    return h(tag, children=content, props=props, persist=True)
+
+
+def img(
+    src: str,
+    *,
+    alt: str | None = None,
+    width: str | int | None = None,
+    height: str | int | None = None,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+) -> str:
+    """
+    render an image
+    :param src: image source URL
+    :param alt: alternative text for the image
+    :param width: image width (in pixels or CSS units)
+    :param height: image height (in pixels or CSS units)
+    :param classes: CSS classes to apply (overrides props.classes)
+    """
+    custom_attrs = {"src": src}
+    if alt is not None:
+        custom_attrs["alt"] = alt
+    if width is not None:
+        custom_attrs["width"] = str(width)
+    if height is not None:
+        custom_attrs["height"] = str(height)
+
+    if props is None:
+        img_props = Props(custom=custom_attrs)
+    else:
+        img_props = Props(
+            classes=props.classes,
+            styles=props.styles,
+            id=props.id,
+            custom={**props.custom, **custom_attrs},
+        )
+
+    result = div(
+        [
+            h(
+                "img",
+                classes=classes,
+                props=img_props,
+                is_self_closing=True,
+            ),
+            div(
+                alt or "",
+            ),
+        ],
+        classes="flex flex-col items-center",
+    )
+
+    if persist:
+        ctx = get_current_instance()
+        ctx.append_content(result)
+    return result
+
+
+def Img(
+    src: str,
+    *,
+    alt: str | None = None,
+    width: str | int | None = None,
+    height: str | int | None = None,
+    classes: str | list[str] | None = None,
+    props: Props | None = None,
+):
+    """
+    render an image
+    :param src: image source URL
+    :param alt: alternative text for the image
+    :param width: image width (in pixels or CSS units)
+    :param height: image height (in pixels or CSS units)
+    :param classes: CSS classes to apply (overrides props.classes)
+    """
+    img(
+        src,
+        alt=alt,
+        width=width,
+        height=height,
+        classes=classes,
+        props=props,
+        persist=True,
+    )
+
+
+def input(content: str, persist: bool = False):
     """
     render an input
     :param content: input content
     """
-    h("input", props={"value": content})
+    return h("input", props=props(custom={"value": content}), persist=persist)
 
 
-def laTex(content: str):
+def Input(content: str):
+    """
+    render an input
+    :param content: input content
+    """
+    input(content, persist=True)
+
+
+def laTex(content: str, persist: bool = False):
     """
     内容为 latex 语法，渲染为 mathML 格式
     :param content: latex content
     """
-    h("latex", children=content)
+    return h("latex", children=content, props=None, persist=persist)
 
 
-def plot(fig: Figure):
+def LaTex(content: str):
+    """
+    内容为 latex 语法，渲染为 mathML 格式
+    :param content: latex content
+    """
+    laTex(content, persist=True)
+
+
+def plot(fig: Figure, persist: bool = False):
     # 更常见做法：
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
@@ -141,4 +490,12 @@ def plot(fig: Figure):
     svg_bytes = buf.getvalue()
     svg_base64 = base64.b64encode(svg_bytes).decode("ascii")
     svg_data_uri = f"data:image/png;base64,{svg_base64}"
-    h("img", {"src": svg_data_uri})
+    return h("img", props=props(src=svg_data_uri), persist=persist)
+
+
+def Plot(fig: Figure):
+    """
+    render a matplotlib figure as an embedded image
+    :param fig: matplotlib Figure object
+    """
+    plot(fig, persist=True)

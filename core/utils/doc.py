@@ -34,11 +34,12 @@ def style(name: str, value: dict[str, Any]):
 def save(filename: str | None = None):
     """
     保存当前文档为指定文件
-    :param filename: 文件名
+    :param filename: 文件名（可以是完整路径或仅文件名）
     """
-    from core.html_template import render_html_template
+    from core.template.utils import render_html_template
     import shutil
     import os
+    import inspect
 
     ctx = get_current_instance()
 
@@ -49,6 +50,14 @@ def save(filename: str | None = None):
     # 没有扩展名则添加 .html
     if not filename.endswith(".html"):
         filename += ".html"
+
+    # 如果 filename 不是绝对路径，则保存到调用者文件所在的目录
+    if not os.path.isabs(filename):
+        # 获取调用者的文件路径
+        frame = inspect.stack()[1]
+        caller_file = frame.filename
+        caller_dir = os.path.dirname(os.path.abspath(caller_file))
+        filename = os.path.join(caller_dir, filename)
 
     # 获取内容
     content = ctx.html_content()

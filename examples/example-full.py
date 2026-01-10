@@ -1,5 +1,5 @@
 from pint import UnitRegistry
-from core.html_template import get_html_template
+from core.template.utils import get_html_template
 from core.setup import uzon_calc
 
 

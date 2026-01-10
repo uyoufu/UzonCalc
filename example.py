@@ -1,6 +1,6 @@
 from matplotlib import pyplot as plt
 from pint import UnitRegistry
-from core.html_template import get_html_template
+from core.template.utils import get_html_template
 from core.setup import uzon_calc
 
 
@@ -10,12 +10,7 @@ def sheet(*, unit: UnitRegistry):
     from core.utils.elements import p, div, span, input, plot
     from core.utils.options import hide, show, inline, endline
 
-    inline(", ")
-    "钢筋强度"
-    h = 400 * unit.m
-    b = 300 * unit.m
-    f"面积 {(A_s:=b*h)}"
-    endline()
+    q_1 = 0.1 * 8 * 24 * unit.kN / unit.m**3
 
     from core.utils.doc import save
 

@@ -14,9 +14,9 @@ def load_template() -> str:
     Returns:
         HTML 模板字符串
     """
-    template_dir = os.path.join(os.path.dirname(__file__), "template")
+    template_dir = os.path.join(os.path.dirname(__file__))
     template_file = os.path.join(template_dir, "calc_template.html")
-    
+
     with open(template_file, "r", encoding="utf-8") as f:
         return f.read()
 
@@ -38,7 +38,7 @@ def get_page_size_dimensions(page_size: str) -> tuple[str, str]:
         "Letter": ("Letter", "8.5in"),
         "Legal": ("Legal", "8.5in"),
     }
-    
+
     return page_sizes.get(page_size, ("A4", "210mm"))
 
 
@@ -54,7 +54,7 @@ def generate_custom_styles(styles: dict[str, dict[str, Any]]) -> str:
     """
     if not styles:
         return ""
-    
+
     css_lines = []
     for selector, properties in styles.items():
         css_lines.append(f"{selector} {{")
@@ -64,7 +64,7 @@ def generate_custom_styles(styles: dict[str, dict[str, Any]]) -> str:
             css_prop = prop.replace("_", "-")
             css_lines.append(f"    {css_prop}: {value};")
         css_lines.append("}")
-    
+
     return "\n".join(css_lines)
 
 
@@ -81,27 +81,27 @@ def render_html_template(content: str, options: ContextOptions) -> str:
     """
     # 加载模板
     template = load_template()
-    
+
     # 获取页面尺寸
     page_size, page_width = get_page_size_dimensions(options.page_size)
-    
+
     # 生成自定义样式
     custom_styles = generate_custom_styles(options.styles)
-    
+
     # 替换模板占位符
     html_output = template.replace("{{PAGE_TITLE}}", options.page_title)
     html_output = html_output.replace("{{PAGE_SIZE}}", page_size)
     html_output = html_output.replace("{{PAGE_WIDTH}}", page_width)
     html_output = html_output.replace("{{CUSTOM_STYLES}}", custom_styles)
     html_output = html_output.replace("{{CONTENT}}", content)
-    
+
     return html_output
 
 
 def get_html_template(content: str) -> str:
     """
     Generate HTML template with user-provided content and LaTeX rendering support.
-    
+
     此函数保留用于向后兼容，推荐使用 render_html_template
 
     Args:
@@ -111,5 +111,6 @@ def get_html_template(content: str) -> str:
         Complete HTML string.
     """
     from core.context_options import ContextOptions
+
     default_options = ContextOptions()
     return render_html_template(content, default_options)
