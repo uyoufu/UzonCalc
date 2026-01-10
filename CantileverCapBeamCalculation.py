@@ -3,11 +3,13 @@ from pint import UnitRegistry
 
 from core.html_template import get_html_template
 from core.setup import uzon_calc
+from core.utils.doc import doc_title, page_size, style
+from core.utils.elements import row
 
 
 @uzon_calc()
 def sheet(*, unit: UnitRegistry):
-    from core.utils.options import doc_title, page_size, hide, show, style, row
+    from core.utils.options import hide, show
     from core.utils.elements import h, p, h1, div, span, input, plot
 
     doc_title("Cantilever Cap Beam Calculation")

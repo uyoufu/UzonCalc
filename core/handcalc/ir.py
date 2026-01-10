@@ -100,53 +100,57 @@ class MathNode:
 
     def to_python_ast(self, *, ir_var_name: str) -> ast.expr:
         """Convert this node into Python AST that reconstructs it at runtime."""
-
         if not is_dataclass(self):
             return ast.Constant(value=str(self))
 
+        # 使用简化的构造逻辑
         factory_name = type(self).__name__.lower()
-        func = ast.Attribute(
+        factory_call = ast.Attribute(
             value=ast.Name(id=ir_var_name, ctx=ast.Load()),
             attr=factory_name,
             ctx=ast.Load(),
         )
 
+        # 收集参数
+        args, keywords = self._collect_ast_args(ir_var_name)
+        return ast.Call(func=factory_call, args=args, keywords=keywords)
+
+    def _collect_ast_args(
+        self, ir_var_name: str
+    ) -> tuple[list[ast.expr], list[ast.keyword]]:
+        """收集构造 AST 所需的参数"""
         node_fields = list(fields(self))
         args: list[ast.expr] = []
         keywords: list[ast.keyword] = []
 
-        # Leaf nodes: single primitive payload => positional argument.
-        if type(self).single_primitive_payload:
-            if len(node_fields) == 1:
-                payload = getattr(self, node_fields[0].name)
-                if payload is None or isinstance(payload, (str, int, float, bool)):
-                    args.append(ast.Constant(value=payload))
-                    return ast.Call(func=func, args=args, keywords=keywords)
+        # 叶子节点：单个原始值作为位置参数
+        if type(self).single_primitive_payload and len(node_fields) == 1:
+            payload = getattr(self, node_fields[0].name)
+            if payload is None or isinstance(payload, (str, int, float, bool)):
+                args.append(ast.Constant(value=payload))
+                return args, keywords
 
+        # 遍历所有字段
         for f in node_fields:
             v = getattr(self, f.name)
 
-            # Only MathNode (and lists of MathNode) are treated as positional children.
             if isinstance(v, MathNode):
                 args.append(v.to_python_ast(ir_var_name=ir_var_name))
-                continue
-
-            if isinstance(v, list) and all(isinstance(ch, MathNode) for ch in v):
+            elif isinstance(v, list) and all(isinstance(ch, MathNode) for ch in v):
                 args.append(
                     ast.List(
                         elts=[ch.to_python_ast(ir_var_name=ir_var_name) for ch in v],
                         ctx=ast.Load(),
                     )
                 )
-                continue
+            elif v is not None:
+                # 其他类型作为关键字参数
+                const_v = v if isinstance(v, (str, int, float, bool)) else str(v)
+                keywords.append(
+                    ast.keyword(arg=f.name, value=ast.Constant(value=const_v))
+                )
 
-            if v is None or isinstance(v, (str, int, float, bool)):
-                const_v: str | int | float | bool | None = v
-            else:
-                const_v = str(v)
-            keywords.append(ast.keyword(arg=f.name, value=ast.Constant(value=const_v)))
-
-        return ast.Call(func=func, args=args, keywords=keywords)
+        return args, keywords
 
 
 @dataclass(frozen=True, slots=True)

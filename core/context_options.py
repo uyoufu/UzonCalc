@@ -39,7 +39,9 @@ class ContextOptions:
         # 页面标题
         self.page_title: str = "UzonCalc Calculation Sheet"
 
-        # 页面大小
-        self.page_size: str = "A4"  # 默认页面大小
+        # 页面大小，支持: A4, A3, A5, Letter, Legal
+        self.page_size: str = "A4"
 
-        self.styles: dict[str, dict] = {}  # 自定义样式字典
+        # 自定义样式字典，格式为 {选择器: {属性: 值}}
+        # 例如: {"body": {"font_size": "14px", "line_height": "1.8"}}
+        self.styles: dict[str, dict] = {}

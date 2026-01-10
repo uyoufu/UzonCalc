@@ -2,10 +2,107 @@
 HTML template for rendering calculation sheets with LaTeX support.
 """
 
+import os
+from typing import Any
+from core.context_options import ContextOptions
+
+
+def load_template() -> str:
+    """
+    从模板文件中加载 HTML 模板
+
+    Returns:
+        HTML 模板字符串
+    """
+    template_dir = os.path.join(os.path.dirname(__file__), "template")
+    template_file = os.path.join(template_dir, "calc_template.html")
+    
+    with open(template_file, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+def get_page_size_dimensions(page_size: str) -> tuple[str, str]:
+    """
+    根据页面尺寸名称返回对应的宽度和高度
+
+    Args:
+        page_size: 页面尺寸名称，如 'A4', 'Letter' 等
+
+    Returns:
+        (page_size, width) 元组
+    """
+    page_sizes = {
+        "A4": ("A4", "210mm"),
+        "A3": ("A3", "297mm"),
+        "A5": ("A5", "148mm"),
+        "Letter": ("Letter", "8.5in"),
+        "Legal": ("Legal", "8.5in"),
+    }
+    
+    return page_sizes.get(page_size, ("A4", "210mm"))
+
+
+def generate_custom_styles(styles: dict[str, dict[str, Any]]) -> str:
+    """
+    根据用户自定义样式字典生成 CSS 样式字符串
+
+    Args:
+        styles: 样式字典，格式为 {选择器: {属性: 值}}
+
+    Returns:
+        CSS 样式字符串
+    """
+    if not styles:
+        return ""
+    
+    css_lines = []
+    for selector, properties in styles.items():
+        css_lines.append(f"{selector} {{")
+        for prop, value in properties.items():
+            # 将 Python 风格的属性名转换为 CSS 风格
+            # 例如: font_size -> font-size
+            css_prop = prop.replace("_", "-")
+            css_lines.append(f"    {css_prop}: {value};")
+        css_lines.append("}")
+    
+    return "\n".join(css_lines)
+
+
+def render_html_template(content: str, options: ContextOptions) -> str:
+    """
+    使用模板和选项生成最终的 HTML 内容
+
+    Args:
+        content: 主要内容
+        options: 上下文选项，包含页面标题、尺寸、自定义样式等
+
+    Returns:
+        完整的 HTML 字符串
+    """
+    # 加载模板
+    template = load_template()
+    
+    # 获取页面尺寸
+    page_size, page_width = get_page_size_dimensions(options.page_size)
+    
+    # 生成自定义样式
+    custom_styles = generate_custom_styles(options.styles)
+    
+    # 替换模板占位符
+    html_output = template.replace("{{PAGE_TITLE}}", options.page_title)
+    html_output = html_output.replace("{{PAGE_SIZE}}", page_size)
+    html_output = html_output.replace("{{PAGE_WIDTH}}", page_width)
+    html_output = html_output.replace("{{CUSTOM_STYLES}}", custom_styles)
+    html_output = html_output.replace("{{CONTENT}}", content)
+    
+    return html_output
+
 
 def get_html_template(content: str) -> str:
     """
     Generate HTML template with user-provided content and LaTeX rendering support.
+    
+    此函数保留用于向后兼容，推荐使用 render_html_template
 
     Args:
         content: The main content to be inserted into the template.
@@ -13,34 +110,6 @@ def get_html_template(content: str) -> str:
     Returns:
         Complete HTML string.
     """
-    html_template = """
-<!DOCTYPE html>
-<html lang="zh-CN">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>UzonCalc Calculation Sheet</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            margin: 20px;
-            line-height: 1.6;
-        }
-        .content {
-            max-width: 800px;
-            margin: 0 auto;
-        }
-        .latex {
-            font-size: 1.2em;
-        }
-    </style>
-    <!-- MathJax for LaTeX rendering -->    
-</head>
-<body>
-    <div class="content">
-        <p>{content}</p> 
-    </div>
-</body>
-</html>
-"""
-    return html_template.replace(r"{content}", content)
+    from core.context_options import ContextOptions
+    default_options = ContextOptions()
+    return render_html_template(content, default_options)

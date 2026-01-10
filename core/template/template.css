@@ -1,0 +1,174 @@
+/* UzonCalc 计算表格样式 */
+
+body {
+    font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei", "微软雅黑";
+    margin: 20px;
+    line-height: 1.8;
+    color: #333;
+    background-color: #fff;
+}
+
+.content {
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 20px;
+}
+
+/* 标题样式 */
+h1, h2, h3, h4, h5, h6 {
+    color: #2c3e50;
+    margin-top: 1.5em;
+    margin-bottom: 0.5em;
+    font-weight: 600;
+}
+
+h1 {
+    font-size: 2em;
+    border-bottom: 2px solid #3498db;
+    padding-bottom: 0.3em;
+}
+
+h2 {
+    font-size: 1.5em;
+    border-bottom: 1px solid #bdc3c7;
+    padding-bottom: 0.2em;
+}
+
+/* 段落样式 */
+p {
+    margin: 1em 0;
+    text-align: justify;
+}
+
+/* Div 和 Span 样式 */
+div {
+    margin: 0.5em 0;
+}
+
+span {
+    display: inline;
+}
+
+/* 公式样式 */
+.latex {
+    font-size: 1.1em;
+    margin: 0.5em 0;
+}
+
+mjx-container {
+    margin: 0.5em 0;
+}
+
+/* 行内公式 */
+mjx-container[display="inline"] {
+    margin: 0 0.2em;
+}
+
+/* 块级公式 */
+mjx-container[display="block"] {
+    margin: 1em 0;
+}
+
+/* 输入框样式 */
+input {
+    border: 1px solid #bdc3c7;
+    padding: 0.3em 0.5em;
+    border-radius: 3px;
+    font-size: 1em;
+    font-family: inherit;
+}
+
+input:focus {
+    outline: none;
+    border-color: #3498db;
+    box-shadow: 0 0 3px rgba(52, 152, 219, 0.3);
+}
+
+/* 图表样式 */
+.plot-container {
+    margin: 1.5em 0;
+    text-align: center;
+}
+
+.plot-container img {
+    max-width: 100%;
+    height: auto;
+    border: 1px solid #ecf0f1;
+    border-radius: 4px;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 代码块样式 */
+pre, code {
+    font-family: "Consolas", "Monaco", "Courier New", monospace;
+    background-color: #f8f9fa;
+    border-radius: 3px;
+}
+
+code {
+    padding: 0.2em 0.4em;
+    font-size: 0.9em;
+}
+
+pre {
+    padding: 1em;
+    overflow-x: auto;
+    border: 1px solid #e1e4e8;
+}
+
+/* 列表样式 */
+ul, ol {
+    margin: 1em 0;
+    padding-left: 2em;
+}
+
+li {
+    margin: 0.3em 0;
+}
+
+/* 表格样式 */
+table {
+    border-collapse: collapse;
+    width: 100%;
+    margin: 1em 0;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    padding: 0.5em 0.8em;
+    text-align: left;
+}
+
+th {
+    background-color: #f2f2f2;
+    font-weight: 600;
+}
+
+tr:nth-child(even) {
+    background-color: #f9f9f9;
+}
+
+/* 打印样式 */
+@media print {
+    body {
+        margin: 0;
+        color: #000;
+    }
+    
+    .content {
+        max-width: 100%;
+        padding: 0;
+    }
+    
+    h1, h2, h3, h4, h5, h6 {
+        page-break-after: avoid;
+    }
+    
+    pre, blockquote {
+        page-break-inside: avoid;
+    }
+    
+    .plot-container {
+        page-break-inside: avoid;
+    }
+}

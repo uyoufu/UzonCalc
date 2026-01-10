@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{PAGE_TITLE}}</title>
+    <link rel="stylesheet" href="template.css">
+    <style>
+        {{CUSTOM_STYLES}}
+    </style>
+    <style>
+        /* 公式样式：mi 为斜体，mtext 为正体 */
+        math mi {
+            font-style: italic;
+            color: #06d;
+        }
+        math .unit {
+            color: #239561;
+            font-style: normal;
+        }
+        /* 页面尺寸设置 */
+        @page {
+            size: {{PAGE_SIZE}};
+            margin: 20mm;
+        }
+        @media print {
+            body {
+                width: {{PAGE_WIDTH}};
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="content">
+        {{CONTENT}}
+    </div>
+</body>
+</html>

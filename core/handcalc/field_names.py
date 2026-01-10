@@ -8,3 +8,7 @@ class FieldNames:
     uzon_steps = "__uzon_steps__"
     value = "value"
     unit = "unit"
+    
+    # 指令魔法值
+    directive_hide = "hide"
+    directive_show = "show"

@@ -5,6 +5,7 @@
     "BINOP",
     "cmpop",
     "coeff",
+    "fstring",
     "handcalc",
     "mathml",
     "mathrm",

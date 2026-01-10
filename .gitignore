@@ -208,4 +208,4 @@ __marimo__/
 
 # 自定义
 ast_print.ast
-.docx
+output/

@@ -11,8 +11,10 @@ class CalcContext:
 
         # 记录结果
         self.__contents = []
+
         # 记录行内内容的临时存储
         self.__inline_values: list[str] | None = None
+        self.__inline_separator: str = " "
 
     @property
     def contents(self):
@@ -35,7 +37,8 @@ class CalcContext:
 
         self.__contents.append(content)
 
-    def start_inline(self):
+    def start_inline(self, separator: str = " "):
+        self.__inline_separator = separator
         if self.__inline_values is not None:
             return
 
@@ -43,9 +46,15 @@ class CalcContext:
 
     def end_inline(self):
         if self.__inline_values:
-            combined = " ".join(self.__inline_values)
-            self.__contents.append(combined)
+            combined = self.__inline_separator.join(self.__inline_values)
+            # 将整行内容包装在 <p> 标签中
+            self.__contents.append(f"<p>{combined}</p>")
             self.__inline_values = None
+
+    @property
+    def is_inline_mode(self) -> bool:
+        """检查是否处于 inline 模式"""
+        return self.__inline_values is not None
 
     # endregion
 

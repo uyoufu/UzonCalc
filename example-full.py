@@ -87,20 +87,16 @@ def sheet(*, unit: UnitRegistry):
 
     p(f"time = {timex}")
 
+    from core.utils.doc import save
+
+    save("output/example.html")
+
 
 if __name__ == "__main__":
     import time
 
     t0 = time.perf_counter()
-    props = {"field1"}  # 这里按你的业务填入 inputs
     # 异步调用 setup
-    ctx = sheet()  # type: ignore
-    print("\n".join(ctx.contents))
-
-    html_content = get_html_template("\n".join(ctx.contents))
-    # 保存为 HTML 文件
-    with open("calculation_sheet.html", "w", encoding="utf-8") as f:
-        f.write(html_content)
-
+    sheet()  # type: ignore
     t1 = time.perf_counter()
     # print(f"Execution time: {t1 - t0} seconds")
