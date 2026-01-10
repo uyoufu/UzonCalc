@@ -45,39 +45,28 @@ class UnitExpressionCollector:
             self.unit_powers[name] = new
 
     def walk(self, n: ast.AST, sign: int) -> bool:
-        """遍历 AST 节点，收集单位信息
+        """遍历 AST 节点，收集单位信息"""
+        # 乘除法：递归处理
+        if isinstance(n, ast.BinOp):
+            if isinstance(n.op, ast.Mult):
+                return self.walk(n.left, sign) and self.walk(n.right, sign)
+            if isinstance(n.op, ast.Div):
+                return self.walk(n.left, sign) and self.walk(n.right, -sign)
 
-        Args:
-            n: AST 节点
-            sign: 符号标记，+1 表示乘法，-1 表示除法
-
-        Returns:
-            是否成功解析为单位表达式
-        """
-        # 乘法：递归处理左右子树
-        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Mult):
-            return self.walk(n.left, sign) and self.walk(n.right, sign)
-
-        # 除法：左边符号不变，右边符号取反
-        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Div):
-            return self.walk(n.left, sign) and self.walk(n.right, -sign)
-
-        # unit.xxx 形式的单位
+        # unit.xxx 形式
         if self._is_unit_attribute(n):
             self.add_unit(n.attr, float(sign))  # type: ignore
             return True
 
-        # unit.xxx ** k 形式的幂次
+        # unit.xxx ** k 形式
         if self._is_unit_power(n):
-            exp = get_const_number(n.right)  # type: ignore
-            if exp is None:
+            if (exp := get_const_number(n.right)) is None:  # type: ignore
                 return False
             self.add_unit(n.left.attr, float(sign) * float(exp))  # type: ignore
             return True
 
         # 数值常量
-        num = get_const_number(n)
-        if num is not None:
+        if (num := get_const_number(n)) is not None:
             # 除数为 0 的情况
             if sign == -1 and float(num) == 0.0:
                 return False
@@ -97,15 +86,12 @@ class UnitExpressionCollector:
             and n.value.id == "unit"
         )
 
-    @staticmethod
-    def _is_unit_power(n: ast.AST) -> bool:
+    def _is_unit_power(self, n: ast.AST) -> bool:
         """检查是否为 unit.xxx ** k 形式"""
         return (
             isinstance(n, ast.BinOp)
             and isinstance(n.op, ast.Pow)
-            and isinstance(n.left, ast.Attribute)
-            and isinstance(n.left.value, ast.Name)
-            and n.left.value.id == "unit"
+            and self._is_unit_attribute(n.left)
         )
 
     def build_unit_node(self) -> ir.MathNode:

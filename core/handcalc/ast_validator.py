@@ -5,6 +5,9 @@ from typing import Set
 
 from core.handcalc.exceptions import ValidationError
 
+# description
+# 本模块用于验证插桩后的 AST 树，确保其中只包含允许的节点类型。
+# 这样可以防止插桩过程中引入不安全或不受支持的代码结构。
 
 # 允许的 AST 节点类型白名单
 ALLOWED_AST_NODES: Set[type] = {

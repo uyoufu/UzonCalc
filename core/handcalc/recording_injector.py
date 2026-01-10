@@ -43,7 +43,7 @@ class RecordingInjector:
         record_call = ast.Expr(
             value=ast.Call(
                 func=ast.Name(id=FieldNames.uzon_record_step, ctx=ast.Load()),
-                args=[ast.Name(id=FieldNames.ctx, ctx=ast.Load())],
+                args=[],
                 keywords=keywords,
             )
         )
@@ -54,44 +54,28 @@ class RecordingInjector:
         """将 Step 对象转换为构造它的 AST 表达式"""
         steps_mod = ast.Name(id=FieldNames.uzon_steps, ctx=ast.Load())
 
-        if isinstance(step, steps.TextStep):
-            ctor = ast.Attribute(value=steps_mod, attr="TextStep", ctx=ast.Load())
-            return ast.Call(
-                func=ctor,
-                args=[],
-                keywords=[ast.keyword(arg="text", value=ast.Constant(value=step.text))],
-            )
+        # 映射表: (class_name, kwargs_builder)
+        type_map = {
+            steps.TextStep: ("TextStep", lambda s: [("text", s.text)]),
+            steps.ExprStep: ("ExprStep", lambda s: [("expr", s.expr)]),
+            steps.EquationStep: (
+                "EquationStep",
+                lambda s: [("lhs", s.lhs), ("rhs", s.rhs)],
+            ),
+            steps.FStringStep: ("FStringStep", lambda s: [("segments", s.segments)]),
+        }
 
-        if isinstance(step, steps.ExprStep):
-            ctor = ast.Attribute(value=steps_mod, attr="ExprStep", ctx=ast.Load())
-            return ast.Call(
-                func=ctor,
-                args=[],
-                keywords=[ast.keyword(arg="expr", value=self._value_to_ast(step.expr))],
-            )
+        step_type = type(step)
+        if step_type in type_map:
+            class_name, kwargs_builder = type_map[step_type]
+            ctor = ast.Attribute(value=steps_mod, attr=class_name, ctx=ast.Load())
+            keywords = [
+                ast.keyword(arg=k, value=self._value_to_ast(v))
+                for k, v in kwargs_builder(step)
+            ]
+            return ast.Call(func=ctor, args=[], keywords=keywords)
 
-        if isinstance(step, steps.EquationStep):
-            ctor = ast.Attribute(value=steps_mod, attr="EquationStep", ctx=ast.Load())
-            return ast.Call(
-                func=ctor,
-                args=[],
-                keywords=[
-                    ast.keyword(arg="lhs", value=self._value_to_ast(step.lhs)),
-                    ast.keyword(arg="rhs", value=self._value_to_ast(step.rhs)),
-                ],
-            )
-
-        if isinstance(step, steps.FStringStep):
-            ctor = ast.Attribute(value=steps_mod, attr="FStringStep", ctx=ast.Load())
-            return ast.Call(
-                func=ctor,
-                args=[],
-                keywords=[
-                    ast.keyword(arg="segments", value=self._value_to_ast(step.segments)),
-                ],
-            )
-
-        # Fallback: stringify step.
+        # Fallback: stringify step
         ctor = ast.Attribute(value=steps_mod, attr="TextStep", ctx=ast.Load())
         return ast.Call(
             func=ctor,

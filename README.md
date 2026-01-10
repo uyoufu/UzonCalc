@@ -1,3 +1,17 @@
+# UzonCalc
+
+UzonCalc is a tool for writing engineering calculation documents using Python. With it, you can write calculation reports as smoothly as writing Python, and benefit from the full Python ecosystem and AI assistance.
+
+## Features
+
+1. Write using Python code — no extra syntax to learn
+2. Benefit from the Python ecosystem and AI support
+3. Focus on calculations, not layout
+4. Output beautiful HTML directly; convertible to PDF and Docx
+
+## Example
+
+``` python
 from pathlib import Path
 import sys
 
@@ -104,3 +118,9 @@ if __name__ == "__main__":
     sheet()  # type: ignore
     t1 = time.perf_counter()
     print(f"Execution time: {t1 - t0} seconds")
+
+```
+
+Preview:
+
+![image-20260110162359040](https://oss.uzoncloud.com:2234/public/files/images/image-20260110162359040.png)

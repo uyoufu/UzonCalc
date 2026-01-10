@@ -483,14 +483,13 @@ def LaTex(content: str):
 
 
 def plot(fig: Figure, persist: bool = False):
-    # 更常见做法：
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
     svg_bytes = buf.getvalue()
     svg_base64 = base64.b64encode(svg_bytes).decode("ascii")
     svg_data_uri = f"data:image/png;base64,{svg_base64}"
-    return h("img", props=props(src=svg_data_uri), persist=persist)
+    return img(svg_data_uri, persist=persist)
 
 
 def Plot(fig: Figure):

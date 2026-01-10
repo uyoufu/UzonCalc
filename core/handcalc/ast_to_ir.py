@@ -16,6 +16,28 @@ def _unparse(node: ast.AST) -> str:
         return node.__class__.__name__
 
 
+# 操作符映射表
+_UNARY_OPS: dict[type, str] = {
+    ast.UAdd: "+",
+    ast.USub: "-",
+    ast.Not: "not",
+    ast.Invert: "~",
+}
+
+_CMP_OPS: dict[type, str] = {
+    ast.Eq: "=",
+    ast.NotEq: "≠",
+    ast.Lt: "<",
+    ast.LtE: "≤",
+    ast.Gt: ">",
+    ast.GtE: "≥",
+    ast.In: "in",
+    ast.NotIn: "not in",
+    ast.Is: "is",
+    ast.IsNot: "is not",
+}
+
+
 def target_to_ir(node: ast.AST) -> ir.MathNode:
     # Targets are often Name/Attribute/Subscript/Tuple/List/Starred.
     if isinstance(node, ast.Name):
@@ -46,61 +68,46 @@ def _expr_constant(node: ast.Constant) -> ir.MathNode:
     v = node.value
     if isinstance(v, (int, float)):
         return ir.mn(v)
-    if isinstance(v, str):
-        return ir.mtext(v)
-    if v is None:
-        return ir.mtext("None")
-    if v is True:
-        return ir.mtext("True")
-    if v is False:
-        return ir.mtext("False")
-    return ir.mtext(str(v))
+    # 布尔值和 None 的统一处理
+    return ir.mtext(str(v) if v is not None else "None")
 
 
 @expr_to_ir.register(ast.UnaryOp)
 def _expr_unary(node: ast.UnaryOp) -> ir.MathNode:
-    operand = expr_to_ir(node.operand)
-    if isinstance(node.op, ast.UAdd):
-        return ir.mrow([ir.mo("+"), operand])
-    if isinstance(node.op, ast.USub):
-        return ir.mrow([ir.mo("-"), operand])
-    if isinstance(node.op, ast.Not):
-        return ir.mrow([ir.mo("not"), operand])
-    if isinstance(node.op, ast.Invert):
-        return ir.mrow([ir.mo("~"), operand])
+    if (symbol := _UNARY_OPS.get(type(node.op))) is not None:
+        return ir.mrow([ir.mo(symbol), expr_to_ir(node.operand)])
     return ir.mtext(_unparse(node))
+
+
+# 二元操作符映射: (symbol, is_infix) 或 None 表示特殊处理
+_BINOP_INFIX: dict[type, str] = {
+    ast.Add: "+",
+    ast.Sub: "-",
+    ast.Mult: "·",
+    ast.FloorDiv: "//",
+    ast.Mod: "%",
+}
 
 
 @expr_to_ir.register(ast.BinOp)
 def _expr_binop(node: ast.BinOp) -> ir.MathNode:
     # 特殊处理单位表达式
-    folded_result = _try_fold_unit_expr_as_single_mu(node)
-    if folded_result is not None:
-        # 提取数值计算部分和单位部分
-        numeric_part = _extract_numeric_part(node)
-        if numeric_part is not None:
-            # 构建完整的表达式：数值计算 * 单位
-            return ir.mrow([numeric_part, ir.mo(""), folded_result])
-        return folded_result
+    if (folded := _try_fold_unit_expr_as_single_mu(node)) is not None:
+        if (numeric := _extract_numeric_part(node)) is not None:
+            return ir.mrow([numeric, ir.mo(""), folded])
+        return folded
 
-    left = expr_to_ir(node.left)
-    right = expr_to_ir(node.right)
+    left, right = expr_to_ir(node.left), expr_to_ir(node.right)
+    op_type = type(node.op)
 
-    if isinstance(node.op, ast.Add):
-        return ir.mrow([left, ir.mo("+"), right])
-    if isinstance(node.op, ast.Sub):
-        return ir.mrow([left, ir.mo("-"), right])
-    if isinstance(node.op, ast.Mult):
-        return ir.mrow([left, ir.mo("·"), right])
-    if isinstance(node.op, ast.Div):
+    # 中缀操作符
+    if (symbol := _BINOP_INFIX.get(op_type)) is not None:
+        return ir.mrow([left, ir.mo(symbol), right])
+    # 特殊操作符
+    if op_type is ast.Div:
         return ir.mfrac(left, right)
-    if isinstance(node.op, ast.FloorDiv):
-        return ir.mrow([left, ir.mo("//"), right])
-    if isinstance(node.op, ast.Mod):
-        return ir.mrow([left, ir.mo("%"), right])
-    if isinstance(node.op, ast.Pow):
+    if op_type is ast.Pow:
         return ir.msup(left, right)
-
     return ir.mtext(_unparse(node))
 
 
@@ -119,7 +126,7 @@ def _expr_boolop(node: ast.BoolOp) -> ir.MathNode:
 def _expr_compare(node: ast.Compare) -> ir.MathNode:
     items: List[ir.MathNode] = [expr_to_ir(node.left)]
     for op, comp in zip(node.ops, node.comparators):
-        items.append(ir.mo(_cmp_op_to_str(op)))
+        items.append(ir.mo(_CMP_OPS.get(type(op), op.__class__.__name__)))
         items.append(expr_to_ir(comp))
     return ir.mrow(items)
 
@@ -154,28 +161,7 @@ def _expr_attribute(node: ast.Attribute) -> ir.MathNode:
         return ir.mi(_unparse(node))
 
 
-def _cmp_op_to_str(op: ast.cmpop) -> str:
-    if isinstance(op, ast.Eq):
-        return "="
-    if isinstance(op, ast.NotEq):
-        return "≠"
-    if isinstance(op, ast.Lt):
-        return "<"
-    if isinstance(op, ast.LtE):
-        return "≤"
-    if isinstance(op, ast.Gt):
-        return ">"
-    if isinstance(op, ast.GtE):
-        return "≥"
-    if isinstance(op, ast.In):
-        return "in"
-    if isinstance(op, ast.NotIn):
-        return "not in"
-    if isinstance(op, ast.Is):
-        return "is"
-    if isinstance(op, ast.IsNot):
-        return "is not"
-    return op.__class__.__name__
+# _cmp_op_to_str 已由 _CMP_OPS 字典替代
 
 
 def _try_fold_unit_expr_as_single_mu(node: ast.AST) -> Optional[ir.MathNode]:
@@ -202,50 +188,29 @@ def _try_fold_unit_expr_as_single_mu(node: ast.AST) -> Optional[ir.MathNode]:
 
 
 def _extract_numeric_part(node: ast.AST) -> Optional[ir.MathNode]:
-    """
-    从包含单位的表达式中提取纯数值计算部分
-    
-    例如：0.1 * 8 * 24 * unit.kN / unit.m**3 
-    返回：0.1 * 8 * 24
-    """
+    """从包含单位的表达式中提取纯数值计算部分"""
     if not isinstance(node, ast.BinOp):
         return None
     
-    def _extract_numbers(n: ast.AST) -> Optional[ir.MathNode]:
+    def _is_unit_node(n: ast.AST) -> bool:
+        """检查是否为单位相关节点"""
+        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "unit":
+            return True
+        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Pow):
+            return _is_unit_node(n.left)
+        return False
+    
+    def _extract(n: ast.AST) -> Optional[ir.MathNode]:
         """递归提取数值部分"""
-        # 如果是数值常量，直接转换
         if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
             return ir.mn(n.value)
-        
-        # 如果是单位相关的节点，返回 None
-        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "unit":
+        if _is_unit_node(n):
             return None
-        
-        # 如果是幂运算且基数是单位，返回 None
-        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Pow):
-            if isinstance(n.left, ast.Attribute) and isinstance(n.left.value, ast.Name) and n.left.value.id == "unit":
-                return None
-        
-        # 如果是二元运算
         if isinstance(n, ast.BinOp):
-            left_nums = _extract_numbers(n.left)
-            right_nums = _extract_numbers(n.right)
-            
-            # 如果左右都是数值部分，构建运算
-            if left_nums is not None and right_nums is not None:
-                if isinstance(n.op, ast.Mult):
-                    return ir.mrow([left_nums, ir.mo("·"), right_nums])
-                elif isinstance(n.op, ast.Div):
-                    return ir.mfrac(left_nums, right_nums)
-            
-            # 如果只有左边是数值（右边是单位），返回左边
-            if left_nums is not None and right_nums is None:
-                return left_nums
-            
-            # 如果只有右边是数值（左边是单位），返回右边
-            if left_nums is None and right_nums is not None:
-                return right_nums
-        
+            left, right = _extract(n.left), _extract(n.right)
+            if left and right:
+                return ir.mrow([left, ir.mo("·"), right]) if isinstance(n.op, ast.Mult) else ir.mfrac(left, right)
+            return left or right
         return None
     
-    return _extract_numbers(node)
+    return _extract(node)

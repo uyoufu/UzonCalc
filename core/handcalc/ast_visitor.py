@@ -7,92 +7,79 @@ from core.handcalc.ast_to_step import AstToStepConverter
 from core.handcalc.recording_injector import RecordingInjector
 from core.handcalc import ir
 
+# description:
+# 本模块定义了一个 AST 访问器类，用于遍历和修改 AST 树，
+# 以插入记录计算步骤的调用，从而实现对代码执行过程的跟踪和记录。
+
 
 class AstNodeVisitor(ast.NodeTransformer):
     def __init__(self) -> None:
         super().__init__()
-        # 使用独立的状态管理器
         self._state = RecordingState()
-        # 使用独立的转换器和注入器
         self._converter = AstToStepConverter()
         self._injector = RecordingInjector()
 
-    def visit_Module(self, node: ast.Module) -> ast.AST:
-        self._mark_docstring_skip(node.body)
+    def _visit_body_scope(self, node: ast.AST, body_attr: str = "body") -> ast.AST:
+        """通用的作用域访问方法，处理带有 body 的节点"""
+        body = getattr(node, body_attr)
+        self._mark_docstring_skip(body)
         prev = self._state.enabled
         self._state.enable()
-        node.body = self._transform_stmt_block(node.body)
+        setattr(node, body_attr, self._transform_stmt_block(body))
         if not prev:
             self._state.disable()
         return node
+
+    def visit_Module(self, node: ast.Module) -> ast.AST:
+        return self._visit_body_scope(node)
 
     def visit_FunctionDef(self, node: ast.FunctionDef) -> ast.AST:
-        self._mark_docstring_skip(node.body)
-
-        # Each function gets its own instrumentation toggle scope.
-        prev = self._state.enabled
-        self._state.enable()
-        node.body = self._transform_stmt_block(node.body)
-        if not prev:
-            self._state.disable()
-        return node
+        return self._visit_body_scope(node)
 
     def visit_AsyncFunctionDef(self, node: ast.AsyncFunctionDef) -> ast.AST:
-        self._mark_docstring_skip(node.body)
-
-        prev = self._state.enabled
-        self._state.enable()
-        node.body = self._transform_stmt_block(node.body)
-        if not prev:
-            self._state.disable()
-        return node
+        return self._visit_body_scope(node)
 
     def visit_ClassDef(self, node: ast.ClassDef) -> ast.AST:
-        self._mark_docstring_skip(node.body)
+        return self._visit_body_scope(node)
 
-        prev = self._state.enabled
-        self._state.enable()
+    def _visit_loop(self, node: ast.For | ast.AsyncFor | ast.While) -> ast.AST:
+        """通用循环访问方法"""
+        if hasattr(node, "target"):
+            node.target = self.visit(node.target)  # type: ignore[assignment]
+        if hasattr(node, "iter"):
+            node.iter = self.visit(node.iter)  # type: ignore[assignment]
+        if hasattr(node, "test"):
+            node.test = self.visit(node.test)  # type: ignore[assignment]
         node.body = self._transform_stmt_block(node.body)
-        if not prev:
-            self._state.disable()
+        node.orelse = self._transform_stmt_block(node.orelse)
         return node
 
     def visit_If(self, node: ast.If) -> ast.AST:
-        # Only rewrite statement lists; expressions can use generic_visit.
         node.test = self.visit(node.test)  # type: ignore[assignment]
         node.body = self._transform_stmt_block(node.body)
         node.orelse = self._transform_stmt_block(node.orelse)
         return node
 
     def visit_For(self, node: ast.For) -> ast.AST:
-        node.target = self.visit(node.target)  # type: ignore[assignment]
-        node.iter = self.visit(node.iter)  # type: ignore[assignment]
-        node.body = self._transform_stmt_block(node.body)
-        node.orelse = self._transform_stmt_block(node.orelse)
-        return node
+        return self._visit_loop(node)
 
     def visit_AsyncFor(self, node: ast.AsyncFor) -> ast.AST:
-        node.target = self.visit(node.target)  # type: ignore[assignment]
-        node.iter = self.visit(node.iter)  # type: ignore[assignment]
-        node.body = self._transform_stmt_block(node.body)
-        node.orelse = self._transform_stmt_block(node.orelse)
-        return node
+        return self._visit_loop(node)
 
     def visit_While(self, node: ast.While) -> ast.AST:
-        node.test = self.visit(node.test)  # type: ignore[assignment]
+        return self._visit_loop(node)
+
+    def _visit_with(self, node: ast.With | ast.AsyncWith) -> ast.AST:
+        """通用 with 语句访问方法"""
+        node.items = [self.visit(i) for i in node.items]  # type: ignore[assignment]
         node.body = self._transform_stmt_block(node.body)
-        node.orelse = self._transform_stmt_block(node.orelse)
         return node
 
     def visit_With(self, node: ast.With) -> ast.AST:
-        node.items = [self.visit(i) for i in node.items]  # type: ignore[assignment]
-        node.body = self._transform_stmt_block(node.body)
-        return node
+        return self._visit_with(node)
 
     def visit_AsyncWith(self, node: ast.AsyncWith) -> ast.AST:
-        node.items = [self.visit(i) for i in node.items]  # type: ignore[assignment]
-        node.body = self._transform_stmt_block(node.body)
-        return node
+        return self._visit_with(node)
 
     def visit_Try(self, node: ast.Try) -> ast.AST:
         node.body = self._transform_stmt_block(node.body)
@@ -161,7 +148,7 @@ class AstNodeVisitor(ast.NodeTransformer):
             stmts: list[ast.stmt] = []
             value_vars: list[str] = []
             formatted_value_idx = 0
-            
+
             # Generate temp variables to capture each formatted value.
             for idx, v in enumerate(node.value.values):
                 if isinstance(v, ast.FormattedValue):
@@ -175,7 +162,7 @@ class AstNodeVisitor(ast.NodeTransformer):
                     )
                     ast.copy_location(assign, node)
                     stmts.append(assign)
-            
+
             step = self._converter.convert_fstring(node.value, value_vars)
             record_call = self._injector.make_record_call(
                 node,

@@ -1,3 +1,10 @@
+from pathlib import Path
+import sys
+
+# Ensure project root is on sys.path so `import core` works when running
+# this script from the `core` folder.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+
 from matplotlib import pyplot as plt
 from pint import UnitRegistry
 from core.template.utils import get_html_template
@@ -14,7 +21,7 @@ def sheet(*, unit: UnitRegistry):
 
     from core.utils.doc import save
 
-    save("output/example.html")
+    save("../../output/example.html")
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@
     "BINOP",
     "cmpop",
     "coeff",
+    "finalbody",
     "fstring",
     "handcalc",
     "mathml",
@@ -17,6 +18,7 @@
     "msup",
     "mtext",
     "Mult",
+    "orelse",
     "subscriptify",
     "uzon",
     "uzoncalc"
