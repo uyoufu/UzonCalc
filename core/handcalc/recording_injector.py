@@ -91,6 +91,9 @@ class RecordingInjector:
         if isinstance(value, ir.MathNode):
             return self._math_to_ast(value)
 
+        if isinstance(value, steps.FStringSegment):
+            return self._fstring_segment_to_ast(value)
+
         if isinstance(value, list):
             return ast.List(elts=[self._value_to_ast(v) for v in value], ctx=ast.Load())
 
@@ -109,3 +112,43 @@ class RecordingInjector:
         if isinstance(node, str):
             return ast.Constant(value=node)
         return node.to_python_ast(ir_var_name=FieldNames.uzon_ir)
+
+    def _fstring_segment_to_ast(self, segment: steps.FStringSegment) -> ast.expr:
+        """将 FStringSegment 转换为 AST 表达式"""
+        steps_mod = ast.Name(id=FieldNames.uzon_steps, ctx=ast.Load())
+        ctor = ast.Attribute(value=steps_mod, attr="FStringSegment", ctx=ast.Load())
+
+        keywords = [ast.keyword(arg="kind", value=ast.Constant(value=segment.kind))]
+
+        if segment.kind == "text":
+            keywords.append(
+                ast.keyword(arg="text", value=ast.Constant(value=segment.text))
+            )
+        elif segment.kind == "expr":
+            if segment.expr is not None:
+                keywords.append(
+                    ast.keyword(arg="expr", value=self._math_to_ast(segment.expr))
+                )
+            if segment.value_var:
+                keywords.append(
+                    ast.keyword(
+                        arg="value_var", value=ast.Constant(value=segment.value_var)
+                    )
+                )
+        elif segment.kind == "namedexpr":
+            if segment.lhs is not None:
+                keywords.append(
+                    ast.keyword(arg="lhs", value=self._math_to_ast(segment.lhs))
+                )
+            if segment.rhs is not None:
+                keywords.append(
+                    ast.keyword(arg="rhs", value=self._math_to_ast(segment.rhs))
+                )
+            if segment.value_var:
+                keywords.append(
+                    ast.keyword(
+                        arg="value_var", value=ast.Constant(value=segment.value_var)
+                    )
+                )
+
+        return ast.Call(func=ctor, args=[], keywords=keywords)

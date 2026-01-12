@@ -15,9 +15,17 @@ from core.setup import uzon_calc
 def sheet(*, unit: UnitRegistry):
 
     from core.utils.elements import p, div, span, input, plot
-    from core.utils.options import hide, show, inline, endline
+    from core.utils.options import (
+        hide,
+        show,
+        inline,
+        endline,
+        disable_substitution,
+        enable_fstring_equation,
+    )
 
-    q_1 = 0.1 * 8 * 24 * unit.kN / unit.m**3
+    pi = 3.1415926535
+    f"Value of pi up to 3 decimal places: {pi:.3f}"
 
     from core.utils.doc import save
 

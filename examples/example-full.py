@@ -14,7 +14,12 @@ from core.setup import uzon_calc
 def sheet(*, unit: UnitRegistry):
     from core.utils.doc import doc_title, page_size
     from core.utils.elements import H1, H2, H3, Plot, p, div, span, input
-    from core.utils.options import hide, show
+    from core.utils.options import (
+        hide,
+        show,
+        enable_fstring_equation,
+        disable_fstring_equation,
+    )
 
     doc_title("UzonCalc Full Example")
     page_size("A4")
@@ -52,8 +57,13 @@ def sheet(*, unit: UnitRegistry):
     name = "Uzon"
     f"Hello, {name}! Welcome to UzonCalc."
     pi = 3.1415926535
-    # format are not supported now, will be supported in future
     f"Value of pi up to 3 decimal places: {pi:.3f}"
+
+    H3("String Formatting With Equations")
+    enable_fstring_equation()
+    f"Hello, {name}! Welcome to UzonCalc."
+    f"The value of pi is approximately {pi:.3f}, which is useful in calculations."
+    disable_fstring_equation()
 
     H2("Units and Calculations")
     length = 5 * unit.meter
@@ -67,11 +77,16 @@ def sheet(*, unit: UnitRegistry):
     stress = force / (length**2)
 
     H3("Unit Conversion")
+    "Original speed in m/s:"
+    speed
+    hide()
     speedKmh = speed.to(unit.kilometer / unit.hour)
+    show()
     f"Speed in km/h: {speedKmh}"
 
     # use matplotlib to plot a sine wave
     H2("Plotting Example")
+    "You can use Matplotlib to create plots within UzonCalc."
     hide()
     import numpy as np
     import matplotlib.pyplot as plt
@@ -82,15 +97,37 @@ def sheet(*, unit: UnitRegistry):
     plt.title("Sine Wave")
     plt.xlabel("x (radians)")
     plt.ylabel("sin(x)")
+    plt.legend(["sin(x)"])
     plt.grid(True)
     show()
     Plot(plt)
 
     # sub
     H2("Variable subscription")
-    "if you want to make a word to be subscript, you can use _ after it. For example, H_2O will be rendered as H₂."
-    f_a = 10 * unit.meter / unit.second**2
-    f_x = f_a * 2 * unit.second
+
+    H3("Default Subscript Rule")
+
+    "if you want to make a word to be subscript, you can use _ after it. For example, H_2 will be rendered as H₂."
+    a_x = 10 * unit.meter / unit.second**2
+    speed_2 = a_x * 2 * unit.second
+
+    H3("complex Subscript")
+
+    "You can also use other language characters as subscripts, like x_总."
+    "You can use alias"
+
+    # 希腊字母
+    H2("Greek Letters")
+    "You can use Greek letters like alpha (α), beta (β), gamma (γ), delta (δ), etc. in your calculations."
+    "When you write 'alpha', it will be rendered as α."
+    "Capitalized Greek letters like 'Beta' will be rendered as Β."
+
+    rho_water = 1000 * unit.kilogram / unit.meter**3
+    g = 9.81 * unit.meter / unit.second**2
+    h = 10 * unit.meter
+    pressure = rho_water * g * h
+    "Pressure calculated using ρgh:"
+    pressure
 
     from core.utils.doc import save
 

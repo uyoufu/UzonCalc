@@ -7,6 +7,7 @@ body {
   line-height: 1.8;
   color: #333;
   background-color: #fff;
+  counter-reset: h2-counter;
 }
 
 .content {
@@ -37,11 +38,28 @@ h2 {
   font-size: 1.5em;
   border-bottom: 1px solid #bdc3c7;
   padding-bottom: 0.2em;
+  counter-reset: h3-counter;
+  counter-increment: h2-counter;
+}
+
+h2::before {
+  content: counter(h2-counter) " ";
+  margin-right: 0.5em;
+}
+
+h3 {
+  counter-increment: h3-counter;
+}
+
+h3::before {
+  content: counter(h2-counter) "." counter(h3-counter) " ";
+  margin-right: 0.5em;
 }
 
 /* 段落样式 */
 p {
   padding: 2px 0;
+  text-indent: 2em;
 }
 
 /* Div 和 Span 样式 */

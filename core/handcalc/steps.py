@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Any, Mapping, Protocol
+from typing import Any, Literal, Mapping, Protocol
 
 import pint
 
@@ -138,29 +138,58 @@ def _is_private_lhs(lhs: Any) -> bool:
 
 
 @dataclass(frozen=True, slots=True)
+class FStringSegment:
+    """f-string 的一个片段（文本或表达式）"""
+
+    kind: Literal["text", "expr", "namedexpr"]
+
+    # For kind="text"
+    text: str = ""
+
+    # For kind="expr"
+    expr: ir.MathNode | None = None
+
+    # For kind="namedexpr"
+    lhs: ir.MathNode | None = None
+    rhs: ir.MathNode | None = None
+
+    # For kind="expr" and kind="namedexpr"
+    value_var: str = ""
+    format_spec: str = ""  # 格式化规范，如 ".3f"
+
+
+@dataclass(frozen=True, slots=True)
 class FStringStep:
     """Render an f-string as mixed text + inline equations."""
 
-    segments: list[Any]
+    segments: list[FStringSegment]
 
     def _render_math(
         self,
-        expr_desc: Mapping[str, Any],
+        segment: FStringSegment,
         locals_map: Mapping[str, Any],
+        ctx: CalcContext,
     ) -> str:
-        kind = expr_desc.get("kind")
-        value_var = expr_desc.get("value_var", "")
-        runtime_value = locals_map.get(value_var) if value_var else None
+        """渲染数学表达式片段"""
+        runtime_value = locals_map.get(segment.value_var) if segment.value_var else None
 
-        if kind == "namedexpr":
-            lhs: ir.MathNode = expr_desc.get("lhs") or ir.mtext("")
-            rhs: ir.MathNode = expr_desc.get("rhs") or ir.mtext("")
+        # 如果 enable_fstring_equation 为 False，只显示值
+        if not ctx.options.enable_fstring_equation:
+            if runtime_value is not None:
+                value_ir = value_to_ir(runtime_value)
+                return ir.equation([value_ir]).to_mathml_xml()
+            # 如果没有值，返回空文本
+            return ir.equation([ir.mtext("")]).to_mathml_xml()
+
+        if segment.kind == "namedexpr":
+            lhs: ir.MathNode = segment.lhs or ir.mtext("")
+            rhs: ir.MathNode = segment.rhs or ir.mtext("")
             parts: list[ir.MathNode] = [lhs] + _build_equation_parts(
                 rhs, locals_map, runtime_value
             )
             return ir.equation(parts).to_mathml_xml()
 
-        expr_node: ir.MathNode = expr_desc.get("expr") or ir.mtext("")
+        expr_node: ir.MathNode = segment.expr or ir.mtext("")
         parts = _build_equation_parts(expr_node, locals_map, runtime_value)
         return ir.equation(parts).to_mathml_xml()
 
@@ -176,9 +205,9 @@ class FStringStep:
         locals_map = locals_map or {}
         out_parts = [
             (
-                self._render_math(seg, locals_map)
-                if isinstance(seg, Mapping)
-                else html.escape(seg if isinstance(seg, str) else str(seg))
+                self._render_math(seg, locals_map, ctx)
+                if seg.kind in ("expr", "namedexpr")
+                else html.escape(seg.text)
             )
             for seg in self.segments
         ]

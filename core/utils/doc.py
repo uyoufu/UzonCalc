@@ -78,7 +78,10 @@ def save(filename: str | None = None):
     try:
         shutil.copy2(css_source, css_dest)
     except Exception as e:
-        print(f"警告：无法复制 CSS 文件: {e}")
+        print(f"Warning: Unable to copy CSS file: {e}")
+
+    # Show web url
+    print(f"Document saved to (open with browser): file:///{filename}")
 
 
 # endregion

@@ -19,6 +19,12 @@ class ContextOptions:
         # 否则显示 a = b + c = 3
         self.enable_substitution: bool = enable_substitution
 
+        # 是否启用 fstring 方程渲染
+        # 默认为 False
+        # 若启用, 则会将 fstring 中的表达式提取出来进行方程渲染
+        # 例如: f"{a+b}" 会被渲染为 "a + b = 3"
+        self.enable_fstring_equation: bool = False
+
         # 跳过以 _ 开头的临时/私有变量的记录
         self.suppress_private_assignments: bool = suppress_private_assignments
 
@@ -27,7 +33,9 @@ class ContextOptions:
 
         # 是否跳过内容记录
         # 若为 True，则不会记录内容到 ctx.contents 中
-        # 逻辑在 CalcContext.append_content 方法中实现
+        # 逻辑在两个地方实现
+        # 1. 在 AST 解析时，遇到 hide() 时，将不会继续解析
+        # 2. CalcContext.append_content 方法中进行检查
         self.skip_content: bool = False
 
         # 别名映射

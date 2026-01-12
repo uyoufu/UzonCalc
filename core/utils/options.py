@@ -45,6 +45,26 @@ def disable_substitution():
 # endregion
 
 
+# region fstring equation
+def enable_fstring_equation():
+    """
+    enable fstring equation rendering
+    """
+    ctx = get_current_instance()
+    ctx.options.enable_fstring_equation = True
+
+
+def disable_fstring_equation():
+    """
+    disable fstring equation rendering
+    """
+    ctx = get_current_instance()
+    ctx.options.enable_fstring_equation = False
+
+
+# endregion
+
+
 # region inline
 def inline(separator: str = " "):
     ctx = get_current_instance()

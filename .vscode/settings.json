@@ -18,6 +18,7 @@
     "msup",
     "mtext",
     "Mult",
+    "namedexpr",
     "orelse",
     "subscriptify",
     "uzon",

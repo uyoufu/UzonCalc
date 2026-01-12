@@ -6,19 +6,27 @@ import os
 from typing import Any
 from core.context_options import ContextOptions
 
+# 模板缓存，避免重复加载文件
+_template_cache: str | None = None
+
 
 def load_template() -> str:
     """
-    从模板文件中加载 HTML 模板
+    从模板文件中加载 HTML 模板（带缓存）
 
     Returns:
         HTML 模板字符串
     """
-    template_dir = os.path.join(os.path.dirname(__file__))
-    template_file = os.path.join(template_dir, "calc_template.html")
+    global _template_cache
 
-    with open(template_file, "r", encoding="utf-8") as f:
-        return f.read()
+    if _template_cache is None:
+        template_dir = os.path.join(os.path.dirname(__file__))
+        template_file = os.path.join(template_dir, "calc_template.html")
+
+        with open(template_file, "r", encoding="utf-8") as f:
+            _template_cache = f.read()
+
+    return _template_cache
 
 
 def get_page_size_dimensions(page_size: str) -> tuple[str, str]:
@@ -74,12 +82,12 @@ def render_html_template(content: str, options: ContextOptions) -> str:
 
     Args:
         content: 主要内容
-        options: 上下文选项，包含页面标题、尺寸、自定义样式等
+        options: 上下文选项,包含页面标题、尺寸、自定义样式等
 
     Returns:
         完整的 HTML 字符串
     """
-    # 加载模板
+    # 加载模板（使用缓存）
     template = load_template()
 
     # 获取页面尺寸
@@ -88,12 +96,18 @@ def render_html_template(content: str, options: ContextOptions) -> str:
     # 生成自定义样式
     custom_styles = generate_custom_styles(options.styles)
 
-    # 替换模板占位符
-    html_output = template.replace("{{PAGE_TITLE}}", options.page_title)
-    html_output = html_output.replace("{{PAGE_SIZE}}", page_size)
-    html_output = html_output.replace("{{PAGE_WIDTH}}", page_width)
-    html_output = html_output.replace("{{CUSTOM_STYLES}}", custom_styles)
-    html_output = html_output.replace("{{CONTENT}}", content)
+    # 一次性替换所有占位符，避免多次字符串复制
+    replacements = {
+        "PAGE_TITLE": options.page_title,
+        "PAGE_SIZE": page_size,
+        "PAGE_WIDTH": page_width,
+        "CUSTOM_STYLES": custom_styles,
+        "CONTENT": content,
+    }
+
+    html_output = template
+    for placeholder, value in replacements.items():
+        html_output = html_output.replace(placeholder, value)
 
     return html_output
 

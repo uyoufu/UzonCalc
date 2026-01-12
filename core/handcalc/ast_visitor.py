@@ -155,10 +155,31 @@ class AstNodeVisitor(ast.NodeTransformer):
                     temp_var = f"__fstring_val_{formatted_value_idx}__"
                     formatted_value_idx += 1
                     value_vars.append(temp_var)
-                    # Create: __fstring_val_N__ = <expr>
+                    
+                    # 如果有格式化规范，应用格式化；否则直接使用表达式
+                    if v.format_spec:
+                        # 提取格式化规范字符串
+                        format_spec = ""
+                        if isinstance(v.format_spec, ast.JoinedStr):
+                            for spec_val in v.format_spec.values:
+                                if isinstance(spec_val, ast.Constant) and isinstance(spec_val.value, str):
+                                    format_spec += spec_val.value
+                        
+                        # 创建格式化表达式：format(expr, format_spec)
+                        format_call = ast.Call(
+                            func=ast.Name(id="format", ctx=ast.Load()),
+                            args=[v.value, ast.Constant(value=format_spec)],
+                            keywords=[],
+                        )
+                        ast.copy_location(format_call, node)
+                        value_expr = format_call
+                    else:
+                        value_expr = v.value
+                    
+                    # Create: __fstring_val_N__ = <expr> or format(<expr>, format_spec)
                     assign = ast.Assign(
                         targets=[ast.Name(id=temp_var, ctx=ast.Store())],
-                        value=v.value,
+                        value=value_expr,
                     )
                     ast.copy_location(assign, node)
                     stmts.append(assign)
