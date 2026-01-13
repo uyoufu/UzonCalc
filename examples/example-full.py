@@ -1,3 +1,4 @@
+from numpy import sqrt
 from pathlib import Path
 import sys
 
@@ -13,7 +14,19 @@ from core.setup import uzon_calc
 @uzon_calc()
 def sheet(*, unit: UnitRegistry):
     from core.utils.doc import doc_title, page_size
-    from core.utils.elements import H1, H2, H3, Plot, p, div, span, input
+    from core.utils.elements import (
+        H1,
+        H2,
+        H3,
+        Plot,
+        p,
+        div,
+        span,
+        input,
+        Table,
+        th,
+        Props,
+    )
     from core.utils.options import (
         hide,
         show,
@@ -113,8 +126,11 @@ def sheet(*, unit: UnitRegistry):
 
     H3("complex Subscript")
 
-    "You can also use other language characters as subscripts, like x_总."
+    "You can also use other language characters as subscripts, like gamma_混凝土."
     "You can use alias"
+
+    H3("Array Subscript")
+    "You can use array subscript like A[i]."
 
     # 希腊字母
     H2("Greek Letters")
@@ -128,6 +144,64 @@ def sheet(*, unit: UnitRegistry):
     pressure = rho_water * g * h
     "Pressure calculated using ρgh:"
     pressure
+
+    H2("Functions Converter")
+
+    "Some functions can automatically convert to math style."
+
+    H3("Square Root")
+    "You can use sqrt(x) to represent the square root of x."
+
+    edge1 = 3 * unit.meter
+    edge2 = 4 * unit.meter
+    diagonal = sqrt(edge1**2 + edge2**2)
+
+    H3("Absolute Value")
+    "You can use abs(x) to represent the absolute value of x."
+    value = -15 * unit.newton
+    absValue = abs(value)
+
+    H2("Tables")
+
+    # 返回表的名称，方便在其它地方引用
+    Table(
+        [
+            [
+                th("构件", rowspan=3),
+                th("材料", rowspan=3),
+                th("弹性模量(MPa)", colspan=2),
+                th("设计强度(MPa)", colspan=2),
+                th("标准强度(MPa)", colspan=2),
+            ],
+            [
+                "Ec/Es",
+                "抗压",
+                "抗拉",
+                "抗压",
+                "抗拉",
+            ],
+        ],
+        [
+            ["盖梁", "C60", 3.6e4, 26.5, 1.96, 38.5, 2.85],
+            ["盖梁2", "C60", 3.6e4, 26.5, 1.96, 38.5, 2.85],
+        ],
+        title="Sample Table",
+    )
+
+    H2("Call Excel Calculation")
+
+    "You can update values for Excel calculation."
+    "And then screenshot the result here."
+    "This is very useful for re-using of existing Excel models."
+
+    H2("Auto Table of Contents")
+    "You can automatically generate a table of contents for your document."
+
+    H2("Saving Document")
+
+    H3("Export TO WORD")
+
+    "You can export the html document to a Word document by pandoc command."
 
     from core.utils.doc import save
 

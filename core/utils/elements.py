@@ -159,8 +159,8 @@ def H(content: str | List[str], *, props: Props | None = None):
 
 def h1(
     content: str | List[str],
-    *,
     classes: str | list[str] | None = None,
+    *,
     props: Props | None = None,
     persist: bool = False,
 ) -> str:
@@ -282,8 +282,8 @@ def P(content: str | List[str], *, props: Props | None = None):
 
 def div(
     content: str | List[str],
-    *,
     classes: str | list[str] | None = None,
+    *,
     props: Props | None = None,
     persist: bool = False,
 ):
@@ -297,11 +297,11 @@ def div(
 
 def Div(
     content: str | List[str],
-    *,
     classes: str | list[str] | None = None,
+    *,
     props: Props | None = None,
 ):
-    return h("div", children=content, classes=classes, props=props, persist=True)
+    h("div", children=content, classes=classes, props=props, persist=True)
 
 
 def span(
@@ -402,19 +402,23 @@ def img(
             custom={**props.custom, **custom_attrs},
         )
 
-    result = div(
-        [
-            h(
-                "img",
-                classes=classes,
-                props=img_props,
-                is_self_closing=True,
-            ),
+    div_children = [
+        h(
+            "img",
+            classes=classes,
+            props=img_props,
+            is_self_closing=True,
+        )
+    ]
+    if alt:
+        div_children.append(
             div(
-                alt or "",
-            ),
-        ],
-        classes="flex flex-col items-center",
+                alt,
+            )
+        )
+    result = div(
+        div_children,
+        classes="flex flex-col items-center justify-center",
     )
 
     if persist:
@@ -448,6 +452,132 @@ def Img(
         classes=classes,
         props=props,
         persist=True,
+    )
+
+
+def table(
+    headers: list[list[str | float]] | list[str | float],
+    rows: list[list[str | float]] | list[str | float],
+    classes: str | list[str] | None = None,
+    *,
+    title: str | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+):
+    """
+    Render an HTML table.
+
+    - headers: either a list of header strings (one header row) or a list of header rows (list of list).
+    - rows: either a list of cell strings (one body row) or a list of body rows (list of list).
+    - title: optional caption for the table.
+    """
+    # Normalize headers
+    header_rows: list[list[str]] = []
+    if headers:
+        if isinstance(headers, list) and headers and isinstance(headers[0], list):
+            header_rows = headers  # type: ignore
+        elif isinstance(headers, list):
+            header_rows = [headers]  # type: ignore
+
+    # Normalize rows
+    body_rows: list[list[str]] = []
+    if rows:
+        if isinstance(rows, list) and rows and isinstance(rows[0], list):
+            body_rows = rows  # type: ignore
+        elif isinstance(rows, list):
+            body_rows = [rows]  # type: ignore
+
+    children: list[str] = []
+
+    if title:
+        children.append(h("caption", children=title))
+
+    if header_rows:
+        thead_children: list[str] = []
+        for hr in header_rows:
+            # 当单元值没有被 th 包裹时，进行包装
+            wrapped_cells = [
+                cell if isinstance(cell, str) and cell.startswith("<th") else th(cell)
+                for cell in hr
+            ]
+            th_cells = "".join(wrapped_cells)
+            thead_children.append(tr(th_cells))
+        children.append(h("thead", children="".join(thead_children)))
+
+    if body_rows:
+        tbody_children: list[str] = []
+        for br in body_rows:
+            # ensure each row is a list of cells
+            cells = br if isinstance(br, list) else [br]
+            # 当单元值没有被 td 包裹时，进行包装
+            wrapped_cells = [
+                cell if isinstance(cell, str) and cell.startswith("<td") else td(cell)
+                for cell in cells
+            ]
+            td_cells = "".join(wrapped_cells)
+            tbody_children.append(tr(td_cells))
+        children.append(h("tbody", children="".join(tbody_children)))
+
+    return h("table", children=children, classes=classes, props=props, persist=persist)
+
+
+def Table(
+    headers: list[list[str | float]] | list[str | float],
+    rows: list[list[str | float]] | list[str | float],
+    classes: str | list[str] | None = None,
+    *,
+    title: str | None = None,
+    props: Props | None = None,
+):
+    """
+    Render an HTML table.
+
+    - headers: either a list of header strings (one header row) or a list of header rows (list of list).
+    - rows: either a list of cell strings (one body row) or a list of body rows (list of list).
+    - title: optional caption for the table.
+    """
+
+    table(
+        headers=headers,
+        rows=rows,
+        title=title,
+        classes=classes,
+        props=props,
+        persist=True,
+    )
+
+
+def th(
+    value: str,
+    *,
+    classes: str | list[str] | None = None,
+    rowspan: int = 1,
+    colspan: int = 1,
+):
+    return h(
+        "th",
+        children=value,
+        classes=classes,
+        props=props(rowspan=rowspan, colspan=colspan),
+        persist=False,
+    )
+
+
+def tr(value: str, *, classes: str | list[str] | None = None):
+    return h(
+        "tr",
+        children=value,
+        classes=classes,
+        persist=False,
+    )
+
+
+def td(value: str, *, classes: str | list[str] | None = None):
+    return h(
+        "td",
+        children=value,
+        classes=classes,
+        persist=False,
     )
 
 

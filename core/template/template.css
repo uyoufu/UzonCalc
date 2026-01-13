@@ -22,7 +22,6 @@ h3,
 h4,
 h5,
 h6 {
-  color: #2c3e50;
   margin-top: 1.5em;
   margin-bottom: 0.5em;
   font-weight: 600;
@@ -30,7 +29,7 @@ h6 {
 
 h1 {
   font-size: 2em;
-  border-bottom: 2px solid #3498db;
+  border-bottom: 2px solid #2b3b4e;
   padding-bottom: 0.3em;
 }
 
@@ -73,23 +72,47 @@ span {
 
 /* 公式样式 */
 .latex {
-  font-size: 1.1em;
+  font-size: inherit;
+  line-height: inherit;
   margin: 0.5em 0;
 }
 
-mjx-container {
+/* MathML / 通用公式容器：让公式继承正文字体尺寸 */
+math,
+.math {
+  font-size: inherit;
+  line-height: inherit;
   margin: 0.5em 0;
 }
 
-/* 行内公式 */
-mjx-container[display="inline"] {
+/* 行内/块级 MathML 显示模式 */
+math[display="inline"] {
   margin: 0 0.2em;
 }
 
-/* 块级公式 */
-mjx-container[display="block"] {
+math[display="block"] {
   margin: 1em 0;
 }
+
+/* 分数字体：让 MathML 的分数及 MathJax 渲染的分子/分母继承正文字体大小 */
+mfrac,
+mfrac * {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+mrow {
+  /* 防止上标与其它符号挨着 */
+  padding-top: 2px;
+}
+
+table {
+  margin: 0 auto;
+} /* 表格整体居中 */
+table th,
+table td {
+  text-align: center;
+} /* 单元格内容居中 */
 
 /* 输入框样式 */
 input {

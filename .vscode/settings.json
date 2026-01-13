@@ -20,6 +20,8 @@
     "Mult",
     "namedexpr",
     "orelse",
+    "pandoc",
+    "rowspan",
     "subscriptify",
     "uzon",
     "uzoncalc"

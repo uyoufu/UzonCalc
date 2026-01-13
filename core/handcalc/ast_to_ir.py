@@ -204,6 +204,20 @@ def _extract_numeric_part(node: ast.AST) -> Optional[ir.MathNode]:
         """递归提取数值部分"""
         if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
             return ir.mn(n.value)
+        if isinstance(n, ast.UnaryOp):
+            # 处理带符号的数值（如 -15）
+            # 如果操作数是常量，直接应用符号到数值
+            if isinstance(n.operand, ast.Constant) and isinstance(n.operand.value, (int, float)):
+                if isinstance(n.op, ast.USub):
+                    return ir.mn(-n.operand.value)
+                elif isinstance(n.op, ast.UAdd):
+                    return ir.mn(n.operand.value)
+            # 对于更复杂的表达式，递归提取
+            operand = _extract(n.operand)
+            if operand is not None:
+                symbol = _UNARY_OPS.get(type(n.op), "")
+                return ir.mrow([ir.mo(symbol), operand])
+            return None
         if _is_unit_node(n):
             return None
         if isinstance(n, ast.BinOp):
