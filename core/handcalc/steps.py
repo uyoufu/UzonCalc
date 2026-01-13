@@ -121,16 +121,46 @@ def substitute_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.Math
 def value_to_ir(value: Any) -> ir.MathNode:
     # Numbers
     if isinstance(value, (int, float)):
-        return ir.mn(value)
+        return ir.mn(_format_number(value))
 
     # Strings
     if isinstance(value, str):
         return ir.mtext(value)
 
     if isinstance(value, pint.Quantity):
-        return ir.mrow([ir.mn(value.magnitude), ir.mo(""), ir.mu(str(value.units))])
+        # 使用 _format_number 处理浮点数精度问题
+        magnitude = value.magnitude
+        if isinstance(magnitude, (int, float)):
+            formatted_magnitude = _format_number(magnitude)
+        else:
+            formatted_magnitude = str(magnitude)
+        return ir.mrow([ir.mn(formatted_magnitude), ir.mo(""), ir.mu(str(value.units))])
 
     return ir.mtext(str(value))
+
+
+def _clean_float(value: float, precision: int = 12) -> float:
+    """清理浮点数精度问题"""
+    # 使用 round 移除浮点数运算误差
+    # precision=12 对大多数工程计算足够准确
+    return round(value, precision)
+
+
+def _format_number(value: float | int) -> str:
+    """格式化数字，移除不必要的小数点和尾随零"""
+    if isinstance(value, int):
+        return str(value)
+
+    # 清理浮点数精度问题
+    cleaned = _clean_float(value)
+
+    # 如果是整数值，不显示小数部分
+    if cleaned == int(cleaned):
+        return str(int(cleaned))
+
+    # 格式化为字符串并移除尾随零
+    formatted = f"{cleaned:.15g}"
+    return formatted
 
 
 def _is_private_lhs(lhs: Any) -> bool:
@@ -173,10 +203,34 @@ class FStringStep:
         """渲染数学表达式片段"""
         runtime_value = locals_map.get(segment.value_var) if segment.value_var else None
 
+        # 如果有格式化规范且值是 pint.Quantity，需要特殊处理
+        if segment.format_spec and runtime_value is not None:
+            import pint
+
+            if isinstance(runtime_value, pint.Quantity):
+                # 分别格式化数值和单位
+                formatted_magnitude = format(
+                    runtime_value.magnitude, segment.format_spec
+                )
+                runtime_value = ir.mrow(
+                    [
+                        ir.mn(formatted_magnitude),
+                        ir.mo(""),
+                        ir.mu(str(runtime_value.units)),
+                    ]
+                )
+            else:
+                # 对于非 Quantity 值，直接格式化
+                formatted_value = format(runtime_value, segment.format_spec)
+                runtime_value = value_to_ir(formatted_value)
+
         # 如果 enable_fstring_equation 为 False，只显示值
         if not ctx.options.enable_fstring_equation:
             if runtime_value is not None:
-                value_ir = value_to_ir(runtime_value)
+                if isinstance(runtime_value, ir.MathNode):
+                    value_ir = runtime_value
+                else:
+                    value_ir = value_to_ir(runtime_value)
                 return ir.equation([value_ir]).to_mathml_xml()
             # 如果没有值，返回空文本
             return ir.equation([ir.mtext("")]).to_mathml_xml()
@@ -184,13 +238,19 @@ class FStringStep:
         if segment.kind == "namedexpr":
             lhs: ir.MathNode = segment.lhs or ir.mtext("")
             rhs: ir.MathNode = segment.rhs or ir.mtext("")
-            parts: list[ir.MathNode] = [lhs] + _build_equation_parts(
-                rhs, locals_map, runtime_value
-            )
+            # 如果 runtime_value 已经是 MathNode，直接使用
+            if isinstance(runtime_value, ir.MathNode):
+                parts: list[ir.MathNode] = [lhs, rhs, runtime_value]
+            else:
+                parts = [lhs] + _build_equation_parts(rhs, locals_map, runtime_value)
             return ir.equation(parts).to_mathml_xml()
 
         expr_node: ir.MathNode = segment.expr or ir.mtext("")
-        parts = _build_equation_parts(expr_node, locals_map, runtime_value)
+        # 如果 runtime_value 已经是 MathNode，直接使用
+        if isinstance(runtime_value, ir.MathNode):
+            parts = [expr_node, runtime_value]
+        else:
+            parts = _build_equation_parts(expr_node, locals_map, runtime_value)
         return ir.equation(parts).to_mathml_xml()
 
     def record(

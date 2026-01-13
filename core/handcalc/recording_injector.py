@@ -135,6 +135,12 @@ class RecordingInjector:
                         arg="value_var", value=ast.Constant(value=segment.value_var)
                     )
                 )
+            if segment.format_spec:
+                keywords.append(
+                    ast.keyword(
+                        arg="format_spec", value=ast.Constant(value=segment.format_spec)
+                    )
+                )
         elif segment.kind == "namedexpr":
             if segment.lhs is not None:
                 keywords.append(
@@ -148,6 +154,12 @@ class RecordingInjector:
                 keywords.append(
                     ast.keyword(
                         arg="value_var", value=ast.Constant(value=segment.value_var)
+                    )
+                )
+            if segment.format_spec:
+                keywords.append(
+                    ast.keyword(
+                        arg="format_spec", value=ast.Constant(value=segment.format_spec)
                     )
                 )
 
