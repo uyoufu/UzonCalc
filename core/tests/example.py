@@ -24,13 +24,7 @@ def sheet(*, unit: UnitRegistry):
         enable_fstring_equation,
     )
 
-    f"混凝土结构考虑容重 {(gamma_c := 26.5 * unit.kN / unit.m**3)}，由程序自动计算。"
-    t_c = 10 * unit.cm
-    hide()
-    # 转换成 m
-    t_c = t_c.to(unit.m)
-    show()
-    value = t_c * 8 * unit.m * gamma_c * 2
+    "(2) 中央防撞护栏："
 
     from core.utils.doc import save
 

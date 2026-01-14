@@ -106,6 +106,15 @@ mrow {
   padding-top: 2px;
 }
 
+/*ref https://github.com/w3c/mathml-core/issues/127#issuecomment-1608312932*/
+math > mrow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: left;
+  gap: 2px;
+}
+
 table {
   margin: 0 auto;
 } /* 表格整体居中 */
@@ -176,8 +185,8 @@ li {
 /* 表格样式 */
 table {
   border-collapse: collapse;
-  width: 100%;
-  margin: 1em 0;
+  width: auto;
+  margin: 1em auto;
 }
 
 th,
