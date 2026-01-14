@@ -19,11 +19,11 @@ class Props:
 
     Example:
         Props(id="my-id", classes="foo bar", styles={"color": "red"})
-        Props(id="my-id", classes=["foo", "bar"], data_value="123")
+        Props(id="my-id", data_value="123")
     """
 
-    classes: str | list[str] | None = None
-    styles: dict[str, str] | None = None
+    class_str: str | None = None
+    style: dict[str, str] | None = None
     id: str | None = None
     custom: dict[str, Any] = field(default_factory=dict)
 
@@ -44,15 +44,12 @@ class Props:
             attrs["id"] = self.id
 
         # Handle classes
-        if self.classes:
-            if isinstance(self.classes, list):
-                attrs["class"] = " ".join(self.classes)
-            else:
-                attrs["class"] = self.classes
+        if self.class_str:
+            attrs["class"] = self.class_str
 
         # Handle styles
-        if self.styles:
-            style_str = "; ".join(f"{k}: {v}" for k, v in self.styles.items())
+        if self.style:
+            style_str = "; ".join(f"{k}: {v}" for k, v in self.style.items())
             attrs["style"] = style_str
 
         # Handle custom attributes
@@ -81,7 +78,7 @@ def props(**kwargs) -> Props:
     id_attr = kwargs.pop("id", None)
 
     # Remaining kwargs become custom attributes
-    return Props(classes=classes, styles=styles, id=id_attr, custom=kwargs)
+    return Props(class_str=classes, style=styles, id=id_attr, custom=kwargs)
 
 
 # endregion
@@ -91,7 +88,7 @@ def h(
     tag: str,
     children: str | List[str] | None = None,
     *,
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     props: Props | None = None,
     persist: bool = False,
     is_self_closing: bool = False,
@@ -111,10 +108,10 @@ def h(
     # Handle classes override
     if classes is not None:
         if props is None:
-            props = Props(classes=classes)
+            props = Props(class_str=classes)
         else:
             props = Props(
-                classes=classes, styles=props.styles, id=props.id, custom=props.custom
+                class_str=classes, style=props.style, id=props.id, custom=props.custom
             )
 
     # Convert Props to HTML attributes
@@ -159,7 +156,7 @@ def H(content: str | List[str], *, props: Props | None = None):
 
 def h1(
     content: str | List[str],
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     *,
     props: Props | None = None,
     persist: bool = False,
@@ -194,7 +191,7 @@ def H1(content: str | List[str], *, props: Props | None = None):
 def h2(
     content: str | List[str],
     *,
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     props: Props | None = None,
     persist: bool = False,
 ) -> str:
@@ -227,7 +224,7 @@ def H2(content: str | List[str], *, props: Props | None = None):
 def h3(
     content: str | List[str],
     *,
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     props: Props | None = None,
     persist: bool = False,
 ) -> str:
@@ -260,7 +257,7 @@ def H3(content: str | List[str], *, props: Props | None = None):
 def p(
     content: str | List[str],
     *,
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     props: Props | None = None,
     persist: bool = False,
 ) -> str:
@@ -282,7 +279,7 @@ def P(content: str | List[str], *, props: Props | None = None):
 
 def div(
     content: str | List[str],
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     *,
     props: Props | None = None,
     persist: bool = False,
@@ -297,7 +294,7 @@ def div(
 
 def Div(
     content: str | List[str],
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     *,
     props: Props | None = None,
 ):
@@ -307,7 +304,7 @@ def Div(
 def span(
     content: str | List[str],
     *,
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     props: Props | None = None,
     persist: bool = False,
 ):
@@ -344,7 +341,7 @@ def Br():
 def row(
     content: str | List[str],
     *,
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     props: Props | None = None,
     persist: bool = False,
     tag: str = "div",
@@ -363,16 +360,16 @@ def Row(
     props: Props | None = None,
     tag: str = "div",
 ):
-    return h(tag, children=content, props=props, persist=True)
+    h(tag, children=content, props=props, persist=True)
 
 
 def img(
     src: str,
+    classes: str | None = None,
     *,
     alt: str | None = None,
     width: str | int | None = None,
     height: str | int | None = None,
-    classes: str | list[str] | None = None,
     props: Props | None = None,
     persist: bool = False,
 ) -> str:
@@ -396,8 +393,8 @@ def img(
         img_props = Props(custom=custom_attrs)
     else:
         img_props = Props(
-            classes=props.classes,
-            styles=props.styles,
+            class_str=props.class_str,
+            style=props.style,
             id=props.id,
             custom={**props.custom, **custom_attrs},
         )
@@ -429,11 +426,11 @@ def img(
 
 def Img(
     src: str,
+    classes: str | None = None,
     *,
     alt: str | None = None,
     width: str | int | None = None,
     height: str | int | None = None,
-    classes: str | list[str] | None = None,
     props: Props | None = None,
 ):
     """
@@ -458,7 +455,7 @@ def Img(
 def table(
     headers: list[list[str | float]] | list[str | float],
     rows: list[list[str | float]] | list[str | float],
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     *,
     title: str | None = None,
     props: Props | None = None,
@@ -524,7 +521,7 @@ def table(
 def Table(
     headers: list[list[str | float]] | list[str | float],
     rows: list[list[str | float]] | list[str | float],
-    classes: str | list[str] | None = None,
+    classes: str | None = None,
     *,
     title: str | None = None,
     props: Props | None = None,
@@ -549,8 +546,8 @@ def Table(
 
 def th(
     value: str,
+    classes: str | None = None,
     *,
-    classes: str | list[str] | None = None,
     rowspan: int = 1,
     colspan: int = 1,
 ):
@@ -563,7 +560,7 @@ def th(
     )
 
 
-def tr(value: str, *, classes: str | list[str] | None = None):
+def tr(value: str, classes: str | None = None):
     return h(
         "tr",
         children=value,
@@ -572,7 +569,7 @@ def tr(value: str, *, classes: str | list[str] | None = None):
     )
 
 
-def td(value: str, *, classes: str | list[str] | None = None):
+def td(value: str, classes: str | None = None):
     return h(
         "td",
         children=value,
