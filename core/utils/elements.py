@@ -254,6 +254,105 @@ def H3(content: str | List[str], *, props: Props | None = None):
     )
 
 
+def h4(
+    content: str | List[str],
+    *,
+    classes: str | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+) -> str:
+    """
+    render a level 4 heading
+    :param content: heading content
+    :param classes: CSS classes to apply (overrides props.classes)
+    """
+    return h(
+        "h4",
+        children=content,
+        classes=classes,
+        props=props,
+        persist=persist,
+    )
+
+
+def H4(content: str | List[str], *, props: Props | None = None):
+    """
+    render a level 4 heading
+    :param content: heading content
+    """
+    h4(
+        content,
+        props=props,
+        persist=True,
+    )
+
+
+def h5(
+    content: str | List[str],
+    *,
+    classes: str | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+) -> str:
+    """
+    render a level 5 heading
+    :param content: heading content
+    :param classes: CSS classes to apply (overrides props.classes)
+    """
+    return h(
+        "h5",
+        children=content,
+        classes=classes,
+        props=props,
+        persist=persist,
+    )
+
+
+def H5(content: str | List[str], *, props: Props | None = None):
+    """
+    render a level 5 heading
+    :param content: heading content
+    """
+    h5(
+        content,
+        props=props,
+        persist=True,
+    )
+
+
+def h6(
+    content: str | List[str],
+    *,
+    classes: str | None = None,
+    props: Props | None = None,
+    persist: bool = False,
+) -> str:
+    """
+    render a level 6 heading
+    :param content: heading content
+    :param classes: CSS classes to apply (overrides props.classes)
+    """
+    return h(
+        "h6",
+        children=content,
+        classes=classes,
+        props=props,
+        persist=persist,
+    )
+
+
+def H6(content: str | List[str], *, props: Props | None = None):
+    """
+    render a level 6 heading
+    :param content: heading content
+    """
+    h6(
+        content,
+        props=props,
+        persist=True,
+    )
+
+
 def p(
     content: str | List[str],
     *,

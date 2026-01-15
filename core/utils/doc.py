@@ -86,7 +86,14 @@ def save(filename: str | None = None):
 def toc(title: str = "Table of Contents"):
     """
     插入目录
+    :param title: 目录标题
     """
     ctx = get_current_instance()
-    # 在当前位置插入目录占位符
-    ctx.append_content(f"<div id='toc' style='page-break-after: always;'><h2>{title}</h2></div>")
+    # 在当前位置插入目录占位符，JavaScript 会自动填充内容
+    toc_html = f"""
+<div id='toc' style='page-break-before:always;page-break-after:always;'>
+    <div class='text-center text-2xl font-semibold'>{title}</div>
+    <div id='toc-container'></div>
+</div>
+"""
+    ctx.append_content(toc_html)

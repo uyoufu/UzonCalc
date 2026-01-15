@@ -10,17 +10,6 @@
         CUSTOM_STYLES
     </style>
     <style>
-        /* 公式样式：mi 为斜体，mtext 为正体 */
-        math mi {
-            font-style: italic;
-            color: #06d;
-        }
-
-        math .unit {
-            color: #239561;
-            font-style: normal;
-        }
-
         /* 页面尺寸设置 */
         @page {
             size: PAGE_SIZE;
@@ -89,19 +78,56 @@
         // JavaScript 代码：自动生成目录
         function generateTOC() {
             const tocContainer = document.getElementById('toc-container');
-            const headings = document.querySelectorAll('h1, h2, h3');  // 扫描标题
-            let tocHTML = '<ul>';
-            headings.forEach(heading => {
-                if (heading.id !== 'toc') {  // 排除目录标题本身
-                    const level = heading.tagName.toLowerCase();
-                    const text = heading.textContent;
-                    tocHTML += `<li><a href="#${heading.id}">${text}</a></li>`;
+            if (!tocContainer) return;  // 如果没有目录容器则退出
+
+            const headings = document.querySelectorAll('h2, h3, h4, h5, h6');  // 扫描 h2-h6 标题
+            const counters = [0, 0, 0, 0, 0];  // h2-h6 的计数器
+            let tocHTML = '<div class="toc-list">';
+
+            headings.forEach((heading, index) => {
+                // 跳过目录容器内的标题
+                if (heading.closest('#toc')) return;
+
+                // 确保标题有 id
+                if (!heading.id) {
+                    heading.id = `heading-${index}`;
                 }
+
+                const level = parseInt(heading.tagName.substring(1)) - 2;  // h2=0, h3=1, ..., h6=4
+
+                // 更新计数器
+                counters[level]++;
+                for (let i = level + 1; i < 5; i++) {
+                    counters[i] = 0;  // 重置下级计数器
+                }
+
+                // 生成章节号
+                let sectionNumber = '';
+                for (let i = 0; i <= level; i++) {
+                    if (counters[i] > 0) {
+                        sectionNumber += (sectionNumber ? '.' : '') + counters[i];
+                    }
+                }
+
+                const text = heading.textContent;
+                const indent = level * 1;  // 每级缩进 1rem
+
+                // 生成目录项：章节号 + 标题 + 点线 + 页码占位符
+                tocHTML += `
+                    <div class="toc-item" style="margin-left: ${indent}rem;">
+                        <a href="#${heading.id}" class="toc-link">
+                            <span class="toc-number">${sectionNumber}</span>
+                            <span class="toc-text">${text}</span>
+                            <span class="toc-dots"></span>
+                            <span class="toc-page" data-page-placeholder="true">[PAGE_${index}]</span>
+                        </a>
+                    </div>`;
             });
-            tocHTML += '</ul>';
-            console.log(tocHTML);
+
+            tocHTML += '</div>';
             tocContainer.innerHTML = tocHTML;
         }
+
         window.onload = generateTOC;  // 页面加载后执行
     </script>
 </head>

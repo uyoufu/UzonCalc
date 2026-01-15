@@ -85,6 +85,17 @@ math,
   margin: 0.5em 0;
 }
 
+/* 公式样式：mi 为斜体，mtext 为正体 */
+math mi {
+  font-style: italic;
+  color: #06d;
+}
+
+math .unit {
+  color: #239561;
+  font-style: normal;
+}
+
 /* 行内/块级 MathML 显示模式 */
 math[display="inline"] {
   margin: 0 0.2em;
@@ -203,6 +214,59 @@ th {
 
 tr:nth-child(even) {
   background-color: #f9f9f9;
+}
+
+/* 目录样式 */
+.toc-list {
+  margin: 20px 0;
+}
+
+.toc-item {
+  margin: 8px 0;
+  page-break-inside: avoid;
+}
+
+.toc-link {
+  display: flex;
+  align-items: baseline;
+  text-decoration: none;
+  color: #333;
+  line-height: 1.6;
+}
+
+.toc-link:hover {
+  color: #06d;
+}
+
+.toc-number {
+  font-weight: 600;
+  margin-right: 1rem;
+}
+
+.toc-text {
+  flex-shrink: 0;
+}
+
+.toc-dots {
+  flex-grow: 1;
+  border-bottom: 1px dotted #999;
+  margin: 0 8px;
+  min-width: 20px;
+}
+
+.toc-page {
+  display: inline-block;
+  min-width: 2em;
+  text-align: right;
+  font-weight: 500;
+  color: #333;
+}
+
+.toc-page[data-page-placeholder="true"] {
+  font-family: "Courier New", monospace;
+  background-color: #f0f0f0;
+  padding: 0 0.25em;
+  border-radius: 2px;
 }
 
 /* 打印样式 */
