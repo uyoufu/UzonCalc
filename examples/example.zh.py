@@ -203,11 +203,11 @@ def sheet():
 
     H3("Export To Word Document")
 
-    "You can export the html document to a Word document by pandoc command."
+    "You can export the html document to a word document by pandoc command."
 
     from core.utils.doc import save
 
-    save("../output/example-full.html")
+    save("../output/example.en.html")
 
 
 if __name__ == "__main__":
