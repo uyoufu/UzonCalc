@@ -8,7 +8,7 @@ def doc_title(title: str):
     :param title: 页面标题
     """
     ctx = get_current_instance()
-    ctx.options.page_title = title
+    ctx.options.doc_title = title
 
 
 def page_size(size: str):
@@ -17,7 +17,7 @@ def page_size(size: str):
     :param size: 页面大小，如 'A4', 'Letter' 等
     """
     ctx = get_current_instance()
-    ctx.options.page_size = size
+    ctx.options.page_info.size = size
 
 
 def style(name: str, value: dict[str, Any]):
@@ -44,7 +44,7 @@ def save(filename: str | None = None):
 
     if not filename:
         # 以当前的标题作为文件名
-        filename = ctx.options.page_title or "UzonCalc Sheet"
+        filename = ctx.options.doc_title or "UzonCalc Sheet"
 
     # 没有扩展名则添加 .html
     if not filename.endswith(".html"):

@@ -1,4 +1,11 @@
+# Core dependencies
 pint>=0.22
+
+# For Excel file handling
+openpyxl>=3.0.0
+xlwings
+
+# Testing dependencies
 pytest
 astpretty
-openpyxl>=3.0.0
+

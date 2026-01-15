@@ -10,16 +10,14 @@
         CUSTOM_STYLES
     </style>
     <style>
+        .content {
+            width: PAGE_WIDTH;
+        }
+
         /* 页面尺寸设置 */
         @page {
             size: PAGE_SIZE;
-            margin: 20mm;
-        }
-
-        @media print {
-            body {
-                width: PAGE_WIDTH;
-            }
+            margin: PAGE_MARGIN;
         }
     </style>
     <script src="https://cdn.tailwindcss.com"></script>
@@ -75,7 +73,71 @@
     </style>
 
     <script>
-        // JavaScript 代码：自动生成目录
+        // JavaScript 代码：自动生成目录并计算页码
+
+        /**
+         * 将CSS单位转换为像素值（96 DPI）
+         * @param {string} value - 带单位的值，如 '20mm', '1in', '2cm'
+         * @returns {number} 转换后的像素值
+         */
+        function convertToPixels(value) {
+            if (!value || typeof value !== 'string') return 0;
+
+            const numValue = parseFloat(value);
+            const unit = value.replace(/[0-9.-]/g, '').trim().toLowerCase();
+
+            switch (unit) {
+                case 'mm':
+                    return numValue * 3.7795275591; // 1mm = 3.78px at 96dpi
+                case 'cm':
+                    return numValue * 37.795275591; // 1cm = 37.8px at 96dpi
+                case 'in':
+                    return numValue * 96; // 1in = 96px at 96dpi
+                case 'pt':
+                    return numValue * 1.333333; // 1pt = 1.33px at 96dpi
+                case 'px':
+                    return numValue;
+                default:
+                    return numValue; // 默认按像素处理
+            }
+        }
+
+        /**
+         * 解析页边距字符串
+         * 支持格式：'20mm'（统一边距）、'10mm 20mm'（上下 左右）、'10mm 15mm 20mm 25mm'（上 右 下 左）
+         * @param {string} marginStr - 页边距字符串
+         * @returns {object} 返回 {top, right, bottom, left} 对象，单位为像素
+         */
+        function parseMargins(marginStr) {
+            if (!marginStr) return { top: 0, right: 0, bottom: 0, left: 0 };
+
+            const parts = marginStr.trim().split(/\s+/);
+            const margins = { top: 0, right: 0, bottom: 0, left: 0 };
+
+            if (parts.length === 1) {
+                // 统一边距：'20mm'
+                const value = convertToPixels(parts[0]);
+                margins.top = margins.right = margins.bottom = margins.left = value;
+            } else if (parts.length === 2) {
+                // 上下 左右：'10mm 20mm'
+                margins.top = margins.bottom = convertToPixels(parts[0]);
+                margins.left = margins.right = convertToPixels(parts[1]);
+            } else if (parts.length === 3) {
+                // 上 左右 下：'10mm 20mm 15mm'
+                margins.top = convertToPixels(parts[0]);
+                margins.left = margins.right = convertToPixels(parts[1]);
+                margins.bottom = convertToPixels(parts[2]);
+            } else if (parts.length >= 4) {
+                // 上 右 下 左：'10mm 15mm 20mm 25mm'
+                margins.top = convertToPixels(parts[0]);
+                margins.right = convertToPixels(parts[1]);
+                margins.bottom = convertToPixels(parts[2]);
+                margins.left = convertToPixels(parts[3]);
+            }
+
+            return margins;
+        }
+
         function generateTOC() {
             const tocContainer = document.getElementById('toc-container');
             if (!tocContainer) return;  // 如果没有目录容器则退出
@@ -119,13 +181,64 @@
                             <span class="toc-number">${sectionNumber}</span>
                             <span class="toc-text">${text}</span>
                             <span class="toc-dots"></span>
-                            <span class="toc-page" data-page-placeholder="true">[PAGE_${index}]</span>
+                            <span class="toc-page" data-heading-id="${heading.id}">-</span>
                         </a>
                     </div>`;
             });
 
             tocHTML += '</div>';
             tocContainer.innerHTML = tocHTML;
+
+            // 延迟计算页码，确保页面完全渲染
+            setTimeout(calculatePageNumbers, 100);
+        }
+
+        function calculatePageNumbers() {
+            const content = document.querySelector('.content');
+            if (!content) return;
+
+            // 获取页面尺寸信息
+            const pageSize = content.getAttribute('page-size') || 'A4';
+            const pageMarginStr = content.getAttribute('page-margin') || '20mm';
+
+            // 解析页边距
+            const margins = parseMargins(pageMarginStr);
+
+            // A4 尺寸（像素，96 DPI）
+            let pageHeightPx = 1122.5; // A4 高度约 297mm
+            if (pageSize === 'Letter') {
+                pageHeightPx = 1056; // Letter 高度 11 inches
+            }
+
+            // 有效页面高度 = 总高度 - 上下边距
+            const effectivePageHeight = pageHeightPx - margins.top - margins.bottom;
+
+            // 获取TOC元素的高度（TOC占据的页数）
+            const tocElement = document.getElementById('toc');
+            let tocPages = 1; // 默认TOC至少占1页
+            if (tocElement) {
+                const tocHeight = tocElement.offsetHeight;
+                tocPages = Math.ceil(tocHeight / effectivePageHeight);
+            }
+
+            // 计算每个标题的页码
+            const headings = document.querySelectorAll('h2, h3, h4, h5, h6');
+            headings.forEach(heading => {
+                if (heading.closest('#toc')) return; // 跳过TOC内的标题
+
+                // 获取标题相对于文档顶部的位置
+                const offsetTop = heading.offsetTop;
+
+                // 计算页码：TOC占据的页数 + 内容页码
+                const contentPage = Math.ceil(offsetTop / effectivePageHeight);
+                const actualPage = tocPages + contentPage;
+
+                // 更新目录中对应的页码
+                const tocPageElement = document.querySelector(`[data-heading-id="${heading.id}"]`);
+                if (tocPageElement) {
+                    tocPageElement.textContent = actualPage;
+                }
+            });
         }
 
         window.onload = generateTOC;  // 页面加载后执行
@@ -133,7 +246,7 @@
 </head>
 
 <body>
-    <div class="content">
+    <div class="content" page-margin="PAGE_MARGIN" page-size="PAGE_SIZE">
         CONTENT
     </div>
 </body>

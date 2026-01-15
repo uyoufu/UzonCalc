@@ -87,8 +87,8 @@ def props(**kwargs) -> Props:
 def h(
     tag: str,
     children: str | List[str] | None = None,
-    *,
     classes: str | None = None,
+    *,
     props: Props | None = None,
     persist: bool = False,
     is_self_closing: bool = False,
@@ -175,14 +175,16 @@ def h1(
     )
 
 
-def H1(content: str | List[str], *, props: Props | None = None):
+def H1(
+    content: str | List[str], classes: str | None = None, *, props: Props | None = None
+):
     """
     render a level 1 heading
     :param content: heading content
     """
-    h(
-        "h1",
-        children=content,
+    h1(
+        content,
+        classes=classes,
         props=props,
         persist=True,
     )

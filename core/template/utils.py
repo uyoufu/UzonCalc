@@ -29,27 +29,6 @@ def load_template() -> str:
     return _template_cache
 
 
-def get_page_size_dimensions(page_size: str) -> tuple[str, str]:
-    """
-    根据页面尺寸名称返回对应的宽度和高度
-
-    Args:
-        page_size: 页面尺寸名称，如 'A4', 'Letter' 等
-
-    Returns:
-        (page_size, width) 元组
-    """
-    page_sizes = {
-        "A4": ("A4", "210mm"),
-        "A3": ("A3", "297mm"),
-        "A5": ("A5", "148mm"),
-        "Letter": ("Letter", "8.5in"),
-        "Legal": ("Legal", "8.5in"),
-    }
-
-    return page_sizes.get(page_size, ("A4", "210mm"))
-
-
 def generate_custom_styles(styles: dict[str, dict[str, Any]]) -> str:
     """
     根据用户自定义样式字典生成 CSS 样式字符串
@@ -91,17 +70,19 @@ def render_html_template(content: str, options: ContextOptions) -> str:
     template = load_template()
 
     # 获取页面尺寸
-    page_size, page_width = get_page_size_dimensions(options.page_size)
+    page_size, page_width = options.page_info.get_page_size_dimensions()
 
     # 生成自定义样式
     custom_styles = generate_custom_styles(options.styles)
 
     # 一次性替换所有占位符，避免多次字符串复制
     replacements = {
-        "PAGE_TITLE": options.page_title,
+        "PAGE_TITLE": options.doc_title,
         "PAGE_SIZE": page_size,
         "PAGE_WIDTH": page_width,
         "CUSTOM_STYLES": custom_styles,
+        "PAGE_SIZE": options.page_info.size,
+        "PAGE_MARGIN": options.page_info.margin,
         "CONTENT": content,
     }
 
