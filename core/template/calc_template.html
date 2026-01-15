@@ -84,6 +84,26 @@
             font-weight: 600 !important;
         }
     </style>
+
+    <script>
+        // JavaScript 代码：自动生成目录
+        function generateTOC() {
+            const tocContainer = document.getElementById('toc-container');
+            const headings = document.querySelectorAll('h1, h2, h3');  // 扫描标题
+            let tocHTML = '<ul>';
+            headings.forEach(heading => {
+                if (heading.id !== 'toc') {  // 排除目录标题本身
+                    const level = heading.tagName.toLowerCase();
+                    const text = heading.textContent;
+                    tocHTML += `<li><a href="#${heading.id}">${text}</a></li>`;
+                }
+            });
+            tocHTML += '</ul>';
+            console.log(tocHTML);
+            tocContainer.innerHTML = tocHTML;
+        }
+        window.onload = generateTOC;  // 页面加载后执行
+    </script>
 </head>
 
 <body>

@@ -1,3 +1,4 @@
 pint>=0.22
 pytest
 astpretty
+openpyxl>=3.0.0

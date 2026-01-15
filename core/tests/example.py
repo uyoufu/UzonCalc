@@ -5,26 +5,15 @@ import sys
 # this script from the `core` folder.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from matplotlib import pyplot as plt
-from pint import UnitRegistry
-from core.template.utils import get_html_template
 from core.setup import uzon_calc
+from core.utils import *
 
 
 @uzon_calc()
-def sheet(*, unit: UnitRegistry):
+def sheet():
+    a = 3
 
-    from core.utils.elements import p, div, span, input, plot
-    from core.utils.options import (
-        hide,
-        show,
-        inline,
-        endline,
-        disable_substitution,
-        enable_fstring_equation,
-    )
-
-    "(2) 中央防撞护栏："
+    "When you write 'alpha', it will be rendered as α."
 
     from core.utils.doc import save
 

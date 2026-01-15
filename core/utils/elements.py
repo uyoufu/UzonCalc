@@ -620,9 +620,17 @@ def plot(fig: Figure, persist: bool = False):
     return img(svg_data_uri, persist=persist)
 
 
-def Plot(fig: Figure):
+def Plot(fig: Figure | bytes):
     """
     render a matplotlib figure as an embedded image
     :param fig: matplotlib Figure object
     """
-    plot(fig, persist=True)
+
+    if isinstance(fig, bytes):
+        import base64
+
+        svg_base64 = base64.b64encode(fig).decode("ascii")
+        svg_data_uri = f"data:image/png;base64,{svg_base64}"
+        Img(svg_data_uri)
+    else:
+        plot(fig, persist=True)

@@ -9,39 +9,24 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from core.setup import uzon_calc
 from core.utils import *
+from core.utils_extra.excel import get_excel_table
 
 
 @uzon_calc()
 def sheet():
-    from core.utils.doc import doc_title, page_size
-    from core.utils.elements import (
-        H1,
-        H2,
-        H3,
-        Plot,
-        p,
-        div,
-        span,
-        input,
-        Table,
-        th,
-        Props,
-    )
-    from core.utils.options import (
-        hide,
-        show,
-        enable_fstring_equation,
-        disable_fstring_equation,
-    )
-
     doc_title("UzonCalc Full Example")
     page_size("A4")
 
     H1("UzonCalc Full Example")
     "This is a full example demonstrating various features of UzonCalc."
 
+    toc()
+
     # description:
     # this is a full example of using UzonCalc.
+
+    H2("Auto Table of Contents")
+    "You can automatically generate a table of contents for your document."
 
     H2("Basic Constants")
     # number
@@ -134,7 +119,7 @@ def sheet():
 
     # 希腊字母
     H2("Greek Letters")
-    "You can use Greek letters like alpha (α), beta (β), gamma (γ), delta (δ), etc. in your calculations."
+    "You can use Greek letters like 'alpha' (α), 'beta' (β), 'gamma' (γ), 'delta' (δ), etc. in your calculations."
     "When you write 'alpha', it will be rendered as α."
     "Capitalized Greek letters like 'Beta' will be rendered as Β."
 
@@ -163,27 +148,28 @@ def sheet():
 
     H2("Tables")
 
-    # 返回表的名称，方便在其它地方引用
+    "You can create tables to organize data."
+
     Table(
         [
             [
-                th("构件", rowspan=3),
-                th("材料", rowspan=3),
-                th("弹性模量(MPa)", colspan=2),
-                th("设计强度(MPa)", colspan=2),
-                th("标准强度(MPa)", colspan=2),
+                th("Component", rowspan=3),
+                th("Material", rowspan=3),
+                th("Elastic Modulus (MPa)", colspan=2),
+                th("Design Strength (MPa)", colspan=2),
+                th("Standard Strength (MPa)", colspan=2),
             ],
             [
                 "Ec/Es",
-                "抗压",
-                "抗拉",
-                "抗压",
-                "抗拉",
+                "Compressive",
+                "Tensile",
+                "Compressive",
+                "Tensile",
             ],
         ],
         [
-            ["盖梁", "C60", 3.6e4, 26.5, 1.96, 38.5, 2.85],
-            ["盖梁2", "C60", 3.6e4, 26.5, 1.96, 38.5, 2.85],
+            ["Cap Beam", "C60", 3.6e4, 26.5, 1.96, 38.5, 2.85],
+            ["Cap Beam 2", "C60", 3.6e4, 26.5, 1.96, 38.5, 2.85],
         ],
         title="Sample Table",
     )
@@ -191,15 +177,30 @@ def sheet():
     H2("Call Excel Calculation")
 
     "You can update values for Excel calculation."
-    "And then screenshot the result here."
-    "This is very useful for re-using of existing Excel models."
+    "And then paste the result here."
+    "This is very useful for re-using of existing Excel calculation."
 
-    H2("Auto Table of Contents")
-    "You can automatically generate a table of contents for your document."
+    P(
+        get_excel_table(
+            excel_path="examples/calculation.xlsx",
+            values={
+                "A3": 6,
+                "B3": 10,
+                "C3": 2,
+            },
+            range="A1:D3",
+        )
+    )
+
+    "Excel table will be cached for faster rendering next time if cache=True and the input values are not changed."
 
     H2("Saving Document")
 
-    H3("Export TO WORD")
+    H3("Save as HTML")
+
+    "You can save the document as an HTML file using the save() function."
+
+    H3("Export To Word Document")
 
     "You can export the html document to a Word document by pandoc command."
 

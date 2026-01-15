@@ -1,4 +1,3 @@
-# region 页面设置
 from typing import Any
 from core.setup import get_current_instance
 
@@ -84,4 +83,10 @@ def save(filename: str | None = None):
     print(f"Document saved to (open with browser): file:///{filename}")
 
 
-# endregion
+def toc(title: str = "Table of Contents"):
+    """
+    插入目录
+    """
+    ctx = get_current_instance()
+    # 在当前位置插入目录占位符
+    ctx.append_content(f"<div id='toc' style='page-break-after: always;'><h2>{title}</h2></div>")
