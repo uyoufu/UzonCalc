@@ -19,6 +19,21 @@
             size: PAGE_SIZE;
             margin: PAGE_MARGIN;
         }
+
+        /* 页眉页脚设置 */
+        @page {
+            @top-left {
+                content: "PAGE_TITLE";
+                font-size: 10pt;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
+            }
+
+            @bottom-center {
+                content: "—— " counter(page) " ——";
+                font-size: 10pt;
+                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
+            }
+        }
     </style>
     <script src="https://cdn.tailwindcss.com"></script>
     <style>

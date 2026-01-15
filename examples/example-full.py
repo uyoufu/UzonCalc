@@ -18,6 +18,7 @@ def sheet():
     page_size("A4")
 
     H1("UzonCalc Full Example")
+
     "This is a full example demonstrating various features of UzonCalc."
 
     toc()
