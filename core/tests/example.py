@@ -11,9 +11,8 @@ from core.utils import *
 
 @uzon_calc()
 def sheet():
-    a = 3
-
-    "When you write 'alpha', it will be rendered as α."
+    operatorResult = (5 + 3) * 2 - 4 / 2**2
+    comparisonResult = (5 > 3) and (2 == 2) or (4 != 5)
 
     from core.utils.doc import save
 

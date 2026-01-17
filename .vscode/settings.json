@@ -24,7 +24,8 @@
     "rowspan",
     "subscriptify",
     "uzon",
-    "uzoncalc"
+    "uzoncalc",
+    "xlwings"
   ],
   "python.testing.pytestArgs": ["core"],
   "python.testing.unittestEnabled": false,

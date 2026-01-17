@@ -202,8 +202,10 @@ table {
 
 th,
 td {
+  /*10pt*/
+  font-size: 0.83rem;
   border: 1px solid #ddd;
-  padding: 0.5em 0.8em;
+  padding: 0.2em 0.4em;
   text-align: left;
 }
 

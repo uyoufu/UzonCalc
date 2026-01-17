@@ -52,10 +52,7 @@ def save(filename: str | None = None):
 
     # 如果 filename 不是绝对路径，则保存到调用者文件所在的目录
     if not os.path.isabs(filename):
-        # 获取调用者的文件路径
-        frame = inspect.stack()[1]
-        caller_file = frame.filename
-        caller_dir = os.path.dirname(os.path.abspath(caller_file))
+        caller_dir = ctx.get_location_dir()
         filename = os.path.join(caller_dir, filename)
 
     # 获取内容

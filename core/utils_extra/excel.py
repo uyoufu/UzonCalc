@@ -1,6 +1,7 @@
 from typing import Any, Optional
 from openpyxl import load_workbook
 import xlwings as xw
+from core.setup import get_current_instance
 
 
 def get_excel_table(
@@ -27,6 +28,17 @@ def get_excel_table(
         ...     'Sheet2!A1:C10'
         ... )
     """
+
+    ctx = get_current_instance()
+    json_db = ctx.get_json_db()
+
+    key_obj = (excel_path, range, values)
+    if cache:
+        # 判断是否有缓存
+        cached_html = json_db.get(key_obj, None)
+        if cached_html is not None:
+            return cached_html
+
     # 使用 xlwings 更新值并计算公式
     if values:
         app = xw.App(visible=False)
@@ -57,6 +69,11 @@ def get_excel_table(
 
         processor.load(sheet_name=sheet_name, data_only=True)
         html = processor.range_to_html(range_address, include_styles=True)
+
+        # 将结果保存到缓存
+        if cache:
+            json_db.set(key_obj, html)
+
         return html
     finally:
         processor.close()

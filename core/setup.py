@@ -19,13 +19,15 @@ def get_current_instance():
 
 
 @contextmanager
-def uzon_calc_core(ctx_name: str | None = None):
+def uzon_calc_core(ctx_name: str | None = None, file_path: str | None = None):
     # 生成一个上下文实例
-    inst = CalcContext(name=ctx_name)
+    inst = CalcContext(name=ctx_name, file_path=file_path)
     token = _calc_instance.set(inst)
     try:
         yield inst
     finally:
+        # 退出上下文
+        inst.exit()
         _calc_instance.reset(token)
 
 
@@ -33,6 +35,9 @@ def uzon_calc_core(ctx_name: str | None = None):
 # 同时支持异步与同步函数
 def uzon_calc(name: str | None = None):
     def deco(fn):
+        # 获取函数所在文件的路径
+        file_path = inspect.getfile(fn)
+
         # 对被装饰函数进行插桩，解析公式，赋值，字符串等
         instrumented_fn = instrument_function(fn)
 
@@ -50,10 +55,9 @@ def uzon_calc(name: str | None = None):
 
             @wraps(fn)
             async def coroutine_wrapper(*args, **kwargs):
-                with uzon_calc_core(name) as ctx:
+                with uzon_calc_core(name, file_path) as ctx:
                     valid_kwargs = _prepare_valid_kwargs(kwargs, ctx)
                     await instrumented_fn(*args, **valid_kwargs)
-
                     return ctx
 
             return coroutine_wrapper
@@ -63,7 +67,7 @@ def uzon_calc(name: str | None = None):
             @wraps(fn)
             def wrapper(*args, **kwargs):
 
-                with uzon_calc_core(name) as ctx:
+                with uzon_calc_core(name, file_path) as ctx:
                     valid_kwargs = _prepare_valid_kwargs(kwargs, ctx)
                     instrumented_fn(*args, **valid_kwargs)
                     return ctx

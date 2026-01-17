@@ -64,6 +64,13 @@ def sheet():
     f"The value of pi is approximately {pi:.3f}, which is useful in calculations."
     disable_fstring_equation()
 
+    H3("Operators")
+
+    "You can use standard arithmetic operators like +, -, *, /, and ** for calculations."
+    "And also use >=, <=, ==, != for comparisons."
+    operatorResult = (5 + 3) * 2 - 4 / 2**2
+    comparisonResult = (5 > 3) and (2 == 2) or (4 != 5)
+
     H2("Units and Calculations")
     length = 5 * unit.meter
     time = 2 * unit.second
@@ -129,6 +136,7 @@ def sheet():
     h = 10 * unit.meter
     pressure = rho_water * g * h
     "Pressure calculated using ρgh:"
+    # output pressure
     pressure
 
     H2("Functions Converter")

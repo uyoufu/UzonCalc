@@ -20,12 +20,12 @@ def _unparse(node: ast.AST) -> str:
 _UNARY_OPS: dict[type, str] = {
     ast.UAdd: "+",
     ast.USub: "-",
-    ast.Not: "not",
+    ast.Not: "¬",
     ast.Invert: "~",
 }
 
 _CMP_OPS: dict[type, str] = {
-    ast.Eq: "=",
+    ast.Eq: "≡",
     ast.NotEq: "≠",
     ast.Lt: "<",
     ast.LtE: "≤",
@@ -113,7 +113,7 @@ def _expr_binop(node: ast.BinOp) -> ir.MathNode:
 
 @expr_to_ir.register(ast.BoolOp)
 def _expr_boolop(node: ast.BoolOp) -> ir.MathNode:
-    op = "and" if isinstance(node.op, ast.And) else "or"
+    op = "∧" if isinstance(node.op, ast.And) else "∨"
     items: List[ir.MathNode] = []
     for idx, v in enumerate(node.values):
         if idx:
@@ -191,15 +191,19 @@ def _extract_numeric_part(node: ast.AST) -> Optional[ir.MathNode]:
     """从包含单位的表达式中提取纯数值计算部分"""
     if not isinstance(node, ast.BinOp):
         return None
-    
+
     def _is_unit_node(n: ast.AST) -> bool:
         """检查是否为单位相关节点"""
-        if isinstance(n, ast.Attribute) and isinstance(n.value, ast.Name) and n.value.id == "unit":
+        if (
+            isinstance(n, ast.Attribute)
+            and isinstance(n.value, ast.Name)
+            and n.value.id == "unit"
+        ):
             return True
         if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Pow):
             return _is_unit_node(n.left)
         return False
-    
+
     def _extract(n: ast.AST) -> Optional[ir.MathNode]:
         """递归提取数值部分"""
         if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
@@ -207,7 +211,9 @@ def _extract_numeric_part(node: ast.AST) -> Optional[ir.MathNode]:
         if isinstance(n, ast.UnaryOp):
             # 处理带符号的数值（如 -15）
             # 如果操作数是常量，直接应用符号到数值
-            if isinstance(n.operand, ast.Constant) and isinstance(n.operand.value, (int, float)):
+            if isinstance(n.operand, ast.Constant) and isinstance(
+                n.operand.value, (int, float)
+            ):
                 if isinstance(n.op, ast.USub):
                     return ir.mn(-n.operand.value)
                 elif isinstance(n.op, ast.UAdd):
@@ -223,8 +229,12 @@ def _extract_numeric_part(node: ast.AST) -> Optional[ir.MathNode]:
         if isinstance(n, ast.BinOp):
             left, right = _extract(n.left), _extract(n.right)
             if left and right:
-                return ir.mrow([left, ir.mo("·"), right]) if isinstance(n.op, ast.Mult) else ir.mfrac(left, right)
+                return (
+                    ir.mrow([left, ir.mo("·"), right])
+                    if isinstance(n.op, ast.Mult)
+                    else ir.mfrac(left, right)
+                )
             return left or right
         return None
-    
+
     return _extract(node)
