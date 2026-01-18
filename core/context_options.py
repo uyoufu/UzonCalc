@@ -3,6 +3,8 @@ from core.handcalc.post_handlers.post_pipeline import get_default_post_handlers
 
 
 class PageInfo:
+    font_family: str = "仿宋, Arial, sans-serif"
+
     # A3, A4, A5, Letter, etc.
     size: str = "A4"
     # units: mm

@@ -152,6 +152,34 @@ def _expr_call(node: ast.Call) -> ir.MathNode:
     return ir.mrow([ir.mtext(func_name), ir.mo("("), *arg_nodes, ir.mo(")")])
 
 
+@expr_to_ir.register(ast.List)
+def _expr_list(node: ast.List) -> ir.MathNode:
+    """Render list literals as array-value nodes.
+
+    This keeps display consistent with runtime list values (see value_to_ir),
+    so we don't end up with both a textual "[10, 20]" and a structured array
+    representation on the same equation line.
+    """
+
+    items: List[ir.MathNode] = []
+    for idx, elt in enumerate(node.elts):
+        if idx:
+            items.append(ir.mo(","))
+        items.append(expr_to_ir(elt))
+    return ir.mrow_array([ir.mo("["), *items, ir.mo("]")])
+
+
+@expr_to_ir.register(ast.Tuple)
+def _expr_tuple(node: ast.Tuple) -> ir.MathNode:
+    # Keep consistent with runtime tuple rendering, which currently uses brackets.
+    items: List[ir.MathNode] = []
+    for idx, elt in enumerate(node.elts):
+        if idx:
+            items.append(ir.mo(","))
+        items.append(expr_to_ir(elt))
+    return ir.mrow_array([ir.mo("["), *items, ir.mo("]")])
+
+
 @expr_to_ir.register(ast.Attribute)
 def _expr_attribute(node: ast.Attribute) -> ir.MathNode:
     # like unit.meter
@@ -159,6 +187,52 @@ def _expr_attribute(node: ast.Attribute) -> ir.MathNode:
         return ir.mu(node.attr)
     else:
         return ir.mi(_unparse(node))
+
+
+def _subscript_base_name(node: ast.AST) -> Optional[str]:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return _unparse(node)
+    return None
+
+
+def _slice_to_ir(node: ast.AST) -> ir.MathNode:
+    if isinstance(node, ast.Constant):
+        if isinstance(node.value, (int, float)):
+            return ir.mn(node.value)
+        return ir.mtext(str(node.value))
+    if isinstance(node, ast.Name):
+        return ir.mi(node.id)
+    if isinstance(node, ast.Tuple):
+        parts: list[ir.MathNode] = []
+        for idx, elt in enumerate(node.elts):
+            if idx:
+                parts.append(ir.mo(","))
+            parts.append(_slice_to_ir(elt))
+        return ir.mrow(parts)
+    if isinstance(node, ast.Slice):
+        parts: list[ir.MathNode] = []
+        if node.lower is not None:
+            parts.append(_slice_to_ir(node.lower))
+        parts.append(ir.mo(":"))
+        if node.upper is not None:
+            parts.append(_slice_to_ir(node.upper))
+        if node.step is not None:
+            parts.append(ir.mo(":"))
+            parts.append(_slice_to_ir(node.step))
+        return ir.mrow(parts)
+    return ir.mtext(_unparse(node).replace(" ", ""))
+
+
+@expr_to_ir.register(ast.Subscript)
+def _expr_subscript(node: ast.Subscript) -> ir.MathNode:
+    base_name = _subscript_base_name(node.value)
+    if base_name is None:
+        return ir.mtext(_unparse(node))
+
+    sub_ir = _slice_to_ir(node.slice)
+    return ir.msub(ir.mi(base_name), sub_ir)
 
 
 # _cmp_op_to_str 已由 _CMP_OPS 字典替代

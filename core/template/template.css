@@ -1,8 +1,6 @@
 /* UzonCalc 计算表格样式 */
 
 body {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
-    "Microsoft YaHei", "微软雅黑";
   margin: 20px;
   line-height: 1.8;
   color: #333;
@@ -57,7 +55,7 @@ h3::before {
 
 /* 段落样式 */
 p {
-  padding: 2px 0;
+  padding: 0.2rem 0;
   text-indent: 2em;
 }
 
@@ -82,7 +80,7 @@ math,
 .math {
   font-size: inherit;
   line-height: inherit;
-  margin: 0.5em 0;
+  /* margin: 0.5em 0; */
 }
 
 /* 公式样式：mi 为斜体，mtext 为正体 */
@@ -90,6 +88,30 @@ math mi {
   font-style: italic;
   color: #06d;
 }
+
+math .array-var {
+  /* 避免打印到 PDF 时落入仅 Regular 的数学字体导致粗体失效 */
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
+    "Microsoft YaHei", "微软雅黑";
+  font-style: normal;
+  font-weight: 700;
+  color: #06d;
+}
+
+/*
+ * Edge/Chromium 打印为 PDF 时，MathML 可能回退到只有 Regular 的数学字体，导致粗体失效。
+ * 这里对“应为粗体”的标识符改用带粗体字重的文本字体，确保屏幕/打印一致。
+ */
+math mi[mathvariant="bold"] {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
+    "Microsoft YaHei", "微软雅黑";
+  font-weight: 700;
+}
+
+/* math .array-value {
+  font-style: normal;
+  font-weight: bold;
+} */
 
 math .unit {
   color: #239561;
@@ -167,19 +189,43 @@ input:focus {
 pre,
 code {
   font-family: "Consolas", "Monaco", "Courier New", monospace;
-  background-color: #f8f9fa;
-  border-radius: 3px;
+  background-color: #f6f8fa;
+  border-radius: 4px;
 }
 
+/* 内联代码样式 */
 code {
   padding: 0.2em 0.4em;
   font-size: 0.9em;
+  color: #d73a49;
+  border: 1px solid #e1e4e8;
 }
 
+/* 代码块容器样式 */
 pre {
-  padding: 1em;
+  /* padding: 0.8em 0.5em 0.8em 0; */
   overflow-x: auto;
   border: 1px solid #e1e4e8;
+  line-height: 1.5;
+  margin: 1em 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 代码块内的code标签 - 覆盖内联代码样式 */
+pre code {
+  padding: 0;
+  font-size: 0.9em;
+  color: inherit;
+  background-color: transparent;
+  border: none;
+  display: block;
+  white-space: pre;
+}
+
+/* Highlight.js 主题增强 */
+pre .hljs {
+  background-color: transparent;
+  padding: 0;
 }
 
 /* 列表样式 */
@@ -281,7 +327,7 @@ tr:nth-child(even) {
 }
 
 .toc-page[data-page-placeholder="true"] {
-  font-family: "Courier New", monospace;
+  font-family: inherit;
   background-color: #f0f0f0;
   padding: 0 0.25em;
   border-radius: 2px;
@@ -292,6 +338,17 @@ tr:nth-child(even) {
   body {
     margin: 0;
     color: #000;
+  }
+
+  /*
+   * 修复 Chromium/Edge 打印为 PDF 时 MathML 斜体丢失：
+   * MathML 可能回退到仅 Regular 的数学字体，导致 mathvariant=italic 变正体。
+   * 这里在打印介质下强制使用带斜体字形的文本字体，并提升优先级。
+   */
+  math mi[mathvariant="italic"],
+  math mi:not([mathvariant]) {
+    font-family: inherit !important;
+    font-style: italic !important;
   }
 
   .content {

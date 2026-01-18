@@ -6,10 +6,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PAGE_TITLE</title>
     <link rel="stylesheet" href="template.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
     <style>
         CUSTOM_STYLES
     </style>
     <style>
+        body {
+            font-family: BODY_FONT_FAMILY;
+        }
+
         .content {
             width: PAGE_WIDTH;
         }
@@ -36,6 +41,7 @@
         }
     </style>
     <script src="https://cdn.tailwindcss.com"></script>
+
     <style>
         /* 修复 Tailwind CSS 重置标题样式的问题 - 按照论文格式设置标题大小 */
         h1 {
@@ -86,6 +92,15 @@
             font-weight: 600 !important;
         }
     </style>
+</head>
+
+<body>
+    <div class="content" page-margin="PAGE_MARGIN" page-size="PAGE_SIZE">
+        CONTENT
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script>hljs.highlightAll();</script>
 
     <script>
         // JavaScript 代码：自动生成目录并计算页码
@@ -258,12 +273,6 @@
 
         window.onload = generateTOC;  // 页面加载后执行
     </script>
-</head>
-
-<body>
-    <div class="content" page-margin="PAGE_MARGIN" page-size="PAGE_SIZE">
-        CONTENT
-    </div>
 </body>
 
 </html>

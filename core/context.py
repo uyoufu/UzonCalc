@@ -32,7 +32,7 @@ class CalcContext:
 
         # 对 content 进行后处理
         for handler in self.options.post_handlers:
-            content = handler.handle(content)
+            content = handler.handle(content, ctx=self)
 
         # 若有 row_values，则添加到 row_values 中
         # 在其它地方将其转换成一行内容

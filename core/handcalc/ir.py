@@ -6,6 +6,9 @@ from typing import Any, ClassVar, List
 import xml.etree.ElementTree as ET
 
 
+_FACTORY_NAME_OVERRIDES: dict[type, str] = {}
+
+
 # MathNode IR node definitions
 # ============================
 # These are simple dataclasses representing MathML-like structures.
@@ -103,8 +106,10 @@ class MathNode:
         if not is_dataclass(self):
             return ast.Constant(value=str(self))
 
-        # 使用简化的构造逻辑
-        factory_name = type(self).__name__.lower()
+        # 使用简化的构造逻辑（带少量显式映射，避免 MiArray/MRowArray 等变体名不一致）
+        factory_name = _FACTORY_NAME_OVERRIDES.get(
+            type(self), type(self).__name__.lower()
+        )
         factory_call = ast.Attribute(
             value=ast.Name(id=ir_var_name, ctx=ast.Load()),
             attr=factory_name,
@@ -171,7 +176,16 @@ class MMath(MathNode):
 class Mi(MathNode):
     name: str
     tag: ClassVar[str] = "mi"
+    mathml_attrib: ClassVar[dict[str, str]] = {"mathvariant": "italic"}
     single_primitive_payload: ClassVar[bool] = True
+
+
+@dataclass(frozen=True, slots=True)
+class MiArray(Mi):
+    mathml_attrib: ClassVar[dict[str, str]] = {
+        "class": "array-var",
+        "mathvariant": "bold",
+    }
 
 
 @dataclass(frozen=True, slots=True)
@@ -209,6 +223,21 @@ class MText(MathNode):
 class MRow(MathNode):
     children: List[MathNode]
     tag: ClassVar[str] = "mrow"
+
+
+@dataclass(frozen=True, slots=True)
+class MRowArray(MRow):
+    mathml_attrib: ClassVar[dict[str, str]] = {"class": "array-value"}
+
+
+# Register factory function name overrides used by MathNode.to_python_ast.
+_FACTORY_NAME_OVERRIDES.update(
+    {
+        MiArray: "mi_array",
+        MRowArray: "mrow_array",
+        MMath: "mmath",
+    }
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -322,6 +351,10 @@ def mi(name: str) -> Mi:
     return Mi(name=name)
 
 
+def mi_array(name: str) -> MiArray:
+    return MiArray(name=name)
+
+
 def mu(name: str) -> Mu:
     return Mu(name=name)
 
@@ -342,6 +375,10 @@ def mrow(children: List[MathNode]) -> MRow:
     return MRow(children=children)
 
 
+def mrow_array(children: List[MathNode]) -> MRowArray:
+    return MRowArray(children=children)
+
+
 def mfrac(num: MathNode, den: MathNode) -> MFrac:
     return MFrac(numerator=num, denominator=den)
 
@@ -360,6 +397,10 @@ def msqrt(body: MathNode) -> MSqrt:
 
 def mfenced(body: MathNode, *, open: str = "(", close: str = ")") -> MFenced:
     return MFenced(body=body, open=open, close=close)
+
+
+def mmath(children: List[MathNode]) -> MMath:
+    return MMath(children=children)
 
 
 def equation(parts: List[MathNode]) -> Equation:

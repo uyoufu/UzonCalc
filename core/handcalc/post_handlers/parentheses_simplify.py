@@ -8,7 +8,9 @@ class ParenthesesSimplify(BasePostHandler):
     仅处理 MathML 标签内的数字，不影响普通文本内容
     """
 
-    def handle(self, data: str) -> str:
+    priority = 40
+
+    def handle(self, data: str, ctx=None) -> str:
         # 只匹配 MathML 数字标签 <mn> 内的括号数字
         # 例如: <mn>(5)</mn> -> <mn>5</mn>
         # 但不会影响 <p>(2) 中央防撞护栏：</p> 这样的文本内容

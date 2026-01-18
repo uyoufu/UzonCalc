@@ -77,6 +77,7 @@ def render_html_template(content: str, options: ContextOptions) -> str:
 
     # 一次性替换所有占位符，避免多次字符串复制
     replacements = {
+        "BODY_FONT_FAMILY": options.page_info.font_family,
         "PAGE_TITLE": options.doc_title,
         "PAGE_SIZE": page_size,
         "PAGE_WIDTH": page_width,

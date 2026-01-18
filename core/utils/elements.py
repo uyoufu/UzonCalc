@@ -695,6 +695,62 @@ def Input(content: str):
     input(content, persist=True)
 
 
+def code(content: str, language: str | None = None):
+    """
+    render inline code
+    :param content: code content
+    :param persist: if True, will append to the current document context
+    """
+    # 分割成行并添加行号
+    lines = content.split("\n")
+    # 去掉首尾空行
+    while lines and lines[0].strip() == "":
+        lines.pop(0)
+    while lines and lines[-1].strip() == "":
+        lines.pop()
+
+    # 如果指定了语言，添加language-xxx类以支持highlight.js
+    lang_class = f"language-{language}" if language else ""
+    code_html = h(
+        "code",
+        children=str.join("\n", [line for line in lines]),
+        classes=lang_class,
+    )
+    pre_html = h("pre", children=code_html)
+    return pre_html
+
+
+def Code(content: str, language: str | None = None):
+    """
+    render a code block with syntax highlighting
+    :param content: code content
+    :param language: programming language for syntax highlighting (e.g., 'python', 'javascript', 'html')
+    """
+    pre_html = code(content, language=language)
+    ctx = get_current_instance()
+    ctx.append_content(pre_html)
+
+
+def info(content: str, persist: bool = False):
+    """
+    render an info box
+    :param content: info box content
+    """
+    return div(
+        content,
+        classes="flex flex-row items-center bg-blue-100 border border-blue-400 text-blue-700 px-4 py-3 rounded relative",
+        persist=persist,
+    )
+
+
+def Info(content: str):
+    """
+    render an info box
+    :param content: info box content
+    """
+    info(content, persist=True)
+
+
 def laTex(content: str, persist: bool = False):
     """
     内容为 latex 语法，渲染为 mathML 格式

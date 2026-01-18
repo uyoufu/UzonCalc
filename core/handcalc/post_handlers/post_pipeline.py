@@ -38,4 +38,6 @@ def get_default_post_handlers() -> List[BasePostHandler]:
             # 忽略导入错误，继续处理其他模块
             pass
 
+    # 按优先级执行（数值越小越靠前），同优先级按类名稳定排序，避免不同平台导入顺序差异
+    handlers.sort(key=lambda h: (getattr(h, "priority", 100), h.__class__.__name__))
     return handlers

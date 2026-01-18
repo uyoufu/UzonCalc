@@ -11,6 +11,15 @@ def doc_title(title: str):
     ctx.options.doc_title = title
 
 
+def font_family(family: str):
+    """
+    设置页面字体
+    :param family: 字体名称，如 'Arial', 'Times New Roman' 等
+    """
+    ctx = get_current_instance()
+    ctx.options.font_family = family
+
+
 def page_size(size: str):
     """
     设置页面大小

@@ -1,5 +1,6 @@
 from pathlib import Path
 import sys
+import numpy as np
 
 # Ensure project root is on sys.path so `import core` works when running
 # this script from the `core` folder.
@@ -11,8 +12,7 @@ from core.utils import *
 
 @uzon_calc()
 def sheet():
-    operatorResult = (5 + 3) * 2 - 4 / 2**2
-    comparisonResult = (5 > 3) and (2 == 2) or (4 != 5)
+    gamma_0 = 9.81 * unit.meter / unit.second**2
 
     from core.utils.doc import save
 

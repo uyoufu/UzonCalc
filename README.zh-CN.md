@@ -9,6 +9,8 @@ UzonCalc 是一个使用 python 语言来编写工程计算书的软件，使用
 2. 可以享受 python 生态和 AI 支持
 3. 只需要专注于计算，不需要关注排版
 4. 直接输出漂亮的 HTML，可转换成 PDF 与 Docx
+5. 支持单位计算，自动进行单位换算和检查
+6. 支持调用 Excel 计算表格，复用现有计算模型
 
 ## 示例
 
@@ -125,4 +127,10 @@ if __name__ == "__main__":
 效果预览：
 
 ![image-20260110162359040](https://oss.uzoncloud.com:2234/public/files/images/image-20260110162359040.png)
+
+## Demo
+
+原文档: [example.en.py](https://github.com/uyoufu/UzonCalc/blob/master/examples/example.zh.py)
+
+编译后结果: [UzonCalc Full Example](https://calc.uzoncloud.com/example.zh.html)
 

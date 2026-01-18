@@ -7,6 +7,8 @@ from core.handcalc.post_handlers.base_post_handler import BasePostHandler
 class SwapSymbol(BasePostHandler):
     """后处理器：将希腊英文替换为数学符号，跳过引号内的内容"""
 
+    priority = 20
+
     # 希腊字母映射表
     _REPLACEMENTS = {
         "alpha": "α",
@@ -69,10 +71,10 @@ class SwapSymbol(BasePostHandler):
     # 匹配希腊字母的正则（按长度降序避免部分匹配）
     _greek_words = sorted(_REPLACEMENTS.keys(), key=len, reverse=True)
     _GREEK_PATTERN = re.compile(
-        r"\b(" + "|".join(re.escape(w) for w in _greek_words) + r")\b"
+        r"\b(" + "|".join(re.escape(w) for w in _greek_words) + r")(?=[_\s\W]|$)"
     )
 
-    def handle(self, data: str) -> str:
+    def handle(self, data: str, ctx=None) -> str:
         """使用占位符方法替换希腊字母，保护引号内的内容"""
         # 步骤1：用占位符临时替换所有引号内容
         quotes = []

@@ -16,14 +16,17 @@ class Subscriptify(BasePostHandler):
     - 含连续 '_' 的不处理（如 concrete__code）
     """
 
-    _mi_pattern = re.compile(r"<mi>([^<]+)</mi>")
+    priority = 30
 
-    def handle(self, data: str) -> str:
-        if "<mi>" not in data or "_" not in data:
+    _mi_pattern = re.compile(r"<mi([^>]*)>([^<]+)</mi>")
+
+    def handle(self, data: str, ctx=None) -> str:
+        if "<mi" not in data or "_" not in data:
             return data
 
         def _repl(m: re.Match[str]) -> str:
-            name = m.group(1)
+            attrs = m.group(1)
+            name = m.group(2)
             if "_" not in name:
                 return m.group(0)
             if name.startswith("_") or name.endswith("_"):
@@ -35,7 +38,7 @@ class Subscriptify(BasePostHandler):
             if any(p == "" for p in parts):
                 return m.group(0)
 
-            base_xml = f"<mi>{parts[0]}</mi>"
+            base_xml = f"<mi{attrs}>{parts[0]}</mi>"
             for sub in parts[1:]:
                 sub_xml = f"<mtext>{sub}</mtext>"
                 base_xml = f"<msub>{base_xml}{sub_xml}</msub>"

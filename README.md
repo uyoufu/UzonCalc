@@ -1,5 +1,7 @@
 # UzonCalc
 
+[中文](README.zh-CN.md)
+
 UzonCalc is a tool for writing engineering calculation documents using Python. With it, you can write calculation reports as smoothly as writing Python, and benefit from the full Python ecosystem and AI assistance.
 
 ## Features
@@ -235,5 +237,11 @@ if __name__ == "__main__":
 
 Preview:
 
+![image-20260110162359040](https://oss.uzoncloud.com:2234/public/files/images/image-20260110162359040.png)
 
-Click [UzonCalc Full Example](https://calc.uzoncloud.com/example.en.html) to view html result and test print
+
+## Demo
+
+Source: [example.en.py](https://github.com/uyoufu/UzonCalc/blob/master/examples/example.en.py)
+
+Compile Result: [UzonCalc Full Example](https://calc.uzoncloud.com/example.en.html)

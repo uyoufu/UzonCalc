@@ -1,5 +1,6 @@
 # Core dependencies
 pint>=0.22
+numpy
 
 # For Excel file handling
 openpyxl>=3.0.0

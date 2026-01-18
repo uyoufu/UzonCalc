@@ -84,13 +84,13 @@ def alias(name, value):
     """
     define a variable symbol
     :param name: variable name
-    :param value: variable value
+    :param value: variable value, None to remove alias
     """
+    if not name:
+        return
     ctx = get_current_instance()
     # 将别名保存到上下文的别名字典中
     ctx.options.aliases[name] = value
-
-    return value
 
 
 # endregion
