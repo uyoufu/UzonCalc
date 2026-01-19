@@ -4,7 +4,7 @@ HTML template for rendering calculation sheets with LaTeX support.
 
 import os
 from typing import Any
-from core.context_options import ContextOptions
+from ..context_options import ContextOptions
 
 # 模板缓存，避免重复加载文件
 _template_cache: str | None = None
@@ -106,7 +106,7 @@ def get_html_template(content: str) -> str:
     Returns:
         Complete HTML string.
     """
-    from core.context_options import ContextOptions
+    from ..context_options import ContextOptions
 
     default_options = ContextOptions()
     return render_html_template(content, default_options)

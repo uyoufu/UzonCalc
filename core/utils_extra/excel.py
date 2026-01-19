@@ -1,7 +1,7 @@
 from typing import Any, Optional
 from openpyxl import load_workbook
 import xlwings as xw
-from core.setup import get_current_instance
+from ..setup import get_current_instance
 
 
 def get_excel_table(

@@ -11,6 +11,39 @@ UzonCalc is a tool for writing engineering calculation documents using Python. W
 3. Focus on calculations, not layout
 4. Output beautiful HTML directly; convertible to PDF and Docx
 
+## Start
+
+**Installation**
+
+``` bash
+pip install uzoncalc
+```
+
+**Copy Template**
+
+``` Python
+# example.py
+from uzoncalc import *
+
+@uzon_calc()
+def sheet():
+    doc_title("uzoncalc example")
+
+    "Hello, UzonCalc!"
+
+    save()
+
+
+if __name__ == "__main__":
+    sheet()
+```
+
+**Execution**
+
+``` python
+python example.py
+```
+
 ## Example
 
 ``` python

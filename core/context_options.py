@@ -1,9 +1,9 @@
-from core.handcalc.post_handlers.base_post_handler import BasePostHandler
-from core.handcalc.post_handlers.post_pipeline import get_default_post_handlers
+from .handcalc.post_handlers.base_post_handler import BasePostHandler
+from .handcalc.post_handlers.post_pipeline import get_default_post_handlers
 
 
 class PageInfo:
-    font_family: str = "仿宋, Arial, sans-serif"
+    font_family: str = "Times New Roman, Arial, sans-serif"
 
     # A3, A4, A5, Letter, etc.
     size: str = "A4"

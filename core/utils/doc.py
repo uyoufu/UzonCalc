@@ -1,5 +1,5 @@
 from typing import Any
-from core.setup import get_current_instance
+from ..setup import get_current_instance
 
 
 def doc_title(title: str):
@@ -17,7 +17,7 @@ def font_family(family: str):
     :param family: 字体名称，如 'Arial', 'Times New Roman' 等
     """
     ctx = get_current_instance()
-    ctx.options.font_family = family
+    ctx.options.page_info.font_family = family
 
 
 def page_size(size: str):
@@ -44,7 +44,7 @@ def save(filename: str | None = None):
     保存当前文档为指定文件
     :param filename: 文件名（可以是完整路径或仅文件名）
     """
-    from core.template.utils import render_html_template
+    from ..template.utils import render_html_template
     import shutil
     import os
     import inspect

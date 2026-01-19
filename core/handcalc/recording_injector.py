@@ -3,9 +3,9 @@
 import ast
 from typing import Optional
 
-from core.handcalc import ir
-from core.handcalc import steps
-from core.handcalc.field_names import FieldNames
+from . import ir
+from . import steps
+from .field_names import FieldNames
 
 
 class RecordingInjector:

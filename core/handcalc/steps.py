@@ -6,9 +6,9 @@ from typing import Any, Literal, Mapping, Protocol
 
 import pint
 
-from core.context import CalcContext
-from core.handcalc import ir
-from core.handcalc.transformers import transform_ir
+from ..context import CalcContext
+from . import ir
+from .transformers import transform_ir
 import numpy as np
 
 # 常量定义

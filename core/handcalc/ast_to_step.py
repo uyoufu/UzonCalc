@@ -3,9 +3,9 @@
 import ast
 from typing import Optional
 
-from core.handcalc import ir
-from core.handcalc import steps
-from core.handcalc.ast_to_ir import expr_to_ir, target_to_ir
+from . import ir
+from . import steps
+from .ast_to_ir import expr_to_ir, target_to_ir
 
 
 class AstToStepConverter:

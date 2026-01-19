@@ -15,8 +15,17 @@
             font-family: BODY_FONT_FAMILY;
         }
 
+        /*正文内容：显示与打印分开*/
         .content {
-            width: PAGE_WIDTH;
+            width: calc(PAGE_WIDTH + 4rem);
+            padding: 0 2rem;
+        }
+
+        @media print {
+            .content {
+                width: PAGE_WIDTH;
+                padding: 0;
+            }
         }
 
         /* 页面尺寸设置 */

@@ -1,6 +1,6 @@
 import re
 
-from core.handcalc.post_handlers.base_post_handler import BasePostHandler
+from .base_post_handler import BasePostHandler
 
 
 class Subscriptify(BasePostHandler):

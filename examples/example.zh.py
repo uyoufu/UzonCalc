@@ -59,8 +59,32 @@ def sheet():
     toc("目录")
 
     H2("安装使用")
+
     "你可以通过 pip 安装 UzonCalc："
     Code("pip install uzoncalc", "bash")
+
+    "安装完成后，复制以下模板使用："
+    Code(
+        """
+from uzoncalc import *
+
+@uzon_calc()
+def sheet():
+    doc_title("uzoncalc example")
+
+    "Hello, UzonCalc!"
+
+    save()
+
+
+if __name__ == "__main__":
+    sheet()
+         """,
+        "python",
+    )
+
+    "然后运行该脚本即可生成计算书文档："
+    Code("python example.py", "bash")
 
     H2("Python 基础语法")
 
@@ -127,7 +151,7 @@ def sheet():
     Code(
         """
 age_xm = 30
-alias("human_age", "人的年龄")
+alias("age_xm", "人的年龄")
 age_xm
 name_xm = "小明"
 alias("name_xm", "姓名_小明")
@@ -139,13 +163,13 @@ alias(name_xm, None)
 name_xm
 alias("age_xm", None)
 "别名已移除，age_xm 变量恢复原名"
-name_xm
+age_xm
 """,
         "python",
     )
 
     age_xm = 30
-    alias("human_age", "人的年龄")
+    alias("age_xm", "小明的年龄")
     age_xm
     name_xm = "小明"
     alias("name_xm", "姓名_小明")
@@ -153,13 +177,15 @@ name_xm
 
     "别名定义后，变量在文档中将以别名形式显示。"
 
-    "可以定义一个 None 值的别名来移除别名，例如:"
+    "可以定义一个 None 值的别名来移除别名。"
+
     alias(name_xm, None)
     "别名已移除，name_xm 变量恢复原名"
     name_xm
 
     alias("age_xm", None)
     "别名已移除，age_xm 变量恢复原名"
+    age_xm
 
     H2("字符串")
 

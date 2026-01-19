@@ -6,7 +6,7 @@ from typing import Any, List
 from matplotlib.figure import Figure
 import matplotlib.pyplot as plt
 
-from core.setup import get_current_instance
+from ..setup import get_current_instance
 
 
 # region Data Classes

@@ -1,7 +1,7 @@
 from typing import Any
 import os
-from core.context_options import ContextOptions
-from core.db.json_db import JsonDB
+from .context_options import ContextOptions
+from .db.json_db import JsonDB
 
 
 class CalcContext:

@@ -14,8 +14,6 @@ from core.utils import *
 def sheet():
     gamma_0 = 9.81 * unit.meter / unit.second**2
 
-    from core.utils.doc import save
-
     save("../../output/example.html")
 
 

@@ -12,6 +12,39 @@ UzonCalc 是一个使用 python 语言来编写工程计算书的软件，使用
 5. 支持单位计算，自动进行单位换算和检查
 6. 支持调用 Excel 计算表格，复用现有计算模型
 
+## 开始使用
+
+**安装包**
+
+``` bash
+pip install uzoncalc
+```
+
+**复制模板**
+
+``` Python
+# example.py
+from uzoncalc import *
+
+@uzon_calc()
+def sheet():
+    doc_title("uzoncalc example")
+
+    "Hello, UzonCalc!"
+
+    save()
+
+
+if __name__ == "__main__":
+    sheet()
+```
+
+**执行**
+
+``` python
+python example.py
+```
+
 ## 示例
 
 ``` python
@@ -128,9 +161,10 @@ if __name__ == "__main__":
 
 ![image-20260110162359040](https://oss.uzoncloud.com:2234/public/files/images/image-20260110162359040.png)
 
+
 ## Demo
 
-原文档: [example.en.py](https://github.com/uyoufu/UzonCalc/blob/master/examples/example.zh.py)
+原文档: [example.zh.py](https://github.com/uyoufu/UzonCalc/blob/master/examples/example.zh.py)
 
-编译后结果: [UzonCalc Full Example](https://calc.uzoncloud.com/example.zh.html)
+编译后结果: [示例文档](https://calc.uzoncloud.com/example.zh.html)
 

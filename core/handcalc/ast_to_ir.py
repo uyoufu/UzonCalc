@@ -3,7 +3,7 @@ from __future__ import annotations
 import ast
 from functools import singledispatch
 from typing import Any, List, Optional
-from core.units import unit
+from ..units import unit
 from pint.util import UnitsContainer
 from . import ir
 from .unit_collector import UnitExpressionCollector, unit_powers_to_expr

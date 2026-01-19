@@ -54,8 +54,33 @@ def sheet():
     toc("Table of Contents")
 
     H2("Installation and Usage")
+
     "Install via pip:"
     Code("pip install uzoncalc", "bash")
+
+    "A simple example script is as follows:"
+    Code(
+        """
+from uzoncalc import *
+
+@uzon_calc()
+def sheet():
+    doc_title("uzoncalc example")
+
+    "Hello, UzonCalc!"
+
+    save()
+
+
+if __name__ == "__main__":
+    sheet()
+
+         """,
+        "python",
+    )
+
+    "Run the script with:"
+    Code("python example.py", "bash")
 
     H2("Python Basics")
     "Here are some Python basics to help you get started with UzonCalc."
@@ -91,7 +116,7 @@ def sheet():
     Code(
         """
 age_xm = 30
-alias("human_age", "Person's age")
+alias("age_xm", "Person's age")
 age_xm
 name_xm = "Xiao Ming"
 alias("name_xm", "Name_XiaoMing")
@@ -101,7 +126,7 @@ name_xm
     )
 
     age_xm = 30
-    alias("human_age", "Person's age")
+    alias("age_xm", "Person's age")
     age_xm
     name_xm = "Xiao Ming"
     alias("name_xm", "Name_XiaoMing")
@@ -111,6 +136,7 @@ name_xm
     alias(name_xm, None)
     name_xm
     alias("age_xm", None)
+    age_xm
 
     H2("Strings")
     "Single, double or triple quotes can be used to output paragraphs."

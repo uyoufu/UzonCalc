@@ -3,10 +3,10 @@ from contextlib import contextmanager
 from functools import wraps
 import inspect
 
-from core.context import CalcContext
-from core.handcalc.ast_instrument import instrument_function
+from .context import CalcContext
+from .handcalc.ast_instrument import instrument_function
 
-from core.units import unit
+from .units import unit
 
 _calc_instance = ContextVar[CalcContext | None]("calc_ctx", default=None)
 

@@ -3,10 +3,10 @@
 from __future__ import annotations
 from typing import TYPE_CHECKING, Optional
 
-from core.handcalc.post_handlers.base_post_handler import BasePostHandler
+from .base_post_handler import BasePostHandler
 
 if TYPE_CHECKING:
-    from core.context import CalcContext
+    from ..context import CalcContext
 
 
 class SwapAlias(BasePostHandler):

@@ -1,11 +1,11 @@
 import ast
 from typing import Optional
 
-from core.handcalc.field_names import FieldNames
-from core.handcalc.recording_state import RecordingState
-from core.handcalc.ast_to_step import AstToStepConverter
-from core.handcalc.recording_injector import RecordingInjector
-from core.handcalc import ir
+from .field_names import FieldNames
+from .recording_state import RecordingState
+from .ast_to_step import AstToStepConverter
+from .recording_injector import RecordingInjector
+from . import ir
 
 # description:
 # 本模块定义了一个 AST 访问器类，用于遍历和修改 AST 树，

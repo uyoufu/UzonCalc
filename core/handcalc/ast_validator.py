@@ -3,7 +3,7 @@
 import ast
 from typing import Set
 
-from core.handcalc.exceptions import ValidationError
+from .exceptions import ValidationError
 
 # description
 # 本模块用于验证插桩后的 AST 树，确保其中只包含允许的节点类型。

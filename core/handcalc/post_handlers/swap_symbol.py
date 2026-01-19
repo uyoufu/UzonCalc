@@ -1,7 +1,7 @@
 """后处理器：将希腊英文替换为数学符号"""
 
 import re
-from core.handcalc.post_handlers.base_post_handler import BasePostHandler
+from .base_post_handler import BasePostHandler
 
 
 class SwapSymbol(BasePostHandler):

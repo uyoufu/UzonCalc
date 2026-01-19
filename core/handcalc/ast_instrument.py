@@ -4,11 +4,11 @@ import textwrap
 from types import FunctionType
 from typing import Any, Callable, Dict
 
-from core.handcalc.ast_visitor import AstNodeVisitor
-from core.handcalc.field_names import FieldNames
-from core.handcalc.instrument_cache import InstrumentCache
-from core.handcalc.exceptions import InstrumentationError
-from core.handcalc.ast_validator import validate_ast
+from .ast_visitor import AstNodeVisitor
+from .field_names import FieldNames
+from .instrument_cache import InstrumentCache
+from .exceptions import InstrumentationError
+from .ast_validator import validate_ast
 
 
 def instrument_function(func: Callable[..., Any]) -> FunctionType:
@@ -100,9 +100,9 @@ def __get_inject_globals():
     获取插桩时需要注入的全局变量表。
     """
     # 注入记录步骤的函数
-    from core.handcalc import recorder
-    from core.handcalc import ir as uzon_ir
-    from core.handcalc import steps as uzon_steps
+    from . import recorder
+    from . import ir as uzon_ir
+    from . import steps as uzon_steps
 
     return {
         FieldNames.uzon_record_step: recorder.record_step,
