@@ -2,7 +2,7 @@
 
 
 class RecordingState:
-    """管理 AST 插桩的记录开关状态"""
+    """管理 AST 插桩的记录开关状态（全局控制）"""
 
     def __init__(self) -> None:
         self._enabled: bool = True

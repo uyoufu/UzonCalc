@@ -12,9 +12,9 @@ setuptools.setup(
     description="UzonCalc is a tool for writing engineering calculation documents using Python. With it, you can write calculation reports as smoothly as writing Python, and benefit from the full Python ecosystem and AI assistance.",
     long_description=long_description,
     long_description_content_type="text/markdown",
-    package_dir={"uzoncalc": "core"},
+    package_dir={"uzoncalc": "uzoncalc"},
     packages=["uzoncalc"]
-    + ["uzoncalc." + p for p in setuptools.find_packages(where="core")],
+    + ["uzoncalc." + p for p in setuptools.find_packages(where="uzoncalc")],
     package_data={
         "uzoncalc.template": ["*.html", "*.css"],
     },

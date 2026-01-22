@@ -114,6 +114,7 @@ class ContextOptions:
 
         # 是否跳过内容记录
         # 若为 True，则不会记录内容到 ctx.contents 中
+        # 通过全局的 hide()/show() 来控制
         # 逻辑在两个地方实现
         # 1. 在 AST 解析时，遇到 hide() 时，将不会继续解析
         # 2. CalcContext.append_content 方法中进行检查

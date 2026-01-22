@@ -141,6 +141,50 @@ def h(
     return html_result
 
 
+def title(text: str, classes: str | None = None, *, persist: bool = False):
+    """
+    设置文档标题
+    :param text: 标题文本
+    """
+    return h(
+        "p",
+        children=text,
+        classes=classes,
+        props=Props(class_str="font-bold text-4xl text-center my-4"),
+        persist=persist,
+    )
+
+
+def Title(text: str, classes: str | None = None):
+    """
+    设置文档标题
+    :param text: 标题文本
+    """
+    title(text, classes=classes, persist=True)
+
+
+def subtitle(text: str, classes: str | None = None, *, persist: bool = False):
+    """
+    设置文档副标题
+    :param text: 副标题文本
+    """
+    return h(
+        "p",
+        children=text,
+        classes=classes,
+        props=Props(class_str="font-bold text-center"),
+        persist=persist,
+    )
+
+
+def Subtitle(text: str, classes: str | None = None):
+    """
+    设置文档副标题
+    :param text: 副标题文本
+    """
+    subtitle(text, classes=classes, persist=True)
+
+
 def H(content: str | List[str], *, props: Props | None = None):
     """
     render a level 0 heading
@@ -767,17 +811,17 @@ def LaTex(content: str):
     laTex(content, persist=True)
 
 
-def plot(fig: Figure, persist: bool = False):
+def plot(fig: Figure, width=None, persist: bool = False):
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
     svg_bytes = buf.getvalue()
     svg_base64 = base64.b64encode(svg_bytes).decode("ascii")
     svg_data_uri = f"data:image/png;base64,{svg_base64}"
-    return img(svg_data_uri, persist=persist)
+    return img(svg_data_uri, width=width, persist=persist)
 
 
-def Plot(fig: Figure | bytes):
+def Plot(fig: Figure | bytes, width=None):
     """
     render a matplotlib figure as an embedded image
     :param fig: matplotlib Figure object
@@ -788,6 +832,6 @@ def Plot(fig: Figure | bytes):
 
         svg_base64 = base64.b64encode(fig).decode("ascii")
         svg_data_uri = f"data:image/png;base64,{svg_base64}"
-        Img(svg_data_uri)
+        Img(svg_data_uri, width=width)
     else:
-        plot(fig, persist=True)
+        plot(fig, width=width, persist=True)

@@ -6,13 +6,30 @@ import numpy as np
 # this script from the `core` folder.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from core.setup import uzon_calc
-from core.utils import *
+from uzoncalc.setup import uzon_calc
+from uzoncalc.utils import *
 
 
 @uzon_calc()
 def sheet():
-    gamma_0 = 9.81 * unit.meter / unit.second**2
+
+    width = 1 * unit.meter
+    gtZero = True if width.magnitude > 0 else False
+
+    hide()
+
+    def compute_area(w: float, l: float) -> float:
+        hide()
+        area = w * l
+        show()
+        return area
+
+    if width.magnitude > 0:
+        show()
+
+        area2 = compute_area(1, 2)
+
+        length = 2 * width
 
     save("../../output/example.html")
 

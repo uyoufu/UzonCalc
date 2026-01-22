@@ -6,14 +6,18 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
-from core.setup import uzon_calc
-from core.utils import *
-from core.utils_extra.excel import get_excel_table
+from uzoncalc.setup import uzon_calc
+from uzoncalc.utils import *
+from uzoncalc.utils_extra.excel import get_excel_table
 import numpy as np
 
 
 @uzon_calc()
 def sheet():
+    # 定义 UI
+    
+
+
     # 设置 title: 打印 pdf 时，将在页眉左侧显示
     doc_title("UzonCalc 使用说明")
 

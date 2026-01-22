@@ -50,14 +50,21 @@ class AstNodeVisitor(ast.NodeTransformer):
             node.iter = self.visit(node.iter)  # type: ignore[assignment]
         if hasattr(node, "test"):
             node.test = self.visit(node.test)  # type: ignore[assignment]
+        
         node.body = self._transform_stmt_block(node.body)
-        node.orelse = self._transform_stmt_block(node.orelse)
+        
+        if node.orelse:
+            node.orelse = self._transform_stmt_block(node.orelse)
+        
         return node
 
     def visit_If(self, node: ast.If) -> ast.AST:
         node.test = self.visit(node.test)  # type: ignore[assignment]
         node.body = self._transform_stmt_block(node.body)
-        node.orelse = self._transform_stmt_block(node.orelse)
+        
+        if node.orelse:
+            node.orelse = self._transform_stmt_block(node.orelse)
+        
         return node
 
     def visit_For(self, node: ast.For) -> ast.AST:
@@ -83,8 +90,13 @@ class AstNodeVisitor(ast.NodeTransformer):
 
     def visit_Try(self, node: ast.Try) -> ast.AST:
         node.body = self._transform_stmt_block(node.body)
-        node.orelse = self._transform_stmt_block(node.orelse)
-        node.finalbody = self._transform_stmt_block(node.finalbody)
+        
+        if node.orelse:
+            node.orelse = self._transform_stmt_block(node.orelse)
+        
+        if node.finalbody:
+            node.finalbody = self._transform_stmt_block(node.finalbody)
+        
         node.handlers = [self.visit(h) for h in node.handlers]  # type: ignore[assignment]
         return node
 
@@ -240,8 +252,19 @@ class AstNodeVisitor(ast.NodeTransformer):
                 continue
 
             if not self._state.enabled:
-                # Do not visit / instrument this statement or any children.
-                out.append(stmt)
+                # 即使在 hide 状态下，也需要 visit 控制流语句（If, For, While, With, Try）
+                # 以便它们的 body 可以被正确处理（其中可能包含 show() 调用）
+                if isinstance(stmt, (ast.If, ast.For, ast.AsyncFor, ast.While, 
+                                    ast.With, ast.AsyncWith, ast.Try)):
+                    visited = self.visit(stmt)
+                    if visited is not None:
+                        if isinstance(visited, list):
+                            out.extend(visited)
+                        else:
+                            out.append(visited)  # type: ignore[arg-type]
+                else:
+                    # 其他语句不进行插桩
+                    out.append(stmt)
                 continue
 
             visited = self.visit(stmt)

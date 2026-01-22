@@ -493,15 +493,20 @@ def _apply_format_spec(value: Any, format_spec: str) -> Any:
 
 
 def _render_value_only(value: Any) -> str:
-    """仅渲染值（不显示表达式）"""
-    if value is not None:
-        if isinstance(value, ir.MathNode):
-            value_ir = value
-        else:
-            value_ir = value_to_ir(value)
-        return ir.equation([value_ir]).to_mathml_xml()
-    # 如果没有值，返回空文本
-    return ir.equation([ir.mtext("")]).to_mathml_xml()
+    """仅渲染值（不显示表达式），直接返回字符串，不包裹 math"""
+    if value is None:
+        return ""
+
+    # 直接将值转换为字符串
+    if isinstance(value, str):
+        return html.escape(value)
+
+    if isinstance(value, pint.Quantity):
+        # 对于 Quantity，显示数值和单位
+        return html.escape(f"{value.magnitude} {value.units}")
+
+    # 对于其他类型，直接转字符串
+    return html.escape(str(value))
 
 
 def _render_namedexpr(
