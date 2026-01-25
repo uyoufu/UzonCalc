@@ -1,0 +1,11 @@
+# 异步数据库依赖
+# 在原有 requirements.txt 基础上添加以下包
+
+# SQLite 异步驱动
+aiosqlite>=0.19.0
+
+# PostgreSQL 异步驱动
+asyncpg>=0.29.0
+
+# SQLAlchemy 异步支持（确保版本 >= 2.0）
+sqlalchemy[asyncio]>=2.0.0

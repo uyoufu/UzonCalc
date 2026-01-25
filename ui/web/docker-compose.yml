@@ -1,0 +1,11 @@
+services:
+  uzon-calc-dev:
+    container_name: uzon-calc-dev
+    image: node:20.11.0
+    volumes:
+      - ./:/app/uzon-calc
+    working_dir: /app/uzon-calc
+    ports:
+      - 9000:9000
+    init: true
+    command: [ "sh", "-c", "exec sleep infinity" ]

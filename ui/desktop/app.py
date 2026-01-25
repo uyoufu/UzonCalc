@@ -19,7 +19,11 @@ def start_backend():
 
 start_backend()
 
-webview.create_window("UzonCalc", html=html, js_api=JsApi())
+webview.create_window(
+    "UzonCalc",
+    url="http://localhost:3346/",
+    js_api=JsApi(),
+)
 webview.start()
 
 

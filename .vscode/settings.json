@@ -1,6 +1,7 @@
 {
   "python.analysis.extraPaths": ["./"],
   "cSpell.words": [
+    "asctime",
     "astpretty",
     "BINOP",
     "cmpop",
@@ -9,6 +10,7 @@
     "finalbody",
     "fstring",
     "handcalc",
+    "levelname",
     "mathml",
     "mathrm",
     "mathvariant",
@@ -26,6 +28,7 @@
     "orelse",
     "pandoc",
     "pytest",
+    "redoc",
     "rowspan",
     "subscriptify",
     "uyoufu",
@@ -36,6 +39,6 @@
   "python.testing.pytestArgs": ["core"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-  "python.defaultInterpreterPath": "D:\\scoop\\apps\\miniconda3\\current\\envs\\py12\\python.exe",
+  "python.defaultInterpreterPath": "D:\\scoop\\apps\\miniconda3\\current\\envs\\base\\python.exe",
   "editor.tabSize": 2
 }

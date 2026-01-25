@@ -1,0 +1,22 @@
+# async file
+aiofiles
+
+# Web framework
+fastapi
+python-multipart
+uvicorn
+
+# date utils
+interval
+
+# data handling
+numpy
+
+# ORM
+SQLAlchemy
+Alembic
+
+websockets
+
+# schedule
+apscheduler

@@ -1,0 +1,50 @@
+{
+  "folders": [
+    {
+      "name": "Project",
+      "path": ".",
+    },
+    {
+      "name": "Core",
+      "path": "uzoncalc",
+    },
+    {
+      "name": "CLI",
+      "path": "cli",
+    },
+    {
+      "name": "API",
+      "path": "ui/api",
+    },
+    {
+      "name": "Desktop",
+      "path": "ui/desktop",
+    },
+    {
+      "name": "Web",
+      "path": "ui/web",
+    },
+  ],
+  "settings": {
+    "python.analysis.extraPaths": [], // 或为每个根设置特定路径
+    "python.testing.unittestEnabled": false,
+    "python.testing.pytestEnabled": true,
+    "python.defaultInterpreterPath": "D:\\scoop\\apps\\miniconda3\\current\\python.exe",
+    "editor.tabSize": 2,
+    "cSpell.words": [
+      "gensalt",
+      "hashpw",
+      "onupdate",
+      "redoc",
+      "sessionmaker",
+      "uzoncalc",
+      "vuedraggable"
+    ],
+    "i18n-ally.localesPaths": [
+      "ui/web/src/i18n",
+      "ui/web/public/tinymce/langs",
+      "ui/web/src/i18n/locales",
+      "ui/web/public/tinymce/plugins/help/js/i18n"
+    ],
+  },
+}
