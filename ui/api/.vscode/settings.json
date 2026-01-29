@@ -1,0 +1,10 @@
+{
+  "python.analysis.extraPaths": [
+    "../../",
+    "../../uzoncalc",
+  ],
+  "cSpell.words": [
+    "uzon",
+    "uzoncalc"
+  ]
+}

@@ -1,32 +1,35 @@
 {
   "folders": [
     {
-      "name": "Project",
+      "name": "project",
       "path": ".",
     },
     {
-      "name": "Core",
+      "name": "uzoncalc",
       "path": "uzoncalc",
     },
     {
-      "name": "CLI",
+      "name": "cli",
       "path": "cli",
     },
     {
-      "name": "API",
+      "name": "api",
       "path": "ui/api",
     },
     {
-      "name": "Desktop",
+      "name": "desktop",
       "path": "ui/desktop",
     },
     {
-      "name": "Web",
+      "name": "web",
       "path": "ui/web",
     },
   ],
   "settings": {
-    "python.analysis.extraPaths": [], // 或为每个根设置特定路径
+    "python.analysis.extraPaths": [
+      ".",
+      "./uzoncalc",
+    ],
     "python.testing.unittestEnabled": false,
     "python.testing.pytestEnabled": true,
     "python.defaultInterpreterPath": "D:\\scoop\\apps\\miniconda3\\current\\python.exe",
@@ -45,7 +48,7 @@
       "ui/web/src/i18n",
       "ui/web/public/tinymce/langs",
       "ui/web/src/i18n/locales",
-      "ui/web/public/tinymce/plugins/help/js/i18n"
+      "ui/web/public/tinymce/plugins/help/js/i18n",
     ],
   },
 }

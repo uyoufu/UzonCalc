@@ -195,5 +195,25 @@ class AppConfig:
 
     # endregion
 
+    # region sandbox
+    @property
+    def sandbox_mode(self) -> str:
+        return self.get("sandbox", "mode")
+
+    @property
+    def sandbox_safe_dirs(self) -> list[str]:
+        dirs = self.get("sandbox", "safe_dirs")
+        return [d.strip() for d in dirs.split(",") if d.strip()]
+
+    @property
+    def sandbox_session_timeout(self) -> int:
+        return self.__config.getint("sandbox", "session_timeout")
+
+    @property
+    def sandbox_url(self) -> str:
+        return self.get("sandbox", "sandbox_url")
+
+    # endregion
+
 
 app_config = AppConfig()

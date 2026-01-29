@@ -50,7 +50,6 @@ def uzon_calc(name: str | None = None):
             merged["unit"] = unit
             return {k: v for k, v in merged.items() if k in sig.parameters}
 
-        # 判断是否为异步函数
         if inspect.iscoroutinefunction(instrumented_fn):
 
             @wraps(fn)
@@ -60,6 +59,8 @@ def uzon_calc(name: str | None = None):
                     await instrumented_fn(*args, **valid_kwargs)
                     return ctx
 
+            # 标记函数被 uzon_calc 装饰
+            setattr(coroutine_wrapper, "_uzon_calc_entry", True)
             return coroutine_wrapper
 
         else:
@@ -72,6 +73,8 @@ def uzon_calc(name: str | None = None):
                     instrumented_fn(*args, **valid_kwargs)
                     return ctx
 
+            # 标记函数被 uzon_calc 装饰
+            setattr(wrapper, "_uzon_calc_entry", True)
             return wrapper
 
     return deco

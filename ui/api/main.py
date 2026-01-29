@@ -44,6 +44,12 @@ async def lifespan(app: FastAPI):
     # migrations
     # run_migrations()
 
+    # init sandbox
+    from app.sandbox.integration import get_sandbox_config, initialize_sandbox
+
+    sandbox_config = get_sandbox_config()
+    await initialize_sandbox(sandbox_config)
+
     yield
 
     try:
