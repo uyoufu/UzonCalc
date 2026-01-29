@@ -31,7 +31,7 @@ async def get_all_calc_categories(
     - 需要有效的 Authorization token
 
     **返回数据:**
-    - 分类列表，每项包含: _id, name, description, cover, order, total
+    - 分类列表，每项包含: oid, name, description, cover, order, total
     """
     categories = await calc_report_category_service.get_all_categories(
         tokenPayloads.id, session
@@ -71,9 +71,9 @@ async def create_calc_category(
     return ok(data=result)
 
 
-@router.put("/{categoryId}")
+@router.put("/{categoryOid}")
 async def update_calc_category(
-    categoryId: str,
+    categoryOid: str,
     data: CategoryInfoReqDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
@@ -100,15 +100,15 @@ async def update_calc_category(
     - 更新后的分类详细信息
     """
     result = await calc_report_category_service.update_category(
-        tokenPayloads.id, categoryId, data, session
+        tokenPayloads.id, categoryOid, data, session
     )
-    logger.info(f"更新分类: userId={tokenPayloads.id}, categoryId={categoryId}")
+    logger.info(f"更新分类: userId={tokenPayloads.id}, categoryOid={categoryOid}")
     return ok(data=result)
 
 
 @router.post("/reorder")
 async def update_calc_categories_order(
-    categoryIds: list[str] = Body(...),
+    categoryOids: list[str] = Body(...),
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[None]:
@@ -129,9 +129,9 @@ async def update_calc_categories_order(
     - 空响应（仅返回成功状态）
     """
     await calc_report_category_service.update_categories_order(
-        tokenPayloads.id, categoryIds, session
+        tokenPayloads.id, categoryOids, session
     )
-    logger.info(f"更新分类排序: userId={tokenPayloads.id}, count={len(categoryIds)}")
+    logger.info(f"更新分类排序: userId={tokenPayloads.id}, count={len(categoryOids)}")
     return ok()
 
 

@@ -3,7 +3,7 @@
     v-model:pagination="pagination" dense :loading="loading" :filter="filter" binary-state-sort
     @request="onTableRequest">
     <template v-slot:top-left>
-      <CreateBtn />
+      <CreateBtn :tooltip="t('calcReportPage.newCalcReportTooltip')" @click="goToNewCalcReport" />
     </template>
 
     <template v-slot:top-right>
@@ -23,6 +23,7 @@
 </template>
 
 <script lang="ts" setup>
+import { t } from 'src/i18n/helpers'
 import type { QTableColumn } from 'quasar'
 import { useQTable, useQTableIndex } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
@@ -51,19 +52,26 @@ const columns: QTableColumn[] = [
   }
 ]
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
-async function getRowsNumberCount(filterObj: TTableFilterObject) {
+function getRowsNumberCount(filterObj: TTableFilterObject) {
   return 0
 }
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+// eslint-disable-next-line @typescript-eslint/no-unused-vars, @typescript-eslint/require-await
 async function onRequest(filterObj: TTableFilterObject, pagination: IRequestPagination) {
   return []
 }
 
 const { pagination, rows, filter, onTableRequest, loading } = useQTable({
   getRowsNumberCount,
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+
   onRequest
 })
+
+
+// #region go newCalcReport
+import { useNewCalcReportRoute } from '../../new/useNewCalcReportRoute'
+const { goToNewCalcReport } = useNewCalcReportRoute()
+
+// #endregion
 </script>
 
 <style lang="scss" scoped></style>

@@ -1,3 +1,4 @@
+from typing import AsyncGenerator
 from fastapi import Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -9,9 +10,13 @@ from utils.jwt_helper import TokenPayloads, verify_jwt
 from config import logger
 
 
-def get_session() -> AsyncSession:
-    """获取数据库会话的依赖注入函数"""
-    return get_db_manager().get_session()
+async def get_session() -> AsyncGenerator[AsyncSession, None]:
+    """
+    depend for getting a database session
+    it yields an AsyncSession instance from the db manager
+    """
+    async with get_db_manager().session() as session:
+        yield session
 
 
 def get_request_token(request: Request) -> str:
@@ -75,13 +80,13 @@ async def get_current_user(
     :return: 当前用户对象
     :raises: CustomException 如果用户不存在或已被删除
     """
-    user_id = payload._id
+    user_id = payload.oid
     if not user_id:
         logger.warning("Token payload missing user ID")
         raise_ex("Invalid token: missing user ID", code=401)
 
     # 从数据库查询完整用户信息
-    result = await session.execute(select(User).where(User._id == user_id))
+    result = await session.execute(select(User).where(User.oid == user_id))
     user = result.scalars().first()
 
     if not user:

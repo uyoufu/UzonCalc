@@ -1,11 +1,12 @@
 from pydantic import BaseModel, Field
 from typing import Optional, List
 
+from app.controller.dto_base import BaseDTO
 from app.db.models.user import User, UserStatus
 from utils.jwt_helper import TokenPayloads
 
 
-class UserSignInDTO(BaseModel):
+class UserSignInDTO(BaseDTO):
     # 用户名
     username: str
     # 密码
@@ -14,8 +15,8 @@ class UserSignInDTO(BaseModel):
     model_config = {"extra": "allow"}
 
 
-class UserInfoDTO(BaseModel):
-    _id: str
+class UserInfoDTO(BaseDTO):
+    oid: str
     id: int
     username: str
     name: str | None
@@ -23,10 +24,10 @@ class UserInfoDTO(BaseModel):
     status: UserStatus
 
 
-class UserSignInResponseDTO(BaseModel):
+class UserSignInResponseDTO(BaseDTO):
     """用户登录响应数据模型"""
 
-    _id: str
+    oid: str
     # 用户 ID
     id: int
     # 用户角色列表
@@ -46,13 +47,10 @@ class UserSignInResponseDTO(BaseModel):
 
 def get_access_token_payloads(user: User) -> TokenPayloads:
     """Return the payload for access token generation."""
-    return TokenPayloads(
-        _id=user._id,
-        id=user.id,
-        username=user.username,
-        type="access",
-        roles=user.roles,
-    )
+    # support validating from an ORM model instance's attributes
+    payloads = TokenPayloads.model_validate(user, from_attributes=True)
+    payloads.type = "access"
+    return payloads
 
 
 def get_refresh_token_payloads(user: User) -> TokenPayloads:

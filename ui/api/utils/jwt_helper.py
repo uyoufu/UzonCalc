@@ -10,11 +10,11 @@ from .date_time_helper import get_utc_now
 class TokenPayloads(BaseModel):
     """访问令牌负载数据模型"""
 
-    _id: str
+    oid: str
     id: int
     username: str
-    type: str
     roles: List[str]
+    type: str | None = None
     iat: datetime | None = None
     exp: datetime | None = None
 

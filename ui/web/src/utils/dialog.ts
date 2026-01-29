@@ -99,16 +99,16 @@ export async function confirmOperation (title: string, message: string): Promise
       ok: {
         color: 'primary',
         icon: 'check_circle',
-        label: t('confirm'),
-        tooltip: t('confirmOperation'),
+        label: t('global.confirm'),
+        tooltip: t('global.confirmOperation'),
         size: 'md',
         dense: true
       },
       cancel: {
         color: 'negative',
         icon: 'cancel',
-        label: t('cancel'),
-        tooltip: t('cancelOperation'),
+        label: t('global.cancel'),
+        tooltip: t('global.cancelOperation'),
         size: 'md',
         dense: true
       }

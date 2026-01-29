@@ -27,6 +27,7 @@
     "html-to-image": "^1.11.13",
     "lodash": "^4.17.21",
     "loglevel": "^1.9.2",
+    "monaco-editor": "^0.55.1",
     "path-browserify": "^1.0.1",
     "pinia": "^3.0.1",
     "primevue": "^4.3.1",

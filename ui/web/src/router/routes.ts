@@ -64,7 +64,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
     component: NormalLayout,
     meta: {
       label: 'calcReportPage.calcReport',
-      icon: 'article',
+      icon: 'article'
     },
     redirect: '/calc-report/list',
     children: [
@@ -75,7 +75,25 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
           icon: 'article',
           label: 'calcReportPage.calcReport'
         },
-        component: () => import('pages/calcReport/list/CalcList.vue')
+        component: () => import('pages/calcReport/list/CalcReportList.vue')
+      },
+      {
+        name: 'newCalcReport',
+        path: 'new',
+        meta: {
+          icon: 'add',
+          label: 'calcReportPage.newCalcReport'
+        },
+        component: () => import('pages/calcReport/new/newCalcReport.vue')
+      },
+      {
+        name: 'calcReportViewer',
+        path: 'viewer',
+        meta: {
+          icon: 'visibility',
+          label: 'calcReportPage.calcReportViewer'
+        },
+        component: () => import('pages/calcReport/viewer/calcReportViewer.vue')
       }
     ]
   },
@@ -85,7 +103,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
     component: NormalLayout,
     meta: {
       label: 'calcModulePage.calcModule',
-      icon: 'calculate',
+      icon: 'calculate'
     },
     redirect: '/calc-module/list',
     children: [
@@ -159,7 +177,7 @@ export const constantRoutes: ExtendedRouteRecordRaw[] = [
       noMenu: true, // 在菜单中隐藏
       noTag: true // 在标签中隐藏
     }
-  },
+  }
   // {
   //   name: 'SinglePages',
   //   path: '/pages',

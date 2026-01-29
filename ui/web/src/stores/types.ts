@@ -6,7 +6,7 @@ export enum UserStatus {
 
 // 用户信息
 export interface IUserInfo {
-  _id: string,
+  oid: string,
   id: number,
   username: string
   name: string,

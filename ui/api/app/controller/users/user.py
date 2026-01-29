@@ -39,9 +39,8 @@ async def sign_in(
     - token_type: 令牌类型（固定为Bearer）
     """
 
-    async with session:
-        # 调用 Service 层完成登录业务逻辑
-        result = await user_service.sign_in(data.username, data.password, session)
-        logger.info(f"用户登录请求处理完成: {data.username}")
-        # 返回成功响应
-        return ok(data=result)
+    # 调用 Service 层完成登录业务逻辑
+    result = await user_service.sign_in(data.username, data.password, session)
+    logger.info(f"用户登录请求处理完成: {data.username}")
+    # 返回成功响应
+    return ok(data=result)

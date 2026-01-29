@@ -33,14 +33,7 @@ async def get_all_categories(
     categories = result.scalars().all()
 
     return [
-        CategoryInfoResDTO(
-            _id=category._id,
-            name=category.name,
-            description=category.description,
-            cover=category.cover,
-            order=category.order,
-            total=category.total,
-        )
+        CategoryInfoResDTO.model_validate(category, from_attributes=True)
         for category in categories
     ]
 
@@ -88,20 +81,13 @@ async def create_category(
     await session.commit()
     await session.refresh(category)
 
-    logger.info(f"分类创建成功: userId={user_id}, categoryId={category._id}")
+    logger.info(f"分类创建成功: userId={user_id}, categoryId={category.oid}")
 
-    return CategoryInfoResDTO(
-        _id=category._id,
-        name=category.name,
-        description=category.description,
-        cover=data.cover,
-        order=category.order,
-        total=category.total,
-    )
+    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
 
 
 async def update_category(
-    user_id: int, category_id: str, data: CategoryInfoReqDTO, session: AsyncSession
+    user_id: int, category_oid: str, data: CategoryInfoReqDTO, session: AsyncSession
 ) -> CategoryInfoResDTO:
     """
     更新计算分类信息
@@ -115,7 +101,7 @@ async def update_category(
     # 查询分类（确保属于当前用户）
     result = await session.execute(
         select(CalcReportCategory).where(
-            (CalcReportCategory._id == category_id)
+            (CalcReportCategory.oid == category_oid)
             & (CalcReportCategory.userId == user_id)
         )
     )
@@ -132,7 +118,7 @@ async def update_category(
             select(func.count(CalcReportCategory.id)).where(
                 (CalcReportCategory.userId == user_id)
                 & (CalcReportCategory.name == data.name)
-                & (CalcReportCategory._id != category_id)
+                & (CalcReportCategory.oid != category_oid)
                 & (CalcReportCategory.status == 1)
             )
         )
@@ -142,26 +128,17 @@ async def update_category(
     # 更新分类信息
     category.name = data.name
     category.description = data.description
-    if data.cover is not None:
-        category.cover = data.cover
 
     await session.commit()
     await session.refresh(category)
 
-    logger.info(f"分类更新成功: userId={user_id}, categoryId={category_id}")
+    logger.info(f"分类更新成功: userId={user_id}, categoryId={category_oid}")
 
-    return CategoryInfoResDTO(
-        _id=category._id,
-        name=category.name,
-        description=category.description,
-        cover=category.cover,
-        order=category.order,
-        total=category.total,
-    )
+    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
 
 
 async def update_categories_order(
-    user_id: int, category_ids: List[str], session: AsyncSession
+    user_id: int, category_oids: List[str], session: AsyncSession
 ) -> None:
     """
     更新分类的排序顺序
@@ -170,7 +147,7 @@ async def update_categories_order(
     :param category_ids: 分类 ID 列表（按新的顺序排列）
     :param session: 数据库会话
     """
-    if not category_ids:
+    if not category_oids:
         raise_ex("Category IDs list cannot be empty", code=400)
 
     try:
@@ -178,18 +155,18 @@ async def update_categories_order(
         result = await session.execute(
             select(CalcReportCategory).where(
                 (CalcReportCategory.userId == user_id)
-                & (CalcReportCategory._id.in_(category_ids))
+                & (CalcReportCategory.oid.in_(category_oids))
                 & (CalcReportCategory.status == 1)
             )
         )
-        categories = {cat._id: cat for cat in result.scalars().all()}
+        categories = {cat.oid: cat for cat in result.scalars().all()}
 
         # 验证所有 ID 都存在
-        if len(categories) != len(category_ids):
+        if len(categories) != len(category_oids):
             raise_ex("Some categories not found", code=404)
 
         # 更新排序
-        for order, category_id in enumerate(category_ids):
+        for order, category_id in enumerate(category_oids):
             categories[category_id].order = order
 
         await session.commit()
@@ -204,19 +181,19 @@ async def update_categories_order(
 
 
 async def delete_category(
-    user_id: int, category_id: str, session: AsyncSession
+    user_id: int, category_oid: str, session: AsyncSession
 ) -> None:
     """
     删除分类（逻辑删除，将 status 设为 0）
 
     :param user_id: 用户 ID
-    :param category_id: 分类 ID
+    :param category_oid: 分类 ID
     :param session: 数据库会话
     """
     # 查询分类
     result = await session.execute(
         select(CalcReportCategory).where(
-            (CalcReportCategory._id == category_id)
+            (CalcReportCategory.oid == category_oid)
             & (CalcReportCategory.userId == user_id)
             & (CalcReportCategory.status == 1)
         )
@@ -236,4 +213,4 @@ async def delete_category(
     category.status = 0
     await session.commit()
 
-    logger.info(f"分类删除成功: userId={user_id}, categoryId={category_id}")
+    logger.info(f"分类删除成功: userId={user_id}, categoryId={category_oid}")

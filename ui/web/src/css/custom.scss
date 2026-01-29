@@ -97,3 +97,8 @@ main table tbody tr.table-row__keep-hover {
     background-color: rgba($color: #3c3c3c, $alpha: 0.3);
   }
 }
+
+/*优化 input 大小*/
+.q-field--dense .q-field__control {
+  height: 32px;
+}

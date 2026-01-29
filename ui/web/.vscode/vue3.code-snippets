@@ -18,24 +18,23 @@
   "vue3": {
     "prefix": "setup",
     "body": [
+      "<script lang=\"ts\" setup>",
+      "$1",
+      "</script>\n",
       "<template>",
       "  <div>",
-      "$1",
+      "    $2",
       "  </div>",
       "</template>\n",
-      "<script lang=\"ts\" setup>",
-      "    $2",
-      "</script>\n",
       "<style lang=\"scss\" scoped>",
       "$3",
       "</style>"
     ],
     "description": "vue3"
   },
-
-  "dialog":{
+  "dialog": {
     "prefix": "dialog",
-    "body":[
+    "body": [
       "<template>",
       "  <q-dialog ref='dialogRef' @hide=\"onDialogHide\" :persistent='true'>",
       "    <q-card class='column items-center items-start'>",
@@ -62,8 +61,7 @@
       "<style lang='scss' scoped></style>",
     ]
   },
-
-  "table":{
+  "table": {
     "prefix": "table",
     "scope": "vue",
     "body": [
@@ -138,8 +136,7 @@
       ""
     ]
   },
-
-  "region":{
+  "region": {
     "prefix": "region",
     "description": "region 代码块",
     "body": [

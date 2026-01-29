@@ -64,10 +64,10 @@ async def sign_in(
     logger.info(f"用户登录成功: {username}")
     # 返回用户信息和 tokens（不包含密码）
     return UserSignInResponseDTO(
-        _id=user._id,
+        oid=user.oid,
         id=user.id,
         userInfo=UserInfoDTO(
-            _id=user._id,
+            oid=user.oid,
             id=user.id,
             username=user.username,
             name=user.name,

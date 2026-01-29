@@ -18,13 +18,13 @@ class BaseModel(DeclarativeBase):
     id: Mapped[int] = mapped_column(
         Integer, primary_key=True, autoincrement=True, index=True
     )
-    _id: Mapped[str] = mapped_column(
+    oid: Mapped[str] = mapped_column(
         String(24),
         nullable=False,
         index=True,
         default=lambda: ObjectId().to_hex(),
     )
-    created_at: Mapped[datetime.datetime] = mapped_column(
+    createdAt: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         default=lambda: datetime.datetime.now(datetime.timezone.utc),
         nullable=False,

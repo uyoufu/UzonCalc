@@ -24,6 +24,8 @@ def init_session_factory(session_factory: async_sessionmaker):
     logger.info("Async session factory initialized")
 
 
+# asynccontextmanager 将生成器函数转换为异步上下文管理器
+# 这样可以使用 "async with" 语法来替代调用生成器函数 __anext__ 来手动迭代
 @asynccontextmanager
 async def get_db_session() -> AsyncGenerator[AsyncSession, None]:
     """

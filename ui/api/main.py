@@ -83,15 +83,6 @@ def use_route_names_as_operation_ids(app: FastAPI) -> None:
 use_route_names_as_operation_ids(app)
 # endregion
 
-# 设置跨域
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=app_config.allow_origins,
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
-
 logger.info(f"Initialize directories ...")
 # 设置静态目录
 # 若目录不存在，则创建一个
@@ -117,9 +108,9 @@ async def authentication(request: Request, call_next: Callable):
     if request.url.path == "/":
         return await call_next(request)
 
-    # 允许 CORS 预检请求通过，不做鉴权
-    if request.method == "OPTIONS":
-        return await call_next(request)
+    # # 允许 CORS 预检请求通过，不做鉴权
+    # if request.method == "OPTIONS":
+    #     return await call_next(request)
 
     # 忽略文件路径
     ignore_starts = [
@@ -185,6 +176,16 @@ async def add_process_time_header(request: Request, call_next):
         f"Finished processing request: [{request.url}] in {process_time} seconds"
     )
     return response
+
+
+# 设置跨域
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=app_config.allow_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/")

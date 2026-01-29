@@ -151,7 +151,7 @@ class DatabaseManager:
             logger.error(f"Database health check failed: {e}")
             return False
 
-    def get_session(self):
+    def manual_session(self):
         """
         Get a new async database session.
         Remember to close it after use or use context manager.

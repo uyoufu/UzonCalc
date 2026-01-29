@@ -23,10 +23,10 @@
       <SearchInput dense v-model="filter" class="full-width" />
     </q-item>
 
-    <q-list class="col scroll-y hover-scroll" dense>
-      <draggable v-model="draggableList" group="people" item-key="_id" @end="onDragEnd" :disabled="disabledDrag">
+    <q-list class="col scroll-y hover-scroll q-mt-xs" dense>
+      <draggable v-model="draggableList" group="people" item-key="id" @end="onDragEnd" :disabled="disabledDrag">
         <template #item="{ element: item }">
-          <q-item class="plain-list__item" :key="item.name" clickable v-ripple :active="item.active" dense
+          <q-item class="plain-list__item" :key="item.name" clickable v-ripple :active="item.active"
             active-class="text-primary" @click="onItemClick(item)">
             <div class="row justify-between no-wrap items-center full-width">
               <div class="row justify-start items-center col">
@@ -41,7 +41,7 @@
                 </div>
               </div>
 
-              <div side v-if="item.side">{{ item.side }}
+              <div side v-if="item.total">{{ item.total }}
               </div>
               <AsyncTooltip v-if="item.description" :tooltip="item.description" />
             </div>
@@ -209,11 +209,6 @@ function buildCategoryFields(category?: ICategoryInfo) {
   return fields
 }
 
-// 显示分类对话框
-async function showCategoryDialog(isCreate: boolean, category?: ICategoryInfo) {
-
-}
-
 // 新增分类
 async function onCreateCategory() {
   const popupParams: IPopupDialogParams = {
@@ -229,8 +224,7 @@ async function onCreateCategory() {
 
   categoryItems.value.push({
     ...newCategory,
-    active: false,
-    side: String(newCategory.total),
+    active: false
   })
 
   // 设置新组为当前组
@@ -265,14 +259,15 @@ async function onModifyCategory(categoryDetails: Record<string, any>) {
   const result = await showDialog<ICategoryInfo>(popupParams)
   if (!result.ok) return
 
-  // 指定 id
+  // 指定 id 和 oid
   result.data.id = categoryInfo.id
+  result.data.oid = categoryInfo.oid
+
   await props.updateCategory(result.data)
 
   // 更新数据
   categoryInfo.name = result.data.name
-  categoryInfo.order = result.data.order
-  categoryInfo.side = String(result.data.order)
+  categoryInfo.description = result.data.description
 
   // 修改分类成功
   notifySuccess(t('categoryList.newCategorySuccess'))
@@ -287,10 +282,10 @@ async function onDeleteCategory(categoryDetails: Record<string, any>) {
   if (!confirm) return
 
   // 向服务器请求删除
-  await props.deleteCategoryById(categoryDetails.id)
+  await props.deleteCategoryById(categoryDetails.oid)
 
   // 从当前列表中清除组
-  const groupIndex = categoryItems.value.findIndex(x => x.id === categoryDetails.id)
+  const groupIndex = categoryItems.value.findIndex(x => x.oid === categoryDetails.oid)
   categoryItems.value.splice(groupIndex, 1)
 
   // 切换到临近的组
@@ -300,6 +295,7 @@ async function onDeleteCategory(categoryDetails: Record<string, any>) {
     modelValue.value = categoryItems.value[newIndex]
   } else {
     modelValue.value = {
+      oid: "all",
       name: 'all',
       description: '',
       order: 0
@@ -321,7 +317,7 @@ const itemContextMenuItems: ComputedRef<IContextMenuItem[]> = computed(() => [
     name: 'delete',
     label: translateGlobal('delete'),
     color: 'negative',
-    tooltip: t('categoryList.deleteCategoryConfirm'),
+    tooltip: t('categoryList.deleteCategory'),
     onClick: onDeleteCategory
   }
 ])
@@ -334,12 +330,13 @@ watch(filteredItems, (newVal) => {
   draggableList.value = [...newVal]
 })
 const disabledDrag = computed(() => {
-  return !!filter.value
+  return !!filter.value || draggableList.value.length <= 1
 })
 export interface IDragEndEvent {
   oldIndex: number
   newIndex: number
 }
+
 async function onDragEnd(evt: IDragEndEvent) {
   // 刷新 order 顺序
 

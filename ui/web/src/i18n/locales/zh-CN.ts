@@ -54,9 +54,25 @@ export default {
     // 正在计算 ${callbackData.file.name} 哈希值
     calculatingFileHash: '正在计算 {fileName} 哈希值',
     // 正在上传 ${file.name}
-    uploadingFile: '正在上传 {fileName}',
+    uploadingFile: '正在上传 {fileName}'
   },
   // #endregion
+
+  // #region search input 组件
+  searchInput: {
+    placeholder: '搜索'
+  },
+  // #endregion
+
+  collapseLeft: {
+    collapse: '折叠',
+    expand: '展开'
+  },
+
+  collapseRight: {
+    collapse: '折叠',
+    expand: '展开'
+  },
 
   // #region components 组件
   categoryList: {
@@ -66,6 +82,7 @@ export default {
     onlyLettersNumbersUnderscoresAndCannotStartWithNumber: '仅支持字母、数字、下划线，且不能以数字开头',
 
     modifyCategory: '修改分类',
+    deleteCategory: '删除分类',
 
     deleteCategoryConfirm: '您确定要删除分类 "{label}" 吗？此操作无法撤销。',
     deleteCategorySuccess: '删除分类 "{label}" 成功',
@@ -73,9 +90,9 @@ export default {
     field_name: '名称',
     field_icon: '图标',
     field_cover: '封面',
-    field_total: "总数",
+    field_total: '总数',
     field_order: '排序值',
-    field_description: '描述',
+    field_description: '描述'
   },
   // #endregion
 
@@ -116,7 +133,7 @@ export default {
     // ${fileHandle.name} 下载中...
     file_downloadingFile: '{fileName} 下载中...',
     // ${ext} 文件
-    file_fileExtension: '{ext} 文件',
+    file_fileExtension: '{ext} 文件'
   },
   // #endregion
 
@@ -127,7 +144,7 @@ export default {
     startGuide: '使用说明',
     login: '用户登录',
     singlePages: '单页面',
-    exception: '异常',
+    exception: '异常'
   },
   // #endregion
 
@@ -145,7 +162,7 @@ export default {
     import: '导入',
     importData: '导入数据',
     confirm: '确认',
-    confirmCurrentOperation: '确认当前操作',
+    confirmCurrentOperation: '确认当前操作'
   },
   // #endregion
 
@@ -158,14 +175,14 @@ export default {
     client: '客户端',
     server: '服务器',
     pleaseInputUserName: '请输入用户名',
-    pleaseInputPassword: '请输入密码',
+    pleaseInputPassword: '请输入密码'
   },
   // #endregion
 
   // #region user
   userPage: {
     userInfo: '用户信息',
-    profile: '个人资料',
+    profile: '个人资料'
   },
   // #endregion
 
@@ -178,10 +195,18 @@ export default {
   // #region calcReport
   calcReportPage: {
     calcReport: '计算报告',
+
+    newCalcReport: '新建计算',
+    newCalcReportTooltip: '创建新的计算报告',
+
+    defaultCalcReportName: 'new_calc_report',
+    pleaseInputCalcReportName: '请输入计算报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
+
+    calcReportViewer: '查看计算'
   },
 
   calcModulePage: {
-    calcModule: '计算模块',
+    calcModule: '计算模块'
   }
   // #endregion
 }
