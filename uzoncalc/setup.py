@@ -21,9 +21,11 @@ def get_current_instance():
 
 
 @asynccontextmanager
-async def uzon_calc_core(ctx_name: str | None = None, file_path: str | None = None):
+async def uzon_calc_core(
+    ctx_name: str | None = None, file_path: str | None = None, is_silent: bool = True
+):
     # 生成一个上下文实例
-    inst = CalcContext(name=ctx_name, file_path=file_path)
+    inst = CalcContext(name=ctx_name, file_path=file_path, is_silent=is_silent)
     token = _calc_instance.set(inst)
     try:
         yield inst
@@ -74,7 +76,9 @@ def uzon_calc(name: str | None = None):
 
         @wraps(fn)
         async def async_wrapper(*args, **kwargs):
-            async with uzon_calc_core(name, file_path) as ctx:
+            # 从 kwargs 中提取 is_silent，默认为 True
+            is_silent = kwargs.pop("is_silent", True)
+            async with uzon_calc_core(name, file_path, is_silent=is_silent) as ctx:
                 valid_kwargs = _prepare_valid_kwargs(kwargs, ctx, sig)
                 await instrumented_fn(*args, **valid_kwargs)
                 return ctx
@@ -85,7 +89,11 @@ def uzon_calc(name: str | None = None):
 
 
 async def run(
-    func: Callable, *args, defaults: Optional[dict] = None, **kwargs
+    func: Callable,
+    *args,
+    defaults: Optional[dict] = None,
+    is_silent: bool = True,
+    **kwargs,
 ) -> CalcContext:
     """
     异步函数运行器
@@ -95,16 +103,18 @@ async def run(
     Args:
         func: 要执行的异步函数
         *args: 位置参数
-        defaults: 默认值字典，格式为 {"title": {"field": value}, "defaults": {"field": value}}
-                  会保存到 context.vars["ui_defaults"] 中
+        defaults: 默认值字典，格式为 {"title": {"field": value}}
+                  会保存到 context.vars 中
+        is_silent: 是否静默执行，True 表示静默执行（默认）
         **kwargs: 关键字参数
 
     Returns:
         CalcContext 上下文对象
     """
-    # 将 defaults 传递给被装饰的函数
+    # 将 defaults 和 execution_mode 传递给被装饰的函数
     if defaults is not None:
         kwargs["defaults"] = defaults
+    kwargs["is_silent"] = is_silent
 
     result = func(*args, **kwargs)
 
@@ -119,18 +129,20 @@ def run_sync(
     func: Callable, *args, defaults: Optional[dict] = None, **kwargs
 ) -> CalcContext:
     """
-    同步执行异步函数
+    同步执行异步函数（静默模式）
 
     使用 asyncio.run() 执行异步函数
+    在此模式下，UI 调用将直接返回默认值而不等待用户输入
 
     Args:
         func: 要执行的异步函数
         *args: 位置参数
         defaults: 默认值字典，格式为 {"title": {"field": value}, "defaults": {"field": value}}
-                  会保存到 context.vars["ui_defaults"] 中
+                  会保存到 context.vars 中
         **kwargs: 关键字参数
 
     Returns:
         CalcContext 上下文对象
     """
-    return asyncio.run(run(func, *args, defaults=defaults, **kwargs))
+    # 强制设置为 sync 模式，静默执行
+    return asyncio.run(run(func, *args, defaults=defaults, is_silent=True, **kwargs))

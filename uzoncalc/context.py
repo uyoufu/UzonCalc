@@ -1,13 +1,26 @@
-from typing import Any
+from typing import Any, Callable, Optional
 import os
 from .context_options import ContextOptions
 from .cache.json_db import JsonDB
+from .interaction import InteractionState, notify_observer
 
 
 class CalcContext:
-    def __init__(self, *, name: str | None = None, file_path: str | None = None):
+    def __init__(
+        self,
+        *,
+        name: str | None = None,
+        file_path: str | None = None,
+        is_silent: bool = True,
+    ):
         self.name = name or "calc_ctx" + hex(id(self))
         self.file_path = file_path
+
+        # Notify observer if present
+        notify_observer(self)
+
+        # 静默执行
+        self.is_silent = is_silent
 
         self.options = ContextOptions()
 
@@ -23,7 +36,10 @@ class CalcContext:
 
         # 默认值存储
         # 每个 tile 中的上下文单独维护，以支持不同 tile 之间的默认值隔离
-        self.vars = {"defaults": {}}
+        self.vars = {"title": {}}
+
+        # UI 交互相关状态
+        self.interaction = InteractionState()
 
     @property
     def contents(self):
