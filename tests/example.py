@@ -61,7 +61,7 @@ if __name__ == "__main__":
     print("=" * 60)
     print("模式 1: run_sync 静默执行")
     print("=" * 60)
-    
+
     # 可以通过 defaults 传入自定义值
     defaults = {
         "field1": 15,
@@ -71,7 +71,7 @@ if __name__ == "__main__":
     ctx = run_sync(sheet, defaults=defaults)
     print("✓ run_sync 执行完成，UI 自动使用了默认值")
     print(f"生成的 HTML 长度: {len(ctx.html_content())} 字符\n")
-    
+
     # 测试模式 2: 不传入 defaults，使用字段定义的默认值
     print("=" * 60)
     print("模式 2: run_sync 使用字段默认值")
@@ -79,5 +79,5 @@ if __name__ == "__main__":
     ctx2 = run_sync(sheet)
     print("✓ run_sync 执行完成，UI 使用了字段定义的默认值 (field1=10, field2=20)")
     print(f"生成的 HTML 长度: {len(ctx2.html_content())} 字符\n")
-    
+
     print("\n提示：在 API/sandbox 模式下，UI 会返回定义给前端，等待用户输入")

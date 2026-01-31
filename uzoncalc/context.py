@@ -1,8 +1,10 @@
 from typing import Any, Callable, Optional
 import os
+
+from .template.utils import render_html_template
 from .context_options import ContextOptions
 from .cache.json_db import JsonDB
-from .interaction import InteractionState, notify_observer
+from .interaction import InteractionState
 
 
 class CalcContext:
@@ -12,12 +14,10 @@ class CalcContext:
         name: str | None = None,
         file_path: str | None = None,
         is_silent: bool = True,
+        ctx_hook_created: Optional[Callable[["CalcContext"], Any]] = None,
     ):
         self.name = name or "calc_ctx" + hex(id(self))
         self.file_path = file_path
-
-        # Notify observer if present
-        notify_observer(self)
 
         # 静默执行
         self.is_silent = is_silent
@@ -36,10 +36,14 @@ class CalcContext:
 
         # 默认值存储
         # 每个 tile 中的上下文单独维护，以支持不同 tile 之间的默认值隔离
-        self.vars = {"title": {}}
+        self.vars: dict[str, dict[str, Any]] = {"title": {}}
 
         # UI 交互相关状态
         self.interaction = InteractionState()
+
+        # 创建时的回调
+        if callable(ctx_hook_created):
+            ctx_hook_created(self)
 
     @property
     def contents(self):
@@ -86,6 +90,14 @@ class CalcContext:
     # region result generation
     def html_content(self) -> str:
         return "\n".join(self.__contents)
+
+    def html(self) -> str:
+        """
+        获取完整 HTML 内容
+        没有嵌入 css 样式
+        css 样式通过模板引擎嵌入
+        """
+        return render_html_template(self.html_content(), self.options)
 
     # endregion
 

@@ -1,4 +1,4 @@
-from typing import Optional
+from typing import Any, Optional
 
 from app.controller.dto_base import BaseDTO, PaginationDTO
 
@@ -35,3 +35,10 @@ class CalcReportResDTO(CalcReportReqDTO):
     id: int
     oid: str
     userId: int
+
+
+# 执行计算报告请求 DTO
+class CalcExecutionReqDTO(BaseDTO):
+    reportId: int
+    isSilent: bool = False
+    defaults: Optional[dict[str, dict[str, Any]]] = None

@@ -1,5 +1,5 @@
 from typing import Any
-from ..setup import get_current_instance
+from ..globals import get_current_instance
 
 
 def doc_title(title: str):
@@ -47,7 +47,6 @@ def save(filename: str | None = None):
     from ..template.utils import render_html_template
     import shutil
     import os
-    import inspect
 
     ctx = get_current_instance()
 

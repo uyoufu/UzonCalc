@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.depends import get_session
+from app.controller.users.user_dto import UserSignInDTO, UserSignInResponseDTO
 from app.response.response_result import ResponseResult, ok
 from config import logger
 import app.service.user_service as user_service

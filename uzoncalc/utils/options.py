@@ -1,5 +1,5 @@
 from typing import Any
-from ..setup import get_current_instance
+from ..globals import get_current_instance
 
 # region show/hide content recording
 

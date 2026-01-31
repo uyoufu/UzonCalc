@@ -44,12 +44,6 @@ async def lifespan(app: FastAPI):
     # migrations
     # run_migrations()
 
-    # init sandbox
-    from app.sandbox.integration import get_sandbox_config, initialize_sandbox
-
-    sandbox_config = get_sandbox_config()
-    await initialize_sandbox(sandbox_config)
-
     yield
 
     try:
@@ -92,9 +86,9 @@ use_route_names_as_operation_ids(app)
 logger.info(f"Initialize directories ...")
 # 设置静态目录
 # 若目录不存在，则创建一个
-if not os.path.exists("public"):
-    os.mkdir("public")
-app.mount("/public", StaticFiles(directory="public"), name="public")
+if not os.path.exists("data/public"):
+    os.mkdir("data/public")
+app.mount("/public", StaticFiles(directory="data/public"), name="public")
 
 # 初始化其它所需要的目录
 init_dirs = [
@@ -154,7 +148,7 @@ async def catch_exception(request: Request, call_next):
             payload = e.model_dump()
             response = JSONResponse(content=payload, status_code=e.code)
         else:
-            r = fail(message=str(e))
+            r = fail(message=f"{type(e).__name__}: {str(e)}")
             response = JSONResponse(content=r.model_dump(), status_code=r.code)
     return response
 
@@ -208,9 +202,6 @@ logger.info(f"{app_config.app_name} launched successfully!")
 if __name__ == "__main__":
     import uvicorn
 
-    # 修改 pdfminer 的日志输出等级,防止输出过多的日志
-    # 目前弃用 pdfminer
-    # logging.getLogger("pdfminer").setLevel(logging.INFO)
     uvicorn.run(
         app, host=app_config.host, port=app_config.port, log_level=app_config.log_level
     )

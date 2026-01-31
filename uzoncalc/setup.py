@@ -7,25 +7,25 @@ from typing import Any, Callable, Optional
 
 from .context import CalcContext
 from .handcalc.ast_instrument import instrument_function
+from .globals import _calc_instance, get_current_instance
 
 from .units import unit
-
-_calc_instance = ContextVar[CalcContext | None]("calc_ctx", default=None)
-
-
-def get_current_instance():
-    inst = _calc_instance.get()
-    if inst is None:
-        raise RuntimeError("no current instance in this context")
-    return inst
 
 
 @asynccontextmanager
 async def uzon_calc_core(
-    ctx_name: str | None = None, file_path: str | None = None, is_silent: bool = True
+    ctx_name: str | None = None,
+    file_path: str | None = None,
+    is_silent: bool = True,
+    ctx_hook_created: Optional[Callable[[CalcContext], Any]] = None,
 ):
     # 生成一个上下文实例
-    inst = CalcContext(name=ctx_name, file_path=file_path, is_silent=is_silent)
+    inst = CalcContext(
+        name=ctx_name,
+        file_path=file_path,
+        is_silent=is_silent,
+        ctx_hook_created=ctx_hook_created,
+    )
     token = _calc_instance.set(inst)
     try:
         yield inst
@@ -78,7 +78,11 @@ def uzon_calc(name: str | None = None):
         async def async_wrapper(*args, **kwargs):
             # 从 kwargs 中提取 is_silent，默认为 True
             is_silent = kwargs.pop("is_silent", True)
-            async with uzon_calc_core(name, file_path, is_silent=is_silent) as ctx:
+            ctx_hook_created = kwargs.pop("ctx_hook_created", None)
+
+            async with uzon_calc_core(
+                name, file_path, is_silent=is_silent, ctx_hook_created=ctx_hook_created
+            ) as ctx:
                 valid_kwargs = _prepare_valid_kwargs(kwargs, ctx, sig)
                 await instrumented_fn(*args, **valid_kwargs)
                 return ctx
@@ -93,6 +97,7 @@ async def run(
     *args,
     defaults: Optional[dict] = None,
     is_silent: bool = True,
+    ctx_hook_created: Optional[Callable[[CalcContext], Any]] = None,
     **kwargs,
 ) -> CalcContext:
     """
@@ -115,6 +120,7 @@ async def run(
     if defaults is not None:
         kwargs["defaults"] = defaults
     kwargs["is_silent"] = is_silent
+    kwargs["ctx_hook_created"] = ctx_hook_created
 
     result = func(*args, **kwargs)
 
