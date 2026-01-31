@@ -22,7 +22,8 @@ class AstNodeVisitor(ast.NodeTransformer):
     def _visit_body_scope(self, node: ast.AST, body_attr: str = "body") -> ast.AST:
         """通用的作用域访问方法，处理带有 body 的节点"""
         body = getattr(node, body_attr)
-        self._mark_docstring_skip(body)
+        # 不跳过文档字符串
+        # self._mark_docstring_skip(body)
         prev = self._state.enabled
         self._state.enable()
         setattr(node, body_attr, self._transform_stmt_block(body))
@@ -50,21 +51,21 @@ class AstNodeVisitor(ast.NodeTransformer):
             node.iter = self.visit(node.iter)  # type: ignore[assignment]
         if hasattr(node, "test"):
             node.test = self.visit(node.test)  # type: ignore[assignment]
-        
+
         node.body = self._transform_stmt_block(node.body)
-        
+
         if node.orelse:
             node.orelse = self._transform_stmt_block(node.orelse)
-        
+
         return node
 
     def visit_If(self, node: ast.If) -> ast.AST:
         node.test = self.visit(node.test)  # type: ignore[assignment]
         node.body = self._transform_stmt_block(node.body)
-        
+
         if node.orelse:
             node.orelse = self._transform_stmt_block(node.orelse)
-        
+
         return node
 
     def visit_For(self, node: ast.For) -> ast.AST:
@@ -90,13 +91,13 @@ class AstNodeVisitor(ast.NodeTransformer):
 
     def visit_Try(self, node: ast.Try) -> ast.AST:
         node.body = self._transform_stmt_block(node.body)
-        
+
         if node.orelse:
             node.orelse = self._transform_stmt_block(node.orelse)
-        
+
         if node.finalbody:
             node.finalbody = self._transform_stmt_block(node.finalbody)
-        
+
         node.handlers = [self.visit(h) for h in node.handlers]  # type: ignore[assignment]
         return node
 
@@ -121,6 +122,7 @@ class AstNodeVisitor(ast.NodeTransformer):
         value_node: Optional[ast.expr] = None
         if len(node.targets) == 1 and isinstance(node.targets[0], ast.Name):
             value_node = ast.Name(id=node.targets[0].id, ctx=ast.Load())
+            ast.copy_location(value_node, node)
 
         # 使用注入器生成记录调用
         record_call = self._injector.make_record_call(
@@ -167,11 +169,13 @@ class AstNodeVisitor(ast.NodeTransformer):
                     temp_var = f"__fstring_val_{formatted_value_idx}__"
                     formatted_value_idx += 1
                     value_vars.append(temp_var)
-                    
+
                     # 保存原始表达式值，不在此处格式化
                     # 格式化将在渲染阶段根据 format_spec 和值的类型进行
+                    target_node = ast.Name(id=temp_var, ctx=ast.Store())
+                    ast.copy_location(target_node, node)
                     assign = ast.Assign(
-                        targets=[ast.Name(id=temp_var, ctx=ast.Store())],
+                        targets=[target_node],
                         value=v.value,
                     )
                     ast.copy_location(assign, node)
@@ -189,10 +193,12 @@ class AstNodeVisitor(ast.NodeTransformer):
         # Special case: a bare variable name -> show as `name = value`.
         if isinstance(node.value, ast.Name) and isinstance(node.value.ctx, ast.Load):
             step = self._converter.convert_name_expr(node.value.id)
+            value_node = ast.Name(id=node.value.id, ctx=ast.Load())
+            ast.copy_location(value_node, node)
             record_call = self._injector.make_record_call(
                 node,
                 step=step,
-                value_node=ast.Name(id=node.value.id, ctx=ast.Load()),
+                value_node=value_node,
                 include_locals=True,
             )
             return [node, record_call]
@@ -254,8 +260,18 @@ class AstNodeVisitor(ast.NodeTransformer):
             if not self._state.enabled:
                 # 即使在 hide 状态下，也需要 visit 控制流语句（If, For, While, With, Try）
                 # 以便它们的 body 可以被正确处理（其中可能包含 show() 调用）
-                if isinstance(stmt, (ast.If, ast.For, ast.AsyncFor, ast.While, 
-                                    ast.With, ast.AsyncWith, ast.Try)):
+                if isinstance(
+                    stmt,
+                    (
+                        ast.If,
+                        ast.For,
+                        ast.AsyncFor,
+                        ast.While,
+                        ast.With,
+                        ast.AsyncWith,
+                        ast.Try,
+                    ),
+                ):
                     visited = self.visit(stmt)
                     if visited is not None:
                         if isinstance(visited, list):

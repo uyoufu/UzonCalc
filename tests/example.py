@@ -10,19 +10,51 @@ from uzoncalc import *
 
 
 @uzon_calc()
-def sheet():
+async def sheet():
+    """
+    示例计算函数，演示 UI 交互
+    这个函数可以：
+    1. 通过 run_sync() 手动调用 - 自动使用默认值
+    2. 通过 API 调用 - 由前端提供用户输入
+    """
 
-    inputs = yield Window("输入数据", fields=[])
+    # 第一个 UI 交互
+    inputs1 = await UI(
+        "输入数据",
+        fields=[
+            Field(name="field1", label="字段 1", type=FieldType.number, default=10),
+            Field(name="field2", label="字段 2", type=FieldType.number, default=20),
+        ],
+    )
 
-    save("../../output/example.html")
+    # 使用用户输入
+    field1 = inputs1["field1"]
+    field2 = inputs1["field2"]
+
+    # 计算
+    result = field1 + field2
+
+    # 第二个 UI 交互
+    inputs2 = await UI(
+        "确认结果",
+        fields=[
+            Field(
+                name="confirm",
+                label=f"结果是 {result}，是否继续？",
+                type=FieldType.checkbox,
+                default=True,
+            ),
+        ],
+    )
+
+    if inputs2.get("confirm"):
+        final_result = result * 2
+    else:
+        final_result = result
+
+    # 保存输出
+    save("../output/example.html")
 
 
 if __name__ == "__main__":
-    import time
-
-    t0 = time.perf_counter()
-    props = {"field1"}  # 这里按你的业务填入 inputs
-    # 异步调用 setup
-    sheet()  # type: ignore
-    t1 = time.perf_counter()
-    print(f"Execution time: {t1 - t0} seconds")
+    run_sync(sheet)

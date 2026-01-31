@@ -6,6 +6,7 @@
 """
 
 import logging
+import inspect
 from typing import Optional, Any
 
 from .module_loader import SandboxModuleLoader
@@ -76,17 +77,32 @@ class CalcSandboxExecutor:
         try:
             # 加载函数
             func = self.loader.load_function(file_path, func_name)
+            
+            # 确保获得的是单个函数，不是函数列表
+            if isinstance(func, list):
+                raise ValueError(
+                    f"Expected single function '{func_name}', got list of functions"
+                )
 
             # 调用函数获得生成器
-            # 函数应该是一个被 @uzon_calc 装饰的异步函数
-            # 或者返回异步生成器
+            # 函数应该是一个被 @uzon_calc 装饰的异步生成器
             gen = func(**params)
 
-            # 确保是生成器
-            if not hasattr(gen, "__anext__"):
-                raise ValueError(
-                    f"Function '{func_name}' did not return an async generator"
-                )
+            # 确保是异步生成器
+            if not inspect.isasyncgen(gen):
+                # 如果返回的是协程，需要先 await 获取结果
+                if inspect.iscoroutine(gen):
+                    result = await gen
+                    # 如果结果是 CalcContext，表示没有 UI 交互
+                    if hasattr(result, "to_html"):
+                        html = result.to_html() if hasattr(result, "to_html") else ""
+                        return (ExecutionStatus.COMPLETED, None, html)
+                    else:
+                        return (ExecutionStatus.COMPLETED, None, str(result))
+                else:
+                    raise ValueError(
+                        f"Function '{func_name}' did not return an async generator or coroutine"
+                    )
 
             # 启动会话
             status, ui, html = await self.generator_manager.start_session(

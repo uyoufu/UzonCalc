@@ -179,6 +179,14 @@ class GeneratorManager:
             # 将用户输入发送给生成器，继续执行
             result = await session.generator.asend(user_input)  # type: ignore
 
+            # 检查是否为 CalcContext（最后一个值）
+            if hasattr(result, "to_html"):
+                # 生成器完成，返回 CalcContext
+                html = result.to_html() if hasattr(result, "to_html") else ""
+                session.accumulated_result += html
+                session.status = ExecutionStatus.COMPLETED
+                return (ExecutionStatus.COMPLETED, None, session.accumulated_result)
+
             if result is None:
                 # 生成器完成
                 session.status = ExecutionStatus.COMPLETED
@@ -230,6 +238,14 @@ class GeneratorManager:
         try:
             # 首次运行生成器
             result = await generator.__anext__()
+
+            # 检查是否为 CalcContext（最后一个值）
+            if hasattr(result, "to_html"):
+                # 生成器完成，返回 CalcContext
+                html = result.to_html() if hasattr(result, "to_html") else ""
+                session.accumulated_result += html
+                session.status = ExecutionStatus.COMPLETED
+                return (ExecutionStatus.COMPLETED, None, session.accumulated_result)
 
             if result is None:
                 # 立即完成（无 UI）

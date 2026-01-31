@@ -18,8 +18,12 @@ class CalcContext:
         self.__inline_values: list[str] | None = None
         self.__inline_separator: str = " "
 
-        # sqlite
+        # ctx 使用的 json 缓存数据库
         self.json_db: None | JsonDB = None
+
+        # 默认值存储
+        # 每个 tile 中的上下文单独维护，以支持不同 tile 之间的默认值隔离
+        self.vars = {"defaults": {}}
 
     @property
     def contents(self):

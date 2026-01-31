@@ -21,32 +21,42 @@ class RecordingInjector:
     ) -> ast.Expr:
         """创建记录调用的 AST 表达式"""
         step_expr = self._step_to_ast(step)
+        ast.copy_location(step_expr, original_node)
+        
         keywords: list[ast.keyword] = [
             ast.keyword(arg="step", value=step_expr),
         ]
 
         if include_locals:
+            locals_func = ast.Name(id="locals", ctx=ast.Load())
+            ast.copy_location(locals_func, original_node)
+            locals_call = ast.Call(
+                func=locals_func,
+                args=[],
+                keywords=[],
+            )
+            ast.copy_location(locals_call, original_node)
             keywords.append(
                 ast.keyword(
                     arg="locals_map",
-                    value=ast.Call(
-                        func=ast.Name(id="locals", ctx=ast.Load()),
-                        args=[],
-                        keywords=[],
-                    ),
+                    value=locals_call,
                 )
             )
 
         if value_node is not None:
             keywords.append(ast.keyword(arg="value", value=value_node))
 
-        record_call = ast.Expr(
-            value=ast.Call(
-                func=ast.Name(id=FieldNames.uzon_record_step, ctx=ast.Load()),
-                args=[],
-                keywords=keywords,
-            )
+        record_func = ast.Name(id=FieldNames.uzon_record_step, ctx=ast.Load())
+        ast.copy_location(record_func, original_node)
+        
+        call_node = ast.Call(
+            func=record_func,
+            args=[],
+            keywords=keywords,
         )
+        ast.copy_location(call_node, original_node)
+        
+        record_call = ast.Expr(value=call_node)
         ast.copy_location(record_call, original_node)
         return record_call
 
