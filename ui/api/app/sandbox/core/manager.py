@@ -58,8 +58,7 @@ class SandboxManager:
         # 自动清理：
         # - 若已完成，立即清理实例
         # - 若进入交互等待，则按 idle TTL 自动回收
-        is_waiting_for_input = len(payloads.windows) == 1
-        if not is_waiting_for_input:
+        if not payloads.is_waiting_for_input:
             SandboxManager.terminate(runner.execution_id)
         else:
             cls._auto_cleanup.touch(
@@ -70,7 +69,7 @@ class SandboxManager:
         return ExecutionResult(
             executionId=runner.execution_id,
             html=payloads.html,
-            isCompleted=not is_waiting_for_input,
+            isCompleted=not payloads.is_waiting_for_input,
             windows=[asdict(w) for w in payloads.windows] if payloads.windows else [],
         )
 
@@ -95,8 +94,7 @@ class SandboxManager:
             SandboxManager.terminate(execution_id)
             raise e
 
-        is_waiting_for_input = len(payloads.windows) == 1
-        if not is_waiting_for_input:
+        if not payloads.is_waiting_for_input:
             SandboxManager.terminate(execution_id)
         else:
             cls._auto_cleanup.touch(
@@ -107,7 +105,7 @@ class SandboxManager:
         return ExecutionResult(
             executionId=runner.execution_id,
             html=payloads.html,
-            isCompleted=not is_waiting_for_input,
+            isCompleted=not payloads.is_waiting_for_input,
             windows=[asdict(w) for w in payloads.windows] if payloads.windows else [],
         )
 

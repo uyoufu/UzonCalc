@@ -95,7 +95,7 @@ class LocalSandboxRunner:
                 if self._ready_future and not self._ready_future.done():
                     # 将收集到的所有 UI windows 一起返回
                     self._ready_future.set_result(
-                        UIPayloads(html=ctx.html(), windows=ctx.ui_windows)
+                        UIPayloads(html=ctx.html(), windows=ctx.ui_windows, is_waiting_for_input=False)
                     )
 
         except asyncio.CancelledError:

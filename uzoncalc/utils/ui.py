@@ -35,6 +35,7 @@ class Field:
 class UIPayloads:
     windows: list[Window]  # 收集的所有 UI 定义
     html: str = ""
+    is_waiting_for_input: bool = False  # 是否在等待用户输入
 
 
 @dataclass(frozen=True, slots=True)
@@ -93,6 +94,7 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
         result = UIPayloads(
             html=ctx.html(),
             windows=[window],
+            is_waiting_for_input=True,
         )
         ctx.interaction.set_result(result)
 
