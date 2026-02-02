@@ -25,7 +25,7 @@ class Field:
     label: str
     type: str = FieldType.text
     placeholder: str | None = None
-    default: str | int | float | bool | None = None
+    value: str | int | float | bool | None = None
     options: list[str] | None = None
     vif: str | None = None
 
@@ -35,6 +35,7 @@ class Field:
 class UIPayloads:
     windows: list[Window]  # 收集的所有 UI 定义
     html: str = ""
+    is_waiting_for_input: bool = False  # 是否在等待用户输入
 
 
 @dataclass(frozen=True, slots=True)
@@ -49,7 +50,7 @@ def get_inputs(ctx: CalcContext, name: str, field: Field):
     vars = ctx.vars.get(name, {})
     if field.name in vars:
         return vars[field.name]
-    return field.default
+    return field.value
 
 
 async def UI(title: str, fields: list[Field], caption: str | None = None) -> DotDict:
@@ -70,7 +71,7 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
         # 静默模式：收集 UI 定义并返回默认值
         # 1. 更新 fields 的默认值
         for field in fields:
-            field.default = get_inputs(ctx, title, field)
+            field.value = get_inputs(ctx, title, field)
 
         # 2. 收集 Window 定义
         window = Window(title=title, fields=fields, caption=caption)
@@ -83,7 +84,7 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
         # 异步交互模式：返回 UI 定义供前端展示
         # 1. 更新 fields 的默认值
         for field in fields:
-            field.default = get_inputs(ctx, title, field)
+            field.value = get_inputs(ctx, title, field)
 
         # 2. 生成信号
         ctx.interaction.set_input_feature()
@@ -93,6 +94,7 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
         result = UIPayloads(
             html=ctx.html(),
             windows=[window],
+            is_waiting_for_input=True,
         )
         ctx.interaction.set_result(result)
 
@@ -112,7 +114,7 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
                 ctx.vars[title] = {}
             ui_vars = ctx.vars[title]
             if field.name not in ui_vars:
-                ui_vars[field.name] = field.default
+                ui_vars[field.name] = field.value
 
         # 返回结果
         return DotDict(ctx.vars.get(title, {}))

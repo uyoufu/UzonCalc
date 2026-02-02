@@ -10,7 +10,7 @@
 
 <script lang="ts" setup>
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
-import { translateButton } from 'src/i18n/helpers'
+import { tButton } from 'src/i18n/helpers'
 
 defineProps({
   color: {
@@ -23,11 +23,11 @@ defineProps({
   },
   label: {
     type: String,
-    default: translateButton('delete')
+    default: tButton('delete')
   },
   tooltip: {
     type: String,
-    default: translateButton('deleteItem')
+    default: tButton('deleteItem')
   },
   size: {
     type: String,

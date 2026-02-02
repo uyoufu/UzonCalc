@@ -39,6 +39,11 @@ class CalcReportResDTO(CalcReportReqDTO):
 
 # 执行计算报告请求 DTO
 class CalcExecutionReqDTO(BaseDTO):
-    reportId: int
+    reportOid: str
     isSilent: bool = False
+    defaults: Optional[dict[str, dict[str, Any]]] = None
+
+
+# 恢复计算执行请求 DTO
+class CalcResumeReqDTO(BaseDTO):
     defaults: Optional[dict[str, dict[str, Any]]] = None

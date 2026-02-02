@@ -68,7 +68,7 @@ def _get_report_file_path(user_id: int, report_name: str):
 async def start_execution(
     db_session: AsyncSession,
     user_id: int,
-    reportId: int,
+    report_oid: str,
     defaults: dict[str, dict[str, Any]] = {},
     is_silent: bool = False,
 ) -> ExecutionResult:
@@ -83,14 +83,14 @@ async def start_execution(
     }
     """
 
-    logger.info(f"Starting execution: user={user_id}, reportId={reportId}")
+    logger.info(f"Starting execution: user={user_id}, reportId={report_oid}")
 
     # 根据 id 获取 CalcReport
     calc_report = await db_session.scalar(
-        select(CalcReport).where(CalcReport.id == reportId)
+        select(CalcReport).where(CalcReport.oid == report_oid)
     )
     if not calc_report:
-        raise ValueError(f"CalcReport with id {reportId} not found")
+        raise ValueError(f"CalcReport with id {report_oid} not found")
 
     # 计算脚本路径
     (file_path, package_root) = _get_report_file_path(user_id, calc_report.name)
@@ -99,7 +99,7 @@ async def start_execution(
     last_archive = await db_session.scalar(
         select(CalcReportArchive).where(
             CalcReportArchive.userId == user_id,
-            CalcReportArchive.reportId == reportId,
+            CalcReportArchive.reportId == report_oid,
             CalcReportArchive.type == 0,  # 临时记录
         )
     )

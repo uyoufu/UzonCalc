@@ -55,7 +55,7 @@
 </template>
 
 <script lang="ts" setup>
-import { t, translateGlobal } from 'src/i18n/helpers'
+import { t, tGlobal } from 'src/i18n/helpers'
 import type { PropType } from 'vue'
 import type { createCategoryFunc, deleteCategoryByIdFunc, getCategoriesFunc, ICategoryInfo, IFlatHeader, updateCategoryFunc } from './types'
 import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
@@ -145,9 +145,9 @@ const filteredItems = computed(() => {
 })
 
 // 初始化获取组
-import type { IPopupDialogField, IPopupDialogParams } from 'src/components/popupDialog/types'
-import { PopupDialogFieldType } from 'src/components/popupDialog/types'
-import { showDialog } from 'src/components/popupDialog/PopupDialog'
+import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
+import { LowCodeFieldType } from 'src/components/lowCode/types'
+import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { confirmOperation, notifySuccess } from 'src/utils/dialog'
 onMounted(async () => {
   const groups = await props.getCategories()
@@ -179,12 +179,12 @@ function onItemClick(item: ICategoryInfo) {
 // #region 右键菜单相关
 // 构建分类表单字段
 function buildCategoryFields(category?: ICategoryInfo) {
-  const fields: IPopupDialogField[] = [
+  const fields: ILowCodeField[] = [
     {
       name: 'name',
       label: t('categoryList.field_name'),
       value: category ? category.name : '',
-      type: PopupDialogFieldType.text,
+      type: LowCodeFieldType.text,
       required: true,
       validate: (value: string) => {
         // 必须仅包含字母、数字、下划线且不能以数字开头
@@ -202,7 +202,7 @@ function buildCategoryFields(category?: ICategoryInfo) {
       name: 'description',
       label: t('categoryList.field_description'),
       value: category ? category.description || '' : '',
-      type: PopupDialogFieldType.textarea
+      type: LowCodeFieldType.textarea
     }
   ]
 
@@ -237,7 +237,7 @@ async function onCreateCategory() {
 const headerContextMenuItems: ComputedRef<IContextMenuItem[]> = computed(() => [
   {
     name: 'add',
-    label: translateGlobal('new'),
+    label: tGlobal('new'),
     tooltip: t('categoryList.newCategory'),
     onClick: onCreateCategory
   }
@@ -276,7 +276,7 @@ async function onModifyCategory(categoryDetails: Record<string, any>) {
 async function onDeleteCategory(categoryDetails: Record<string, any>) {
   // 进行确认
   const confirm = await confirmOperation(
-    translateGlobal('deleteConfirmation'),
+    tGlobal('deleteConfirmation'),
     t('categoryList.deleteCategoryConfirm', { label: categoryDetails.name })
   )
   if (!confirm) return
@@ -309,13 +309,13 @@ const itemContextMenuItems: ComputedRef<IContextMenuItem[]> = computed(() => [
   ...headerContextMenuItems.value,
   {
     name: 'modify',
-    label: translateGlobal('modify'),
+    label: tGlobal('modify'),
     tooltip: t('categoryList.modifyCategory'),
     onClick: onModifyCategory
   },
   {
     name: 'delete',
-    label: translateGlobal('delete'),
+    label: tGlobal('delete'),
     color: 'negative',
     tooltip: t('categoryList.deleteCategory'),
     onClick: onDeleteCategory

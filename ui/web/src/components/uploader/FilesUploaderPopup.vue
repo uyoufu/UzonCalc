@@ -36,7 +36,7 @@ import { uploadFileObject } from 'src/api/file'
 import dayjs from 'dayjs'
 import { fileSha256, IFileSha256Callback } from 'src/utils/file'
 import { AxiosProgressEvent } from 'axios'
-import { translateComponents } from 'src/i18n/helpers'
+import { tComponents } from 'src/i18n/helpers'
 
 interface IProgressInfo {
   virtualFile: boolean
@@ -59,7 +59,7 @@ const allTransferredBytes = computed(() => progressInfos.value.reduce((sum, info
 const allBytes = computed(() => progressInfos.value.reduce((sum, info) => sum + info.totalBytes, 0))
 const progress = computed(() => allBytes.value === 0 ? 0 : allTransferredBytes.value / allBytes.value)
 const labels = computed(() => {
-  if (progressInfos.value.length === 0) return translateComponents('waitingForUpload')
+  if (progressInfos.value.length === 0) return tComponents('waitingForUpload')
 
   let transferredBytes = 0, totalBytes = 0
   for (const info of progressInfos.value) {
@@ -80,7 +80,7 @@ const labels = computed(() => {
     `[${progressInfos.value.length}/${totalCount}]`,
     `${humanStorageSize(speedPerSecond)}/s`,
     `[${totalSpeed}]`,
-    `${translateComponents('remain')} ${dayjs(remainingTime).format('mm:ss')}`
+    `${tComponents('remain')} ${dayjs(remainingTime).format('mm:ss')}`
   ]
   return results
 })
@@ -113,14 +113,14 @@ onMounted(async () => {
   let index = 0
   function sha256Callback (callbackData: IFileSha256Callback) {
     updateProgressInfo(index,
-      translateComponents('calculatingFileHash', { fileName: callbackData.file.name }),
+      tComponents('calculatingFileHash', { fileName: callbackData.file.name }),
       callbackData.computed, callbackData.file.size, true)
   }
 
   function onUploadProgress (progressEvent: AxiosProgressEvent) {
     const file = props.files[index] as File
     updateProgressInfo(index,
-      translateComponents('uploadingFile', { fileName: file.name }),
+      tComponents('uploadingFile', { fileName: file.name }),
       progressEvent.loaded, progressEvent.total || 1)
   }
 

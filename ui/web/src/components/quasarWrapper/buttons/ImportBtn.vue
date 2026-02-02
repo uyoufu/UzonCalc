@@ -11,7 +11,7 @@
 <script lang="ts" setup>
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 import type { PropType } from 'vue'
-import { translateButton } from 'src/i18n/helpers'
+import { tButton } from 'src/i18n/helpers'
 
 const props = defineProps({
   color: {
@@ -24,11 +24,11 @@ const props = defineProps({
   },
   label: {
     type: String,
-    default: translateButton('import')
+    default: tButton('import')
   },
   tooltip: {
     type: [String, Array] as PropType<string | string[]>,
-    default: translateButton('importData')
+    default: tButton('importData')
   },
   size: {
     type: String,

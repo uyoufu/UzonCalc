@@ -302,7 +302,5 @@ async def batch_delete_calc_reports(
     deleted_count = await calc_report_service.batch_delete_calc_reports(
         tokenPayloads.id, report_oids, session
     )
-    logger.info(
-        f"批量删除计算报告: userId={tokenPayloads.id}, count={deleted_count}"
-    )
+    logger.info(f"批量删除计算报告: userId={tokenPayloads.id}, count={deleted_count}")
     return ok(data={"deleted": deleted_count})

@@ -8,6 +8,7 @@ import type {
   GlobalLangKey,
   UtilsLangKey,
   ComponentsLangKey,
+  CalcReportPageViewerLangKey,
 } from './types'
 
 import { i18n } from 'src/boot/i18n'
@@ -44,7 +45,7 @@ export function translateSub<T extends string> (key: T, subKey: LangKey, named?:
  * @param default
  * @returns
  */
-export function translateRoutes (key: RoutesLangKey): string {
+export function tRoutes (key: RoutesLangKey): string {
   return translateSub<RoutesLangKey>(key, 'routes')
 }
 
@@ -53,26 +54,30 @@ export function translateRoutes (key: RoutesLangKey): string {
  * @param key
  * @returns
  */
-export function translateLoginPage (key: LoginPageLangKey): string {
+export function tLoginPage (key: LoginPageLangKey): string {
   return translateSub<LoginPageLangKey>(key, 'loginPage')
 }
 
-export function translateDashboardPage (key: DashboardPageLangKey): string {
+export function tDashboardPage (key: DashboardPageLangKey): string {
   return translateSub<DashboardPageLangKey>(key, 'dashboardPage')
 }
 
-export function translateButton (key: ButtonLangKey): string {
+export function tButton (key: ButtonLangKey): string {
   return translateSub<ButtonLangKey>(key, 'buttons')
 }
 
-export function translateGlobal (key: GlobalLangKey, named?: NamedValue): string {
+export function tGlobal (key: GlobalLangKey, named?: NamedValue): string {
   return translateSub<GlobalLangKey>(key, 'global', named)
 }
 
-export function translateComponents (key: ComponentsLangKey, named?: NamedValue): string {
+export function tComponents (key: ComponentsLangKey, named?: NamedValue): string {
   return translateSub<ComponentsLangKey>(key, 'components', named)
 }
 
-export function translateUtils (key: UtilsLangKey, named?: NamedValue): string {
+export function tUtils (key: UtilsLangKey, named?: NamedValue): string {
   return translateSub<UtilsLangKey>(key, 'utils', named)
+}
+
+export function tCalcReportPageViewer (key: CalcReportPageViewerLangKey, named?: NamedValue): string {
+  return translateSub<CalcReportPageViewerLangKey>(key, 'calcReportPage.viewer', named)
 }

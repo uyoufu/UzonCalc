@@ -12,6 +12,7 @@ from app.utils.dynamic_loader import load_routers_from_directory
 from app.exception.custom_exception import CustomException, raise_ex
 from app.response.response_result import fail
 from app.controller.depends import get_request_token
+from app.schedule.scheduler import start_scheduler, shutdown_scheduler
 from utils.jwt_helper import verify_jwt
 
 HERE = Path(__file__).resolve().parent
@@ -44,12 +45,18 @@ async def lifespan(app: FastAPI):
     # migrations
     # run_migrations()
 
+    # 启用定时器
+    start_scheduler()
+
     yield
 
     try:
         db_manager = get_db_manager()
         await db_manager.shutdown()
         logger.info("Database connections closed successfully")
+
+        # 关闭定时器
+        shutdown_scheduler()
     except Exception as e:
         logger.error(f"Database shutdown error: {e}")
 

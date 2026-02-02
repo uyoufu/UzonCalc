@@ -21,3 +21,5 @@ export type ComponentsLangKey = keyof typeof LocaleLang.components
 
 export type UtilsLangKey = keyof typeof LocaleLang.utils
 
+export type CalcReportPageViewerLangKey = keyof typeof LocaleLang.calcReportPage.viewer
+

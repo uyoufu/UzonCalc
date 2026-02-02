@@ -1,78 +1,79 @@
 <template>
-  <q-dialog ref="dialogRef" @hide="onDialogHide" :persistent="persistent" @keydown.enter="onEnterKeyPress">
-    <q-card class="low-code_form-container">
-      <!--
-        ... 内容
-        ... 用q-card-section来做？
-      -->
-      <div v-if="title" class="text-subtitle1 text-primary text-bold q-mx-md q-mt-sm">{{ title }}</div>
+  <div class="low-code_form-container" @keydown.enter="onEnterKeyPress">
+    <div class="q-py-xs q-px-xs row justify-start items-center">
+      <template v-for="field in validFields" :key="field.name">
+        <q-input v-if="isMatchedType(field, commonInputTypes)" outlined class="q-mb-sm low-code__field q-px-xs"
+          :class="[fieldClass, field.classes]" standout dense v-model="fieldsModel[field.name]"
+          :type="(field.type as any)" :label="field.label" :placeholder="field.placeholder" :disable="field.disable">
+          <template v-if="field.icon" v-slot:prepend>
+            <q-icon :name="field.icon" />
+          </template>
+          <AsyncTooltip :tooltip="field.tooltip" />
+        </q-input>
 
-      <div class="q-py-md q-px-xs justify-start items-center" :class="getContainerClass()">
-        <template v-for="field in validFields" :key="field.name">
-          <q-input v-if="isMatchedType(field, commonInputTypes)" outlined class="q-mb-sm low-code__field q-px-sm"
-            :class="field.classes" standout dense v-model="fieldsModel[field.name]" :type="(field.type as any)"
-            :label="field.label" :placeholder="field.placeholder" :disable="field.disable">
-            <template v-if="field.icon" v-slot:prepend>
-              <q-icon :name="field.icon" />
-            </template>
-            <AsyncTooltip :tooltip="field.tooltip" />
-          </q-input>
+        <q-input v-if="isMatchedType(field, ['number'])" outlined class="q-mb-sm low-code__field q-px-xs"
+          :class="[fieldClass, field.classes]" standout dense v-model.number="fieldsModel[field.name]" type="number"
+          :label="field.label" :placeholder="field.placeholder" :disable="field.disable">
+          <template v-if="field.icon" v-slot:prepend>
+            <q-icon :name="field.icon" />
+          </template>
+          <AsyncTooltip :tooltip="field.tooltip" />
+        </q-input>
 
-          <q-input v-if="isMatchedType(field, ['textarea'])" outlined class="q-mb-sm low-code__field q-px-sm"
-            :class="field.classes" standout dense v-model="fieldsModel[field.name]" type="textarea"
-            :autogrow="!field.disableAutogrow" :label="field.label" :disable="field.disable"
-            :placeholder="field.placeholder || '按 Enter 可换行'">
-            <template v-if="field.icon" v-slot:prepend>
-              <q-icon :name="field.icon" />
-            </template>
-            <AsyncTooltip :tooltip="field.tooltip" />
-          </q-input>
+        <q-input v-if="isMatchedType(field, ['textarea'])" outlined class="q-mb-sm low-code__field q-px-xs"
+          :class="[fieldClass, field.classes]" standout dense v-model="fieldsModel[field.name]" type="textarea"
+          :autogrow="!field.disableAutogrow" :label="field.label" :disable="field.disable"
+          :placeholder="field.placeholder || '按 Enter 可换行'">
+          <template v-if="field.icon" v-slot:prepend>
+            <q-icon :name="field.icon" />
+          </template>
+          <AsyncTooltip :tooltip="field.tooltip" />
+        </q-input>
 
-          <PasswordInput v-if="isMatchedType(field, 'password')" class="q-mb-sm low-code__field q-px-sm"
-            :class="field.classes" no-icon :label="field.label" :placeholder="field.placeholder"
-            v-model="fieldsModel[field.name]" dense>
-            <AsyncTooltip :tooltip="field.tooltip" />
-          </PasswordInput>
+        <PasswordInput v-if="isMatchedType(field, 'password')" class="q-mb-sm low-code__field q-px-xs"
+          :class="[fieldClass, field.classes]" no-icon :label="field.label" :placeholder="field.placeholder"
+          v-model="fieldsModel[field.name]" dense>
+          <AsyncTooltip :tooltip="field.tooltip" />
+        </PasswordInput>
 
-          <q-select v-if="isMatchedType(field, ['selectOne', 'selectMany'])" class="q-mb-sm low-code__field q-px-sm"
-            :class="field.classes" outlined v-model="fieldsModel[field.name]" :options="field.options"
-            :label="field.label" :disable="field.disable" dense :option-label="field.optionLabel"
-            :option-value="field.optionValue" options-dense :multiple="isMatchedType(field, 'selectMany')"
-            :map-options="field.mapOptions" :emit-value="field.emitValue">
-            <AsyncTooltip :tooltip="field.tooltip" />
-            <template v-slot:option="{ itemProps, opt, selected, toggleOption }">
-              <q-item v-bind="itemProps">
-                <q-item-section>
-                  {{ getSelectionItemLabel(itemProps, opt, field) }}
-                </q-item-section>
-                <q-item-section side>
-                  <q-toggle color="secondary" :model-value="selected" @update:model-value="toggleOption(opt)" dense />
-                </q-item-section>
-                <AsyncTooltip :tooltip="getSelectionItemTooltip(itemProps, opt, field)" />
-              </q-item>
-            </template>
-          </q-select>
+        <q-select v-if="isMatchedType(field, ['selectOne', 'selectMany'])" class="q-mb-sm low-code__field q-px-xs"
+          :class="[fieldClass, field.classes]" outlined v-model="fieldsModel[field.name]" :options="field.options"
+          :label="field.label" :disable="field.disable" dense :option-label="field.optionLabel"
+          :option-value="field.optionValue" options-dense :multiple="isMatchedType(field, 'selectMany')"
+          :map-options="field.mapOptions" :emit-value="field.emitValue">
+          <AsyncTooltip :tooltip="field.tooltip" />
+          <template v-slot:option="{ itemProps, opt, selected, toggleOption }">
+            <q-item v-bind="itemProps">
+              <q-item-section>
+                {{ getSelectionItemLabel(itemProps, opt, field) }}
+              </q-item-section>
+              <q-item-section side>
+                <q-toggle color="secondary" :model-value="selected" @update:model-value="toggleOption(opt)" dense />
+              </q-item-section>
+              <AsyncTooltip :tooltip="getSelectionItemTooltip(itemProps, opt, field)" />
+            </q-item>
+          </template>
+        </q-select>
 
-          <q-checkbox v-if="isMatchedType(field, 'boolean')" class="q-mb-sm low-code__field q-px-sm"
-            :class="field.classes" dense keep-color v-model="fieldsModel[field.name]" :label="field.label">
-            <AsyncTooltip anchor="bottom left" self="top start" :tooltip="field.tooltip" />
-          </q-checkbox>
-        </template>
-      </div>
+        <q-checkbox v-if="isMatchedType(field, 'boolean')" class="q-mb-sm low-code__field q-px-xs"
+          :class="[fieldClass, field.classes]" dense keep-color v-model="fieldsModel[field.name]" :label="field.label">
+          <AsyncTooltip anchor="bottom left" self="top start" :tooltip="field.tooltip" />
+        </q-checkbox>
+      </template>
+    </div>
 
-      <!-- 按钮的例子 -->
-      <q-card-actions align="right">
-        <CommonBtn v-for="btn in customBtns" :key="btn.label" @click="onCustomBottonClicked(btn)" :label="btn.label"
-          :color="btn.color" />
-        <CancelBtn v-if="!disableDefaultBtns.includes('cancel')" @click="onDialogCancel"></CancelBtn>
-        <OkBtn v-if="!disableDefaultBtns.includes('ok')" :loading="okBtnLoading" @click="onOKClick"></OkBtn>
-      </q-card-actions>
-    </q-card>
-  </q-dialog>
+    <!-- 按钮的例子 -->
+    <div v-if="customBtns.length > 0 || disableDefaultBtns.length < 2" class="q-pa-md"
+      style="display: flex; justify-content: flex-end; gap: 8px;">
+      <CommonBtn v-for="btn in customBtns" :key="btn.label" @click="onCustomButtonClicked(btn)" :label="btn.label"
+        :color="btn.color" />
+      <CancelBtn v-if="!disableDefaultBtns.includes('cancel')" @click="onCancel"></CancelBtn>
+      <OkBtn v-if="!disableDefaultBtns.includes('ok')" :loading="okBtnLoading" @click="onOKClick"></OkBtn>
+    </div>
+  </div>
 </template>
 
 <script lang="ts" setup>
-import { useDialogPluginComponent } from 'quasar'
 import dayjs from 'dayjs'
 
 import CommonBtn from '../quasarWrapper/buttons/CommonBtn.vue'
@@ -82,22 +83,25 @@ import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 import PasswordInput from '../passwordInput/PasswordInput.vue'
 
 import type { PropType } from 'vue'
-import type { ICustomPopupButton, IPopupDialogField, IOnSetupParams } from './types'
-import { PopupDialogFieldType } from './types'
+import type { ICustomPopupButton, ILowCodeField, IOnSetupParams } from './types'
+import { LowCodeFieldType } from './types'
 import { notifyError } from 'src/utils/dialog'
 import type { IFunctionResult } from 'src/types'
 
 const props = defineProps({
-  title: {
-    type: String,
-    default: ''
-  },
   // 字段定义
   fields: {
-    type: Array as PropType<Array<IPopupDialogField>>,
+    type: Array as PropType<Array<ILowCodeField>>,
     required: true,
     default: () => { return [] }
   },
+
+  // 是否同时值到 fields 中的 value 字段上
+  syncValue: {
+    type: Boolean,
+    default: false
+  },
+
   // 数据源
   dataSet: {
     type: Object,
@@ -110,12 +114,6 @@ const props = defineProps({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     type: Function as PropType<(params: Record<string, any>) => Promise<IFunctionResult>>,
     required: false
-  },
-
-  // 窗体保持
-  persistent: {
-    type: Boolean,
-    default: true
   },
 
   // ok 单击后，调用的函数
@@ -150,22 +148,34 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits<{
+  ok: [data: Record<string, unknown>]
+  cancel: []
+}>()
+
+// 字段的基础样式类，用于控制布局
+const fieldClass = computed(() => {
+  if (props.oneColumn) return 'col-12'
+  // 使用 col-grow 配合 CSS 中的 min-width，可以实现按父级宽度动态显示列
+  return 'col-grow'
+})
+
 // 是否为匹配到的类型
-const commonInputTypes = ["text", "email", "search", "tel", "file", "number", "url", "time", "date", "datetime-local"]
-function isMatchedType(field: IPopupDialogField, types: string | string[]): boolean {
+const commonInputTypes = ["text", "email", "search", "tel", "file", "url", "time", "date", "datetime-local"]
+function isMatchedType(field: ILowCodeField, types: string | string[]): boolean {
   if (Array.isArray(types)) return types.includes(field.type as string)
   // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
   return field.type === types
 }
 
-function getContainerClass() {
-  return {
-    'low-code__container_1': props.oneColumn,
-    'low-code__container_2': !props.oneColumn,
-    row: !props.oneColumn,
-    column: props.oneColumn
-  }
-}
+// function getContainerClass() {
+//   return {
+//     'low-code__container_1': props.oneColumn,
+//     'low-code__container_2': !props.oneColumn,
+//     row: !props.oneColumn,
+//     column: props.oneColumn
+//   }
+// }
 // #endregion
 
 // #region 数据初始化
@@ -193,13 +203,13 @@ function initFieldsModel() {
   for (const field of fields.value) {
     // 根据不同的类型，生成不同的初始值
     switch (field.type) {
-      case PopupDialogFieldType.text:
+      case LowCodeFieldType.text:
         fieldsModel.value[field.name] = field.value || ''
         break
-      case PopupDialogFieldType.date:
+      case LowCodeFieldType.date:
         fieldsModel.value[field.name] = field.value ? dayjs(field.value as string).format('YYYY-MM-DD') : ''
         break
-      case PopupDialogFieldType.number:
+      case LowCodeFieldType.number:
         fieldsModel.value[field.name] = field.value || 0
         break
       default:
@@ -247,7 +257,7 @@ const validFields = computed(() => {
 // import logger from 'loglevel'
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getSelectionItemLabel(itemProps: any, opt: any, field: IPopupDialogField) {
+function getSelectionItemLabel(itemProps: any, opt: any, field: ILowCodeField) {
   const labelField = field.optionLabel || 'label'
 
   if (!field || !opt) return opt
@@ -256,28 +266,13 @@ function getSelectionItemLabel(itemProps: any, opt: any, field: IPopupDialogFiel
   return opt[labelField]
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-function getSelectionItemTooltip(itemProps: any, opt: any, field: IPopupDialogField) {
+function getSelectionItemTooltip(itemProps: any, opt: any, field: ILowCodeField) {
   // logger.debug('[popupDialog] getSelectionItemTooltip:', opt, field)
   if (!field || !field.optionTooltip || !opt) return ''
   if (typeof opt !== 'object') return opt
   return opt[field.optionTooltip]
 }
 // #endregion
-
-// #region quasar 弹窗逻辑
-defineEmits([
-  // 必需；需要指定一些事件
-  // （组件将通过useDialogPluginComponent()发出）
-  ...useDialogPluginComponent.emits
-])
-
-const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent()
-// dialogRef - 应用于QDialog的Vue引用。
-// onDialogHide - 用作QDialog上@hide的处理函数。
-// onDialogOK - 调用函数来处理结果为"确定"的对话框。
-//              例子: onDialogOK() - 没有有效载荷
-//              例子: onDialogOK({ /*...*/ }) -- 有有效载荷
-// onDialogCancel - 调用函数来处理结果为"取消"的对话框。
 
 // ok 逻辑
 const okBtnLoading = ref(false)
@@ -335,22 +330,25 @@ async function onOKClick() {
     okBtnLoading.value = false
   }
 
-  // 在"确定"时，它必须要
-  // 调用onDialogOK（带可选的有效载荷）。
-  onDialogOK(fieldsModel.value)
-  // 或使用有效载荷：onDialogOK({ ... })
-  // ...它还会自动隐藏对话框
+  // 发出 ok 事件
+  emit('ok', fieldsModel.value)
 }
 // #endregion
 
 // #region 自定义按钮
-async function onCustomBottonClicked(btn: ICustomPopupButton) {
+async function onCustomButtonClicked(btn: ICustomPopupButton) {
   // 调用
   if (typeof btn.onClick !== 'function') {
     notifyError('自定义按钮没有注册 onClick 函数')
   }
 
   await btn.onClick(fieldsModel.value)
+}
+// #endregion
+
+// #region 取消
+function onCancel() {
+  emit('cancel')
 }
 // #endregion
 
@@ -373,32 +371,31 @@ async function onEnterKeyPress(event: KeyboardEvent) {
   await onOKClick()
 }
 // #endregion
+
+// #region 进行值同步
+watch(fieldsModel, () => {
+  if (!props.syncValue) return
+  // 更新 fields 中的 value
+  for (const field of fields.value) {
+    field.value = fieldsModel.value[field.name]
+  }
+}, { deep: true })
+// #endregion
 </script>
 
 <style lang="scss" scoped>
 .low-code_form-container {
-  min-width: 300px;
-}
-
-.low-code__container_2 {
+  min-width: 80px;
   display: flex;
-  flex-wrap: wrap;
-
-  .low-code__field {
-    flex: 1 1 100%;
-
-    @media screen and (min-width: 600px) {
-      flex: 1 1 50%;
-      max-width: 50%;
-    }
-  }
+  flex-direction: column;
 }
 
-.low-code__container_1 {
-  .low-code__field {
-    width: 100%;
-    flex: 1 1 100%;
-    min-width: 300px;
+.low-code__field {
+  min-width: 80px;
+  max-width: 100%;
+
+  @media screen and (max-width: 600px) {
+    min-width: 100%;
   }
 }
 

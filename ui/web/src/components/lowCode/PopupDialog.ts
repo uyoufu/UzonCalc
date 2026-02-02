@@ -1,5 +1,5 @@
 import type { IDialogResult, IPopupDialogParams } from './types'
-import { PopupDialogFieldType } from './types'
+import { LowCodeFieldType } from './types'
 import { Dialog } from 'quasar'
 import LowCodeForm from './LowCodeForm.vue'
 
@@ -10,7 +10,7 @@ import LowCodeForm from './LowCodeForm.vue'
 export async function showDialog<T = Record<string, any>> (dialogParams: IPopupDialogParams): Promise<IDialogResult<T>> {
   // 修改默认值：fields
   dialogParams.fields.forEach(field => {
-    if (!field.type) field.type = PopupDialogFieldType.text
+    if (!field.type) field.type = LowCodeFieldType.text
   })
 
   /**

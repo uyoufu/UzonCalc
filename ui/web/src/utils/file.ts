@@ -1,14 +1,14 @@
 /* eslint-disable @typescript-eslint/prefer-promise-reject-errors */
 /* eslint-disable @typescript-eslint/no-explicit-any */
-import { showDialog } from 'src/components/popupDialog/PopupDialog'
+import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { notifyError } from 'src/utils/dialog'
 import * as XLSX from 'xlsx'
-import { PopupDialogFieldType } from 'src/components/popupDialog/types'
+import { LowCodeFieldType } from 'src/components/lowCode/types'
 import CryptoJS from 'crypto-js'
 import type { IProgressOptions } from 'src/compositions/useProgress'
 import { useNotifyProgress } from 'src/compositions/useProgress'
 import logger from 'loglevel'
-import { translateGlobal, translateUtils } from 'src/i18n/helpers'
+import { tGlobal, tUtils } from 'src/i18n/helpers'
 
 export interface ISelectFileResult {
   ok: boolean,
@@ -58,7 +58,7 @@ export function selectFile (multiple: boolean = false, accept: string = ''): Pro
       // change 触发，说明用户选择了文件（或清除了选择）
       const files = (ev.target as HTMLInputElement).files
       if (!files || files.length < 1) {
-        notifyError(translateUtils('file_fileNotFound'))
+        notifyError(tUtils('file_fileNotFound'))
         return finishReject({ ok: false, data: null } as any)
       }
 
@@ -86,7 +86,7 @@ export function selectFile (multiple: boolean = false, accept: string = ''): Pro
           // 有文件，等待 change 事件处理（或直接读取）
           return
         }
-        finishReject({ ok: false, data: null, message: translateUtils('file_noFileDetected') } as any)
+        finishReject({ ok: false, data: null, message: tUtils('file_noFileDetected') } as any)
       }, 5000)
     }
 
@@ -190,12 +190,12 @@ export async function readExcelCore (params: IExcelReaderParams): Promise<{ data
   // 打开选择框
   if (params.selectSheet && workbook.SheetNames.length > 1) {
     const { ok, data } = await showDialog<Record<string, any>>({
-      title: translateUtils('file_specifyWorksheet'),
+      title: tUtils('file_specifyWorksheet'),
       fields: [
         {
           name: 'sheetName',
-          type: PopupDialogFieldType.selectOne,
-          label: translateUtils('file_pleaseSelectWorksheet'),
+          type: LowCodeFieldType.selectOne,
+          label: tUtils('file_pleaseSelectWorksheet'),
           value: workbook.SheetNames[0],
           options: workbook.SheetNames
         }
@@ -253,7 +253,7 @@ export async function readExcelCore (params: IExcelReaderParams): Promise<{ data
         // 判断是否存在
         if (map.required) {
           if (formattedValue === null || formattedValue === undefined || formattedValue === '') {
-            const errorMsg = translateUtils('file_fieldCannotBeEmpty', { field: map.headerName })
+            const errorMsg = tUtils('file_fieldCannotBeEmpty', { field: map.headerName })
             notifyError(errorMsg)
             throw new Error(errorMsg)
           }
@@ -302,7 +302,7 @@ export async function readExcel (params: IExcelReaderParams) {
  */
 export async function writeExcel (rows: any[], params: IExcelWriterParams) {
   if (params.strict && !params.mappers?.length) {
-    logger.error(`[file] ${translateUtils('file_mappersCannotBeEmptyInStrictMode')}`)
+    logger.error(`[file] ${tUtils('file_mappersCannotBeEmptyInStrictMode')}`)
     return
   }
 
@@ -343,7 +343,7 @@ export async function writeExcel (rows: any[], params: IExcelWriterParams) {
         // 判断是否存在
         if (map.required) {
           if (formattedValue === null || formattedValue === undefined || formattedValue === '') {
-            const errorMsg = translateUtils('file_fieldCannotBeEmptyAtRow', {
+            const errorMsg = tUtils('file_fieldCannotBeEmptyAtRow', {
               rowIndex,
               field: map.headerName
             })
@@ -464,7 +464,7 @@ export function fileSha256 (file: File, callback?: (params: IFileSha256Callback)
     function asyncUpdate () {
       if (start < total) {
         const process = start / total
-        const progressLabel = translateUtils('file_calculatingHash') + (process * 100).toFixed(2) + '%'
+        const progressLabel = tUtils('file_calculatingHash') + (process * 100).toFixed(2) + '%'
         const end = Math.min(start + batch, total)
         reader.readAsArrayBuffer(file.slice(start, end))
         start = end
@@ -485,13 +485,13 @@ export function fileSha256 (file: File, callback?: (params: IFileSha256Callback)
         }
       } else {
         const sha256 = hashObject.finalize()
-        console.log(translateUtils('file_fileHashCalculated', {
+        console.log(tUtils('file_fileHashCalculated', {
           fileName: file.name,
         }), sha256.toString())
 
         if (typeof callback === 'function') {
           const callbackResult = {
-            progressLabel: translateUtils('file_hashVerifiedWaitingUpload'), // 重置为未上传的显示状态
+            progressLabel: tUtils('file_hashVerifiedWaitingUpload'), // 重置为未上传的显示状态
             process: total,
             computed: total,
             total,
@@ -578,13 +578,13 @@ declare global {
  */
 export async function saveByFileSystemAccess (fileName: string, downloadUrl: string, options: IProgressOptions = {}) {
   if (!validUrl(downloadUrl)) {
-    throw new Error(translateUtils('file_invalidDownloadUrl'))
+    throw new Error(tUtils('file_invalidDownloadUrl'))
   }
 
   const _options = Object.assign({
     token: '',
-    initMessage: translateUtils('file_parsingFile'),
-    doneMessage: translateUtils('file_downloadCompleted'),
+    initMessage: tUtils('file_parsingFile'),
+    doneMessage: tUtils('file_downloadCompleted'),
     cancellable: false
   }, options)
   if (!window.showSaveFilePicker) return false
@@ -598,7 +598,7 @@ export async function saveByFileSystemAccess (fileName: string, downloadUrl: str
       suggestedName: fileName,
       types: [
         {
-          description: translateUtils('file_fileExtension', {
+          description: tUtils('file_fileExtension', {
             ext: ext
           }),
           accept: {
@@ -615,7 +615,7 @@ export async function saveByFileSystemAccess (fileName: string, downloadUrl: str
     if (_options.cancellable) {
       _options.actions = [
         {
-          label: translateGlobal('cancel'),
+          label: tGlobal('cancel'),
           dense: true,
           color: 'white',
           padding: 'none',
@@ -636,7 +636,7 @@ export async function saveByFileSystemAccess (fileName: string, downloadUrl: str
 
     const writableStream = await fileHandle.createWritable()
     const response = await fetch(downloadUrl, { signal })
-    if (!response || !response.body) { throw new Error(translateUtils('file_downloadFailed')) }
+    if (!response || !response.body) { throw new Error(tUtils('file_downloadFailed')) }
     const reader = response.body.getReader()
     const writer = writableStream.getWriter()
 
@@ -648,7 +648,7 @@ export async function saveByFileSystemAccess (fileName: string, downloadUrl: str
       const percent = Math.floor(receivedLength / totalLength * 100)
       if (percent > 100) return 90
 
-      update(percent, translateUtils('file_downloadingFile', {
+      update(percent, tUtils('file_downloadingFile', {
         fileName: fileHandle.name
       }))
     }

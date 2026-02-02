@@ -202,7 +202,22 @@ export default {
     defaultCalcReportName: 'new_calc_report',
     pleaseInputCalcReportName: '请输入计算报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
 
-    calcReportViewer: '查看计算'
+    calcReportViewer: '查看计算',
+
+    // #region Viewer 页面
+    viewer: {
+      name: '名称：{name}',
+      openLocalFile: '打开本地文件',
+      restart: '重新开始',
+      executeCalculation: '执行计算',
+      resumeCalculation: '继续计算',
+      waitingForResult: '等待计算结果...',
+      missingReportOidOrPath: '缺失计算报告 oid 或路径',
+      calculationCompleted: '计算执行完成',
+      missingExecutionId: '缺失执行 ID',
+      resumeExecutionFailed: '恢复计算执行失败'
+    }
+    // #endregion
   },
 
   calcModulePage: {

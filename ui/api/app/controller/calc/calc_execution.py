@@ -4,15 +4,23 @@
 提供 HTTP 端点供前端调用。
 """
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Optional
+from typing import Annotated, Optional
 
-from app.controller.calc.calc_dto import CalcExecutionReqDTO
+from app.controller.calc.calc_dto import (
+    CalcExecutionReqDTO,
+    CalcResumeReqDTO,
+)
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
 from app.sandbox.core.execution_result import ExecutionResult
-from app.service.calc_execution_service import start_execution, continue_execution
+from app.service.calc_execution_service import (
+    start_execution,
+    continue_execution,
+    start_file_execution,
+)
+from app.service.html_cache.html_cacher import html_cacher
 
 from config import logger
 from utils.jwt_helper import TokenPayloads
@@ -36,10 +44,14 @@ async def start_calc_execution(
     result = await start_execution(
         db_session,
         tokenPayloads.id,
-        data.reportId,
+        data.reportOid,
         data.defaults or {},
         is_silent=data.isSilent,
     )
+
+    # 对结果进行缓存
+    relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
+    result.html = relative_path
 
     return ok(result)
 
@@ -47,6 +59,7 @@ async def start_calc_execution(
 @router.post("/resume/{connectionId}")
 async def resume_calc_execution(
     connectionId: str,
+    data: CalcResumeReqDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     db_session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[ExecutionResult]:
@@ -54,5 +67,34 @@ async def resume_calc_execution(
     恢复调用计算执行
     """
 
-    result = await continue_execution(connectionId, {})
+    result = await continue_execution(connectionId, data.defaults or {})
+
+    # 对结果进行缓存
+    relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
+    result.html = relative_path
+
+    return ok(result)
+
+
+@router.post("/file")
+async def start_file_calc_execution(
+    filePath: Annotated[
+        str,
+        Body(),
+    ],
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    db_session: AsyncSession = Depends(get_session),
+) -> ResponseResult[ExecutionResult]:
+    """
+    启动文件执行（调试用）
+    """
+    if not filePath:
+        raise HTTPException(status_code=400, detail="filePath is required")
+
+    result = await start_file_execution(tokenPayloads.id, filePath)
+
+    # 对结果进行缓存
+    relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
+    result.html = relative_path
+
     return ok(result)

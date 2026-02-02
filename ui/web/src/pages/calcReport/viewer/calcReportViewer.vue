@@ -1,30 +1,19 @@
-<template>
-  <q-bar>
-    <q-space />
-    calcReportViewer
-    <q-space />
-  </q-bar>
-  <q-splitter v-model="splitterModel" class="full-height">
-    <template #before>
-      <InputForm />
-    </template>
-
-    <template #after>
-      <ResultViewer />
-    </template>
-  </q-splitter>
-</template>
-
 <script lang="ts" setup>
-import { ref } from 'vue'
-import InputForm from './components/InputForm.vue'
-import ResultViewer from './components/ResultViewer.vue'
 
 defineOptions({
   name: 'calcReportViewer'
 })
 
-const splitterModel = ref(30)
+import CalcReportExecutor from './CalcReportExecutor.vue'
+import { useRoute } from 'vue-router'
+
+const route = useRoute()
+const reportOidRef = ref<string>(route.query.reportOid as string)
+const noSilentRef = ref<boolean>(route.query.silent === 'false' || route.query.silent === '0')
 </script>
+
+<template>
+  <CalcReportExecutor :reportOid="reportOidRef" :is-silent="!noSilentRef" />
+</template>
 
 <style lang="scss" scoped></style>

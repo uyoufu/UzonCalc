@@ -8,5 +8,4 @@ class ExecutionResult(BaseModel):
     isCompleted: bool = False
     # 收集的所有 UI windows
     windows: List[Dict[str, Any]] = []
-
     model_config = {"from_attributes": True}

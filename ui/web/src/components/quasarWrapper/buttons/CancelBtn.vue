@@ -10,7 +10,7 @@
 
 <script lang="ts" setup>
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
-import { translateButton } from 'src/i18n/helpers'
+import { tButton } from 'src/i18n/helpers'
 
 const props = defineProps({
   color: {
@@ -26,7 +26,7 @@ const props = defineProps({
   },
   tooltip: {
     type: String,
-    default: translateButton('cancelCurrentOperation')
+    default: tButton('cancelCurrentOperation')
   },
   size: {
     type: String,
@@ -40,7 +40,7 @@ const props = defineProps({
 
 // #region 响应多语言切换
 const labelValue = computed(() => {
-  if (!props.label) return translateButton('cancel')
+  if (!props.label) return tButton('cancel')
   return props.label
 })
 // #endregion

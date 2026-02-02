@@ -1,7 +1,7 @@
 import type { IFunctionResult } from 'src/types'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
-export enum PopupDialogFieldType {
+export enum LowCodeFieldType {
   text = 'text',
   textarea = 'textarea',
   boolean = 'boolean',
@@ -23,8 +23,8 @@ export enum PopupDialogFieldType {
 /**
  * 弹出菜单项
  */
-export interface IPopupDialogField {
-  type?: PopupDialogFieldType,
+export interface ILowCodeField {
+  type?: LowCodeFieldType,
   name: string, // 用于返回值的字段名
   label: string, // 显示的名称
   placeholder?: string, // 占位内容
@@ -57,7 +57,7 @@ export interface ICustomPopupButton {
 
 export interface IOnSetupParams {
   fieldsModel: Ref<Record<string, any>>,
-  fields: ComputedRef<Array<IPopupDialogField>>,
+  fields: ComputedRef<Array<ILowCodeField>>,
 }
 
 /**
@@ -66,7 +66,7 @@ export interface IOnSetupParams {
 export interface IPopupDialogParams {
   title?: string, // 标题
   // 字段定义
-  fields: Array<IPopupDialogField>,
+  fields: Array<ILowCodeField>,
   // 数据源
   dataSet?: Record<string, Array<string | number | boolean | object> | Promise<any[]>>,
   // 用于数据验证

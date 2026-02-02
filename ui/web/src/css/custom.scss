@@ -99,6 +99,6 @@ main table tbody tr.table-row__keep-hover {
 }
 
 /*优化 input 大小*/
-.q-field--dense .q-field__control {
-  height: 32px;
+.dense-input .q-field__control {
+  height: 32px !important;
 }

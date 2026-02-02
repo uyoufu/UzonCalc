@@ -10,7 +10,7 @@
 
 <script lang="ts" setup>
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
-import { translateButton } from 'src/i18n/helpers'
+import { tButton } from 'src/i18n/helpers'
 
 const props = defineProps({
   color: {
@@ -39,12 +39,12 @@ const props = defineProps({
 
 const btnLabel = computed(() => {
   if (props.label) return props.label
-  return translateButton('confirm')
+  return tButton('confirm')
 })
 
 const btnTooltip = computed(() => {
   if (props.tooltip) return props.tooltip
-  return translateButton('confirmCurrentOperation')
+  return tButton('confirmCurrentOperation')
 })
 
 </script>

@@ -10,13 +10,13 @@
         </div>
 
         <q-input outlined class="full-width q-mb-md" standout v-model="username"
-          :label="translateLoginPage('userName')">
+          :label="tLoginPage('userName')">
           <template v-slot:prepend>
             <q-icon name="person" />
           </template>
         </q-input>
 
-        <q-input outlined class="full-width q-mb-md" standout v-model="password" :label="translateLoginPage('password')"
+        <q-input outlined class="full-width q-mb-md" standout v-model="password" :label="tLoginPage('password')"
           :type="isPwd ? 'password' : 'text'">
           <template v-slot:prepend>
             <q-icon name="lock" />
@@ -26,15 +26,15 @@
           </template>
         </q-input>
 
-        <q-btn class="full-width border-radius-8" color="primary" :label="translateLoginPage('signIn')"
+        <q-btn class="full-width border-radius-8" color="primary" :label="tLoginPage('signIn')"
           @click="onUserLogin" />
       </div>
     </div>
 
     <div class="row justify-center items-center q-mb-lg text-secondary">
-      <div class="text-primary">{{ translateLoginPage('version') }}:&nbsp;&nbsp;</div>
-      <div>{{ translateLoginPage('client') }} - {{ clientVersion }},&nbsp;&nbsp;</div>
-      <div :class="serverVersionClass">{{ translateLoginPage('server') }} - {{ serverVersion }}</div>
+      <div class="text-primary">{{ tLoginPage('version') }}:&nbsp;&nbsp;</div>
+      <div>{{ tLoginPage('client') }} - {{ clientVersion }},&nbsp;&nbsp;</div>
+      <div :class="serverVersionClass">{{ tLoginPage('server') }} - {{ serverVersion }}</div>
     </div>
   </div>
 </template>
@@ -42,7 +42,7 @@
 <script lang="ts" setup>
 import { userLogin } from 'src/api/user'
 
-import { getCurrentLocale, translateLoginPage } from 'src/i18n/helpers'
+import { getCurrentLocale, tLoginPage } from 'src/i18n/helpers'
 import { useUserInfoStore } from 'src/stores/user'
 import { useRoutesStore } from 'src/stores/routes'
 import { notifyError } from 'src/utils/dialog'
@@ -64,12 +64,12 @@ const routeStore = useRoutesStore()
 async function onUserLogin() {
   // 验证数据
   if (!username.value) {
-    notifyError(translateLoginPage('pleaseInputUserName'))
+    notifyError(tLoginPage('pleaseInputUserName'))
     return
   }
 
   if (!password.value) {
-    notifyError(translateLoginPage('pleaseInputPassword'))
+    notifyError(tLoginPage('pleaseInputPassword'))
     return
   }
 
