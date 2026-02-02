@@ -40,6 +40,9 @@ class CalcContext:
 
         # UI 交互相关状态
         self.interaction = InteractionState()
+        
+        # 收集所有的 UI 定义（用于静默模式下返回所有 UI 定义）
+        self.ui_windows: list[Any] = []
 
         # 创建时的回调
         if callable(ctx_hook_created):

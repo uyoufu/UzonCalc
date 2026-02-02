@@ -31,9 +31,9 @@ class Field:
 
 
 # 请求变量输入的数据结构
-@dataclass(frozen=True, slots=True)
+@dataclass(slots=True)
 class UIPayloads:
-    window: Window | None
+    windows: list[Window]  # 收集的所有 UI 定义
     html: str = ""
 
 
@@ -67,7 +67,16 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
 
     # 判断执行模式
     if ctx.is_silent:
-        # 静默模式：直接返回默认值
+        # 静默模式：收集 UI 定义并返回默认值
+        # 1. 更新 fields 的默认值
+        for field in fields:
+            field.default = get_inputs(ctx, title, field)
+
+        # 2. 收集 Window 定义
+        window = Window(title=title, fields=fields, caption=caption)
+        ctx.ui_windows.append(window)
+
+        # 3. 返回默认值
         return DotDict({field.name: get_inputs(ctx, title, field) for field in fields})
 
     else:
@@ -82,8 +91,8 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
         # 3. 返回结果
         window = Window(title=title, fields=fields, caption=caption)
         result = UIPayloads(
-            window=window,
             html=ctx.html(),
+            windows=[window],
         )
         ctx.interaction.set_result(result)
 

@@ -2,16 +2,18 @@ import asyncio
 from dataclasses import asdict
 import os
 from datetime import datetime
-from typing import Dict, Any, Optional
-from uuid import uuid4
+from typing import Dict, Any
 
-from app.sandbox.execution_result import ExecutionResult
+from .execution_result import ExecutionResult
 from .runner import LocalSandboxRunner
+from .auto_cleanup import AutoCleanupScheduler
+
 from uzoncalc.utils.ui import UIPayloads
 
 
 class SandboxManager:
     _instances: Dict[str, LocalSandboxRunner] = {}
+    _auto_cleanup = AutoCleanupScheduler()
 
     @staticmethod
     def generate_result_path(report_id: int) -> str:
@@ -29,16 +31,20 @@ class SandboxManager:
         script_path: str,
         defaults: dict[str, dict[str, Any]] = {},
         is_silent: bool = False,
+        package_root: str | None = None,
     ) -> ExecutionResult:
         """
         Start execution of a script.
         Returns the execution_id.
         :param ready_future: 当执行就绪（遇到 UI 或完成）时设置的 Future
+        :param package_root: 脚本所在的包根目录路径，会添加到系统路径中
         """
         future: asyncio.Future[UIPayloads] = asyncio.get_running_loop().create_future()
 
         # 创建新的执行 ID
-        runner = LocalSandboxRunner(script_path, defaults, is_silent=is_silent)
+        runner = LocalSandboxRunner(
+            script_path, defaults, is_silent=is_silent, package_root=package_root
+        )
         # 启动任务
         runner.start_task(future)
         cls._instances[runner.execution_id] = runner
@@ -49,12 +55,23 @@ class SandboxManager:
             SandboxManager.terminate(runner.execution_id)
             raise e
 
-        # Cleanup routine could be scheduled here (e.g. remove after 1 hour)
+        # 自动清理：
+        # - 若已完成，立即清理实例
+        # - 若进入交互等待，则按 idle TTL 自动回收
+        is_waiting_for_input = len(payloads.windows) == 1
+        if not is_waiting_for_input:
+            SandboxManager.terminate(runner.execution_id)
+        else:
+            cls._auto_cleanup.touch(
+                runner.execution_id,
+                lambda eid=runner.execution_id: cls.terminate(eid),
+            )
+
         return ExecutionResult(
             executionId=runner.execution_id,
-            window=asdict(payloads.window) if payloads.window else {},
             html=payloads.html,
-            isCompleted=payloads.window is None,
+            isCompleted=not is_waiting_for_input,
+            windows=[asdict(w) for w in payloads.windows] if payloads.windows else [],
         )
 
     @classmethod
@@ -78,16 +95,26 @@ class SandboxManager:
             SandboxManager.terminate(execution_id)
             raise e
 
+        is_waiting_for_input = len(payloads.windows) == 1
+        if not is_waiting_for_input:
+            SandboxManager.terminate(execution_id)
+        else:
+            cls._auto_cleanup.touch(
+                execution_id,
+                lambda eid=execution_id: cls.terminate(eid),
+            )
+
         return ExecutionResult(
             executionId=runner.execution_id,
-            window=asdict(payloads.window) if payloads.window else {},
             html=payloads.html,
-            isCompleted=payloads.window is None,
+            isCompleted=not is_waiting_for_input,
+            windows=[asdict(w) for w in payloads.windows] if payloads.windows else [],
         )
 
     @classmethod
     def terminate(cls, execution_id: str):
         """Force terminate an execution."""
         if execution_id in cls._instances:
+            cls._auto_cleanup.cancel(execution_id)
             cls._instances[execution_id].cancel()
-            del cls._instances[execution_id]
+            cls._instances.pop(execution_id)

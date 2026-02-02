@@ -198,6 +198,7 @@ class AppConfig:
     # region sandbox
     @property
     def sandbox_mode(self) -> str:
+        """获取 sandbox 执行模式: local 或 remote"""
         return self.get("sandbox", "mode")
 
     @property
@@ -210,8 +211,14 @@ class AppConfig:
         return self.__config.getint("sandbox", "session_timeout")
 
     @property
-    def sandbox_url(self) -> str:
-        return self.get("sandbox", "sandbox_url")
+    def sandbox_remote_url(self) -> str:
+        """获取远程 sandbox 服务地址"""
+        return self.get("sandbox", "remote_url")
+
+    @property
+    def sandbox_remote_timeout(self) -> float:
+        """获取远程调用超时时间（秒）"""
+        return self.__config.getfloat("sandbox", "remote_timeout")
 
     # endregion
 

@@ -11,7 +11,7 @@ from typing import Optional
 from app.controller.calc.calc_dto import CalcExecutionReqDTO
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
-from app.sandbox.execution_result import ExecutionResult
+from app.sandbox.core.execution_result import ExecutionResult
 from app.service.calc_execution_service import start_execution, continue_execution
 
 from config import logger
