@@ -10,6 +10,7 @@ from typing import Annotated, Optional
 
 from app.controller.calc.calc_dto import (
     CalcExecutionReqDTO,
+    CalcFileReqDTO,
     CalcResumeReqDTO,
 )
 from app.controller.depends import get_session, get_token_payload
@@ -22,7 +23,7 @@ from app.service.calc_execution_service import (
 )
 from app.service.html_cache.html_cacher import html_cacher
 
-from config import logger
+from config import logger, app_config
 from utils.jwt_helper import TokenPayloads
 
 router = APIRouter(
@@ -78,20 +79,24 @@ async def resume_calc_execution(
 
 @router.post("/file")
 async def start_file_calc_execution(
-    filePath: Annotated[
-        str,
-        Body(),
-    ],
+    data: CalcFileReqDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     db_session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[ExecutionResult]:
     """
     启动文件执行（调试用）
     """
-    if not filePath:
+    if not app_config.is_desktop:
+        raise HTTPException(
+            status_code=403, detail="File execution is not allowed in server deployment"
+        )
+
+    if not data.filePath:
         raise HTTPException(status_code=400, detail="filePath is required")
 
-    result = await start_file_execution(tokenPayloads.id, filePath)
+    result = await start_file_execution(
+        db_session, tokenPayloads.id, data.filePath, data.defaults or {}
+    )
 
     # 对结果进行缓存
     relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)

@@ -5,6 +5,7 @@ from .field_names import FieldNames
 from .recording_state import RecordingState
 from .ast_to_step import AstToStepConverter
 from .recording_injector import RecordingInjector
+from .call_filters import should_hide_call
 from . import ir
 
 # description:
@@ -115,6 +116,10 @@ class AstNodeVisitor(ast.NodeTransformer):
         if getattr(node, FieldNames.skip_record, False):
             return node
 
+        # 检查赋值右侧是否为需要隐藏的函数调用（如 await UI(...)）
+        if self._should_hide_assignment(node):
+            return node
+
         # 使用转换器转换为 Step
         step = self._converter.convert_assign(node)
 
@@ -146,7 +151,10 @@ class AstNodeVisitor(ast.NodeTransformer):
             return node
 
         if isinstance(node.value, ast.Call):
-            # Function call expression -> no recording.
+            # 检查是否应该隐藏该函数调用（如 UI 等）
+            if should_hide_call(node.value):
+                return node
+            # 其他函数调用 -> 不记录
             return node
 
         # Pure string literal statement (non-docstring) -> text output.
@@ -211,6 +219,25 @@ class AstNodeVisitor(ast.NodeTransformer):
         return [node, record_call]
 
     # region 内部方法
+    def _should_hide_assignment(self, node: ast.Assign) -> bool:
+        """
+        检查赋值语句是否应该被隐藏
+        
+        如果赋值右侧是 await UI(...) 这样的调用，应该隐藏
+        """
+        rhs = node.value
+        
+        # 处理 await 表达式: await UI(...)
+        if isinstance(rhs, ast.Await):
+            if isinstance(rhs.value, ast.Call):
+                return should_hide_call(rhs.value)
+        
+        # 处理普通调用: UI(...)
+        if isinstance(rhs, ast.Call):
+            return should_hide_call(rhs)
+        
+        return False
+    
     def _mark_docstring_skip(self, body: list[ast.stmt]) -> None:
         """若第一个语句是字符串常量（文档字符串），则标记其跳过记录"""
         if not body:

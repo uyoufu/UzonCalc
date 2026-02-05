@@ -92,6 +92,14 @@ class AppConfig:
         return self.get("app", "welcome")
 
     @property
+    def is_desktop(self) -> bool:
+        """是否为桌面版本"""
+        try:
+            return self.__config.getboolean("app", "desktop")
+        except (configparser.NoOptionError, configparser.NoSectionError):
+            return False
+
+    @property
     def host(self) -> str:
         return self.get("app", "host")
 

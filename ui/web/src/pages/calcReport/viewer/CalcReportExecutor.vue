@@ -4,9 +4,10 @@
       <template #before>
         <q-list bordered class="full-height hover-scroll" separator>
           <q-item>
-            <q-item-section>{{ tCalcReportPageViewer('name', { name: calcReportFileName }) }}</q-item-section>
+            <q-item-section>{{ tCalcReportPageViewer('name', { name: calcReportNameRef }) }}</q-item-section>
             <q-item-section side>
-              <q-btn dense icon="file_open" flat color="primary" rounded :loading="isExecuting">
+              <q-btn v-if="!reportOid" dense icon="file_open" flat color="primary" rounded :loading="isExecuting"
+                @click="onOpenLocalFile">
                 <AsyncTooltip :tooltip="tCalcReportPageViewer('openLocalFile')" />
               </q-btn>
             </q-item-section>
@@ -37,15 +38,15 @@
       </template>
 
       <template #after>
-        <div class="full-height iframe-container hover-scroll">
+        <div class="full-height overflow-hidden">
           <div v-if="!fullHtmlUrl" class="full-height text-grey-6 column justify-center">
             <div class="text-center">
               <q-icon name="article" size="xl" />
-              <div class="q-mt-md">{{ tCalcReportPageViewer('waitingForResult') }}</div>
+              <div class="q-mt-md">{{ tCalcReportPageViewer('pleaseStartExecution') }}</div>
             </div>
           </div>
           <template v-else>
-            <iframe :src="fullHtmlUrl" class="full-height full-width q-pt-md" frameborder="0"></iframe>
+            <iframe :src="fullHtmlUrl" class="full-height full-width" frameborder="0"></iframe>
           </template>
         </div>
       </template>
@@ -54,7 +55,6 @@
 </template>
 
 <script lang="ts" setup>
-import { ref, onMounted } from 'vue'
 import { tCalcReportPageViewer } from 'src/i18n/helpers'
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
@@ -90,15 +90,19 @@ const props = defineProps({
 const splitterModel = ref(30)
 
 // #region 报告信息
-const { reportOid, filePath, isSilent } = toRefs(props)
+const { isSilent } = toRefs(props)
+const currentReportOid = ref<string>(props.reportOid)
+const currentFilePath = ref(props.filePath)
 
-const calcReportFileName = ref('')
+const calcReportNameRef = ref('')
 
 onMounted(async () => {
-  // 如果存在 reportOid, 则获取参数
-  if (reportOid.value) {
-    const { data: reportInfo } = await getCalcReport(reportOid.value)
-    calcReportFileName.value = reportInfo.name
+  // 如果存在 currentReportOid, 则获取参数
+  if (currentReportOid.value) {
+    const { data: reportInfo } = await getCalcReport(currentReportOid.value)
+    calcReportNameRef.value = reportInfo.name
+  } else if (currentFilePath.value) {
+    calcReportNameRef.value = currentFilePath.value.split(/[\\/]/).pop() || currentFilePath.value
   }
 })
 // #endregion
@@ -133,7 +137,12 @@ const {
   canRestartExecution,
   onStartExecution,
   onResumeExecution,
-  onRestartExecution } = useCalcExecutor(reportOid, filePath, isSilent, executeResult)
+  onRestartExecution } = useCalcExecutor(currentReportOid, currentFilePath, isSilent, executeResult)
+// #endregion
+
+// #region 本机文件
+import { useLocalFileSelector } from './compositions/useLocalFileSelector'
+const { onOpenLocalFile } = useLocalFileSelector(currentReportOid, currentFilePath, calcReportNameRef)
 // #endregion
 </script>
 

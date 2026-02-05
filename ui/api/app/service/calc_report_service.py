@@ -3,7 +3,7 @@
 负责计算报告的业务逻辑处理
 """
 
-from typing import List
+from typing import List, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
 
@@ -43,7 +43,7 @@ async def create_calc_report(
     if not category:
         raise_ex("Category not found", code=404)
 
-    assert category is not None  # 帮助类型检查器理解
+    category = cast(CalcReportCategory, category)
 
     # 创建新报告
     report = CalcReport(
@@ -91,7 +91,7 @@ async def get_calc_report(
     if not report:
         raise_ex("Report not found", code=404)
 
-    assert report is not None  # 帮助类型检查器理解
+    report = cast(CalcReport, report)
 
     return CalcReportResDTO.model_validate(report, from_attributes=True)
 
@@ -185,7 +185,7 @@ async def update_calc_report(
     if not report:
         raise_ex("Report not found", code=404)
 
-    assert report is not None  # 帮助类型检查器理解
+    report = cast(CalcReport, report)
 
     # 如果分类有变化，验证新分类存在且属于当前用户
     if report.categoryId != data.categoryId:
@@ -201,7 +201,7 @@ async def update_calc_report(
         if not new_category:
             raise_ex("Category not found", code=404)
 
-        assert new_category is not None  # 帮助类型检查器理解
+        new_category = cast(CalcReportCategory, new_category)
 
         # 更新旧分类计数
         old_category_result = await session.execute(
@@ -252,7 +252,7 @@ async def delete_calc_report(
     if not report:
         raise_ex("Report not found", code=404)
 
-    assert report is not None  # 帮助类型检查器理解
+    report = cast(CalcReport, report)
 
     # 逻辑删除：设置 status 为 0
     report.status = 0

@@ -88,7 +88,9 @@ class DynamicImportSession:
     - 模块会保留在 sys.modules 中，同名模块会被自动覆盖
     """
 
-    def __init__(self, *, module_name: str, script_path: str, package_root: Optional[str] = None):
+    def __init__(
+        self, *, module_name: str, script_path: str, package_root: Optional[str] = None
+    ):
         self.module_name = module_name
         self.script_path = os.path.abspath(script_path)
         self.script_dir = os.path.dirname(self.script_path)
@@ -98,55 +100,65 @@ class DynamicImportSession:
         self._locked: bool = False
         self._module: Optional[ModuleType] = None
 
+    def _release_lock_if_needed(self) -> None:
+        if self._locked:
+            _dynamic_import_lock.release()
+            self._locked = False
+
     async def __aenter__(self) -> ModuleType:
         await _dynamic_import_lock.acquire()
         self._locked = True
 
-        # 尝试从缓存获取模块
-        cached_module = _module_cache.get(self.script_path)
-        if cached_module is not None:
-            self._module = cached_module
-            return cached_module
-
-        # 缓存未命中，需要加载模块
-        # 先添加 package_root（如果有），再添加 script_dir
-        if self.package_root and self.package_root not in sys.path:
-            sys.path.insert(0, self.package_root)
-            self._inserted_sys_paths.append(self.package_root)
-        
-        if self.script_dir and self.script_dir not in sys.path:
-            sys.path.insert(0, self.script_dir)
-            self._inserted_sys_paths.append(self.script_dir)
-
-        spec = importlib.util.spec_from_file_location(
-            self.module_name, self.script_path
-        )
-        if not spec or not spec.loader:
-            raise ImportError(f"Could not load script: {self.script_path}")
-
-        # 如果模块已存在，会被覆盖
-        module = importlib.util.module_from_spec(spec)
-        sys.modules[spec.name] = module
-
+        spec = None
         try:
-            spec.loader.exec_module(module)
-        except Exception:
-            sys.modules.pop(spec.name, None)
-            raise
+            # 尝试从缓存获取模块
+            cached_module = _module_cache.get(self.script_path)
+            if cached_module is not None:
+                self._module = cached_module
+                return cached_module
 
-        # 加载成功后缓存模块
-        _module_cache.set(self.script_path, module)
-        self._module = module
-        return module
+            # 缓存未命中，需要加载模块
+            # 先添加 package_root（如果有），再添加 script_dir
+            if self.package_root and self.package_root not in sys.path:
+                sys.path.insert(0, self.package_root)
+                self._inserted_sys_paths.append(self.package_root)
+
+            if self.script_dir and self.script_dir not in sys.path:
+                sys.path.insert(0, self.script_dir)
+                self._inserted_sys_paths.append(self.script_dir)
+
+            spec = importlib.util.spec_from_file_location(
+                self.module_name, self.script_path
+            )
+            if not spec or not spec.loader:
+                raise ImportError(f"Could not load script: {self.script_path}")
+
+            # 如果模块已存在，会被覆盖
+            module = importlib.util.module_from_spec(spec)
+            sys.modules[spec.name] = module
+
+            spec.loader.exec_module(module)
+
+            # 加载成功后缓存模块
+            _module_cache.set(self.script_path, module)
+            self._module = module
+            return module
+        except Exception:
+            if spec is not None:
+                sys.modules.pop(spec.name, None)
+            # 注意：__aenter__ 抛异常时，不会调用 __aexit__，必须在这里释放锁并清理路径
+            try:
+                self._cleanup_sys_path()
+            finally:
+                self._release_lock_if_needed()
+            raise
 
     async def __aexit__(self, exc_type, exc, tb) -> None:
         try:
             # 只清理 sys.path，不清理模块
             self._cleanup_sys_path()
         finally:
-            if self._locked:
-                _dynamic_import_lock.release()
-                self._locked = False
+            self._release_lock_if_needed()
 
     def _cleanup_sys_path(self) -> None:
         if not self._inserted_sys_paths:

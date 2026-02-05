@@ -110,7 +110,7 @@ async def update_category(
     if not category:
         raise_ex("Category not found", code=404)
 
-    assert category is not None  # 帮助类型检查器理解
+    category = cast(CalcReportCategory, category)
 
     # 检查新名称是否与其他分类冲突
     if data.name != category.name:
@@ -203,7 +203,7 @@ async def delete_category(
     if not category:
         raise_ex("Category not found", code=404)
 
-    assert category is not None  # 帮助类型检查器理解
+    category = cast(CalcReportCategory, category)
 
     # 检查分类是否为空
     if category.total > 0:

@@ -37,8 +37,7 @@ export default class HttpClient {
   private getBaseUrl (): string {
     const config = useConfig()
     const baseUrl = this._options.baseUrl || config.baseUrl
-    const api = (this._options.api === null || this._options.api === undefined)
-      ? config.api : this._options.api
+    const api = (this._options.api === null || this._options.api === undefined) ? config.api : this._options.api
     const finalBaseUrl = `${baseUrl}${api}`
     logger.debug('[HttpClient] BaseUrl:', finalBaseUrl)
     return finalBaseUrl
@@ -117,6 +116,7 @@ export default class HttpClient {
           return Promise.reject(error as Error)
         }
 
+        logger.debug('[HttpClient] Response status error:', response.status, response.data)
         if (!error.config.stopNotifyError) {
           if (!response.data) {
             // 其它错误，进行提示，后端返回的错误，都会进行消息展示

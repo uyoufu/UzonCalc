@@ -1,4 +1,4 @@
-from typing import Dict, Any
+from typing import Dict, Any, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
 from app.controller.users.user_dto import UserInfoDTO, UserSignInResponseDTO, get_access_token_payloads, get_refresh_token_payloads
@@ -32,7 +32,7 @@ async def sign_in(
         logger.warning(f"User not found - {username}")
         raise_ex("Username or password is incorrect", code=401)
 
-    assert user is not None
+    user = cast(User, user)
 
     # assert user is not None
     # 验证用户是否被删除

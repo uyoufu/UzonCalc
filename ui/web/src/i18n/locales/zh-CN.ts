@@ -194,6 +194,7 @@ export default {
 
   // #region calcReport
   calcReportPage: {
+    calcManagement: '计算管理',
     calcReport: '计算报告',
 
     newCalcReport: '新建计算',
@@ -211,7 +212,7 @@ export default {
       restart: '重新开始',
       executeCalculation: '执行计算',
       resumeCalculation: '继续计算',
-      waitingForResult: '等待计算结果...',
+      pleaseStartExecution: '请单击 "执行计算" 按钮开始执行',
       missingReportOidOrPath: '缺失计算报告 oid 或路径',
       calculationCompleted: '计算执行完成',
       missingExecutionId: '缺失执行 ID',

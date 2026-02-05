@@ -14,10 +14,11 @@ class CalcReportArchive(BaseModel):
     status: Mapped[int] = mapped_column(nullable=False, default=1)
     # 归档状态： 0-临时的，用于记录用户在这个 reportId 下的上一次历史记录，1-已归档
     type: Mapped[int] = mapped_column(nullable=False, default=1)
-    # 报告 id
-    reportId: Mapped[int]
-    # 名称，必须项
-    name: Mapped[str] = mapped_column(String(100))
+    # 报告 id, 非必须, 默认为 0
+    reportId: Mapped[int] = mapped_column(default=0)
+    # 名称
+    # 当没有 reportId 时，该字段为文件路径的 hash 值
+    name: Mapped[str | None] = mapped_column(String(255), nullable=False)
     # 描述
     description: Mapped[str | None] = mapped_column(Text)
     # 计算书参数值

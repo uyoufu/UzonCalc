@@ -1,4 +1,4 @@
-from typing import AsyncGenerator
+from typing import AsyncGenerator, cast
 from fastapi import Depends, Header, Request
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
@@ -93,8 +93,7 @@ async def get_current_user(
         logger.warning(f"User not found: {user_id}")
         raise_ex("User not found", code=404)
 
-    assert user is not None  # 帮助类型检查器理解
-
+    user = cast(User, user)
     if user.status == UserStatus.Deleted:
         logger.warning(f"User deleted: {user_id}")
         raise_ex("User has been deleted", code=403)

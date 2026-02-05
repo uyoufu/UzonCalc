@@ -7,6 +7,7 @@ from ..units import unit
 from pint.util import UnitsContainer
 from . import ir
 from .unit_collector import UnitExpressionCollector, unit_powers_to_expr
+from .special_functions import format_special_function
 
 
 def _unparse(node: ast.AST) -> str:
@@ -180,11 +181,10 @@ def _expr_call(node: ast.Call) -> ir.MathNode:
     func_name = _unparse(node.func)
     args = [expr_to_ir(a) for a in node.args]
 
-    # Special cases
-    if func_name == "abs" and len(args) == 1:
-        return ir.mrow([ir.mo("|"), args[0], ir.mo("|")])
-    if func_name in ("sqrt", "math.sqrt") and len(args) == 1:
-        return ir.msqrt(args[0])
+    # 尝试使用特殊函数格式化器
+    special_formatted = format_special_function(func_name, args)
+    if special_formatted is not None:
+        return special_formatted
 
     # Generic function call: f(a, b)
     arg_nodes: List[ir.MathNode] = []

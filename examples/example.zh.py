@@ -5,21 +5,26 @@ import sys
 # 使用 pip 包时，不需要该行；仅在从 core 目录运行该脚本时需要
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-
-from uzoncalc.setup import uzon_calc
-from uzoncalc.utils import *
 from uzoncalc.utils_extra.excel import get_excel_table
+from uzoncalc import *
 import numpy as np
 
 
 @uzon_calc()
-def sheet():
+async def sheet():
     # 定义 UI
-    
-
 
     # 设置 title: 打印 pdf 时，将在页眉左侧显示
     doc_title("UzonCalc 使用说明")
+
+    inputs = await UI(
+        "自定义窗体",
+        [
+            Field("name", "姓名", FieldType.text, value="小明"),
+            Field("age", "年龄", FieldType.number, value=18),
+        ],
+    )
+    name = inputs["name"]
 
     # 设置页面大小, 如 A3, A4, Letter 等
     page_size("A4")
@@ -681,6 +686,6 @@ if __name__ == "__main__":
     import time
 
     t0 = time.perf_counter()
-    sheet()  # type: ignore
+    run_sync(sheet)
     t1 = time.perf_counter()
     print(f"Execution time: {t1 - t0} seconds")

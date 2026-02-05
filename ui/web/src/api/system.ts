@@ -1,10 +1,10 @@
 import { httpClient } from 'src/api/base/httpClient'
 
 export interface ISystemConfig {
-  name: string,
-  loginWelcome: string,
-  icon: string,
-  copyright: string,
+  name: string
+  loginWelcome: string
+  icon: string
+  copyright: string
   icpInfo: string
 }
 
@@ -12,6 +12,6 @@ export interface ISystemConfig {
  * 获取服务器版本
  * @returns
  */
-export function getServerVersion () {
+export function getServerVersion() {
   return httpClient.get<string>('/system-info/version')
 }

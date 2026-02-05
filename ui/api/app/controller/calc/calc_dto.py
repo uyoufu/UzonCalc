@@ -44,6 +44,12 @@ class CalcExecutionReqDTO(BaseDTO):
     defaults: Optional[dict[str, dict[str, Any]]] = None
 
 
+class CalcFileReqDTO(BaseDTO):
+    filePath: str
+    isSilent: Optional[bool] = False
+    defaults: Optional[dict[str, dict[str, Any]]] = None
+
+
 # 恢复计算执行请求 DTO
 class CalcResumeReqDTO(BaseDTO):
     defaults: Optional[dict[str, dict[str, Any]]] = None

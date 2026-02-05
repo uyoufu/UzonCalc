@@ -15,9 +15,6 @@
   "eslint.validate": ["javascript", "javascriptreact", "typescript", "vue"],
   "typescript.tsdk": "node_modules/typescript/lib",
   "typescript.format.semicolons": "remove",
-  "[typescript]": {
-    "editor.defaultFormatter": "vscode.typescript-language-features"
-  },
   "files.eol": "\r\n",
   "cSpell.words": [
     "autogrow",
@@ -40,4 +37,3 @@
     "vueuse"
   ]
 }
-

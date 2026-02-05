@@ -3,8 +3,8 @@ import { httpClient } from 'src/api/base/httpClient'
 import type { ILowCodeField } from 'src/components/lowCode/types'
 
 export interface ICalcWindow {
-  title: string,
-  fields: ILowCodeField[],
+  title: string
+  fields: ILowCodeField[]
 }
 
 /**
@@ -21,7 +21,7 @@ export interface ExecutionResult {
  * 开始计算执行
  * @param data 执行参数
  */
-export function startCalcExecution (data: {
+export function startCalcExecution(data: {
   reportOid: string
   isSilent: boolean
   defaults?: Record<string, Record<string, any>>
@@ -36,10 +36,7 @@ export function startCalcExecution (data: {
  * @param connectionId 连接ID
  * @param defaults 用户输入的默认值
  */
-export function resumeCalcExecution (
-  connectionId: string,
-  defaults?: Record<string, Record<string, any>>
-) {
+export function resumeCalcExecution(connectionId: string, defaults?: Record<string, Record<string, any>>) {
   return httpClient.post<ExecutionResult>(`/calc/execution/resume/${connectionId}`, {
     data: {
       defaults: defaults || {}
@@ -50,11 +47,13 @@ export function resumeCalcExecution (
 /**
  * 启动文件执行（调试用）
  * @param filePath 文件路径
+ * @param defaults 用户输入的默认值
  */
-export function startFileExecution (filePath: string) {
+export function startFileExecution(filePath: string, defaults?: Record<string, Record<string, any>>) {
   return httpClient.post<ExecutionResult>('/calc/execution/file', {
     data: {
-      filePath
+      filePath,
+      defaults
     }
   })
 }
