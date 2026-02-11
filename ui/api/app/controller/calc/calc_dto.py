@@ -1,3 +1,4 @@
+import datetime
 from typing import Any, Optional
 
 from app.controller.dto_base import BaseDTO, PaginationDTO
@@ -35,6 +36,7 @@ class CalcReportResDTO(CalcReportReqDTO):
     id: int
     oid: str
     userId: int
+    createdAt: datetime.datetime
 
 
 # 执行计算报告请求 DTO
@@ -53,3 +55,13 @@ class CalcFileReqDTO(BaseDTO):
 # 恢复计算执行请求 DTO
 class CalcResumeReqDTO(BaseDTO):
     defaults: Optional[dict[str, dict[str, Any]]] = None
+
+
+# 保存计算报告请求 DTO
+class SaveCalcReportReqDTO(BaseDTO):
+    reportName: Optional[str] = None
+    code: str
+    # 若存在则更新，否则新增
+    reportOid: Optional[str] = None
+    # 新增时需要传递 categoryOid
+    categoryOid: Optional[str] = None

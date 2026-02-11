@@ -2,12 +2,13 @@
   <q-splitter v-model="splitterModel" :limits="splitterLimits" before-class="overflow-hidden" :disable="isCollapsed"
     after-class="overflow-hidden relative-position" class="full-height card-like">
     <template v-slot:before>
-      <CategoryList :header="listHeader" :getCategories="onGetCategories" :createCategory="onCreateCategory"
-        :updateCategory="onUpdateCategory" :deleteCategoryById="onDeleteCategoryById" />
+      <CategoryList v-model="activatedCategory" :header="listHeader" :getCategories="onGetCategories"
+        :createCategory="onCreateCategory" :updateCategory="onUpdateCategory"
+        :deleteCategoryById="onDeleteCategoryById" />
     </template>
 
     <template v-slot:after>
-      <CalcListView />
+      <CalcListView :category="activatedCategory" />
       <CollapseLeft v-model="isCollapsed" />
     </template>
   </q-splitter>
@@ -15,62 +16,26 @@
 
 <script lang="ts" setup>
 
-import { t } from 'src/i18n/helpers'
-import { ref } from 'vue'
+defineOptions({
+  name: 'calcReportList'
+})
 
-// #region 分类列表
+import { ref, watch } from 'vue'
+
+// #region MARK: 分类列表
 
 import CategoryList from 'src/components/categoryList/CategoryList.vue'
-import type { ICategoryInfo, IFlatHeader } from 'src/components/categoryList/types'
-import { getCalcReportCategories, createCalcReportCategory, updateCalcReportCategory, deleteCalcReportCategory } from 'src/api/calcReportCategory'
+import { useCalcCategory } from './compositions/useCalcCategory'
 
-const listHeader: IFlatHeader = {
-  label: t("calcReportPage.calcReport"),
-  icon: 'article',
-}
-
-async function onGetCategories(): Promise<ICategoryInfo[]> {
-  const result = await getCalcReportCategories()
-  if (result.ok && result.data) {
-    return result.data
-  }
-  return []
-}
-
-async function onCreateCategory(data: ICategoryInfo): Promise<ICategoryInfo> {
-  const result = await createCalcReportCategory({
-    name: data.name,
-    order: data.order,
-    description: data.description || null
-  })
-  if (result.ok && result.data) {
-    return result.data
-  }
-  throw new Error(result.message)
-}
-
-async function onUpdateCategory(data: ICategoryInfo): Promise<ICategoryInfo> {
-  if (!data.id) {
-    throw new Error('Category id is required')
-  }
-  const result = await updateCalcReportCategory(data.oid, {
-    name: data.name,
-    order: data.order,
-    description: data.description
-  })
-  if (result.ok && result.data) {
-    return result.data
-  }
-  throw new Error(result.message)
-}
-
-async function onDeleteCategoryById(categoryOid: string): Promise<void> {
-  const result = await deleteCalcReportCategory(categoryOid)
-  if (!result.ok) {
-    throw new Error(result.message)
-  }
-}
+const { listHeader, onGetCategories, onCreateCategory, onUpdateCategory, onDeleteCategoryById } = useCalcCategory()
 // #endregion
+
+import type { ICategoryInfo } from 'src/components/categoryList/types'
+const activatedCategory = ref<ICategoryInfo>({
+  name: '',
+  oid: '',
+  order: 0,
+})
 
 const splitterModel = ref(25)
 const splitterLimits = ref([20, 80])

@@ -50,5 +50,6 @@
       "ui/web/src/i18n/locales",
       "ui/web/public/tinymce/plugins/help/js/i18n",
     ],
+    "powershell.cwd": "project",
   },
 }

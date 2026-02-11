@@ -1,3 +1,5 @@
+from typing import cast
+
 import webview
 
 html = """
@@ -19,12 +21,15 @@ def start_backend():
 
 start_backend()
 
-webview.create_window(
+window = webview.create_window(
     "UzonCalc",
     url="http://localhost:3346/",
     js_api=JsApi(),
 )
 webview.start()
+
+window = cast(webview.Window, window)
+window.load_url("http://localhost:3346/")
 
 
 # 关闭后台服务

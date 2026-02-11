@@ -1,6 +1,8 @@
 <template>
   <q-dialog ref="dialogRef" @hide="onDialogHide" :persistent="persistent">
     <q-card>
+      <div v-if="title" class="text-subtitle1 text-primary text-bold q-mx-md q-mt-sm">{{ title }}</div>
+
       <LowCodeForm :title="title" :fields="fields" :dataSet="dataSet" :validate="validate" :oneColumn="oneColumn"
         :disableDefaultBtns="disableDefaultBtns" :customBtns="customBtns" :onOkMain="onOkMain" :onSetup="onSetup"
         @ok="onFormOk" @cancel="onFormCancel" />
@@ -17,7 +19,7 @@ import type { PropType } from 'vue'
 import type { ICustomPopupButton, ILowCodeField, IOnSetupParams } from './types'
 import type { IFunctionResult } from 'src/types'
 
-const props = defineProps({
+defineProps({
   title: {
     type: String,
     default: ''

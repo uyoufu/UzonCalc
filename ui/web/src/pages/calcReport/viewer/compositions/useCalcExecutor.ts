@@ -7,6 +7,7 @@ import {
 } from 'src/api/calcExecution'
 import { notifyError, notifySuccess } from 'src/utils/dialog'
 import { tCalcReportPageViewer } from 'src/i18n/helpers'
+import { isCalcReportExecutingKey } from '../keys'
 
 export function useCalcExecutor(
   reportOidRef: Ref<string, null>,
@@ -14,7 +15,9 @@ export function useCalcExecutor(
   isSilentRef: Ref<boolean>,
   executeResult: Ref<ExecutionResult>
 ) {
-  const isExecuting = ref(false)
+  // 可以通过外部注入的方式控制执行状态，避免重复执行
+  const isExecuting = inject(isCalcReportExecutingKey, ref(false))
+
   // #region 获取输入参数值
   function getInputValues() {
     const defaults: Record<string, Record<string, any>> = {}

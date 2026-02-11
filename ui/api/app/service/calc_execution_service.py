@@ -12,6 +12,7 @@ from app.sandbox.core.execution_result import ExecutionResult
 from app.sandbox.core.executor_interface import ISandboxExecutor
 from app.sandbox.core.executor_local import LocalSandboxExecutor
 from app.sandbox.core.executor_remote import RemoteSandboxExecutor
+from app.utils.path_manager import get_user_calcs_root
 from config import logger, app_config
 from uzoncalc.utils_core.dot_dict import deep_update
 
@@ -74,7 +75,7 @@ def get_sandbox_executor() -> ISandboxExecutor:
 
 
 def _get_report_file_path(user_id: int, report_name: str):
-    package_root = os.path.abspath(f"data/calcs/{user_id}")
+    package_root = get_user_calcs_root(user_id)
 
     # report_name 可能是绝对路径
     if os.path.isabs(report_name):

@@ -63,7 +63,9 @@ import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 import SearchInput from 'src/components/searchInput/SearchInput.vue'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 
+// v-model 绑定的值，表示当前选中的分类
 const modelValue = defineModel<ICategoryInfo>()
+
 const selectedValues = defineModel<ICategoryInfo[]>('selected', {
   type: Array as PropType<ICategoryInfo[]>,
   default: () => []
@@ -339,7 +341,6 @@ export interface IDragEndEvent {
 
 async function onDragEnd(evt: IDragEndEvent) {
   // 刷新 order 顺序
-
 }
 // #endregion
 </script>

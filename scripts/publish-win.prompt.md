@@ -1,0 +1,1 @@
+按以下要求使用 powershell 脚本发布 Windows 版本：

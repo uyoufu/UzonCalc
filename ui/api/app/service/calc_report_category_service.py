@@ -73,7 +73,6 @@ async def create_category(
         userId=user_id,
         name=data.name,
         description=data.description,
-        cover=data.cover,
         order=next_order,
         total=0,
     )

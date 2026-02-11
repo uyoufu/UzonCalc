@@ -3,7 +3,9 @@
 处理计算报告的 HTTP 请求
 """
 
-from typing import List
+from typing import List, cast
+import os
+from pathlib import Path
 
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,12 +15,15 @@ from app.controller.calc.calc_dto import (
     CalcReportResDTO,
     CalcReportListFilterDTO,
     CalcReportCountFilterDTO,
+    SaveCalcReportReqDTO,
 )
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_service
-from config import logger
+from app.utils.path_manager import combine_calc_report_path
+from config import logger, app_config
 from utils.jwt_helper import TokenPayloads
+from app.exception.custom_exception import raise_ex
 
 router = APIRouter(
     prefix="/v1/calc-report",
@@ -89,9 +94,7 @@ async def get_calc_report(
     **错误处理:**
     - 404: 报告不存在或已被删除
     """
-    result = await calc_report_service.get_calc_report(
-        tokenPayloads.id, reportOid, session
-    )
+    result = await calc_report_service.get_calc_report(reportOid, session)
     logger.debug(f"获取计算报告: userId={tokenPayloads.id}, reportOid={reportOid}")
     return ok(data=result)
 
@@ -101,7 +104,7 @@ async def list_calc_reports(
     filter_data: CalcReportListFilterDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[dict]:
+) -> ResponseResult[list[CalcReportResDTO]]:
     """
     获取计算报告列表（分页）
 
@@ -144,14 +147,7 @@ async def list_calc_reports(
     logger.debug(
         f"获取计算报告列表: userId={tokenPayloads.id}, categoryId={filter_data.categoryId}, count={len(items)}"
     )
-    return ok(
-        data={
-            "items": items,
-            "total": total,
-            "skip": filter_data.pagination.skip,
-            "limit": filter_data.pagination.limit,
-        }
-    )
+    return ok(data=items)
 
 
 @router.post("/count")
@@ -159,7 +155,7 @@ async def count_calc_reports(
     filter_data: CalcReportCountFilterDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[dict]:
+) -> ResponseResult[int]:
     """
     统计计算报告数量
 
@@ -190,7 +186,7 @@ async def count_calc_reports(
     logger.debug(
         f"统计计算报告: userId={tokenPayloads.id}, categoryId={filter_data.categoryId}, total={total}"
     )
-    return ok(data={"total": total})
+    return ok(data=total)
 
 
 @router.put("/{reportOid}")
@@ -304,3 +300,55 @@ async def batch_delete_calc_reports(
     )
     logger.info(f"批量删除计算报告: userId={tokenPayloads.id}, count={deleted_count}")
     return ok(data={"deleted": deleted_count})
+
+
+@router.post("/save")
+async def save_calc_report(
+    data: SaveCalcReportReqDTO,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[str]:
+    """
+    保存计算报告文件
+    """
+
+    # 验证输入
+    if not data.reportName and not data.reportOid:
+        raise_ex("reportName and reportOid cannot both be empty")
+
+    # 如果是新增（没有 reportOid），必须提供 categoryOid
+    if not data.reportOid and not data.categoryOid:
+        raise_ex("categoryOid is required for creating new report")
+
+    # 如果 reportName 为空，则从数据库中获取
+    if not data.reportName:
+        reportOid = cast(str, data.reportOid)
+        existing_report = await calc_report_service.get_calc_report(reportOid, session)
+        if not existing_report:
+            raise_ex("Cannot find existing report to get name")
+        data.reportName = existing_report.name
+
+    # 构建文件路径
+    # 获取 API 所在目录的父目录作为项目根
+    file_path = os.path.abspath(
+        combine_calc_report_path(tokenPayloads.id, data.reportName)
+    )
+
+    # 创建必要的目录
+    os.makedirs(os.path.dirname(file_path), exist_ok=True)
+    # 写入文件
+    with open(file_path, "w", encoding="utf-8") as f:
+        f.write(data.code)
+
+    # 保存或更新数据库记录
+    report_dto = await calc_report_service.save_or_update_calc_report(
+        tokenPayloads.id, data.reportName, data.reportOid, data.categoryOid, session
+    )
+
+    logger.info(
+        f"保存计算报告: userId={tokenPayloads.id}, "
+        f"reportOid={report_dto.oid}, reportName={data.reportName}, "
+        f"filePath={file_path}"
+    )
+
+    return ok(data=report_dto.oid)

@@ -19,7 +19,7 @@ export default class HttpClient {
   private _options: IHttpClientOptions
   private _axios: AxiosInstance
 
-  public get axios () {
+  public get axios() {
     return this._axios
   }
 
@@ -27,24 +27,22 @@ export default class HttpClient {
     this._options = options
     this._axios = this.createAxios()
 
-    if (!options.removeRequestInterceptors)
-      this.setRequestInterceptors(this._axios)
-    if (!options.removeResponseInterceptors)
-      this.setResponseInterceptors(this._axios)
+    if (!options.removeRequestInterceptors) this.setRequestInterceptors(this._axios)
+    if (!options.removeResponseInterceptors) this.setResponseInterceptors(this._axios)
   }
 
   // 获取基础 url
-  private getBaseUrl (): string {
+  private getBaseUrl(): string {
     const config = useConfig()
     const baseUrl = this._options.baseUrl || config.baseUrl
-    const api = (this._options.api === null || this._options.api === undefined) ? config.api : this._options.api
+    const api = this._options.api === null || this._options.api === undefined ? config.api : this._options.api
     const finalBaseUrl = `${baseUrl}${api}`
     logger.debug('[HttpClient] BaseUrl:', finalBaseUrl)
     return finalBaseUrl
   }
 
   // 创建 axios 实例
-  private createAxios () {
+  private createAxios() {
     return axios.create({
       baseURL: this.getBaseUrl(),
       responseType: 'json'
@@ -52,59 +50,57 @@ export default class HttpClient {
   }
 
   // 添加请求拦截器
-  private setRequestInterceptors (axiosInstance: AxiosInstance) {
-    axiosInstance.interceptors.request.use((config) => {
-      const store = useUserInfoStore()
-      // 自动添加 token
-      config.headers.Authorization = 'Bearer ' + store.token
-      return config
-    },
+  private setRequestInterceptors(axiosInstance: AxiosInstance) {
+    axiosInstance.interceptors.request.use(
+      (config) => {
+        const store = useUserInfoStore()
+        // 自动添加 token
+        config.headers.Authorization = 'Bearer ' + store.token
+        return config
+      },
       (error) => {
         return Promise.reject(error as Error)
-      })
+      }
+    )
   }
 
   // 添加响应拦截器
-  private setResponseInterceptors (axiosInstance: AxiosInstance) {
-    axiosInstance.interceptors.response.use(async (response) => {
-      // 有可能后端返回的是流
-      if (response.headers['content-type'] === 'application/octet-stream') {
-        console.log('response is stream:', response)
-        return response
-      }
+  private setResponseInterceptors(axiosInstance: AxiosInstance) {
+    axiosInstance.interceptors.response.use(
+      async (response) => {
+        // 有可能后端返回的是流
+        if (response.headers['content-type'] === 'application/octet-stream') {
+          console.log('response is stream:', response)
+          return response
+        }
 
+        const data = response.data as IResponseData<any>
+        logger.debug('[HttpClient] Response data:', data)
+        // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
+        if (data.code === StatusCode.SuccessOK) return response
 
-      const data = response.data as IResponseData<any>
-      logger.debug('[HttpClient] Response data:', data)
-      // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
-      if (data.code === StatusCode.SuccessOK)
-        return response
+        // 非 200 状态码，进行提示
+        const config = response.config as IAxiosRequestConfig<any>
 
-      // 非 200 状态码，进行提示
-      const config = response.config as IAxiosRequestConfig<any>
+        // 处理错误
+        if (this._options.notifyError && !config.stopNotifyError) {
+          // 提示错误
+          notifyError(data.message)
+        }
 
-      // 处理错误
-      if (this._options.notifyError && !config.stopNotifyError) {
-        // 提示错误
-        notifyError(data.message)
-      }
+        // 允许通过错误，返回结果
+        if (config.passError) return response
 
-      // 允许通过错误，返回结果
-      if (config.passError)
-        return response
-
-      // 返回错误
-      // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
-      return Promise.reject(data)
-
-    },
+        // 返回错误
+        // eslint-disable-next-line @typescript-eslint/prefer-promise-reject-errors
+        return Promise.reject(data)
+      },
       // 当 response.status 不是 200 时触发
       async (error) => {
         logger.error('[HttpClient] Response error:', error)
         if (!error.response && error.code) {
           // 当不阻止错误通知时，进行提示
-          if (!error.config.stopNotifyError)
-            notifyError(error.code)
+          if (!error.config.stopNotifyError) notifyError(error.code)
           return Promise.reject(error as Error)
         }
 
@@ -122,22 +118,23 @@ export default class HttpClient {
             // 其它错误，进行提示，后端返回的错误，都会进行消息展示
             notifyError(response.statusText)
           } else {
-            notifyError(error.message)
+            notifyError(response.data.message || error.message)
           }
         }
 
         return Promise.reject(error as Error)
-      })
+      }
+    )
   }
 
   // 退出登录
-  private async logout () {
+  private async logout() {
     const store = useUserInfoStore()
     await store.logout()
   }
 
   // 格式化配置
-  private formatConfig (config?: IAxiosRequestConfig): IAxiosRequestConfig {
+  private formatConfig(config?: IAxiosRequestConfig): IAxiosRequestConfig {
     const baseURL = this.getBaseUrl()
 
     const newConfig = {
@@ -147,7 +144,7 @@ export default class HttpClient {
   }
 
   // #region 对请求返回值的data进行解构，方便前端使用
-  private destructureAxiosResponse<R> (response: AxiosResponse<IResponseData<R>>): IResponseData<R> {
+  private destructureAxiosResponse<R>(response: AxiosResponse<IResponseData<R>>): IResponseData<R> {
     let data = response.data
     // console.log('destructureAxiosResponse:', response)
     // 如果是流，要单独处理
@@ -169,7 +166,7 @@ export default class HttpClient {
    * @param config
    * @returns
    */
-  async request<R, D = any> (config: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async request<R, D = any>(config: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.request<R, AxiosResponse<IResponseData<R>, D>, D>(config)
     return this.destructureAxiosResponse(responseData)
@@ -181,7 +178,7 @@ export default class HttpClient {
    * @param config 请求参数和配置
    * @returns
    */
-  async get<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async get<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     // 从 cache 中获取值
     // 如果包含 key,则从缓存中获取
     const { ok, data } = getDataFromCache<R, D>(url, config)
@@ -210,7 +207,7 @@ export default class HttpClient {
    * @param config
    * @returns
    */
-  async delete<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async delete<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.delete<R, AxiosResponse<IResponseData<R>, D>, D>(url, config)
     return this.destructureAxiosResponse(responseData)
@@ -222,7 +219,7 @@ export default class HttpClient {
    * @param config
    * @returns
    */
-  async head<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async head<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.head<R, AxiosResponse<IResponseData<R>, D>, D>(url, config)
     return this.destructureAxiosResponse(responseData)
@@ -234,7 +231,7 @@ export default class HttpClient {
    * @param config
    * @returns
    */
-  async options<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async options<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.options<R, AxiosResponse<IResponseData<R>, D>, D>(url, config)
     return this.destructureAxiosResponse(responseData)
@@ -246,7 +243,7 @@ export default class HttpClient {
    * @param config
    * @returns
    */
-  async post<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async post<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.post<R, AxiosResponse<IResponseData<R>, D>, D>(url, config?.data, config)
     return this.destructureAxiosResponse(responseData)
@@ -258,7 +255,7 @@ export default class HttpClient {
    * @param config
    * @returns
    */
-  async put<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async put<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.put<R, AxiosResponse<IResponseData<R>, D>, D>(url, config?.data, config)
     return this.destructureAxiosResponse(responseData)
@@ -270,21 +267,25 @@ export default class HttpClient {
    * @param config
    * @returns
    */
-  async patch<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async patch<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.patch<R, AxiosResponse<IResponseData<R>, D>, D>(url, config?.data, config)
     return this.destructureAxiosResponse(responseData)
   }
 
-  async postForm<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async postForm<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
     const responseData = await this._axios.postForm<R, AxiosResponse<IResponseData<R>, D>, D>(url, config?.data, config)
     return this.destructureAxiosResponse(responseData)
   }
 
-  async patchForm<R, D = any> (url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
+  async patchForm<R, D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<IResponseData<R>> {
     config = this.formatConfig(config)
-    const responseData = await this._axios.patchForm<R, AxiosResponse<IResponseData<R>, D>, D>(url, config?.data, config)
+    const responseData = await this._axios.patchForm<R, AxiosResponse<IResponseData<R>, D>, D>(
+      url,
+      config?.data,
+      config
+    )
     return this.destructureAxiosResponse(responseData)
   }
   // #endregion

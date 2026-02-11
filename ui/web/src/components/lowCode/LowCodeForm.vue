@@ -63,7 +63,7 @@
     </div>
 
     <!-- 按钮的例子 -->
-    <div v-if="customBtns.length > 0 || disableDefaultBtns.length < 2" class="q-pa-md"
+    <div v-if="customBtns.length > 0 || disableDefaultBtns.length < 2" class="q-pa-sm"
       style="display: flex; justify-content: flex-end; gap: 8px;">
       <CommonBtn v-for="btn in customBtns" :key="btn.label" @click="onCustomButtonClicked(btn)" :label="btn.label"
         :color="btn.color" />

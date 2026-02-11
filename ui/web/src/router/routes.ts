@@ -78,13 +78,14 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         component: () => import('pages/calcReport/list/CalcReportList.vue')
       },
       {
-        name: 'newCalcReport',
+        name: 'editCalcReport',
         path: 'new',
         meta: {
           icon: 'add_box',
-          label: 'calcReportPage.newCalcReport'
+          label: 'calcReportPage.editCalcReport',
+          noMenu: true
         },
-        component: () => import('pages/calcReport/new/newCalcReport.vue')
+        component: () => import('pages/calcReport/edit/editCalcReport.vue')
       },
       {
         name: 'calcReportViewer',

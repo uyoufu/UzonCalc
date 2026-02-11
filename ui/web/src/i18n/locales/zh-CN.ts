@@ -200,25 +200,35 @@ export default {
     newCalcReport: '新建计算',
     newCalcReportTooltip: '创建新的计算报告',
 
+    editCalcReport: '编辑计算',
+
     defaultCalcReportName: 'new_calc_report',
+    errorNoCategory: '没有 categoryOid，请关联分类信息',
     pleaseInputCalcReportName: '请输入计算报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
 
     calcReportViewer: '查看计算',
 
     // #region Viewer 页面
     viewer: {
-      name: '名称：{name}',
+      name: '名称',
       openLocalFile: '打开本地文件',
       restart: '重新开始',
       executeCalculation: '执行计算',
       resumeCalculation: '继续计算',
+      uiDisplayArea: 'UI 显示区',
       pleaseStartExecution: '请单击 "执行计算" 按钮开始执行',
       missingReportOidOrPath: '缺失计算报告 oid 或路径',
       calculationCompleted: '计算执行完成',
       missingExecutionId: '缺失执行 ID',
       resumeExecutionFailed: '恢复计算执行失败'
-    }
+    },
     // #endregion
+
+    list: {
+      col_name: '名称',
+      col_description: '描述',
+      col_createdAt: '创建时间'
+    }
   },
 
   calcModulePage: {

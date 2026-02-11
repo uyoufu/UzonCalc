@@ -21,6 +21,10 @@ export function getCalcReport(reportOid: string) {
   return httpClient.get<CalcReportInfo>(`/calc-report/${reportOid}`)
 }
 
+export function countCalcReports(data: { categoryId?: number; filter?: string }) {
+  return httpClient.post<number>('/calc-report/count', { data })
+}
+
 /**
  * 获取计算报告列表
  */
@@ -34,10 +38,13 @@ export function listCalcReports(data: {
     descending?: boolean
   }
 }) {
-  return httpClient.post<{
-    items: CalcReportInfo[]
-    total: number
-    skip: number
-    limit: number
-  }>('/calc-report/list', { data })
+  return httpClient.post<CalcReportInfo[]>('/calc-report/list', { data })
+}
+
+/**
+ * 保存计算报告文件
+ * @param data 保存请求数据（包含报告名称和代码内容）
+ */
+export function saveCalcReport(data: { reportName: string; code: string; reportOid?: string; categoryOid?: string }) {
+  return httpClient.post<string>('/calc-report/save', { data })
 }

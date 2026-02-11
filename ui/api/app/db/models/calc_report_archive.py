@@ -18,7 +18,7 @@ class CalcReportArchive(BaseModel):
     reportId: Mapped[int] = mapped_column(default=0)
     # 名称
     # 当没有 reportId 时，该字段为文件路径的 hash 值
-    name: Mapped[str | None] = mapped_column(String(255), nullable=False)
+    name: Mapped[str | None] = mapped_column(String(255), nullable=True)
     # 描述
     description: Mapped[str | None] = mapped_column(Text)
     # 计算书参数值
