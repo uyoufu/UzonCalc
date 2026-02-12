@@ -31,3 +31,7 @@ const itemContextMenuItems: ComputedRef<IContextMenuItem[]> = computed(() => [
   }
 ])
 ```
+
+# 约定
+
+1. 右键菜单应保存到单独的文件中，例如 `useContextMenu.ts`，以便在多个组件中重用。

@@ -16,6 +16,7 @@ from app.controller.calc.calc_dto import (
     CalcReportListFilterDTO,
     CalcReportCountFilterDTO,
     SaveCalcReportReqDTO,
+    CategoryInfoResDTO,
 )
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
@@ -44,6 +45,8 @@ async def create_calc_report(
     - 为当前用户创建新的计算报告
     - 创建时自动向分类计数中累加 1
     - 分类必须存在且属于当前用户
+    - 版本号自动初始化为 1
+    - 修改时间自动设置为当前 UTC 时间
 
     **认证:**
     - 需要有效的 Authorization token
@@ -55,7 +58,7 @@ async def create_calc_report(
     - cover: 报告封面 (可选)
 
     **返回数据:**
-    - 新创建的报告详细信息，包含 id, oid, userId 等
+    - 新创建的报告详细信息，包含 id, oid, userId, version, lastModified 等
 
     **错误处理:**
     - 404: 分类不存在或已被删除
@@ -99,6 +102,38 @@ async def get_calc_report(
     return ok(data=result)
 
 
+@router.get("/{reportOid}/category")
+async def get_calc_report_category(
+    reportOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CategoryInfoResDTO]:
+    """
+    获取计算报告所属的分类信息
+
+    **功能说明:**
+    - 获取指定计算报告所属的分类详细信息
+    - 通过 reportOid 直接获取分类，无需获取所有分类列表
+
+    **认证:**
+    - 需要有效的 Authorization token
+
+    **路径参数:**
+    - reportOid: 报告 OID
+
+    **返回数据:**
+    - 分类详细信息，包含: oid, name, description, cover, order, total
+
+    **错误处理:**
+    - 404: 报告或分类不存在或已被删除
+    """
+    result = await calc_report_service.get_calc_report_category(reportOid, session)
+    logger.debug(
+        f"获取计算报告分类: userId={tokenPayloads.id}, reportOid={reportOid}, categoryOid={result.oid}"
+    )
+    return ok(data=result)
+
+
 @router.post("/list")
 async def list_calc_reports(
     filter_data: CalcReportListFilterDTO,
@@ -129,12 +164,7 @@ async def list_calc_reports(
     ```json
     {
         "ok": true,
-        "data": {
-            "items": [...],
-            "total": 100,
-            "skip": 0,
-            "limit": 10
-        }
+        "data": []
     }
     ```
 
@@ -174,9 +204,7 @@ async def count_calc_reports(
     ```json
     {
         "ok": true,
-        "data": {
-            "total": 100
-        }
+        "data": 100
     }
     ```
     """
@@ -203,6 +231,8 @@ async def update_calc_report(
     - 更新指定报告的信息
     - 只能更新自己的报告
     - 支持修改分类，分类变化时自动更新两个分类的计数
+    - 每次更新时自动递增版本号
+    - 每次更新时自动更新最后修改时间
 
     **认证:**
     - 需要有效的 Authorization token
@@ -217,11 +247,19 @@ async def update_calc_report(
     - cover: 报告封面 (可选)
 
     **返回数据:**
-    - 更新后的报告详细信息
+    - 更新后的报告详细信息，包含递增后的 version 和最新的 lastModified
 
     **错误处理:**
     - 404: 报告或分类不存在
     """
+
+    # 判断名称是否存在
+    name_exists = await calc_report_service.check_report_name_exists(
+        tokenPayloads.id, data.name, reportOid, session
+    )
+    if name_exists:
+        raise_ex(f"Duplicate report name: '{data.name}'", code=400)
+
     result = await calc_report_service.update_calc_report(
         tokenPayloads.id, reportOid, data, session
     )
@@ -310,23 +348,53 @@ async def save_calc_report(
 ) -> ResponseResult[str]:
     """
     保存计算报告文件
+
+    **功能说明:**
+    - 保存或更新计算报告的文件内容
+    - 若 reportOid 存在则更新，否则创建新报告
+    - 更新时自动递增版本号和更新最后修改时间
+    - 支持报告改名
+
+    **认证:**
+    - 需要有效的 Authorization token
+
+    **请求参数:**
+    - reportName: 报告名称 (若为空，则从数据库获取)
+    - reportOid: 报告 OID (可选，为空则新增)
+    - categoryOid: 分类 OID (新增时必填)
+    - code: 报告代码内容 (必填)
+
+    **返回数据:**
+    ```json
+    {
+        "ok": true,
+        "data": "report-oid"
+    }
+    ```
+
+    **错误处理:**
+    - 400: 参数不合法
+    - 404: 分类或报告不存在
     """
 
-    # 验证输入
-    if not data.reportName and not data.reportOid:
-        raise_ex("reportName and reportOid cannot both be empty")
+    if not data.reportName:
+        raise_ex("reportName cannot be empty")
 
     # 如果是新增（没有 reportOid），必须提供 categoryOid
     if not data.reportOid and not data.categoryOid:
         raise_ex("categoryOid is required for creating new report")
 
-    # 如果 reportName 为空，则从数据库中获取
-    if not data.reportName:
-        reportOid = cast(str, data.reportOid)
-        existing_report = await calc_report_service.get_calc_report(reportOid, session)
-        if not existing_report:
-            raise_ex("Cannot find existing report to get name")
-        data.reportName = existing_report.name
+    # 判断名称是否存在
+    name_exists = await calc_report_service.check_report_name_exists(
+        tokenPayloads.id, data.reportName, data.reportOid, session
+    )
+    if name_exists:
+        if data.reportOid:
+            raise_ex(
+                f"报告名称 '{data.reportName}' 已存在，不能与其他报告重名", code=400
+            )
+        else:
+            raise_ex(f"报告名称 '{data.reportName}' 已存在", code=400)
 
     # 构建文件路径
     # 获取 API 所在目录的父目录作为项目根

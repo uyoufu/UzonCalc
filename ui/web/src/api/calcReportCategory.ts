@@ -10,13 +10,22 @@ export function getCalcReportCategories() {
 }
 
 /**
+ * 获取单个计算报告分类
+ * @param categoryOid 分类 OID
+ * @returns 分类信息
+ */
+export function getCalcReportCategory(categoryOid: string) {
+  return httpClient.get<ICategoryInfo>(`/calc-report-category/${categoryOid}`)
+}
+
+/**
  * 创建计算报告分类
  * @param data 分类信息
  * @returns 创建后的分类信息
  */
 export function createCalcReportCategory(data: {
   name: string
-  order: number
+  order?: number
   description?: string | null
   cover?: string | null
 }) {

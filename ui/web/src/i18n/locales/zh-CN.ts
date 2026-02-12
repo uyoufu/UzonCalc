@@ -7,6 +7,9 @@ export default {
     success: '操作成功',
     confirm: '确认',
     cancel: '取消',
+    view: '查看',
+    version: '版本',
+    lastModified: '最后修改时间',
     modify: '修改',
     edit: '编辑',
     delete: '删除',
@@ -83,6 +86,7 @@ export default {
 
     modifyCategory: '修改分类',
     deleteCategory: '删除分类',
+    modifyCategorySuccess: '修改分类成功',
 
     deleteCategoryConfirm: '您确定要删除分类 "{label}" 吗？此操作无法撤销。',
     deleteCategorySuccess: '删除分类 "{label}" 成功',
@@ -204,6 +208,7 @@ export default {
 
     defaultCalcReportName: 'new_calc_report',
     errorNoCategory: '没有 categoryOid，请关联分类信息',
+    errorCategoryNotFound: '找不到对应的分类信息',
     pleaseInputCalcReportName: '请输入计算报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
 
     calcReportViewer: '查看计算',
@@ -227,7 +232,15 @@ export default {
     list: {
       col_name: '名称',
       col_description: '描述',
-      col_createdAt: '创建时间'
+      col_version: '版本',
+      col_lastModified: '最后修改时间',
+      col_createdAt: '创建时间',
+      deleteReportConfirm: '确认删除计算报告 "{name}"？',
+      reportName: '报告名称',
+      reportDescription: '报告描述',
+      modifyReport: '修改报告',
+      modifyReportSourceCode: '修改源码',
+      modifyReportSuccess: '修改报告成功'
     }
   },
 

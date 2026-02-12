@@ -4,6 +4,7 @@
 """
 
 import os
+import datetime
 from typing import List, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select, func
@@ -15,10 +16,39 @@ from app.controller.calc.calc_dto import (
     CalcReportResDTO,
     CalcReportListFilterDTO,
     CalcReportCountFilterDTO,
+    CategoryInfoResDTO,
 )
 from app.exception.custom_exception import raise_ex
 from app.utils.path_manager import combine_calc_report_path
 from config import logger
+
+
+async def check_report_name_exists(
+    user_id: int, report_name: str, exclude_oid: str | None, session: AsyncSession
+) -> bool:
+    """
+    检查报告名称是否已存在
+
+    :param user_id: 用户 ID
+    :param report_name: 报告名称
+    :param exclude_oid: 排除的报告 OID（更新时传入当前报告的 OID）
+    :param session: 数据库会话
+    :return: True 表示名称已存在
+    """
+    query = select(CalcReport).where(
+        (CalcReport.userId == user_id)
+        & (CalcReport.name == report_name)
+        & (CalcReport.status == 1)
+    )
+
+    # 如果是更新场景，排除自身
+    if exclude_oid:
+        query = query.where(CalcReport.oid != exclude_oid)
+
+    result = await session.execute(query)
+    existing_report = result.scalars().first()
+
+    return existing_report is not None
 
 
 async def create_calc_report(
@@ -94,6 +124,36 @@ async def get_calc_report(report_oid: str, session: AsyncSession) -> CalcReportR
     return CalcReportResDTO.model_validate(report, from_attributes=True)
 
 
+async def get_calc_report_category(
+    report_oid: str, session: AsyncSession
+) -> CategoryInfoResDTO:
+    """
+    获取计算报告所属的分类信息
+
+    :param report_oid: 报告 OID
+    :param session: 数据库会话
+    :return: 分类信息
+    """
+    # 使用联表查询，一次性获取分类信息
+    result = await session.execute(
+        select(CalcReportCategory)
+        .join(CalcReport, CalcReport.categoryId == CalcReportCategory.id)
+        .where(
+            (CalcReport.oid == report_oid)
+            & (CalcReport.status == 1)
+            & (CalcReportCategory.status == 1)
+        )
+    )
+    category = result.scalars().first()
+
+    if not category:
+        raise_ex("Report or category not found", code=404)
+
+    category = cast(CalcReportCategory, category)
+
+    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
+
+
 async def list_calc_reports(
     user_id: int, filter_data: CalcReportListFilterDTO, session: AsyncSession
 ) -> tuple[List[CalcReportResDTO], int]:
@@ -110,6 +170,13 @@ async def list_calc_reports(
 
     if filter_data.categoryId:
         where_clause = where_clause & (CalcReport.categoryId == filter_data.categoryId)
+    if filter_data.filter:
+        # 按 name、description 模糊搜索
+        like_pattern = f"%{filter_data.filter}%"
+        where_clause = where_clause & (
+            (CalcReport.name.ilike(like_pattern))
+            | (CalcReport.description.ilike(like_pattern))
+        )
 
     # 获取总数
     count_result = await session.scalar(
@@ -151,6 +218,13 @@ async def count_calc_reports(
 
     if filter_data.categoryId:
         where_clause = where_clause & (CalcReport.categoryId == filter_data.categoryId)
+    if filter_data.filter:
+        # 按 name、description 模糊搜索
+        like_pattern = f"%{filter_data.filter}%"
+        where_clause = where_clause & (
+            (CalcReport.name.ilike(like_pattern))
+            | (CalcReport.description.ilike(like_pattern))
+        )
 
     count_result = await session.scalar(
         select(func.count(CalcReport.id)).where(where_clause)
@@ -163,7 +237,7 @@ async def update_calc_report(
 ) -> CalcReportResDTO:
     """
     更新计算报告
-
+    warn: 调用该接口之前，一定要对 reportName 进行唯一性校验，确保同一用户下没有重名的报告
     :param user_id: 用户 ID
     :param report_oid: 报告 OID
     :param data: 更新的报告数据
@@ -184,6 +258,8 @@ async def update_calc_report(
         raise_ex("Report not found", code=404)
 
     report = cast(CalcReport, report)
+
+    old_name = report.name
 
     # 如果分类有变化，验证新分类存在且属于当前用户
     if report.categoryId != data.categoryId:
@@ -212,12 +288,22 @@ async def update_calc_report(
         # 更新新分类计数
         new_category.total += 1
 
+    # 处理改名时的旧文件清理
+    if old_name != data.name:
+        old_file_path = combine_calc_report_path(user_id, old_name)
+        if os.path.exists(old_file_path):
+            os.remove(old_file_path)
+
     # 更新报告信息
     report.name = data.name
     report.description = data.description
     if data.cover is not None:
         report.cover = data.cover
     report.categoryId = data.categoryId
+    # 递增版本号
+    report.version += 1
+    # 更新修改时间
+    report.lastModified = datetime.datetime.now(datetime.timezone.utc)
 
     await session.commit()
     await session.refresh(report)
@@ -364,11 +450,9 @@ async def save_or_update_calc_report(
 
     if report:
         report = cast(CalcReport, report)
-        old_name = report.name
-        old_category_id = report.categoryId
 
-        # 若提供新的分类 oid，则校验并更新
-        new_category: CalcReportCategory | None = None
+        # 如果提供了 category_oid，转换为 category_id
+        category_id = report.categoryId  # 默认使用当前分类
         if category_oid:
             new_category = await session.scalar(
                 select(CalcReportCategory).where(
@@ -380,36 +464,18 @@ async def save_or_update_calc_report(
             if not new_category:
                 raise_ex("Category not found", code=404)
             new_category = cast(CalcReportCategory, new_category)
-            report.categoryId = new_category.id
+            category_id = new_category.id
 
-        # 处理改名时的旧文件清理
-        if old_name != report_name:
-            old_file_path = combine_calc_report_path(user_id, old_name)
-            if os.path.exists(old_file_path):
-                os.remove(old_file_path)
-
-        report.name = cast(str, report_name)
-
-        # 分类计数同步：若分类变更，旧分类 -1，新分类 +1
-        if new_category and new_category.id != old_category_id:
-            old_category = await session.scalar(
-                select(CalcReportCategory).where(
-                    (CalcReportCategory.id == old_category_id)
-                    & (CalcReportCategory.userId == user_id)
-                )
-            )
-            if old_category:
-                old_category.total = max(0, old_category.total - 1)
-
-            new_category.total += 1
-
-        await session.commit()
-        await session.refresh(report)
-
-        logger.info(
-            f"计算报告文件更新: userId={user_id}, "
-            f"reportOid={report.oid}, reportName={report_name}"
+        # 构建更新 DTO，保留原有的 description 和 cover
+        update_data = CalcReportReqDTO(
+            name=cast(str, report_name),
+            description=report.description,
+            cover=report.cover,
+            categoryId=category_id,
         )
+
+        # 调用 update_calc_report 执行更新逻辑
+        return await update_calc_report(user_id, report.oid, update_data, session)
     else:
         # 创建新报告，需要 category_oid
         if not category_oid:

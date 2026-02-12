@@ -38,6 +38,58 @@ async def get_all_categories(
     ]
 
 
+async def get_category_by_oid(
+    user_id: int, category_oid: str, session: AsyncSession
+) -> CategoryInfoResDTO:
+    """
+    根据 OID 获取单个计算分类
+
+    :param user_id: 用户 ID
+    :param category_oid: 分类 OID
+    :param session: 数据库会话
+    :return: 分类信息
+    """
+    result = await session.execute(
+        select(CalcReportCategory).where(
+            (CalcReportCategory.oid == category_oid)
+            & (CalcReportCategory.userId == user_id)
+            & (CalcReportCategory.status == 1)
+        )
+    )
+    category = result.scalars().first()
+
+    if not category:
+        raise_ex("Category not found", code=404)
+
+    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
+
+
+async def get_category_by_id(
+    user_id: int, category_id: int, session: AsyncSession
+) -> CategoryInfoResDTO:
+    """
+    根据 ID 获取单个计算分类
+
+    :param user_id: 用户 ID
+    :param category_id: 分类 ID
+    :param session: 数据库会话
+    :return: 分类信息
+    """
+    result = await session.execute(
+        select(CalcReportCategory).where(
+            (CalcReportCategory.id == category_id)
+            & (CalcReportCategory.userId == user_id)
+            & (CalcReportCategory.status == 1)
+        )
+    )
+    category = result.scalars().first()
+
+    if not category:
+        raise_ex("Category not found", code=404)
+
+    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
+
+
 async def create_category(
     user_id: int, data: CategoryInfoReqDTO, session: AsyncSession
 ) -> CategoryInfoResDTO:

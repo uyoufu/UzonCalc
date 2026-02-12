@@ -37,6 +37,8 @@ class CalcReportResDTO(CalcReportReqDTO):
     oid: str
     userId: int
     createdAt: datetime.datetime
+    version: int
+    lastModified: datetime.datetime
 
 
 # 执行计算报告请求 DTO
@@ -59,7 +61,8 @@ class CalcResumeReqDTO(BaseDTO):
 
 # 保存计算报告请求 DTO
 class SaveCalcReportReqDTO(BaseDTO):
-    reportName: Optional[str] = None
+    # 名称必须存在
+    reportName: str
     code: str
     # 若存在则更新，否则新增
     reportOid: Optional[str] = None

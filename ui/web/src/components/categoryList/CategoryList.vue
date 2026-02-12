@@ -127,6 +127,12 @@ const props = defineProps({
   deleteCategoryById: {
     type: Function as PropType<deleteCategoryByIdFunc>,
     required: true
+  },
+
+  // 刷新信号，每次变化都会重新获取分类列表
+  refreshSignal: {
+    type: Number,
+    default: 0
   }
 })
 
@@ -148,10 +154,13 @@ const filteredItems = computed(() => {
 
 // 初始化获取组
 import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
-import { LowCodeFieldType } from 'src/components/lowCode/types'
+import type { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { confirmOperation, notifySuccess } from 'src/utils/dialog'
 onMounted(async () => {
+  await updateCategories()
+})
+async function updateCategories() {
   const groups = await props.getCategories()
   categoryItems.value = groups.map(x => {
     // 判断是否有初始值，若有，则恢复选中状态
@@ -165,9 +174,16 @@ onMounted(async () => {
 
   // 默认选中第一个
   if (filteredItems.value.length > 0) {
-    activeCategory(filteredItems.value[0] as ICategoryInfo)
+    let selected = modelValue.value ? filteredItems.value.find(x => x.id === modelValue.value?.id) : filteredItems.value[0]
+    if (!selected) selected = filteredItems.value[0]
+
+    activeCategory(selected as ICategoryInfo)
   }
+}
+watch(() => props.refreshSignal, async () => {
+  await updateCategories()
 })
+
 function activeCategory(group: ICategoryInfo) {
   categoryItems.value.forEach(x => { x.active = false })
   group.active = true
@@ -272,7 +288,7 @@ async function onModifyCategory(categoryDetails: Record<string, any>) {
   categoryInfo.description = result.data.description
 
   // 修改分类成功
-  notifySuccess(t('categoryList.newCategorySuccess'))
+  notifySuccess(t('categoryList.modifyCategorySuccess'))
 }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function onDeleteCategory(categoryDetails: Record<string, any>) {

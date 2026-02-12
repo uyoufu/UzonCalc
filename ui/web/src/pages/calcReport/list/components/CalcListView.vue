@@ -3,7 +3,8 @@
     v-model:pagination="pagination" dense :loading="loading" :filter="filter" binary-state-sort
     @request="onTableRequest">
     <template v-slot:top-left>
-      <CreateBtn :tooltip="t('calcReportPage.newCalcReportTooltip')" @click="goToNewCalcReport" />
+      <CreateBtn :tooltip="t('calcReportPage.newCalcReportTooltip')" @click="goToNewCalcReport"
+        :disable="!categoryOid" />
     </template>
 
     <template v-slot:top-right>
@@ -12,11 +13,12 @@
 
     <template v-slot:body-cell-index="props">
       <QTableIndex :props="props" />
+      <ContextMenu :items="itemContextMenuItems" :value="props.row"></ContextMenu>
     </template>
 
-    <template v-slot:body-cell-userId="props">
+    <template v-slot:body-cell-name="props">
       <q-td :props="props">
-        {{ props.value }}
+        <ClickableText :text="props.value" @click="onViewCalcReport(props.row)" />
       </q-td>
     </template>
   </q-table>
@@ -30,6 +32,8 @@ import type { IRequestPagination, TTableFilterObject } from 'src/compositions/ty
 import SearchInput from 'src/components/searchInput/SearchInput.vue'
 import { formatDate } from 'src/utils/format'
 import type { ICategoryInfo } from 'src/components/categoryList/types'
+import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
+import ClickableText from 'src/components/clickableText/ClickableText.vue'
 
 const props = defineProps<{
   category: ICategoryInfo
@@ -39,6 +43,11 @@ const categoryOid = computed(() => {
 })
 // 分类变化后刷新表格数据
 watch(categoryOid, () => {
+  refreshTable()
+})
+import { useCalcListStore } from '../compositions/useCalcListStore'
+const { calcListUpdateSignal } = useCalcListStore()
+watch(calcListUpdateSignal, () => {
   refreshTable()
 })
 
@@ -59,6 +68,23 @@ const columns: ComputedRef<QTableColumn[]> = computed(() => [
     label: t('calcReportPage.list.col_description'),
     align: 'left',
     field: 'description',
+    sortable: true
+  },
+  {
+    name: 'version',
+    required: true,
+    label: t('calcReportPage.list.col_version'),
+    align: 'left',
+    field: 'version',
+    sortable: true
+  },
+  {
+    name: 'lastModified',
+    required: false,
+    label: t('calcReportPage.list.col_lastModified'),
+    align: 'left',
+    field: 'lastModified',
+    format: formatDate, // format 需要的 value 是 string
     sortable: true
   },
   {
@@ -91,7 +117,7 @@ async function onRequest(filterObj: TTableFilterObject, pagination: IRequestPagi
   return data || []
 }
 
-const { pagination, rows, filter, onTableRequest, loading, refreshTable } = useQTable({
+const { pagination, rows, filter, onTableRequest, loading, refreshTable, deleteRowById } = useQTable({
   getRowsNumberCount,
   onRequest
 })
@@ -101,6 +127,11 @@ const { pagination, rows, filter, onTableRequest, loading, refreshTable } = useQ
 import { useNewCalcReportRoute } from './useNewCalcReportRoute'
 const { goToNewCalcReport } = useNewCalcReportRoute(categoryOid)
 
+// #endregion
+
+// #region context menu
+import { useContextMenu } from './useContextMenu'
+const { itemContextMenuItems, onViewCalcReport } = useContextMenu(deleteRowById)
 // #endregion
 </script>
 

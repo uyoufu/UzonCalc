@@ -3,7 +3,7 @@ import { httpClient } from 'src/api/base/httpClient'
 /**
  * 计算报告信息接口
  */
-export interface CalcReportInfo {
+export interface ICalcReportInfo {
   id: number
   oid: string
   userId: number
@@ -13,12 +13,22 @@ export interface CalcReportInfo {
   cover?: string | null
 }
 
+import type { ICategoryInfo } from 'src/components/categoryList/types'
+
 /**
  * 获取计算报告详情
  * @param reportOid 报告OID
  */
 export function getCalcReport(reportOid: string) {
-  return httpClient.get<CalcReportInfo>(`/calc-report/${reportOid}`)
+  return httpClient.get<ICalcReportInfo>(`/calc-report/${reportOid}`)
+}
+
+/**
+ * 获取计算报告所属的分类信息
+ * @param reportOid 报告OID
+ */
+export function getCalcReportCategory(reportOid: string) {
+  return httpClient.get<ICategoryInfo>(`/calc-report/${reportOid}/category`)
 }
 
 export function countCalcReports(data: { categoryId?: number; filter?: string }) {
@@ -38,7 +48,7 @@ export function listCalcReports(data: {
     descending?: boolean
   }
 }) {
-  return httpClient.post<CalcReportInfo[]>('/calc-report/list', { data })
+  return httpClient.post<ICalcReportInfo[]>('/calc-report/list', { data })
 }
 
 /**
@@ -47,4 +57,26 @@ export function listCalcReports(data: {
  */
 export function saveCalcReport(data: { reportName: string; code: string; reportOid?: string; categoryOid?: string }) {
   return httpClient.post<string>('/calc-report/save', { data })
+}
+
+/**
+ * 更新计算报告
+ * @param reportOid 报告OID
+ * @param data 更新数据
+ */
+export function updateCalcReport(reportOid: string, data: {
+  name: string
+  description?: string | null
+  categoryId: number
+  cover?: string | null
+}) {
+  return httpClient.put<ICalcReportInfo>(`/calc-report/${reportOid}`, { data })
+}
+
+/**
+ * 删除计算报告
+ * @param reportOid 报告OID
+ */
+export function deleteCalcReport(reportOid: string) {
+  return httpClient.delete(`/calc-report/${reportOid}`)
 }

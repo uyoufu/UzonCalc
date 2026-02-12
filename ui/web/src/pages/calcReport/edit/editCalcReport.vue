@@ -1,7 +1,7 @@
 <script lang="ts" setup>
 // 设置组件名，启用缓存
 defineOptions({
-  name: 'newCalcReport'
+  name: 'editCalcReport'
 })
 
 import CalcReportEditor from '../editor/CalcReportEditor.vue'

@@ -1,22 +1,23 @@
 export interface ICategoryInfo {
-  name: string,
-  oid: string,
-  id?: number,
-  userId?: number,
-  order: number,
-  description?: string,
-  createdAt?: string,
-  status?: number,
-  total?: number,
+  name: string
+  oid: string
+  order: number
 
-  active?: boolean,
-  icon?: string,
-  selectable?: boolean,
+  id?: number
+  userId?: number
+  description?: string
+  createdAt?: string
+  status?: number
+  total?: number
+
+  active?: boolean
+  icon?: string
+  selectable?: boolean
   selected?: boolean
 }
 
 export interface IFlatHeader {
-  label: string,
+  label: string
   icon: string
 }
 

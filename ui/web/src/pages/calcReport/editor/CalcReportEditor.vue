@@ -24,7 +24,7 @@ const { monacoEditorElementRef, monacoEditorRef } = useMonacoEditor()
 
 // 保存
 import { useCalcReportSaver } from './compositions/useCalcReportSaver'
-const { calcReportName, onSaveCalcReport } = useCalcReportSaver(calcReportOId, monacoEditorRef)
+const { calcCategoryName, calcReportName, onSaveCalcReport } = useCalcReportSaver(calcReportOId, monacoEditorRef)
 
 // 执行
 import { useCalcRunner } from './compositions/useCalcRunner'
@@ -122,7 +122,8 @@ import CodePreviewer from './components/CodePreviewer.vue'
       </div>
 
       <q-space />
-
+      <div v-if="calcCategoryName" class="q-mr-xs text-primary">{{ calcCategoryName }} /
+      </div>
       <q-input standout="bg-secondary" class="text-white dense-input" v-model="calcReportName" placeholder="请输入报告名称"
         dense>
       </q-input>

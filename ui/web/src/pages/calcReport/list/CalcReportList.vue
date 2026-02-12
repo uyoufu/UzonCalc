@@ -3,8 +3,8 @@
     after-class="overflow-hidden relative-position" class="full-height card-like">
     <template v-slot:before>
       <CategoryList v-model="activatedCategory" :header="listHeader" :getCategories="onGetCategories"
-        :createCategory="onCreateCategory" :updateCategory="onUpdateCategory"
-        :deleteCategoryById="onDeleteCategoryById" />
+        :createCategory="onCreateCategory" :updateCategory="onUpdateCategory" :deleteCategoryById="onDeleteCategoryById"
+        :refresh-signal="calcListUpdateSignal" />
     </template>
 
     <template v-slot:after>
@@ -73,6 +73,11 @@ watch(width, (newWidth) => {
     isCollapsed.value = false
   }
 }, { immediate: true })
+// #endregion
+
+// #region MARK: 列表更新
+import { useCalcListStore } from './compositions/useCalcListStore'
+const { calcListUpdateSignal } = useCalcListStore()
 // #endregion
 </script>
 

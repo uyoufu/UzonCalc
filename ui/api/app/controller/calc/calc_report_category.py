@@ -40,6 +40,38 @@ async def get_all_calc_categories(
     return ok(data=categories)
 
 
+@router.get("/{categoryOid}")
+async def get_calc_category(
+    categoryOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CategoryInfoResDTO]:
+    """
+    获取单个计算分类详情
+
+    **功能说明:**
+    - 根据 OID 获取指定的计算分类详情
+    - 只能获取自己的分类
+
+    **认证:**
+    - 需要有效的 Authorization token
+
+    **路径参数:**
+    - categoryOid: 分类 OID
+
+    **返回数据:**
+    - 分类详细信息，包含: oid, name, description, cover, order, total
+
+    **错误处理:**
+    - 404: 分类不存在或已被删除
+    """
+    category = await calc_report_category_service.get_category_by_oid(
+        tokenPayloads.id, categoryOid, session
+    )
+    logger.debug(f"获取分类详情: userId={tokenPayloads.id}, categoryOid={categoryOid}")
+    return ok(data=category)
+
+
 @router.post("")
 async def create_calc_category(
     data: CategoryInfoReqDTO,
