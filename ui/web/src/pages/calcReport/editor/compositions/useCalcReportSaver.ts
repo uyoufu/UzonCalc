@@ -4,12 +4,10 @@ import { checkCalcReportName } from './useCalcReportNameChecker'
 import { notifySuccess } from 'src/utils/dialog'
 import { saveCalcReport, getCalcReport } from 'src/api/calcReport'
 import type { Ref, ShallowRef } from 'vue'
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted } from 'vue'
 import type { editor } from 'monaco-editor'
 import { useCalcListStore } from '../../list/compositions/useCalcListStore'
 import { useRouteUpdater } from 'src/layouts/components/tags/routeHistories'
-import type { ICategoryInfo } from 'src/components/categoryList/types'
-import { getCalcReportCategory as getCategoryByOid } from 'src/api/calcReportCategory'
 import { objectId } from 'src/utils/objectId'
 
 /**
@@ -24,21 +22,6 @@ export function useCalcReportSaver(
   enableSaveAs: Ref<boolean>
 ) {
   const calcReportName = ref(t('calcReportPage.defaultCalcReportName'))
-
-  // #region 分类信息
-  const categoryInfo: Ref<ICategoryInfo> = ref({
-    name: '',
-    oid: '',
-    order: 0
-  })
-  const calcCategoryName = computed(() => categoryInfo.value.name)
-  watch(calcCategoryOid, async (newOid) => {
-    if (!newOid) return
-
-    const { data: category } = await getCategoryByOid(newOid)
-    categoryInfo.value = category
-  })
-  // #endregion
 
   // #region 报告名称
   watch(calcReportOid, async (newOid) => {
@@ -110,7 +93,6 @@ export function useCalcReportSaver(
   })
 
   return {
-    calcCategoryName,
     calcReportName,
     onSaveCalcReport
   }

@@ -31,8 +31,12 @@ const { monacoEditorElementRef, monacoEditorRef } = useMonacoEditor()
 
 // 保存
 import { useCalcReportSaver } from './compositions/useCalcReportSaver'
-const { calcCategoryName, calcReportName, onSaveCalcReport } =
+const { calcReportName, onSaveCalcReport } =
   useCalcReportSaver(calcCategoryOid, calcReportOid, monacoEditorRef, enableSaveAs)
+
+// 分类
+import { useCategorySelector } from './compositions/useCategorySelector'
+const { calcCategoryName, categoryOptions, fullCategoryOptions, onFilterReportCategory } = useCategorySelector(calcCategoryOid)
 
 // 执行
 import { useCalcRunner } from './compositions/useCalcRunner'
@@ -131,7 +135,11 @@ import CodePreviewer from './components/CodePreviewer.vue'
 
       <q-space />
 
-      <div v-if="calcCategoryName" class="q-mr-xs text-primary">{{ calcCategoryName }} /
+      <div class="q-mr-xs text-primary">{{ calcCategoryName }} /
+        <q-menu v-if="fullCategoryOptions.length > 1" anchor="top right" self="top right">
+          <q-select dense outlined v-model="calcCategoryOid" :options="categoryOptions" emit-value map-options use-input
+            options-dense @filter="onFilterReportCategory" />
+        </q-menu>
       </div>
 
       <q-input standout="bg-secondary" class="text-white dense-input" v-model="calcReportName" placeholder="请输入报告名称"
