@@ -16,6 +16,10 @@ class CategoryInfoResDTO(CategoryInfoReqDTO):
     total: int
 
 
+class DefaultCategoryReqDTO(BaseDTO):
+    defaultCategoryName: str
+
+
 class CalcReportCountFilterDTO(BaseDTO):
     categoryId: Optional[int] = None
     filter: Optional[str] = None

@@ -265,3 +265,51 @@ async def delete_category(
     await session.commit()
 
     logger.info(f"分类删除成功: userId={user_id}, categoryId={category_oid}")
+
+
+async def get_or_create_default_category(
+    user_id: int, default_category_name: str, session: AsyncSession
+) -> CategoryInfoResDTO:
+    """
+    获取或创建默认分类
+    如果用户没有任何有效分类，则使用默认名称创建一个分类后返回
+    如果已有分类，则返回第一个分类（按 order 排序）
+
+    :param user_id: 用户 ID
+    :param default_category_name: 默认分类名称
+    :param session: 数据库会话
+    :return: 分类信息
+    """
+    # 查询用户是否有有效分类
+    result = await session.execute(
+        select(CalcReportCategory)
+        .where(
+            (CalcReportCategory.userId == user_id) & (CalcReportCategory.status == 1)
+        )
+        .order_by(CalcReportCategory.order)
+        .limit(1)
+    )
+    category = result.scalars().first()
+
+    # 如果已有分类，直接返回第一个
+    if category:
+        logger.debug(f"用户已有分类: userId={user_id}, categoryOid={category.oid}")
+        return CategoryInfoResDTO.model_validate(category, from_attributes=True)
+
+    # 如果没有分类，创建默认分类
+    logger.info(f"用户无分类，创建默认分类: userId={user_id}, name={default_category_name}")
+    
+    new_category = CalcReportCategory(
+        userId=user_id,
+        name=default_category_name,
+        description=None,
+        order=1,
+        total=0,
+    )
+    session.add(new_category)
+    await session.commit()
+    await session.refresh(new_category)
+
+    logger.info(f"默认分类创建成功: userId={user_id}, categoryOid={new_category.oid}")
+
+    return CategoryInfoResDTO.model_validate(new_category, from_attributes=True)

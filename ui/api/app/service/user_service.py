@@ -1,12 +1,13 @@
 from typing import Dict, Any, cast
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy import select
-from app.controller.users.user_dto import UserInfoDTO, UserSignInResponseDTO, get_access_token_payloads, get_refresh_token_payloads
-from app.db.models.user import (
-    User,
-    UserStatus,
-    UserRole
+from app.controller.users.user_dto import (
+    UserInfoDTO,
+    UserSignInResponseDTO,
+    get_access_token_payloads,
+    get_refresh_token_payloads,
 )
+from app.db.models.user import User, UserStatus, UserRole
 from app.exception.custom_exception import raise_ex
 from utils.password_helper import hash_password, verify_password
 from utils.jwt_helper import generate_jwt
@@ -75,7 +76,7 @@ async def sign_in(
             status=UserStatus(user.status),
         ),
         roles=user.roles,  # type: ignore
-        access=[],
+        access=[app_config.get_api_host_type()],  # type: ignore
         accessToken=access_token,
         refreshToken=refresh_token,
         token=development_token,

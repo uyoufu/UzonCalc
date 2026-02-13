@@ -192,7 +192,10 @@ export default {
 
   // #region 首页
   dashboardPage: {
-    myFavorites: '我的收藏'
+    index: '首页',
+    newCalcReport: '新建报告',
+    myFavorites: '我的收藏',
+    noCategory: '无分类'
   },
   // #endregion
 
@@ -200,6 +203,7 @@ export default {
   calcReportPage: {
     calcManagement: '计算管理',
     calcReport: '计算报告',
+    reportTemplate: '报告模板',
 
     newCalcReport: '新建计算',
     newCalcReportTooltip: '创建新的计算报告',

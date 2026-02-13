@@ -4,16 +4,12 @@ import { computed } from 'vue'
 /**
  * 权限控制
  */
-export function usePermission () {
+export function usePermission() {
   const store = useUserInfoStore()
 
   // 是否是管理员
   const isSuperAdmin = computed(() => {
     return hasPermission('*')
-  })
-
-  const isOrganizationAdmin = computed(() => {
-    return hasPermission("organizationAdmin")
   })
 
   const hasPermission = store.hasPermission.bind(store)
@@ -23,7 +19,7 @@ export function usePermission () {
    * 是否有专业版权限
    * @returns
    */
-  function hasProfessionAccess () {
+  function hasProfessionAccess() {
     if (!store.hasProPlugin) return false
     if (hasEnterpriseAccess()) return true
     return hasPermissionOr(['professional'])
@@ -37,7 +33,7 @@ export function usePermission () {
    * 是否有企业版权限
    * @returns
    */
-  function hasEnterpriseAccess () {
+  function hasEnterpriseAccess() {
     return hasPermission('enterprise')
   }
 
@@ -45,14 +41,21 @@ export function usePermission () {
     return hasEnterpriseAccess()
   })
 
+  /**
+   * 是否是桌面端 API 访问
+   */
+  const isDesktopApi = computed(() => {
+    return hasPermission('desktop-api')
+  })
+
   return {
     hasPermission,
     hasPermissionOr,
     isSuperAdmin,
-    isOrganizationAdmin,
     hasProfessionAccess,
     hasEnterpriseAccess,
     isProfession,
-    isEnterprise
+    isEnterprise,
+    isDesktopApi
   }
 }

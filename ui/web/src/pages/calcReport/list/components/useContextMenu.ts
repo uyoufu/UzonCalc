@@ -9,8 +9,9 @@ import type { deleteRowByIdType } from 'src/compositions/qTableUtils'
 import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
+import { generateEditorCacheKey } from './useNewCalcReportRoute'
 
-export function useContextMenu(deleteRowByIdFn: deleteRowByIdType) {
+export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn: deleteRowByIdType) {
   const router = useRouter()
 
   /**
@@ -64,11 +65,26 @@ export function useContextMenu(deleteRowByIdFn: deleteRowByIdType) {
    * 查看计算报告
    */
   async function onViewCalcReport(report: ICalcReportInfo) {
-    await router.push({ name: 'calcReportViewer', query: { reportOid: report.oid, tagName: report.oid.slice(-4) } })
+    await router.push({
+      name: 'calcReportViewer',
+      query: {
+        reportOid: report.oid,
+        tagName: report.oid.slice(-4),
+        __cacheKey: generateEditorCacheKey(report.oid)
+      }
+    })
   }
 
   async function onModifyReportSourceCode(report: ICalcReportInfo) {
-    await router.push({ name: 'editCalcReport', query: { reportOid: report.oid, tagName: report.oid.slice(-4) } })
+    await router.push({
+      name: 'editCalcReport',
+      query: {
+        reportOid: report.oid,
+        categoryOid: categoryOid.value,
+        tagName: report.oid.slice(-4),
+        __cacheKey: generateEditorCacheKey(report.oid)
+      }
+    })
   }
 
   /**

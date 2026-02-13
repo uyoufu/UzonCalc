@@ -53,3 +53,15 @@ export function updateCalcReportCategory(categoryOid: string, data: Partial<ICat
 export function deleteCalcReportCategory(categoryOid: string) {
   return httpClient.delete(`/calc-report-category/${categoryOid}`)
 }
+
+/**
+ * 获取或创建默认分类
+ * 如果用户没有任何有效分类，则使用默认名称创建一个分类后返回
+ * @param defaultCategoryName 默认分类名称
+ * @returns 分类信息
+ */
+export function getOrCreateDefaultCategory(defaultCategoryName: string) {
+  return httpClient.post<ICategoryInfo>('/calc-report-category/default', {
+    data: { defaultCategoryName }
+  })
+}

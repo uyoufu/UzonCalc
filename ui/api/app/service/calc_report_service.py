@@ -501,6 +501,8 @@ async def save_or_update_calc_report(
             categoryId=category.id,
             name=report_name,
         )
+        if report_oid:
+            report.oid = report_oid  # 如果提供了 report_oid，使用它而不是自动生成
         session.add(report)
 
         # 增加分类计数

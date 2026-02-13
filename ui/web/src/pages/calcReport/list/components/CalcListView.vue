@@ -131,7 +131,7 @@ const { goToNewCalcReport } = useNewCalcReportRoute(categoryOid)
 
 // #region context menu
 import { useContextMenu } from './useContextMenu'
-const { itemContextMenuItems, onViewCalcReport } = useContextMenu(deleteRowById)
+const { itemContextMenuItems, onViewCalcReport } = useContextMenu(categoryOid, deleteRowById)
 // #endregion
 </script>
 

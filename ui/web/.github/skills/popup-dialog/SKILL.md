@@ -17,7 +17,7 @@ This skill provides a reusable popup dialog component that can be used for creat
 
 ``` ts
 import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
-import type { LowCodeFieldType } from 'src/components/lowCode/types'
+import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { confirmOperation, notifySuccess } from 'src/utils/dialog'
 

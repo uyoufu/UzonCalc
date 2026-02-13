@@ -1,11 +1,18 @@
 <script lang="ts" setup>
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 
-// 报告 id
-const calcReportOId = defineModel({
-  type: String,
-  default: '',
+const calcCategoryOid = defineModel('calcCategoryOid', { type: String, default: '' })
+const calcReportOid = defineModel('calcReportOid', { type: String, default: '' })
+
+const props = defineProps({
+  // 保存时是否另存为，默认为 false, 为 true 时会在保存时弹出另存为对话框
+  // 且保存后的值不会更新到当前编辑器中
+  enableSaveAs: {
+    type: Boolean,
+    default: false,
+  }
 })
+const { enableSaveAs } = toRefs(props)
 
 // #region 注入透传逻辑
 import { startExecutingSignalKey } from './keys'
@@ -24,7 +31,8 @@ const { monacoEditorElementRef, monacoEditorRef } = useMonacoEditor()
 
 // 保存
 import { useCalcReportSaver } from './compositions/useCalcReportSaver'
-const { calcCategoryName, calcReportName, onSaveCalcReport } = useCalcReportSaver(calcReportOId, monacoEditorRef)
+const { calcCategoryName, calcReportName, onSaveCalcReport } =
+  useCalcReportSaver(calcCategoryOid, calcReportOid, monacoEditorRef, enableSaveAs)
 
 // 执行
 import { useCalcRunner } from './compositions/useCalcRunner'
@@ -122,8 +130,10 @@ import CodePreviewer from './components/CodePreviewer.vue'
       </div>
 
       <q-space />
+
       <div v-if="calcCategoryName" class="q-mr-xs text-primary">{{ calcCategoryName }} /
       </div>
+
       <q-input standout="bg-secondary" class="text-white dense-input" v-model="calcReportName" placeholder="请输入报告名称"
         dense>
       </q-input>
@@ -142,7 +152,7 @@ import CodePreviewer from './components/CodePreviewer.vue'
       </template>
 
       <template v-slot:after>
-        <CodePreviewer :report-oid="calcReportOId" />
+        <CodePreviewer :report-oid="calcReportOid" />
       </template>
     </q-splitter>
   </div>

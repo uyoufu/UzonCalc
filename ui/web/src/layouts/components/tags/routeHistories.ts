@@ -17,7 +17,11 @@ function stableQueryStringify(query: LocationQuery) {
 
 export function getRouteId(fullPath: string, query: LocationQuery) {
   const pathOnly = fullPath.split('?')[0] ?? fullPath
-  const full = pathOnly + stableQueryStringify(query)
+  let __cacheKey = query.__cacheKey as string | undefined
+  if (!__cacheKey) {
+    __cacheKey = stableQueryStringify(query)
+  }
+  const full = pathOnly + __cacheKey
   // 返回 hash 值
   return sha256(full)
 }

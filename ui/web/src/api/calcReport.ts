@@ -18,9 +18,10 @@ import type { ICategoryInfo } from 'src/components/categoryList/types'
 /**
  * 获取计算报告详情
  * @param reportOid 报告OID
+ * @param stopNotifyError 是否停止通知错误，默认为 false, 为 true, 错误提示将由调用方处理
  */
-export function getCalcReport(reportOid: string) {
-  return httpClient.get<ICalcReportInfo>(`/calc-report/${reportOid}`)
+export function getCalcReport(reportOid: string, stopNotifyError = false) {
+  return httpClient.get<ICalcReportInfo>(`/calc-report/${reportOid}`, { stopNotifyError })
 }
 
 /**
@@ -64,12 +65,15 @@ export function saveCalcReport(data: { reportName: string; code: string; reportO
  * @param reportOid 报告OID
  * @param data 更新数据
  */
-export function updateCalcReport(reportOid: string, data: {
-  name: string
-  description?: string | null
-  categoryId: number
-  cover?: string | null
-}) {
+export function updateCalcReport(
+  reportOid: string,
+  data: {
+    name: string
+    description?: string | null
+    categoryId: number
+    cover?: string | null
+  }
+) {
   return httpClient.put<ICalcReportInfo>(`/calc-report/${reportOid}`, { data })
 }
 

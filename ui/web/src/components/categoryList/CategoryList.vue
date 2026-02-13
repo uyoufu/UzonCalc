@@ -154,7 +154,7 @@ const filteredItems = computed(() => {
 
 // 初始化获取组
 import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
-import type { LowCodeFieldType } from 'src/components/lowCode/types'
+import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { confirmOperation, notifySuccess } from 'src/utils/dialog'
 onMounted(async () => {

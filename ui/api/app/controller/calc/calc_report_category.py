@@ -2,7 +2,11 @@ from typing import List
 from fastapi import APIRouter, Body, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.controller.calc.calc_dto import CategoryInfoReqDTO, CategoryInfoResDTO
+from app.controller.calc.calc_dto import (
+    CategoryInfoReqDTO,
+    CategoryInfoResDTO,
+    DefaultCategoryReqDTO,
+)
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_category_service
@@ -70,6 +74,37 @@ async def get_calc_category(
     )
     logger.debug(f"获取分类详情: userId={tokenPayloads.id}, categoryOid={categoryOid}")
     return ok(data=category)
+
+
+@router.post("/default")
+async def get_or_create_default_category(
+    data: DefaultCategoryReqDTO,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CategoryInfoResDTO]:
+    """
+    获取或创建默认分类
+
+    **功能说明:**
+    - 如果用户没有任何有效分类，则使用默认名称创建一个分类后返回
+    - 如果用户已有分类，则返回第一个分类（按 order 排序）
+
+    **认证:**
+    - 需要有效的 Authorization token
+
+    **请求参数:**
+    - defaultCategoryName: 默认分类名称 (必填)
+
+    **返回数据:**
+    - 分类详细信息
+    """
+    result = await calc_report_category_service.get_or_create_default_category(
+        tokenPayloads.id, data.defaultCategoryName, session
+    )
+    logger.debug(
+        f"获取或创建默认分类: userId={tokenPayloads.id}, categoryOid={result.oid}"
+    )
+    return ok(data=result)
 
 
 @router.post("")

@@ -16,8 +16,8 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
     path: '/',
     component: NormalLayout,
     meta: {
-      label: 'dashboardPage.myFavorites', // '我的收藏',
-      icon: 'favorite',
+      label: 'dashboardPage.index', // '我的收藏',
+      icon: 'terminal',
       // 不缓存
       noCache: false
     },
@@ -28,8 +28,8 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         name: 'IndexPage',
         path: 'index',
         meta: {
-          label: 'dashboardPage.myFavorites',
-          icon: 'favorite'
+          label: 'dashboardPage.newCalcReport',
+          icon: 'terminal'
         },
         component: () => import('pages/dashboard/DashboardIndex.vue')
       }
@@ -73,7 +73,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         path: 'list',
         meta: {
           icon: 'list_alt',
-          label: 'calcReportPage.calcReport'
+          label: 'calcReportPage.reportTemplate'
         },
         component: () => import('pages/calcReport/list/CalcReportList.vue')
       },

@@ -99,6 +99,13 @@ class AppConfig:
         except (configparser.NoOptionError, configparser.NoSectionError):
             return False
 
+    def get_api_host_type(self) -> str:
+        """获取 API 访问类型: desktop-api 或 web-api"""
+        if self.is_desktop:
+            return "desktop-api"
+        else:
+            return "web-api"
+
     @property
     def host(self) -> str:
         return self.get("app", "host")

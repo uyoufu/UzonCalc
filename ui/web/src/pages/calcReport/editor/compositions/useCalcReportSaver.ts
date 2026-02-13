@@ -1,15 +1,16 @@
 import { t } from 'src/i18n/helpers'
+import logger from 'loglevel'
 import { checkCalcReportName } from './useCalcReportNameChecker'
-import { notifyError, notifySuccess } from 'src/utils/dialog'
-import { saveCalcReport, getCalcReport, getCalcReportCategory } from 'src/api/calcReport'
+import { notifySuccess } from 'src/utils/dialog'
+import { saveCalcReport, getCalcReport } from 'src/api/calcReport'
 import type { Ref, ShallowRef } from 'vue'
 import { ref, onMounted, onUnmounted, computed } from 'vue'
 import type { editor } from 'monaco-editor'
-import { useRoute } from 'vue-router'
 import { useCalcListStore } from '../../list/compositions/useCalcListStore'
 import { useRouteUpdater } from 'src/layouts/components/tags/routeHistories'
 import type { ICategoryInfo } from 'src/components/categoryList/types'
 import { getCalcReportCategory as getCategoryByOid } from 'src/api/calcReportCategory'
+import { objectId } from 'src/utils/objectId'
 
 /**
  * 不可多次调用该函数，避免重复 onMounted
@@ -17,45 +18,42 @@ import { getCalcReportCategory as getCategoryByOid } from 'src/api/calcReportCat
  * @returns
  */
 export function useCalcReportSaver(
+  calcCategoryOid: Ref<string>,
   calcReportOid: Ref<string>,
-  monacoEditorRef: ShallowRef<editor.IStandaloneCodeEditor | undefined>
+  monacoEditorRef: ShallowRef<editor.IStandaloneCodeEditor | undefined>,
+  enableSaveAs: Ref<boolean>
 ) {
   const calcReportName = ref(t('calcReportPage.defaultCalcReportName'))
 
-  const route = useRoute()
+  // #region 分类信息
   const categoryInfo: Ref<ICategoryInfo> = ref({
     name: '',
-    oid: ''
+    oid: '',
+    order: 0
   })
   const calcCategoryName = computed(() => categoryInfo.value.name)
+  watch(calcCategoryOid, async (newOid) => {
+    if (!newOid) return
 
-  onMounted(async () => {
-    // calcReportOid 可能是通过 query 传递
-    if (!calcReportOid.value) {
-      calcReportOid.value = (route.query.reportOid as string) || ''
-    }
+    const { data: category } = await getCategoryByOid(newOid)
+    categoryInfo.value = category
+  })
+  // #endregion
 
-    if (calcReportOid.value) {
-      // 如果有 reportOid，说明是编辑已有报告，获取报告信息
-      const { data: reportInfo } = await getCalcReport(calcReportOid.value)
+  // #region 报告名称
+  watch(calcReportOid, async (newOid) => {
+    if (!newOid) return
+
+    logger.debug('[useCalcReportSaver] 计算报告 OID 变化，获取报告详情', newOid)
+
+    try {
+      const { data: reportInfo } = await getCalcReport(newOid, true)
       calcReportName.value = reportInfo.name
-
-      // 使用新的 API 直接通过 reportOid 获取分类信息
-      const { data: category } = await getCalcReportCategory(calcReportOid.value)
-      categoryInfo.value = category
-    } else {
-      // 如果没有 reportOid，说明是新建报告，从路由中获取 categoryOid
-      const categoryOid = (route.query.categoryOid as string) || ''
-      if (!categoryOid) {
-        notifyError(t('calcReportPage.errorNoCategory'))
-        return
-      }
-
-      // 使用 API 直接获取单个分类信息
-      const { data: category } = await getCategoryByOid(categoryOid)
-      categoryInfo.value = category
+    } catch (error) {
+      logger.warn('获取报告详情失败', error)
     }
   })
+  // #endregion
 
   const { calcListUpdateSignal } = useCalcListStore()
   const { updateRouteTag } = useRouteUpdater()
@@ -74,17 +72,22 @@ export function useCalcReportSaver(
       code,
       reportOid: calcReportOid.value || undefined,
       // 仅在新建报告时传递 categoryOid
-      categoryOid: calcReportOid.value ? undefined : categoryInfo.value.oid
+      categoryOid: calcCategoryOid.value
     })
 
-    // 更新返回的 reportOid
-    calcReportOid.value = reportOid
+    if (enableSaveAs.value) {
+      // logger.debug('[useCalcReportSaver] 另存为模式，生成新的 reportOid', calcReportOid.value, objectId())
+      // 如果是另存为，则更新 reportOid 为新值
+      calcReportOid.value = objectId()
+    } else {
+      // 更新返回的 reportOid
+      calcReportOid.value = reportOid
+      updateRouteTag(reportOid.slice(-4))
+    }
 
     notifySuccess('保存成功')
-
     // 触发计算报告列表刷新
     calcListUpdateSignal.value += 1
-    updateRouteTag(reportOid.slice(-4))
 
     return true
   }
