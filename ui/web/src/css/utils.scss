@@ -79,8 +79,11 @@
 }
 
 // 美化样式
-.hover-scroll {
-  overflow: overlay;
+.hover-scroll,
+.scroll {
+  overflow: auto;
+  // scrollbar-width: thin;
+  scrollbar-gutter: auto;
 
   /* 隐藏滚动条*/
   &::-webkit-scrollbar {

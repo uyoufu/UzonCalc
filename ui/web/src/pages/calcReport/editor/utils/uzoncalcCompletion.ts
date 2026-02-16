@@ -1,4 +1,5 @@
 import { monaco } from 'src/boot/monaco-editor'
+import { formatPythonByBlack } from 'src/api/codeFormat'
 
 interface UzonCalcCompletion {
   label: string;
@@ -165,10 +166,36 @@ export function registerUzoncalcProviders() {
     }
   })
 
+  const formatProvider = monaco.languages.registerDocumentFormattingEditProvider('python', {
+    provideDocumentFormattingEdits: async (model) => {
+      try {
+        const sourceCode = model.getValue()
+        const result = await formatPythonByBlack({
+          code: sourceCode
+        })
+
+        const formattedCode = result.data?.formattedCode
+        if (!formattedCode || formattedCode === sourceCode) {
+          return []
+        }
+
+        return [
+          {
+            range: model.getFullModelRange(),
+            text: formattedCode
+          }
+        ]
+      } catch {
+        return []
+      }
+    }
+  })
+
   return {
     dispose: () => {
       completionProvider.dispose()
       hoverProvider.dispose()
+      formatProvider.dispose()
     }
   }
 }

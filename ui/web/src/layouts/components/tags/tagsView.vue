@@ -40,7 +40,7 @@ function getTagClass(item: IRouteHistory) {
 import { t } from 'src/i18n/helpers'
 function getTagLabel(tagItem: IRouteHistory) {
   const labelValue = t(tagItem.label)
-  if (tagItem.query.tagName) return `${labelValue} - ${String(tagItem.query.tagName)}`
+  if (tagItem.query.tagName) return String(tagItem.query.tagName)
   return labelValue
 }
 const router = useRouter()

@@ -21,9 +21,7 @@ export function useMonacoEditor() {
 @uzon_calc()
 async def sheet():
     # 在此处编写计算逻辑
-    width = 10
-    height = 5
-    area = width * height
+
 `,
       // 设置语言为 Python
       language: 'python',

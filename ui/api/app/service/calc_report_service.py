@@ -124,6 +124,39 @@ async def get_calc_report(report_oid: str, session: AsyncSession) -> CalcReportR
     return CalcReportResDTO.model_validate(report, from_attributes=True)
 
 
+async def get_calc_report_source_code(
+    user_id: int, report_oid: str, session: AsyncSession
+) -> str:
+    """
+    获取计算报告源码
+
+    :param user_id: 用户 ID
+    :param report_oid: 报告 OID
+    :param session: 数据库会话
+    :return: 报告源码
+    """
+    result = await session.execute(
+        select(CalcReport).where(
+            (CalcReport.oid == report_oid)
+            & (CalcReport.userId == user_id)
+            & (CalcReport.status == 1)
+        )
+    )
+    report = result.scalars().first()
+
+    if not report:
+        raise_ex("Report not found", code=404)
+
+    report = cast(CalcReport, report)
+
+    file_path = os.path.abspath(combine_calc_report_path(user_id, report.name))
+    if not os.path.exists(file_path):
+        raise_ex("Report source file not found", code=404)
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
 async def get_calc_report_category(
     report_oid: str, session: AsyncSession
 ) -> CategoryInfoResDTO:

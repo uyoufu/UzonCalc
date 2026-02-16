@@ -102,6 +102,38 @@ async def get_calc_report(
     return ok(data=result)
 
 
+@router.get("/{reportOid}/source-code")
+async def get_calc_report_source_code(
+    reportOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[str]:
+    """
+    获取计算报告源码
+
+    **功能说明:**
+    - 读取指定报告对应的源码文件内容
+    - 仅允许读取当前用户自己的报告
+
+    **认证:**
+    - 需要有效的 Authorization token
+
+    **路径参数:**
+    - reportOid: 报告 OID
+
+    **返回数据:**
+    - 报告源码字符串
+
+    **错误处理:**
+    - 404: 报告不存在或源码文件不存在
+    """
+    source_code = await calc_report_service.get_calc_report_source_code(
+        tokenPayloads.id, reportOid, session
+    )
+    logger.debug(f"获取计算报告源码: userId={tokenPayloads.id}, reportOid={reportOid}")
+    return ok(data=source_code)
+
+
 @router.get("/{reportOid}/category")
 async def get_calc_report_category(
     reportOid: str,

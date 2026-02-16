@@ -4,15 +4,16 @@ import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 const calcCategoryOid = defineModel('calcCategoryOid', { type: String, default: '' })
 const calcReportOid = defineModel('calcReportOid', { type: String, default: '' })
 
+import type { ICalcEditorOptions } from './types'
 const props = defineProps({
   // 保存时是否另存为，默认为 false, 为 true 时会在保存时弹出另存为对话框
   // 且保存后的值不会更新到当前编辑器中
-  enableSaveAs: {
-    type: Boolean,
-    default: false,
+  editorOptions: {
+    type: Object as () => ICalcEditorOptions,
+    default: () => ({})
   }
 })
-const { enableSaveAs } = toRefs(props)
+const { editorOptions } = toRefs(props)
 
 // #region 注入透传逻辑
 import { startExecutingSignalKey } from './keys'
@@ -27,12 +28,15 @@ provide(isCalcReportExecutingKey, isExecuting)
 // #region 代码编辑器
 import { useMonacoEditor } from './compositions/useMonacoEditor'
 const { monacoEditorElementRef, monacoEditorRef } = useMonacoEditor()
+
+import { useReportSourceCode } from './compositions/useReportSourceCode'
+useReportSourceCode(calcReportOid, monacoEditorRef)
 // #endregion
 
 // 保存
 import { useCalcReportSaver } from './compositions/useCalcReportSaver'
 const { calcReportName, onSaveCalcReport } =
-  useCalcReportSaver(calcCategoryOid, calcReportOid, monacoEditorRef, enableSaveAs)
+  useCalcReportSaver(calcCategoryOid, calcReportOid, monacoEditorRef, editorOptions)
 
 // 分类
 import { useCategorySelector } from './compositions/useCategorySelector'
@@ -65,72 +69,20 @@ const { isCollapsed, CollapseRight } = useCollapse(splitterModel, splitterLimits
 // #region 预览
 import CodePreviewer from './components/CodePreviewer.vue'
 // #endregion
+
+// #region MARK: 菜单栏
+import CascadeMenu from 'src/components/cascadeMenu/CascadeMenu.vue'
+import { useMenubar } from './menubar/useMenubar'
+const { insertMenuItems } = useMenubar(monacoEditorRef)
+// #endregion
 </script>
 
 <template>
   <div class="full-height full-width column no-wrap card-like">
     <q-bar class="bg-grey-4 text-accent rounded-borders">
       <div class="cursor-pointer non-selectable">
-        File
-        <q-menu>
-          <q-list dense style="min-width: 100px">
-            <q-item clickable v-close-popup>
-              <q-item-section>Open...</q-item-section>
-            </q-item>
-            <q-item clickable v-close-popup>
-              <q-item-section>New</q-item-section>
-            </q-item>
-            <q-separator />
-            <q-item clickable>
-              <q-item-section>Preferences</q-item-section>
-              <q-item-section side>
-                <q-icon name="keyboard_arrow_right" />
-              </q-item-section>
-
-              <q-menu anchor="top end" self="top start">
-                <q-list dense>
-                  <q-item v-for="n in 3" :key="n" clickable>
-                    <q-item-section>Submenu Label</q-item-section>
-                    <q-item-section side>
-                      <q-icon name="keyboard_arrow_right" />
-                    </q-item-section>
-                    <q-menu auto-close anchor="top end" self="top start">
-                      <q-list dense>
-                        <q-item v-for="n in 3" :key="n" clickable>
-                          <q-item-section>3rd level Label</q-item-section>
-                        </q-item>
-                      </q-list>
-                    </q-menu>
-                  </q-item>
-                </q-list>
-              </q-menu>
-            </q-item>
-            <q-separator />
-            <q-item clickable v-close-popup>
-              <q-item-section>Quit</q-item-section>
-            </q-item>
-          </q-list>
-        </q-menu>
-      </div>
-      <div class="cursor-pointer non-selectable">
-        Edit
-        <q-menu>
-          <q-list dense style="min-width: 100px">
-            <q-item clickable v-close-popup>
-              <q-item-section>Cut</q-item-section>
-            </q-item>
-            <q-item clickable v-close-popup>
-              <q-item-section>Copy</q-item-section>
-            </q-item>
-            <q-item clickable v-close-popup>
-              <q-item-section>Paste</q-item-section>
-            </q-item>
-            <q-separator />
-            <q-item clickable v-close-popup>
-              <q-item-section>Select All</q-item-section>
-            </q-item>
-          </q-list>
-        </q-menu>
+        <span class="text-primary">Insert</span>
+        <CascadeMenu :items="insertMenuItems" />
       </div>
 
       <q-space />
@@ -148,7 +100,8 @@ import CodePreviewer from './components/CodePreviewer.vue'
       <q-btn dense flat icon="save" @click="onSaveCalcReport">
         <AsyncTooltip tooltip="保存" />
       </q-btn>
-      <q-btn dense flat icon="play_arrow" color="primary" @click="onStartExecuting" :loading="isExecuting" />
+      <q-btn v-if="!editorOptions.disableRun" dense flat icon="play_arrow" color="primary" @click="onStartExecuting"
+        :loading="isExecuting" />
       <q-space />
     </q-bar>
 

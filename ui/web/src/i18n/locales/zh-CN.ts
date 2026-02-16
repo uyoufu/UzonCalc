@@ -210,7 +210,7 @@ export default {
 
     editCalcReport: '编辑计算',
 
-    defaultCalcReportName: 'new_calc_report',
+    defaultCalcReportName: '',
     errorNoCategory: '没有 categoryOid，请关联分类信息',
     errorCategoryNotFound: '找不到对应的分类信息',
     pleaseInputCalcReportName: '请输入计算报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
@@ -232,6 +232,49 @@ export default {
       resumeExecutionFailed: '恢复计算执行失败'
     },
     // #endregion
+
+    editor: {
+      menubar: {
+        groups: {
+          elements: '元素',
+          options: '选项'
+        },
+        elements: {
+          title: '标题',
+          subtitle: '副标题',
+          h: '任意章节标题',
+          h1: '一级章节标题',
+          h2: '二级章节标题',
+          h3: '三级章节标题',
+          h4: '四级章节标题',
+          h5: '五级章节标题',
+          h6: '六级章节标题',
+          p: '段落',
+          div: '容器',
+          span: '行内元素',
+          br: '换行',
+          row: '行',
+          img: '图片',
+          table: '表格',
+          input: '输入框',
+          code: '代码块',
+          info: '信息',
+          latex: 'LaTeX',
+          plot: '图表'
+        },
+        options: {
+          show: '显示',
+          hide: '隐藏',
+          enableSubstitution: '启用替换',
+          disableSubstitution: '禁用替换',
+          enableFStringEquation: '启用 F 字符串公式',
+          disableFStringEquation: '禁用 F 字符串公式',
+          inline: '行内',
+          endline: '换行',
+          alias: '别名'
+        }
+      }
+    },
 
     list: {
       col_name: '名称',

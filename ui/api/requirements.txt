@@ -20,3 +20,6 @@ websockets
 
 # schedule
 apscheduler
+
+# python formatter
+black

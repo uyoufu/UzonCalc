@@ -1,5 +1,6 @@
 import { boot } from 'quasar/wrappers'
 import * as monaco from 'monaco-editor'
+import 'monaco-editor/esm/vs/editor/contrib/snippet/browser/snippetController2.js'
 
 // 配置 Monaco Editor 的 worker
 import editorWorker from 'monaco-editor/esm/vs/editor/editor.worker?worker'

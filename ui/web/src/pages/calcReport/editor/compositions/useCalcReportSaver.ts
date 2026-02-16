@@ -9,6 +9,8 @@ import type { editor } from 'monaco-editor'
 import { useCalcListStore } from '../../list/compositions/useCalcListStore'
 import { useRouteUpdater } from 'src/layouts/components/tags/routeHistories'
 import { objectId } from 'src/utils/objectId'
+import type { ICalcEditorOptions } from '../types'
+import { useEditCalcReportNavigator } from '../../edit/useEditCalcReportNavigator'
 
 /**
  * 不可多次调用该函数，避免重复 onMounted
@@ -19,7 +21,7 @@ export function useCalcReportSaver(
   calcCategoryOid: Ref<string>,
   calcReportOid: Ref<string>,
   monacoEditorRef: ShallowRef<editor.IStandaloneCodeEditor | undefined>,
-  enableSaveAs: Ref<boolean>
+  editorOptions: Ref<ICalcEditorOptions>
 ) {
   const calcReportName = ref(t('calcReportPage.defaultCalcReportName'))
 
@@ -36,10 +38,19 @@ export function useCalcReportSaver(
       logger.warn('获取报告详情失败', error)
     }
   })
+  watch(calcReportName, (newName) => {
+    if (editorOptions.value.enableSaveAs) {
+      // logger.debug('[useCalcReportSaver] 另存为模式，名称变化不更新 route tag', newName)
+      return
+    }
+    updateRouteTag(newName)
+  })
   // #endregion
 
   const { calcListUpdateSignal } = useCalcListStore()
   const { updateRouteTag } = useRouteUpdater()
+  const { navigateToEditCalcReport } = useEditCalcReportNavigator()
+
   async function onSaveCalcReport() {
     // 保存前检查名称是否合法
     if (!checkCalcReportName(calcReportName.value)) {
@@ -58,20 +69,21 @@ export function useCalcReportSaver(
       categoryOid: calcCategoryOid.value
     })
 
-    if (enableSaveAs.value) {
+    if (editorOptions.value.enableSaveAs) {
       // logger.debug('[useCalcReportSaver] 另存为模式，生成新的 reportOid', calcReportOid.value, objectId())
       // 如果是另存为，则更新 reportOid 为新值
       calcReportOid.value = objectId()
+
+      // 跳转到编辑界面
+      await navigateToEditCalcReport(reportOid, calcCategoryOid.value, calcReportName.value)
     } else {
       // 更新返回的 reportOid
       calcReportOid.value = reportOid
-      updateRouteTag(reportOid.slice(-4))
     }
 
     notifySuccess('保存成功')
     // 触发计算报告列表刷新
     calcListUpdateSignal.value += 1
-
     return true
   }
 

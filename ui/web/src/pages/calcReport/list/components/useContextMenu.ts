@@ -10,9 +10,11 @@ import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/t
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { generateEditorCacheKey } from './useNewCalcReportRoute'
+import { useEditCalcReportNavigator } from '../../edit/useEditCalcReportNavigator'
 
 export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn: deleteRowByIdType) {
   const router = useRouter()
+  const { navigateToEditCalcReport } = useEditCalcReportNavigator()
 
   /**
    * 构建计算报告的编辑字段
@@ -76,15 +78,7 @@ export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn
   }
 
   async function onModifyReportSourceCode(report: ICalcReportInfo) {
-    await router.push({
-      name: 'editCalcReport',
-      query: {
-        reportOid: report.oid,
-        categoryOid: categoryOid.value,
-        tagName: report.oid.slice(-4),
-        __cacheKey: generateEditorCacheKey(report.oid)
-      }
-    })
+    await navigateToEditCalcReport(report.oid, categoryOid.value, report.name)
   }
 
   /**

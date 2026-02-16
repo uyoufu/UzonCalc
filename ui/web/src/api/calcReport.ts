@@ -25,6 +25,15 @@ export function getCalcReport(reportOid: string, stopNotifyError = false) {
 }
 
 /**
+ * 获取计算报告源码
+ * @param reportOid 报告OID
+ * @param stopNotifyError 是否停止通知错误，默认为 false, 为 true, 错误提示将由调用方处理
+ */
+export function getCalcReportSourceCode(reportOid: string, stopNotifyError = false) {
+  return httpClient.get<string>(`/calc-report/${reportOid}/source-code`, { stopNotifyError })
+}
+
+/**
  * 获取计算报告所属的分类信息
  * @param reportOid 报告OID
  */

@@ -1,5 +1,6 @@
 import { notifyError } from 'src/utils/dialog'
 import _ from 'lodash'
+import logger from 'loglevel'
 
 /**
  * 检查计算报告名称是否符合 Python 变量名命名规则
@@ -7,7 +8,8 @@ import _ from 'lodash'
  */
 export function checkCalcReportName(calcReportName: string) {
   // Python 变量名要求：字母或下划线开头，后接字母、数字或下划线
-  const pythonIdentifierRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/
+  const pythonIdentifierRegex = /^[a-zA-Z_][a-zA-Z0-9_/]*$/
+  logger.debug('[checkCalcReportName] 检查计算报告名称', calcReportName)
   if (!pythonIdentifierRegex.test(calcReportName)) {
     notifyError('calcReportPage.pleaseInputCalcReportName')
     return false
@@ -20,7 +22,6 @@ export function useCalcReportNameChecker(calcReportNameRef: Ref<string>) {
   watch(calcReportNameRef, () => {
     // 空值不检查
     if (!calcReportNameRef.value) return
-
     // 进行防抖处理
     debouncedCheck(calcReportNameRef.value)
   })

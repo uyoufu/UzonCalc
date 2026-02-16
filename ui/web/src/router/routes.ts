@@ -25,13 +25,13 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
     redirect: '/index',
     children: [
       {
-        name: 'IndexPage',
+        name: 'dashboardIndex',
         path: 'index',
         meta: {
           label: 'dashboardPage.newCalcReport',
           icon: 'terminal'
         },
-        component: () => import('pages/dashboard/DashboardIndex.vue')
+        component: () => import('pages/dashboard/dashboardIndex.vue')
       }
     ]
   },
@@ -98,27 +98,27 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
       }
     ]
   },
-  {
-    name: 'CalcModule',
-    path: '/calc-module',
-    component: NormalLayout,
-    meta: {
-      label: 'calcModulePage.calcModule',
-      icon: 'calculate'
-    },
-    redirect: '/calc-module/list',
-    children: [
-      {
-        name: 'calcModuleList',
-        path: 'list',
-        meta: {
-          icon: 'calculate',
-          label: 'calcModulePage.calcModule'
-        },
-        component: () => import('pages/calcModule/CalcModuleList.vue')
-      }
-    ]
-  },
+  // {
+  //   name: 'CalcModule',
+  //   path: '/calc-module',
+  //   component: NormalLayout,
+  //   meta: {
+  //     label: 'calcModulePage.calcModule',
+  //     icon: 'calculate'
+  //   },
+  //   redirect: '/calc-module/list',
+  //   children: [
+  //     {
+  //       name: 'calcModuleList',
+  //       path: 'list',
+  //       meta: {
+  //         icon: 'calculate',
+  //         label: 'calcModulePage.calcModule'
+  //       },
+  //       component: () => import('pages/calcModule/CalcModuleList.vue')
+  //     }
+  //   ]
+  // },
   {
     name: 'Sponsor',
     path: '/sponsor',
