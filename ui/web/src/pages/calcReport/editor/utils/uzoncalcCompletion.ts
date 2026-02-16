@@ -166,6 +166,7 @@ export function registerUzoncalcProviders() {
     }
   })
 
+  // 注册代码格式化
   const formatProvider = monaco.languages.registerDocumentFormattingEditProvider('python', {
     provideDocumentFormattingEdits: async (model) => {
       try {

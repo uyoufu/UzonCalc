@@ -1,4 +1,5 @@
 <script lang="ts" setup>
+import { t } from 'src/i18n/helpers'
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 
 const calcCategoryOid = defineModel('calcCategoryOid', { type: String, default: '' })
@@ -28,6 +29,9 @@ provide(isCalcReportExecutingKey, isExecuting)
 // #region 代码编辑器
 import { useMonacoEditor } from './compositions/useMonacoEditor'
 const { monacoEditorElementRef, monacoEditorRef } = useMonacoEditor()
+
+import { useCalcFormatter } from './compositions/useCalcFormatter'
+useCalcFormatter(monacoEditorRef)
 
 import { useReportSourceCode } from './compositions/useReportSourceCode'
 useReportSourceCode(calcReportOid, monacoEditorRef)
@@ -73,7 +77,7 @@ import CodePreviewer from './components/CodePreviewer.vue'
 // #region MARK: 菜单栏
 import CascadeMenu from 'src/components/cascadeMenu/CascadeMenu.vue'
 import { useMenubar } from './menubar/useMenubar'
-const { insertMenuItems } = useMenubar(monacoEditorRef)
+const { insertMenuItems, formatMenuItems } = useMenubar(monacoEditorRef)
 // #endregion
 </script>
 
@@ -81,8 +85,13 @@ const { insertMenuItems } = useMenubar(monacoEditorRef)
   <div class="full-height full-width column no-wrap card-like">
     <q-bar class="bg-grey-4 text-accent rounded-borders">
       <div class="cursor-pointer non-selectable">
-        <span class="text-primary">Insert</span>
+        <span class="text-primary">{{ t('calcReportPage.editor.menubar.insert') }}</span>
         <CascadeMenu :items="insertMenuItems" />
+      </div>
+
+      <div class="cursor-pointer non-selectable">
+        <span class="text-primary">{{ t('calcReportPage.editor.menubar.format') }}</span>
+        <CascadeMenu :items="formatMenuItems" />
       </div>
 
       <q-space />
@@ -94,14 +103,16 @@ const { insertMenuItems } = useMenubar(monacoEditorRef)
         </q-menu>
       </div>
 
-      <q-input standout="bg-secondary" class="text-white dense-input" v-model="calcReportName" placeholder="请输入报告名称"
-        dense>
+      <q-input standout="bg-secondary" class="text-white dense-input" v-model="calcReportName"
+        :placeholder="t('calcReportPage.editor.index.pleaseInputReportName')" dense>
       </q-input>
       <q-btn dense flat icon="save" @click="onSaveCalcReport">
-        <AsyncTooltip tooltip="保存" />
+        <AsyncTooltip :tooltip="t('calcReportPage.editor.index.saveTooltip')" />
       </q-btn>
       <q-btn v-if="!editorOptions.disableRun" dense flat icon="play_arrow" color="primary" @click="onStartExecuting"
-        :loading="isExecuting" />
+        :loading="isExecuting">
+        <AsyncTooltip :tooltip="t('calcReportPage.editor.index.runTooltip')" />
+      </q-btn>
       <q-space />
     </q-bar>
 

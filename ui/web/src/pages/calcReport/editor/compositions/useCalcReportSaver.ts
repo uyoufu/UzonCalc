@@ -81,7 +81,7 @@ export function useCalcReportSaver(
       calcReportOid.value = reportOid
     }
 
-    notifySuccess('保存成功')
+    notifySuccess(t('calcReportPage.editor.index.saveSuccess'))
     // 触发计算报告列表刷新
     calcListUpdateSignal.value += 1
     return true

@@ -234,7 +234,22 @@ export default {
     // #endregion
 
     editor: {
+      index: {
+        // 请输入报告名称
+        pleaseInputReportName: '请输入报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
+        // 保存 Ctrl + S
+        saveTooltip: '保存 (Ctrl + S)',
+        // 保存成功
+        saveSuccess: '保存成功',
+        // 保存失败
+        saveFailed: '保存失败',
+        runTooltip: '运行 (F5)',
+        formatTooltip: '格式化 (Alt + Shift + F)'
+      },
+
       menubar: {
+        insert: '插入',
+        format: '格式',
         groups: {
           elements: '元素',
           options: '选项'

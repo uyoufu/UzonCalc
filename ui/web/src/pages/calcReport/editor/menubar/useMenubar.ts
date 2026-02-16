@@ -70,6 +70,7 @@ function createSnippetItems(
 }
 
 export function useMenubar(editorRef: ShallowRef<monaco.editor.IStandaloneCodeEditor | undefined>) {
+  // #region 插入菜单
   const elementsConfig: IMenuSnippetConfig[] = [
     { label: t('calcReportPage.editor.menubar.elements.title'), snippet: 'Title(${1:text})' },
     { label: t('calcReportPage.editor.menubar.elements.subtitle'), snippet: 'Subtitle(${1:text})' },
@@ -85,7 +86,10 @@ export function useMenubar(editorRef: ShallowRef<monaco.editor.IStandaloneCodeEd
     { label: t('calcReportPage.editor.menubar.elements.span'), snippet: 'Span(${1:content})' },
     { label: t('calcReportPage.editor.menubar.elements.br'), snippet: 'Br()' },
     { label: t('calcReportPage.editor.menubar.elements.row'), snippet: 'Row(${1:content}, tag=${2:"div"})' },
-    { label: t('calcReportPage.editor.menubar.elements.img'), snippet: 'Img(${1:src}, alt=${2:alt}, width=${3:None}, height=${4:None})' },
+    {
+      label: t('calcReportPage.editor.menubar.elements.img'),
+      snippet: 'Img(${1:src}, alt=${2:alt}, width=${3:None}, height=${4:None})'
+    },
     {
       label: t('calcReportPage.editor.menubar.elements.table'),
       snippet: 'Table(\n    headers=${1:headers},\n    rows=${2:rows},\n    title=${3:None}\n)'
@@ -122,8 +126,23 @@ export function useMenubar(editorRef: ShallowRef<monaco.editor.IStandaloneCodeEd
       children: optionsSnippetItems
     }
   ]
+  // #endregion
 
+  // #region 格式化菜单
+  const formatMenuItems: ICascadeMenuActionItem[] = [
+    {
+      label: t('calcReportPage.editor.index.formatTooltip'),
+      onClick: async () => {
+        const editor = editorRef.value
+        if (!editor) return
+        await editor.getAction('editor.action.formatDocument')?.run()
+      }
+    }
+  ]
+
+  // #endregion
   return {
-    insertMenuItems
+    insertMenuItems,
+    formatMenuItems
   }
 }
