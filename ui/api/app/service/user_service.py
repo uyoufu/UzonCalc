@@ -4,6 +4,7 @@ from sqlalchemy import select
 from app.controller.users.user_dto import (
     UserInfoDTO,
     UserSignInResponseDTO,
+    UserDetailDTO,
     get_access_token_payloads,
     get_refresh_token_payloads,
 )
@@ -191,4 +192,43 @@ async def reset_password(
     user.salt = salt  # type: ignore
     await session.commit()
     logger.info(f"管理员重置用户密码成功: user_id: {user_id}")
+    return True
+
+
+async def get_user_by_username(username: str, session: AsyncSession) -> UserDetailDTO:
+    """
+    根据用户名获取用户信息（不包含密码和盐）
+    :param username: 用户名
+    :param session: 数据库会话
+    :return: 用户信息 DTO
+    """
+    res = await session.execute(select(User).filter(User.username == username))
+    user: User | None = res.scalars().first()
+    if not user or user.status == UserStatus.Deleted.value:  # type: ignore
+        raise_ex("用户不存在", code=404)
+
+    user = cast(User, user)
+    user_detail = UserDetailDTO.model_validate(user, from_attributes=True)
+    user_detail.isSuperAdmin = UserRole.Admin.value in user.roles
+    return user_detail
+
+
+async def update_user_avatar(
+    user_id: int, avatar_url: str, session: AsyncSession
+) -> bool:
+    """
+    更新用户头像
+    :param user_id: 用户 ID
+    :param avatar_url: 头像 URL
+    :param session: 数据库会话
+    :return: 是否更新成功
+    """
+    res = await session.execute(select(User).filter(User.id == user_id))
+    user: User | None = res.scalars().first()
+    if not user:
+        raise_ex("用户不存在", code=404)
+    # 更新头像
+    user.avatar = avatar_url  # type: ignore
+    await session.commit()
+    logger.info(f"用户更新头像成功: user_id: {user_id}")
     return True

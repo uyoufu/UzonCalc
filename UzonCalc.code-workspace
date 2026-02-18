@@ -43,7 +43,8 @@
       "redoc",
       "sessionmaker",
       "uzoncalc",
-      "vuedraggable"
+      "vuedraggable",
+      "wwwroot"
     ],
     "i18n-ally.localesPaths": [
       "ui/web/src/i18n",

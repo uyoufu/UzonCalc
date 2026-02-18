@@ -13,6 +13,7 @@ from app.exception.custom_exception import CustomException, raise_ex
 from app.response.response_result import fail
 from app.controller.depends import get_request_token
 from app.schedule.scheduler import start_scheduler, shutdown_scheduler
+from app.middleware.vue_spa import use_vue_spa_middleware
 from utils.jwt_helper import verify_jwt
 
 HERE = Path(__file__).resolve().parent
@@ -96,6 +97,10 @@ logger.info(f"Initialize directories ...")
 if not os.path.exists("data/public"):
     os.mkdir("data/public")
 app.mount("/public", StaticFiles(directory="data/public"), name="public")
+
+# 初始化 Vue 前端目录
+if not os.path.exists("data/www"):
+    os.makedirs("data/www")
 
 # 初始化其它所需要的目录
 init_dirs = [
@@ -194,14 +199,19 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# 添加 Vue SPA 中间件（必须在所有路由和中间件配置之后）
+use_vue_spa_middleware(app, "data/www")
 
-@app.get("/")
-async def home():
-    """
-    根路由
-    :return:
-    """
-    return {"message": app_config.welcome}
+
+# 根路由仅在 Vue 前端不存在时提供 API 信息
+if not os.path.exists("data/www/index.html"):
+    @app.get("/")
+    async def home():
+        """
+        根路由
+        :return:
+        """
+        return {"message": app_config.welcome}
 
 
 logger.info(f"{app_config.app_name} launched successfully!")

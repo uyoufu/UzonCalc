@@ -1,40 +1,118 @@
-from typing import cast
+"""
+UzonCalc Desktop Application
+
+桌面应用主入口，负责启动 WebView 窗口和管理后台服务
+"""
+
+import html
+from pathlib import Path
 
 import webview
 
-html = """
-<!doctype html>
-<html><body><h1>pywebview 示例</h1><button onclick="window.pywebview.api.ping()">Ping</button></body></html>
-"""
+from config import config
+from js_api import JsApi
+from service_manager import get_service_manager
+from logger import logger
 
 
-class JsApi:
-    def ping(self):
-        print("ping from JS")
-        return "pong"
+TEMPLATE_DIR = Path(__file__).resolve().parent / "templates"
 
 
-# 启动后台服务
-def start_backend():
-    print("后台服务已启动")
+def _load_template(template_name: str) -> str:
+    """读取 HTML 模板文件"""
+    template_path = TEMPLATE_DIR / template_name
+    if not template_path.exists():
+        raise FileNotFoundError(f"模板文件不存在: {template_path}")
+    return template_path.read_text(encoding="utf-8")
 
 
-start_backend()
-
-window = webview.create_window(
-    "UzonCalc",
-    url="http://localhost:3346/",
-    js_api=JsApi(),
-)
-webview.start()
-
-window = cast(webview.Window, window)
-window.load_url("http://localhost:3346/")
-
-
-# 关闭后台服务
-def close_backend():
-    print("后台服务已关闭")
+def _build_welcome_html() -> str:
+    """构建启动欢迎页"""
+    app_name = html.escape(config.name)
+    version = html.escape(config.version)
+    template = _load_template("welcome.html")
+    return (
+        template
+        .replace("__APP_NAME__", app_name)
+        .replace("__APP_VERSION__", version)
+    )
 
 
-close_backend()
+def _build_error_html(message: str) -> str:
+    """构建启动失败页面"""
+    safe_message = html.escape(message)
+    app_name = html.escape(config.name)
+    template = _load_template("error.html")
+    return (
+        template
+        .replace("__APP_NAME__", app_name)
+        .replace("__ERROR_MESSAGE__", safe_message)
+    )
+
+
+def _bootstrap_service(window, service_manager):
+    """在 WebView 启动后异步拉起后台服务"""
+    try:
+        logger.info("Starting API service in background...")
+        if not service_manager.start():
+            logger.error("Failed to start API service")
+            window.load_html(_build_error_html("无法连接后台服务，请检查日志后重试。"))
+            return
+
+        logger.info("API service started, loading UI...")
+        window.load_url(config.ui_url)
+    except Exception as e:
+        logger.error(f"An error occurred while starting service: {e}", exc_info=True)
+        window.load_html(_build_error_html(str(e)))
+
+
+def main():
+    """主函数"""
+    service_manager = None
+
+    try:
+        # 获取服务管理器
+        service_manager = get_service_manager()
+
+        # 启动后台 API 服务
+        logger.info("=" * 60)
+        logger.info("UzonCalc Desktop Application Starting")
+        logger.info("=" * 60)
+
+        # 创建 JsApi 实例
+        js_api = JsApi(service_manager)
+
+        # 创建窗口（先展示欢迎页，后台启动服务后自动跳转）
+        logger.info("Creating WebView window with welcome screen...")
+        window = webview.create_window(
+            config.name,
+            html=_build_welcome_html(),
+            js_api=js_api,
+            width=config.width,
+            height=config.height,
+            resizable=True,
+        )
+
+        # 启动 WebView
+        logger.info("Starting WebView...")
+        webview.start(lambda: _bootstrap_service(window, service_manager))
+
+        logger.info("WebView closed by user")
+
+    except KeyboardInterrupt:
+        logger.info("Received keyboard interrupt")
+    except Exception as e:
+        logger.error(f"An error occurred: {e}", exc_info=True)
+    finally:
+        # 清理资源，关闭后台服务
+        logger.info("Cleaning up...")
+        if service_manager:
+            service_manager.cleanup()
+
+        logger.info("=" * 60)
+        logger.info("UzonCalc Desktop Application Stopped")
+        logger.info("=" * 60)
+
+
+if __name__ == "__main__":
+    main()

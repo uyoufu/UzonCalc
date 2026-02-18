@@ -58,3 +58,30 @@ def get_refresh_token_payloads(user: User) -> TokenPayloads:
     access_payloads = get_access_token_payloads(user)
     access_payloads.type = "refresh"
     return access_payloads
+
+
+class ChangePasswordDTO(BaseDTO):
+    """修改密码请求数据模型"""
+
+    oldPassword: str
+    newPassword: str
+
+
+class ChangePasswordResponseDTO(BaseDTO):
+    """修改密码响应数据模型"""
+
+    newPassword: str
+
+
+class UserDetailDTO(BaseDTO):
+    """用户详细信息数据模型（不包含密码和盐）"""
+
+    id: int
+    oid: str
+    username: str
+    name: str | None
+    avatar: str | None
+    roles: List[str]
+    status: int
+    createAt: str | None
+    isSuperAdmin: bool

@@ -34,7 +34,7 @@ defineOptions({
   name: 'CascadeMenuList'
 })
 
-const props = defineProps({
+defineProps({
   items: {
     type: Array as PropType<ICascadeMenuItem[]>,
     required: true
