@@ -1,5 +1,4 @@
 import { computed, type ComputedRef } from 'vue'
-import { useRouter } from 'vue-router'
 import { t, tGlobal } from 'src/i18n/helpers'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import type { ICalcReportInfo } from 'src/api/calcReport'
@@ -9,12 +8,12 @@ import type { deleteRowByIdType } from 'src/compositions/qTableUtils'
 import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
-import { generateEditorCacheKey } from './useNewCalcReportRoute'
 import { useEditCalcReportNavigator } from '../../edit/useEditCalcReportNavigator'
+import { useCalcReportViewerNavigator } from '../../viewer/useCalcReportViewerNavigator'
 
 export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn: deleteRowByIdType) {
-  const router = useRouter()
   const { navigateToEditCalcReport } = useEditCalcReportNavigator()
+  const { navigateToCalcReportViewer } = useCalcReportViewerNavigator()
 
   /**
    * 构建计算报告的编辑字段
@@ -67,14 +66,7 @@ export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn
    * 查看计算报告
    */
   async function onViewCalcReport(report: ICalcReportInfo) {
-    await router.push({
-      name: 'calcReportViewer',
-      query: {
-        reportOid: report.oid,
-        tagName: report.oid.slice(-4),
-        __cacheKey: generateEditorCacheKey(report.oid)
-      }
-    })
+    await navigateToCalcReportViewer(report.oid, report.name)
   }
 
   async function onModifyReportSourceCode(report: ICalcReportInfo) {

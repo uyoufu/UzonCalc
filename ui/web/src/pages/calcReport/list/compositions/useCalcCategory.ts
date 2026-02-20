@@ -9,7 +9,7 @@ import {
 
 export function useCalcCategory() {
   const listHeader: IFlatHeader = {
-    label: t('calcReportPage.calcReport'),
+    label: t('calcReportPage.myCalcs'),
     icon: 'article'
   }
 

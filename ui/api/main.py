@@ -6,6 +6,11 @@ from pathlib import Path
 from gettext import gettext as _
 from typing import Callable
 
+HERE = Path(__file__).resolve().parent
+if str(HERE) not in sys.path:
+    sys.path.insert(0, str(HERE))
+os.chdir(HERE)
+
 from app.db.init_db import init_database
 from app.db.manager import get_db_manager
 from app.utils.dynamic_loader import load_routers_from_directory
@@ -16,8 +21,6 @@ from app.schedule.scheduler import start_scheduler, shutdown_scheduler
 from app.middleware.vue_spa import use_vue_spa_middleware
 from utils.jwt_helper import verify_jwt
 
-HERE = Path(__file__).resolve().parent
-os.chdir(HERE)
 
 from fastapi import FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
@@ -41,7 +44,9 @@ async def lifespan(app: FastAPI):
     logger.debug("Application startup tasks can be performed here.")
 
     # Initialize db
-    await init_database()
+    db_initialized = await init_database()
+    if not db_initialized:
+        raise RuntimeError("Database initialization failed during startup")
 
     # migrations
     # run_migrations()
@@ -124,6 +129,10 @@ async def authentication(request: Request, call_next: Callable):
     # if request.method == "OPTIONS":
     #     return await call_next(request)
 
+    # 如果是桌面端，则忽略所有非 api 路径
+    if app_config.is_desktop and not request.url.path.startswith("/api/"):
+        return await call_next(request)
+
     # 忽略文件路径
     ignore_starts = [
         "/api/v1/user/sign-in",  # sign-in 不需要鉴权
@@ -205,6 +214,7 @@ use_vue_spa_middleware(app, "data/www")
 
 # 根路由仅在 Vue 前端不存在时提供 API 信息
 if not os.path.exists("data/www/index.html"):
+
     @app.get("/")
     async def home():
         """

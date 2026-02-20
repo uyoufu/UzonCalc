@@ -73,7 +73,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         path: 'list',
         meta: {
           icon: 'list_alt',
-          label: 'calcReportPage.reportTemplate'
+          label: 'calcReportPage.myCalcs'
         },
         component: () => import('pages/calcReport/list/CalcReportList.vue')
       },
@@ -86,10 +86,22 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
           noMenu: true
         },
         component: () => import('pages/calcReport/edit/editCalcReport.vue')
-      },
+      }
+    ]
+  },
+  {
+    name: 'reportViewerContainer',
+    path: '/calc-report',
+    component: NormalLayout,
+    meta: {
+      label: 'calcReportPage.calcManagement',
+      icon: 'article'
+    },
+    redirect: '/calc-report/view',
+    children: [
       {
         name: 'calcReportViewer',
-        path: 'viewer',
+        path: 'view',
         meta: {
           icon: 'view_array',
           label: 'calcReportPage.calcReportViewer'

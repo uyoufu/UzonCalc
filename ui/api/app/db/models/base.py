@@ -23,6 +23,7 @@ class BaseModel(DeclarativeBase):
         nullable=False,
         index=True,
         default=lambda: ObjectId().to_hex(),
+        comment="全局唯一 ID，24 字符长度的十六进制字符串",
     )
     createdAt: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),

@@ -5,7 +5,9 @@ from sqlalchemy.orm import Mapped, mapped_column
 
 
 class CalcReportArchive(BaseModel):
-    """system_settings table model"""
+    """
+    用于记录用户计算报告的历史输入参数
+    """
 
     __tablename__ = "calc_report_archive"
 

@@ -5,13 +5,18 @@ UzonCalc Desktop Application
 """
 
 import html
+import sys
 from pathlib import Path
 
 import webview
 
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
+
 from config import config
 from js_api import JsApi
-from service_manager import get_service_manager
+from service_manager import ServiceManager, get_service_manager
 from logger import logger
 
 
@@ -31,10 +36,8 @@ def _build_welcome_html() -> str:
     app_name = html.escape(config.name)
     version = html.escape(config.version)
     template = _load_template("welcome.html")
-    return (
-        template
-        .replace("__APP_NAME__", app_name)
-        .replace("__APP_VERSION__", version)
+    return template.replace("__APP_NAME__", app_name).replace(
+        "__APP_VERSION__", version
     )
 
 
@@ -43,14 +46,12 @@ def _build_error_html(message: str) -> str:
     safe_message = html.escape(message)
     app_name = html.escape(config.name)
     template = _load_template("error.html")
-    return (
-        template
-        .replace("__APP_NAME__", app_name)
-        .replace("__ERROR_MESSAGE__", safe_message)
+    return template.replace("__APP_NAME__", app_name).replace(
+        "__ERROR_MESSAGE__", safe_message
     )
 
 
-def _bootstrap_service(window, service_manager):
+def _bootstrap_service(window, service_manager: ServiceManager):
     """在 WebView 启动后异步拉起后台服务"""
     try:
         logger.info("Starting API service in background...")
@@ -68,7 +69,7 @@ def _bootstrap_service(window, service_manager):
 
 def main():
     """主函数"""
-    service_manager = None
+    service_manager: ServiceManager | None = None
 
     try:
         # 获取服务管理器
@@ -95,7 +96,8 @@ def main():
 
         # 启动 WebView
         logger.info("Starting WebView...")
-        webview.start(lambda: _bootstrap_service(window, service_manager))
+        webview.settings["OPEN_DEVTOOLS_IN_DEBUG"] = False
+        webview.start(lambda: _bootstrap_service(window, service_manager), debug=True)
 
         logger.info("WebView closed by user")
 

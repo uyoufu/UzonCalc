@@ -5,6 +5,8 @@ aiofiles
 fastapi
 python-multipart
 uvicorn
+PyJWT
+bcrypt
 
 # date utils
 interval
@@ -15,6 +17,8 @@ numpy
 # ORM
 SQLAlchemy
 Alembic
+aiosqlite
+asyncpg
 
 websockets
 
@@ -23,3 +27,5 @@ apscheduler
 
 # python formatter
 black
+
+# uzoncalc

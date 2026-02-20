@@ -204,6 +204,7 @@ export default {
     calcManagement: '计算管理',
     calcReport: '计算报告',
     reportTemplate: '报告模板',
+    myCalcs: '我的计算',
 
     newCalcReport: '新建计算',
     newCalcReportTooltip: '创建新的计算报告',
