@@ -19,7 +19,11 @@ from app.controller.calc.calc_dto import (
     CategoryInfoResDTO,
 )
 from app.exception.custom_exception import raise_ex
-from app.utils.path_manager import combine_calc_report_path
+from app.utils.path_manager import (
+    build_calc_report_file_path,
+    sync_calc_report_file,
+    write_calc_report_file,
+)
 from config import logger
 
 
@@ -149,7 +153,19 @@ async def get_calc_report_source_code(
 
     report = cast(CalcReport, report)
 
-    file_path = os.path.abspath(combine_calc_report_path(user_id, report.name))
+    category = await session.scalar(
+        select(CalcReportCategory).where(
+            (CalcReportCategory.id == report.categoryId)
+            & (CalcReportCategory.userId == user_id)
+            & (CalcReportCategory.status == 1)
+        )
+    )
+    if not category:
+        raise_ex("Category not found", code=404)
+
+    category = cast(CalcReportCategory, category)
+
+    file_path = build_calc_report_file_path(user_id, report.name, category.name)
     if not os.path.exists(file_path):
         raise_ex("Report source file not found", code=404)
 
@@ -294,6 +310,19 @@ async def update_calc_report(
 
     old_name = report.name
 
+    old_category = await session.scalar(
+        select(CalcReportCategory).where(
+            (CalcReportCategory.id == report.categoryId)
+            & (CalcReportCategory.userId == user_id)
+            & (CalcReportCategory.status == 1)
+        )
+    )
+    if not old_category:
+        raise_ex("Category not found", code=404)
+    old_category = cast(CalcReportCategory, old_category)
+
+    target_category = old_category
+
     # 如果分类有变化，验证新分类存在且属于当前用户
     if report.categoryId != data.categoryId:
         category_result = await session.execute(
@@ -309,23 +338,20 @@ async def update_calc_report(
             raise_ex("Category not found", code=404)
 
         new_category = cast(CalcReportCategory, new_category)
+        target_category = new_category
 
         # 更新旧分类计数
-        old_category_result = await session.execute(
-            select(CalcReportCategory).where(CalcReportCategory.id == report.categoryId)
-        )
-        old_category = old_category_result.scalars().first()
-        if old_category:
-            old_category.total = max(0, old_category.total - 1)
+        old_category.total = max(0, old_category.total - 1)
 
         # 更新新分类计数
         new_category.total += 1
 
-    # 处理改名时的旧文件清理
-    if old_name != data.name:
-        old_file_path = combine_calc_report_path(user_id, old_name)
-        if os.path.exists(old_file_path):
-            os.remove(old_file_path)
+    old_file_path = build_calc_report_file_path(user_id, old_name, old_category.name)
+    new_file_path = build_calc_report_file_path(
+        user_id, data.name, target_category.name
+    )
+
+    sync_calc_report_file(old_file_path, new_file_path)
 
     # 更新报告信息
     report.name = data.name
@@ -344,6 +370,35 @@ async def update_calc_report(
     logger.info(f"计算报告更新成功: userId={user_id}, reportOid={report_oid}")
 
     return CalcReportResDTO.model_validate(report, from_attributes=True)
+
+
+async def save_calc_report_source_code(
+    user_id: int,
+    report_name: str | None,
+    report_oid: str | None,
+    category_oid: str | None,
+    code: str,
+    session: AsyncSession,
+) -> tuple[CalcReportResDTO, str]:
+    report = await save_or_update_calc_report(
+        user_id, report_name, report_oid, category_oid, session
+    )
+
+    category = await session.scalar(
+        select(CalcReportCategory).where(
+            (CalcReportCategory.id == report.categoryId)
+            & (CalcReportCategory.userId == user_id)
+            & (CalcReportCategory.status == 1)
+        )
+    )
+    if not category:
+        raise_ex("Category not found", code=404)
+    category = cast(CalcReportCategory, category)
+
+    file_path = build_calc_report_file_path(user_id, report.name, category.name)
+    write_calc_report_file(file_path, code)
+
+    return report, file_path
 
 
 async def delete_calc_report(

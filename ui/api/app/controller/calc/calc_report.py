@@ -4,7 +4,6 @@
 """
 
 from typing import List, cast
-import os
 from pathlib import Path
 
 from fastapi import APIRouter, Depends
@@ -21,7 +20,6 @@ from app.controller.calc.calc_dto import (
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_service
-from app.utils.path_manager import combine_calc_report_path
 from config import logger, app_config
 from utils.jwt_helper import TokenPayloads
 from app.exception.custom_exception import raise_ex
@@ -428,21 +426,14 @@ async def save_calc_report(
         else:
             raise_ex(f"报告名称 '{data.reportName}' 已存在", code=400)
 
-    # 构建文件路径
-    # 获取 API 所在目录的父目录作为项目根
-    file_path = os.path.abspath(
-        combine_calc_report_path(tokenPayloads.id, data.reportName)
-    )
-
-    # 创建必要的目录
-    os.makedirs(os.path.dirname(file_path), exist_ok=True)
-    # 写入文件
-    with open(file_path, "w", encoding="utf-8") as f:
-        f.write(data.code)
-
-    # 保存或更新数据库记录
-    report_dto = await calc_report_service.save_or_update_calc_report(
-        tokenPayloads.id, data.reportName, data.reportOid, data.categoryOid, session
+    # 保存或更新数据库记录，并统一处理文件同步
+    report_dto, file_path = await calc_report_service.save_calc_report_source_code(
+        tokenPayloads.id,
+        data.reportName,
+        data.reportOid,
+        data.categoryOid,
+        data.code,
+        session,
     )
 
     logger.info(

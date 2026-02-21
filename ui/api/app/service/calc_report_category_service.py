@@ -10,6 +10,11 @@ from sqlalchemy import select, func
 from app.db.models.calc_report_category import CalcReportCategory
 from app.controller.calc.calc_dto import CategoryInfoReqDTO, CategoryInfoResDTO
 from app.exception.custom_exception import raise_ex
+from app.utils.path_manager import (
+    create_category_directory,
+    rename_category_directory,
+    delete_category_directory,
+)
 from config import logger
 
 
@@ -128,6 +133,11 @@ async def create_category(
         order=next_order,
         total=0,
     )
+
+    if not create_category_directory(user_id, data.name):
+        logger.error(f"创建分类目录失败: userId={user_id}, name={data.name}")
+        raise_ex("Failed to create category directory", code=500)
+
     session.add(category)
     await session.commit()
     await session.refresh(category)
@@ -162,6 +172,7 @@ async def update_category(
         raise_ex("Category not found", code=404)
 
     category = cast(CalcReportCategory, category)
+    old_name = category.name
 
     # 检查新名称是否与其他分类冲突
     if data.name != category.name:
@@ -175,6 +186,13 @@ async def update_category(
         )
         if existing and existing > 0:
             raise_ex("Category name already exists", code=400)
+
+    if old_name != data.name:
+        if not rename_category_directory(user_id, old_name, data.name):
+            logger.error(
+                f"重命名分类目录失败: userId={user_id}, oldName={old_name}, newName={data.name}"
+            )
+            raise_ex("Failed to rename category directory", code=400)
 
     # 更新分类信息
     category.name = data.name
@@ -260,6 +278,10 @@ async def delete_category(
     if category.total > 0:
         raise_ex("Cannot delete non-empty category", code=400)
 
+    if not delete_category_directory(user_id, category.name):
+        logger.error(f"删除分类目录失败: userId={user_id}, name={category.name}")
+        raise_ex("Cannot delete non-empty category directory", code=400)
+
     # 逻辑删除：设置 status 为 0
     category.status = 0
     await session.commit()
@@ -297,8 +319,10 @@ async def get_or_create_default_category(
         return CategoryInfoResDTO.model_validate(category, from_attributes=True)
 
     # 如果没有分类，创建默认分类
-    logger.info(f"用户无分类，创建默认分类: userId={user_id}, name={default_category_name}")
-    
+    logger.info(
+        f"用户无分类，创建默认分类: userId={user_id}, name={default_category_name}"
+    )
+
     new_category = CalcReportCategory(
         userId=user_id,
         name=default_category_name,
@@ -306,6 +330,13 @@ async def get_or_create_default_category(
         order=1,
         total=0,
     )
+
+    if not create_category_directory(user_id, default_category_name):
+        logger.error(
+            f"创建默认分类目录失败: userId={user_id}, name={default_category_name}"
+        )
+        raise_ex("Failed to create default category directory", code=500)
+
     session.add(new_category)
     await session.commit()
     await session.refresh(new_category)
