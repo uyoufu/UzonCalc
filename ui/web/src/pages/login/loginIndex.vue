@@ -48,6 +48,9 @@ import { resolveSvgFullName } from 'src/utils/svgHelper'
 import { md5 } from 'src/utils/encrypt'
 import logger from 'loglevel'
 
+import { useSystemInfo } from 'src/stores/system'
+const systemInfoStore = useSystemInfo()
+
 // 登录界面
 const username = ref('')
 const password = ref('')
@@ -78,13 +81,15 @@ async function onUserLogin() {
   // 1- 请求登录信息，返回用户信息、token、权限信息
   // 2- 保存信息、密码加密后保存，用于解析服务器的密码
   // 3- 跳转到主页或重定向的页面
-  const { data: { userInfo, token, access, installedPlugins } } = await userLogin(username.value, password.value, currentLocale.value)
+  const { data: { userInfo, token, access, installedPlugins, isLocalhost } } = await userLogin(username.value, password.value, currentLocale.value)
   logger.debug('[Login] 用户登录信息:', userInfo, token, access)
 
   const userInfoStore = useUserInfoStore()
   userInfoStore.setInstalledPlugins(installedPlugins)
   userInfoStore.setUserLoginInfo(userInfo, token, access)
   userInfoStore.setSecretKey(md5(password.value))
+  systemInfoStore.setIsLocalhost(isLocalhost)
+
   routeStore.resetDynamicRoutes()
 
   logger.log('[Login] 登录成功')
@@ -99,11 +104,12 @@ const config = useConfig()
 const clientVersion = ref(config.version)
 const serverVersion = ref('connecting...')
 
-
-
 onMounted(async () => {
   const { data: version } = await getServerVersion()
   serverVersion.value = version
+
+  // 将版本号保存到全局状态，供其他页面使用
+  systemInfoStore.setVersion(version)
 })
 const serverVersionClass = computed(() => {
   return {
@@ -144,7 +150,6 @@ onMounted(async () => {
   username.value = autoLoginInfo.username
   password.value = autoLoginInfo.password
   await onUserLogin()
-
 })
 // #endregion
 </script>

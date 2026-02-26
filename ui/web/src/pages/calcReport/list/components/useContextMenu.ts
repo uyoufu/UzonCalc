@@ -10,10 +10,14 @@ import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { useEditCalcReportNavigator } from '../../edit/useEditCalcReportNavigator'
 import { useCalcReportViewerNavigator } from '../../viewer/useCalcReportViewerNavigator'
+import { showCalcReportInExplorer } from 'src/api/desktop'
+
+import { useSystemInfo } from 'src/stores/system'
 
 export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn: deleteRowByIdType) {
   const { navigateToEditCalcReport } = useEditCalcReportNavigator()
   const { navigateToCalcReportViewer } = useCalcReportViewerNavigator()
+  const systemInfoStore = useSystemInfo()
 
   /**
    * 构建计算报告的编辑字段
@@ -38,29 +42,39 @@ export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn
     return fields
   }
 
-  const itemContextMenuItems: ComputedRef<IContextMenuItem<ICalcReportInfo>[]> = computed(() => [
-    {
-      name: 'view',
-      label: tGlobal('view'),
-      onClick: onViewCalcReport
-    },
-    {
-      name: 'modify',
-      label: tGlobal('modify'),
-      onClick: onModifyCalcReport
-    },
-    {
-      name: 'modifyReportSourceCode',
-      label: t('calcReportPage.list.modifyReportSourceCode'),
-      onClick: onModifyReportSourceCode
-    },
-    {
-      name: 'delete',
-      label: tGlobal('delete'),
-      color: 'negative',
-      onClick: onDeleteCalcReport
-    }
-  ])
+  const itemContextMenuItems: ComputedRef<IContextMenuItem<ICalcReportInfo>[]> = computed(() => {
+    const items: IContextMenuItem<ICalcReportInfo>[] = [
+      {
+        name: 'view',
+        label: tGlobal('view'),
+        onClick: onViewCalcReport
+      },
+      {
+        name: 'modify',
+        label: tGlobal('modify'),
+        onClick: onModifyCalcReport
+      },
+      {
+        name: 'modifyReportSourceCode',
+        label: t('calcReportPage.list.modifyReportSourceCode'),
+        onClick: onModifyReportSourceCode
+      },
+      {
+        name: 'showInFileExplorer',
+        label: t('calcReportPage.list.showInFileExplorer'),
+        onClick: onShowInFileExplorer,
+        vif: () => systemInfoStore.isLocalhost
+      },
+      {
+        name: 'delete',
+        label: tGlobal('delete'),
+        color: 'negative',
+        onClick: onDeleteCalcReport
+      }
+    ]
+
+    return items
+  })
 
   /**
    * 查看计算报告
@@ -71,6 +85,13 @@ export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn
 
   async function onModifyReportSourceCode(report: ICalcReportInfo) {
     await navigateToEditCalcReport(report.oid, categoryOid.value, report.name)
+  }
+
+  /**
+   * 在文件资源管理器中显示源码文件
+   */
+  async function onShowInFileExplorer(report: ICalcReportInfo) {
+    await showCalcReportInExplorer(report.oid)
   }
 
   /**

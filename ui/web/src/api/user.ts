@@ -7,6 +7,7 @@ export interface IUserLoginInfo {
   access: string[]
   userInfo: IUserInfo
   installedPlugins: string[]
+  isLocalhost: boolean
 }
 
 export interface IUserInfoDetail {

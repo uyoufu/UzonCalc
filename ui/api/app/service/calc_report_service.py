@@ -178,6 +178,23 @@ async def get_calc_report_source_code(
     :param session: 数据库会话
     :return: 报告源码
     """
+    file_path = await get_calc_report_source_file_path(user_id, report_oid, session)
+
+    with open(file_path, "r", encoding="utf-8") as f:
+        return f.read()
+
+
+async def get_calc_report_source_file_path(
+    user_id: int, report_oid: str, session: AsyncSession
+) -> str:
+    """
+    获取计算报告源码文件路径
+
+    :param user_id: 用户 ID
+    :param report_oid: 报告 OID
+    :param session: 数据库会话
+    :return: 报告源码文件绝对路径
+    """
     result = await session.execute(
         select(CalcReport).where(
             (CalcReport.oid == report_oid)
@@ -208,8 +225,7 @@ async def get_calc_report_source_code(
     if not os.path.exists(file_path):
         raise_ex("Report source file not found", code=404)
 
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
+    return file_path
 
 
 async def get_calc_report_category(
