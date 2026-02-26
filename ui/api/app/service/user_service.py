@@ -82,6 +82,7 @@ async def sign_in(
         refreshToken=refresh_token,
         token=development_token,
         tokenType="Bearer",
+        isLocalhost=app_config.is_desktop,
     )
 
 

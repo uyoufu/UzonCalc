@@ -28,7 +28,12 @@ from config import logger
 
 
 async def check_report_name_exists(
-    user_id: int, report_name: str, exclude_oid: str | None, session: AsyncSession
+    user_id: int,
+    report_name: str,
+    session: AsyncSession,
+    exclude_oid: str | None,
+    category_id: int | None = None,
+    category_oid: str | None = None,
 ) -> bool:
     """
     检查报告名称是否已存在
@@ -37,13 +42,47 @@ async def check_report_name_exists(
     :param report_name: 报告名称
     :param exclude_oid: 排除的报告 OID（更新时传入当前报告的 OID）
     :param session: 数据库会话
+    :param category_id: 分类 ID（优先使用）
+    :param category_oid: 分类 OID（category_id 为空时使用）
     :return: True 表示名称已存在
     """
+    target_category_id = category_id
+
+    # 兼容通过 category_oid 指定分类（常用于新增场景）
+    if target_category_id is None and category_oid:
+        category = await session.scalar(
+            select(CalcReportCategory).where(
+                (CalcReportCategory.oid == category_oid)
+                & (CalcReportCategory.userId == user_id)
+                & (CalcReportCategory.status == 1)
+            )
+        )
+        if category:
+            category = cast(CalcReportCategory, category)
+            target_category_id = category.id
+
+    # 更新场景且未显式指定分类时，回退为当前报告所属分类
+    if target_category_id is None and exclude_oid:
+        current_report = await session.scalar(
+            select(CalcReport).where(
+                (CalcReport.oid == exclude_oid)
+                & (CalcReport.userId == user_id)
+                & (CalcReport.status == 1)
+            )
+        )
+        if current_report:
+            current_report = cast(CalcReport, current_report)
+            target_category_id = current_report.categoryId
+
     query = select(CalcReport).where(
         (CalcReport.userId == user_id)
         & (CalcReport.name == report_name)
         & (CalcReport.status == 1)
     )
+
+    # 仅在同一分类下判重
+    if target_category_id is not None:
+        query = query.where(CalcReport.categoryId == target_category_id)
 
     # 如果是更新场景，排除自身
     if exclude_oid:

@@ -8,11 +8,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 from app.db.models.calc_report import CalcReport
 from app.db.models.calc_report_archive import CalcReportArchive
+from app.db.models.calc_report_category import CalcReportCategory
 from app.sandbox.core.execution_result import ExecutionResult
 from app.sandbox.core.executor_interface import ISandboxExecutor
 from app.sandbox.core.executor_local import LocalSandboxExecutor
 from app.sandbox.core.executor_remote import RemoteSandboxExecutor
-from app.utils.path_manager import get_user_calcs_root
+from app.utils.path_manager import combine_calc_report_path, get_user_calcs_root
 from config import logger, app_config
 from uzoncalc.utils_core.dot_dict import deep_update
 
@@ -74,14 +75,20 @@ def get_sandbox_executor() -> ISandboxExecutor:
     return _executor_instance
 
 
-def _get_report_file_path(user_id: int, report_name: str):
+def _get_report_file_path(
+    user_id: int, report_name: str, category_name: str
+) -> tuple[str, str]:
     package_root = get_user_calcs_root(user_id)
 
     # report_name 可能是绝对路径
     if os.path.isabs(report_name):
         return (report_name, package_root)
 
-    possible_path = f"{package_root}/{report_name.replace('.py','')}.py"
+    full_path = combine_calc_report_path(user_id, report_name, category_name)
+
+    # 添加后缀 .py，如果没有的话
+    possible_path = f"{full_path.replace('.py','')}.py"
+
     # 判断文件是否存在
     if not os.path.isfile(possible_path):
         raise FileNotFoundError(f"CalcReport script file not found: {possible_path}")
@@ -168,8 +175,20 @@ async def start_execution(
     if not calc_report:
         raise ValueError(f"CalcReport with id {report_oid} not found")
 
+    calc_category = await db_session.scalar(
+        select(CalcReportCategory).where(
+            CalcReportCategory.id == calc_report.categoryId
+        )
+    )
+    if not calc_category:
+        raise ValueError(
+            f"CalcReportCategory with id {calc_report.categoryId} not found"
+        )
+
     # 计算脚本路径
-    (file_path, package_root) = _get_report_file_path(user_id, calc_report.name)
+    (file_path, package_root) = _get_report_file_path(
+        user_id, calc_report.name, calc_category.name
+    )
 
     # 读取一次的历史输入
     last_archive = await db_session.scalar(
@@ -268,7 +287,7 @@ async def start_file_execution(
     # 获取 sandbox 执行器并执行
     executor = get_sandbox_executor()
 
-    (script_path, package_root) = _get_report_file_path(user_id, file_path)
+    (script_path, package_root) = _get_report_file_path(user_id, file_path, "./")
     result = await executor.execute_script(
         script_path,
         final_defaults,

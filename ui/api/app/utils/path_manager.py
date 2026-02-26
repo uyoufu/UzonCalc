@@ -97,6 +97,7 @@ def _safe_rename(src: str, dst: str) -> bool:
         os.rename(src, dst)
         return True
     except OSError:
+        print(f"Failed to rename {src} to {dst}")
         return False
 
 

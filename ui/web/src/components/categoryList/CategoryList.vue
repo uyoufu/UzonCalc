@@ -195,6 +195,7 @@ function onItemClick(item: ICategoryInfo) {
 }
 
 // #region 右键菜单相关
+import { validatePathName } from 'src/utils/pathUtils/pathName'
 // 构建分类表单字段
 function buildCategoryFields(category?: ICategoryInfo) {
   const fields: ILowCodeField[] = [
@@ -206,7 +207,7 @@ function buildCategoryFields(category?: ICategoryInfo) {
       required: true,
       validate: (value: string) => {
         // 必须仅包含字母、数字、下划线且不能以数字开头
-        const valid = /^[A-Za-z_][A-Za-z0-9_]*$/.test(value)
+        const valid = validatePathName(value)
         if (!valid) {
           return {
             ok: false,

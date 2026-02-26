@@ -1,4 +1,5 @@
 import type { Ref } from 'vue'
+import { onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 
 export function useCalcRunner(
   startExecutingSignal: Ref<number>,
@@ -20,21 +21,44 @@ export function useCalcRunner(
     startExecutingSignal.value++
   }
 
-  // 注册快捷键 F5 触发执行
+  // #region 注册快捷键 F5 触发执行
+
   async function handleKeyDown(event: KeyboardEvent) {
     if (event.key === 'F5') {
       event.preventDefault()
       await onStartExecuting()
     }
   }
-  onMounted(() => {
+
+  let hasKeydownListener = false
+
+  function registerKeydownListener() {
+    if (hasKeydownListener) return
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     window.addEventListener('keydown', handleKeyDown)
-  })
-  onUnmounted(() => {
+    hasKeydownListener = true
+  }
+
+  function unregisterKeydownListener() {
+    if (!hasKeydownListener) return
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     window.removeEventListener('keydown', handleKeyDown)
+    hasKeydownListener = false
+  }
+
+  onMounted(() => {
+    registerKeydownListener()
   })
+  onActivated(() => {
+    registerKeydownListener()
+  })
+  onDeactivated(() => {
+    unregisterKeydownListener()
+  })
+  onUnmounted(() => {
+    unregisterKeydownListener()
+  })
+  // #endregion
 
   return {
     onStartExecuting

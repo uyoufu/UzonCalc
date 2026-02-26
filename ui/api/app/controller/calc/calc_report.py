@@ -285,7 +285,11 @@ async def update_calc_report(
 
     # 判断名称是否存在
     name_exists = await calc_report_service.check_report_name_exists(
-        tokenPayloads.id, data.name, reportOid, session
+        tokenPayloads.id,
+        data.name,
+        session,
+        category_id=data.categoryId,
+        exclude_oid=reportOid,
     )
     if name_exists:
         raise_ex(f"Duplicate report name: '{data.name}'", code=400)
@@ -416,7 +420,11 @@ async def save_calc_report(
 
     # 判断名称是否存在
     name_exists = await calc_report_service.check_report_name_exists(
-        tokenPayloads.id, data.reportName, data.reportOid, session
+        tokenPayloads.id,
+        data.reportName,
+        session,
+        category_oid=data.categoryOid,
+        exclude_oid=data.reportOid,
     )
     if name_exists:
         if data.reportOid:

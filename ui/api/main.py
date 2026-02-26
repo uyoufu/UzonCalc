@@ -137,6 +137,7 @@ async def authentication(request: Request, call_next: Callable):
     ignore_starts = [
         "/api/v1/user/sign-in",  # sign-in 不需要鉴权
         "/api/v1/system-info/version",  # 获取版本号不需要鉴权
+        "/api/v1/system-info/desktop-auto-login",  # 桌面端自动登录信息不需要鉴权
         "/public",
         "/docs",
         "/redoc",

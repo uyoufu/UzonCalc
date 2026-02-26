@@ -214,7 +214,7 @@ export default {
     defaultCalcReportName: '',
     errorNoCategory: '没有 categoryOid，请关联分类信息',
     errorCategoryNotFound: '找不到对应的分类信息',
-    pleaseInputCalcReportName: '请输入计算报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
+    pleaseInputCalcReportName: '请输入计算报告名称(有效的文件名，不能包含 : * ? " < > | 等字符)',
 
     calcReportViewer: '查看计算',
 

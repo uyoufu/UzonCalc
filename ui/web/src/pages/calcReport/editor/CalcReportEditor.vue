@@ -85,12 +85,12 @@ const { insertMenuItems, formatMenuItems } = useMenubar(monacoEditorRef)
   <div class="full-height full-width column no-wrap card-like">
     <q-bar class="bg-grey-4 text-accent rounded-borders">
       <div class="cursor-pointer non-selectable">
-        <span class="text-primary">{{ t('calcReportPage.editor.menubar.insert') }}</span>
+        <span>{{ t('calcReportPage.editor.menubar.insert') }}</span>
         <CascadeMenu :items="insertMenuItems" />
       </div>
 
       <div class="cursor-pointer non-selectable">
-        <span class="text-primary">{{ t('calcReportPage.editor.menubar.format') }}</span>
+        <span>{{ t('calcReportPage.editor.menubar.format') }}</span>
         <CascadeMenu :items="formatMenuItems" />
       </div>
 

@@ -4,7 +4,7 @@ import { checkCalcReportName } from './useCalcReportNameChecker'
 import { notifySuccess } from 'src/utils/dialog'
 import { saveCalcReport, getCalcReport } from 'src/api/calcReport'
 import type { Ref, ShallowRef } from 'vue'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { ref, onMounted, onUnmounted, onActivated, onDeactivated } from 'vue'
 import type { editor } from 'monaco-editor'
 import { useCalcListStore } from '../../list/compositions/useCalcListStore'
 import { useRouteUpdater } from 'src/layouts/components/tags/routeHistories'
@@ -87,22 +87,45 @@ export function useCalcReportSaver(
     return true
   }
 
-  // 注册快捷键 Ctrl+S 保存
+  // #region 注册快捷键 Ctrl+S 保存
+
   async function handleKeyDown(event: KeyboardEvent) {
     if ((event.ctrlKey || event.metaKey) && event.key === 's') {
       event.preventDefault()
       await onSaveCalcReport()
     }
   }
-  onMounted(() => {
+
+  let hasKeydownListener = false
+  function registerKeydownListener() {
+    if (hasKeydownListener) return
     // eslint-disable-next-line @typescript-eslint/no-misused-promises
     window.addEventListener('keydown', handleKeyDown)
+    hasKeydownListener = true
+  }
+
+  function unregisterKeydownListener() {
+    if (!hasKeydownListener) return
+    // eslint-disable-next-line @typescript-eslint/no-misused-promises
+    window.removeEventListener('keydown', handleKeyDown)
+    hasKeydownListener = false
+  }
+
+  onMounted(() => {
+    registerKeydownListener()
+  })
+  onActivated(() => {
+    registerKeydownListener()
+  })
+  onDeactivated(() => {
+    unregisterKeydownListener()
   })
   // 组件卸载时移除事件监听
   onUnmounted(() => {
-    // eslint-disable-next-line @typescript-eslint/no-misused-promises
-    window.removeEventListener('keydown', handleKeyDown)
+    unregisterKeydownListener()
   })
+
+  // #endregion
 
   return {
     calcReportName,

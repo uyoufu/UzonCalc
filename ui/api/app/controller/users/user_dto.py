@@ -43,6 +43,8 @@ class UserSignInResponseDTO(BaseDTO):
     # 令牌类型
     tokenType: str = Field(default="Bearer")
     userInfo: UserInfoDTO
+    # 是否为本地登录，即单机版本的自动登录
+    isLocalhost: bool = Field(default=False)
 
 
 def get_access_token_payloads(user: User) -> TokenPayloads:

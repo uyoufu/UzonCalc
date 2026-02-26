@@ -10,7 +10,6 @@ from .user_dto import (
     UserSignInDTO,
     UserSignInResponseDTO,
     ChangePasswordDTO,
-    ChangePasswordResponseDTO,
     UserDetailDTO,
 )
 from app.db.models.user import User
@@ -57,7 +56,6 @@ async def sign_in(
 async def get_user_info(
     username: str,
     session: AsyncSession = Depends(get_session),
-    current_user: User = Depends(get_current_user),
 ) -> ResponseResult[UserDetailDTO]:
     """
     获取用户信息

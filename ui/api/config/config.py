@@ -199,13 +199,17 @@ class AppConfig:
         return self.get("user", "default_userId")
 
     @property
+    def default_password_plain(self) -> str:
+        """获取默认密码的明文"""
+        return self.get("user", "default_password")
+
+    @property
     def default_password(self) -> str:
-        password = self.get("user", "default_password")
         # 进行 sha256 加密
         import hashlib
 
         sha256_hash = hashlib.sha256()
-        sha256_hash.update(password.encode("utf-8"))
+        sha256_hash.update(self.default_password_plain.encode("utf-8"))
         return sha256_hash.hexdigest()
 
     # endregion

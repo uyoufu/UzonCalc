@@ -9,8 +9,7 @@
         <div class="self-center q-mb-lg text-h5 text-secondary welcome-to-uzon-calc">{{ systemConfig.loginWelcome }}
         </div>
 
-        <q-input outlined class="full-width q-mb-md" standout v-model="username"
-          :label="tLoginPage('userName')">
+        <q-input outlined class="full-width q-mb-md" standout v-model="username" :label="tLoginPage('userName')">
           <template v-slot:prepend>
             <q-icon name="person" />
           </template>
@@ -26,8 +25,7 @@
           </template>
         </q-input>
 
-        <q-btn class="full-width border-radius-8" color="primary" :label="tLoginPage('signIn')"
-          @click="onUserLogin" />
+        <q-btn class="full-width border-radius-8" color="primary" :label="tLoginPage('signIn')" @click="onUserLogin" />
       </div>
     </div>
 
@@ -96,10 +94,13 @@ async function onUserLogin() {
 
 // #region 显示版本号
 import { useConfig } from 'src/config'
-import { getServerVersion } from 'src/api/system'
+import { getDesktopAutoLoginInfo, getServerVersion } from 'src/api/system'
 const config = useConfig()
 const clientVersion = ref(config.version)
 const serverVersion = ref('connecting...')
+
+
+
 onMounted(async () => {
   const { data: version } = await getServerVersion()
   serverVersion.value = version
@@ -127,6 +128,24 @@ const mobileClass = computed(() => {
 // #region 显示的系统信息
 import { useSystemConfig } from 'src/layouts/components/leftSidebar/compositions/useSystemConfig'
 const { systemConfig } = useSystemConfig()
+// #endregion
+
+// #region MARK: 当为桌面版本时，自动登录
+onMounted(async () => {
+  if (!Platform.is.desktop) {
+    return
+  }
+
+  const { data: autoLoginInfo } = await getDesktopAutoLoginInfo()
+  if (!autoLoginInfo.enabled) {
+    return
+  }
+
+  username.value = autoLoginInfo.username
+  password.value = autoLoginInfo.password
+  await onUserLogin()
+
+})
 // #endregion
 </script>
 
