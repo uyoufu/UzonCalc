@@ -2,7 +2,6 @@
 
 UzonCalc 是一个使用 python 语言来编写工程计算书的软件，使用它，你可以像写 python 一样流畅地编写工程计算书，并且享有 python 完整生态的支持和 AI 加持。
 
-
 ## 特性
 
 1. 使用 python 代码编写，不需要学习额外的语法
@@ -16,13 +15,13 @@ UzonCalc 是一个使用 python 语言来编写工程计算书的软件，使用
 
 **安装包**
 
-``` bash
+```bash
 pip install uzoncalc
 ```
 
 **复制模板**
 
-``` Python
+```Python
 # example.py
 from uzoncalc import *
 
@@ -41,13 +40,13 @@ if __name__ == "__main__":
 
 **执行**
 
-``` python
+```python
 python example.py
 ```
 
 ## 示例
 
-``` python
+```python
 from pathlib import Path
 import sys
 
@@ -161,10 +160,14 @@ if __name__ == "__main__":
 
 ![image-20260110162359040](https://oss.uzoncloud.com:2234/public/files/images/image-20260110162359040.png)
 
-
 ## Demo
 
 原文档: [example.zh.py](https://github.com/uyoufu/UzonCalc/blob/master/examples/example.zh.py)
 
 编译后结果: [示例文档](https://calc.uzoncloud.com/example.zh.html)
 
+## 发布
+
+```python
+pwsh ./scripts/build-and-upload.ps1
+```

@@ -38,15 +38,17 @@ Write-Host "Starting build and upload script..."
 # can be executed from anywhere and still operate on the repository root.
 $scriptDir = Split-Path -Path $PSCommandPath -Parent
 $projectRoot = Split-Path -Path $scriptDir -Parent
+$buildRoot = Join-Path $projectRoot "uzoncalc"
 
 Write-Host "Project root: $projectRoot"
+Write-Host "Build root:   $buildRoot"
 
 # Ensure python is available
 if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
   Write-ErrAndExit "Python is not found in PATH. Please install Python and retry."
 }
 
-Push-Location $projectRoot
+Push-Location $buildRoot
 try {
   if (-not $SkipInstall) {
     Write-Host "Ensuring pip, build and twine are installed/updated..."

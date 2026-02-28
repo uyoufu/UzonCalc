@@ -1,0 +1,376 @@
+/* UzonCalc 计算表格样式 */
+
+body {
+  margin: 20px;
+  line-height: 1.8;
+  color: #333;
+  background-color: #fff;
+  counter-reset: h2-counter;
+}
+
+.content {
+  max-width: 900px;
+  margin: 0 auto;
+}
+
+/* 标题样式 */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-top: 1.5em;
+  margin-bottom: 0.5em;
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 2em;
+  border-bottom: 2px solid #2b3b4e;
+  padding-bottom: 0.3em;
+}
+
+h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid #bdc3c7;
+  padding-bottom: 0.2em;
+  counter-reset: h3-counter;
+  counter-increment: h2-counter;
+}
+
+h2::before {
+  content: counter(h2-counter) " ";
+  margin-right: 0.5em;
+}
+
+h3 {
+  counter-increment: h3-counter;
+}
+
+h3::before {
+  content: counter(h2-counter) "." counter(h3-counter) " ";
+  margin-right: 0.5em;
+}
+
+/* 段落样式 */
+p {
+  padding: 0.2rem 0;
+  text-indent: 2em;
+}
+
+/* Div 和 Span 样式 */
+div {
+  margin: 0.5em 0;
+}
+
+span {
+  display: inline;
+}
+
+/* 公式样式 */
+.latex {
+  font-size: inherit;
+  line-height: inherit;
+  margin: 0.5em 0;
+}
+
+/* MathML / 通用公式容器：让公式继承正文字体尺寸 */
+math,
+.math {
+  font-size: inherit;
+  line-height: inherit;
+  /* margin: 0.5em 0; */
+}
+
+/* 公式样式：mi 为斜体，mtext 为正体 */
+math mi {
+  font-style: italic;
+  color: #06d;
+}
+
+math .array-var {
+  /* 避免打印到 PDF 时落入仅 Regular 的数学字体导致粗体失效 */
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
+    "Microsoft YaHei", "微软雅黑";
+  font-style: normal;
+  font-weight: 700;
+  color: #06d;
+}
+
+/*
+ * Edge/Chromium 打印为 PDF 时，MathML 可能回退到只有 Regular 的数学字体，导致粗体失效。
+ * 这里对“应为粗体”的标识符改用带粗体字重的文本字体，确保屏幕/打印一致。
+ */
+math mi[mathvariant="bold"] {
+  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
+    "Microsoft YaHei", "微软雅黑";
+  font-weight: 700;
+}
+
+/* math .array-value {
+  font-style: normal;
+  font-weight: bold;
+} */
+
+math .unit {
+  color: #239561;
+  font-style: normal;
+}
+
+/* 行内/块级 MathML 显示模式 */
+math[display="inline"] {
+  margin: 0 0.2em;
+}
+
+math[display="block"] {
+  margin: 1em 0;
+}
+
+/* 分数字体：让 MathML 的分数及 MathJax 渲染的分子/分母继承正文字体大小 */
+mfrac,
+mfrac * {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+mrow {
+  /* 防止上标与其它符号挨着 */
+  padding-top: 2px;
+}
+
+/*ref https://github.com/w3c/mathml-core/issues/127#issuecomment-1608312932*/
+math > mrow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: left;
+  gap: 2px;
+}
+
+table {
+  margin: 0 auto;
+} /* 表格整体居中 */
+table th,
+table td {
+  text-align: center;
+} /* 单元格内容居中 */
+
+/* 输入框样式 */
+input {
+  border: 1px solid #bdc3c7;
+  padding: 0.3em 0.5em;
+  border-radius: 3px;
+  font-size: 1em;
+  font-family: inherit;
+}
+
+input:focus {
+  outline: none;
+  border-color: #3498db;
+  box-shadow: 0 0 3px rgba(52, 152, 219, 0.3);
+}
+
+/* 图表样式 */
+.plot-container {
+  margin: 1.5em 0;
+  text-align: center;
+}
+
+.plot-container img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid #ecf0f1;
+  border-radius: 4px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+/* 代码块样式 */
+pre,
+code {
+  font-family: "Consolas", "Monaco", "Courier New", monospace;
+  background-color: #f6f8fa;
+  border-radius: 4px;
+}
+
+/* 内联代码样式 */
+code {
+  padding: 0.2em 0.4em;
+  font-size: 0.9em;
+  color: #d73a49;
+  border: 1px solid #e1e4e8;
+}
+
+/* 代码块容器样式 */
+pre {
+  /* padding: 0.8em 0.5em 0.8em 0; */
+  overflow-x: auto;
+  border: 1px solid #e1e4e8;
+  line-height: 1.5;
+  margin: 1em 0;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.05);
+}
+
+/* 代码块内的code标签 - 覆盖内联代码样式 */
+pre code {
+  padding: 0;
+  font-size: 0.9em;
+  color: inherit;
+  background-color: transparent;
+  border: none;
+  display: block;
+  white-space: pre;
+}
+
+/* Highlight.js 主题增强 */
+pre .hljs {
+  background-color: transparent;
+  padding: 0;
+}
+
+/* 列表样式 */
+ul,
+ol {
+  margin: 1em 0;
+  padding-left: 2em;
+}
+
+li {
+  margin: 0.3em 0;
+}
+
+/* 表格样式 */
+table {
+  border-collapse: collapse;
+  width: auto;
+  margin: 1em auto;
+}
+
+th,
+td {
+  /*10pt*/
+  font-size: 0.83rem;
+  border: 1px solid #ddd;
+  padding: 0.2em 0.4em;
+  text-align: left;
+}
+
+th {
+  background-color: #f2f2f2;
+  font-weight: 600;
+}
+
+tr:nth-child(even) {
+  background-color: #f9f9f9;
+}
+
+/* 目录样式 */
+.toc-list {
+  padding: 0;
+  list-style: none;
+}
+
+.toc-item {
+  margin: 0.5rem 0;
+  overflow-x: hidden;
+  page-break-inside: avoid;
+}
+
+.toc-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: #333;
+  line-height: 1.6;
+  width: 100%;
+  white-space: nowrap;
+}
+
+.toc-link:hover {
+  color: #06d;
+}
+
+.toc-number {
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: 0.3em;
+  background: white;
+  flex-shrink: 0;
+}
+
+.toc-text {
+  white-space: nowrap;
+  padding-right: 0.3em;
+  background: white;
+  flex-shrink: 0;
+}
+
+.toc-dots {
+  flex-grow: 1;
+  height: 1em;
+  display: flex;
+  align-items: flex-end;
+  min-width: 20px;
+  margin: 0 0.3em;
+  border-bottom: 2px dotted #999;
+}
+
+.toc-page {
+  padding-left: 0.3em;
+  background: white;
+  white-space: nowrap;
+  flex-shrink: 0;
+  /* font-weight: 500; */
+  color: #333;
+  text-align: right;
+  min-width: 1em;
+}
+
+.toc-page[data-page-placeholder="true"] {
+  font-family: inherit;
+  background-color: #f0f0f0;
+  padding: 0 0.25em;
+  border-radius: 2px;
+}
+
+/* 打印样式 */
+@media print {
+  body {
+    margin: 0;
+    color: #000;
+  }
+
+  /*
+   * 修复 Chromium/Edge 打印为 PDF 时 MathML 斜体丢失：
+   * MathML 可能回退到仅 Regular 的数学字体，导致 mathvariant=italic 变正体。
+   * 这里在打印介质下强制使用带斜体字形的文本字体，并提升优先级。
+   */
+  math mi[mathvariant="italic"],
+  math mi:not([mathvariant]) {
+    font-family: inherit !important;
+    font-style: italic !important;
+  }
+
+  .content {
+    max-width: 100%;
+    padding: 0;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    page-break-after: avoid;
+  }
+
+  pre,
+  blockquote {
+    page-break-inside: avoid;
+  }
+
+  .plot-container {
+    page-break-inside: avoid;
+  }
+}

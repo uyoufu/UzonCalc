@@ -1,3 +1,13 @@
 [build-system]
 requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[tool.uv.workspace]
+members = ["uzoncalc", "ui/api", "ui/desktop"]
+
+[project]
+name = "uzoncalc-root"
+version = "0.1.0"
+description = "UzonCalc: A calculation framework"
+requires-python = ">=3.10"
+dependencies = []

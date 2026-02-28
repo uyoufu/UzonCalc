@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uzoncalc"
+version = "1.0.2"
+description = "UzonCalc is a tool for writing engineering calculation documents using Python. With it, you can write calculation reports as smoothly as writing Python, and benefit from the full Python ecosystem and AI assistance."
+readme = { file = "README.md", content-type = "text/markdown" }
+authors = [{ name = "uyoufu", email = "uyoufu@uzoncloud.com" }]
+requires-python = ">=3.10"
+dependencies = ["pint", "numpy", "openpyxl", "xlwings"]
+
+[project.urls]
+Homepage = "https://github.com/uyoufu/UzonCalc"
+
+[tool.setuptools.packages.find]
+where = [".."]
+include = ["uzoncalc", "uzoncalc.*"]
+
+[tool.setuptools.package-data]
+"uzoncalc.template" = ["*.html", "*.css"]

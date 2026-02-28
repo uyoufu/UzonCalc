@@ -1,0 +1,27 @@
+[build-system]
+requires = ["setuptools>=61.0", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "uzoncalc-api"
+version = "0.1.0"
+description = "UzonCalc API server"
+requires-python = ">=3.10"
+dependencies = [
+    "fastapi",
+    "uvicorn[standard]",
+    "python-multipart",
+    "PyJWT",
+    "bcrypt",
+    "aiofiles",
+    "interval",
+    "numpy",
+    "SQLAlchemy",
+    "Alembic",
+    "aiosqlite",
+    "asyncpg",
+    "websockets",
+    "apscheduler",
+    "black",
+    "fastapi-mcp>=0.4.0",
+]

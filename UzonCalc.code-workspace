@@ -9,10 +9,6 @@
       "path": "uzoncalc",
     },
     {
-      "name": "cli",
-      "path": "cli",
-    },
-    {
       "name": "api",
       "path": "ui/api",
     },

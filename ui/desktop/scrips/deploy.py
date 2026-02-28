@@ -311,6 +311,29 @@ def build_web_frontend(platform_dir):
     print("Web 前端构建完成")
 
 
+def package_build_result(platform_dir, platform, version):
+    """将编译结果目录打包为 zip"""
+    print_step("打包编译结果")
+
+    package_name = f"uzoncalc-{platform.lower()}-x64-{version}"
+    archive_path = PUBLISH_DIR / f"{package_name}.zip"
+
+    if archive_path.exists():
+        print(f"删除已存在压缩包: {archive_path}")
+        archive_path.unlink()
+
+    # 以发布目录作为根目录进行打包，zip 内保留平台目录层级
+    shutil.make_archive(
+        str(PUBLISH_DIR / package_name),
+        "zip",
+        root_dir=PUBLISH_DIR,
+        base_dir=platform_dir.name,
+    )
+
+    print(f"打包完成: {archive_path}")
+    return archive_path
+
+
 def deploy(platform, python_version=None, skip_web_build=False):
     """执行部署"""
     # 如果没有指定版本，使用配置文件中的默认值
@@ -354,8 +377,16 @@ def deploy(platform, python_version=None, skip_web_build=False):
             f"Git: {version_info['git']['short_commit']} ({version_info['git']['branch']})"
         )
 
+    # 9. 打包编译结果
+    package_path = package_build_result(
+        platform_dir,
+        platform,
+        version_info.get("version", "unknown"),
+    )
+
     print_step("部署完成!")
     print(f"发布目录: {platform_dir}")
+    print(f"压缩包: {package_path}")
     print(f"\n启动应用:")
     if platform.lower() == "windows":
         print(f"  {platform_dir / 'start.bat'}")
