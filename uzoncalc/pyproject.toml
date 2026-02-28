@@ -9,10 +9,19 @@ description = "UzonCalc is a tool for writing engineering calculation documents 
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{ name = "uyoufu", email = "uyoufu@uzoncloud.com" }]
 requires-python = ">=3.10"
-dependencies = ["pint", "numpy", "openpyxl", "xlwings"]
+dependencies = [
+    "pint",
+ "numpy",
+ "openpyxl",
+ "xlwings",
+ "matplotlib>=3.10.8",
+]
 
 [project.urls]
 Homepage = "https://github.com/uyoufu/UzonCalc"
+
+[project.scripts]
+uzoncalc = "uzoncalc.cli:main"
 
 [tool.setuptools.packages.find]
 where = [".."]

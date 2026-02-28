@@ -1,5 +1,14 @@
+import os
 from typing import Any
 from ..globals import get_current_instance
+
+# 环境变量名，与 cli.py 保持一致
+_CLI_MODE_ENV = "UZONCALC_CLI_MODE"
+
+
+def _is_cli_mode() -> bool:
+    """是否处于 CLI 模式（由 uzoncalc CLI 启动时设置）"""
+    return os.environ.get(_CLI_MODE_ENV) == "1"
 
 
 def doc_title(title: str):
@@ -44,9 +53,12 @@ def save(filename: str | None = None):
     保存当前文档为指定文件
     :param filename: 文件名（可以是完整路径或仅文件名）
     """
+    # CLI 模式下由 cli.py 统一负责保存，此处直接跳过
+    if _is_cli_mode():
+        return
+
     from ..template.utils import render_html_template
     import shutil
-    import os
 
     ctx = get_current_instance()
 

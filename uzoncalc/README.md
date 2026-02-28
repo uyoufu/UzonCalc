@@ -278,3 +278,9 @@ Preview:
 Source: [example.en.py](https://github.com/uyoufu/UzonCalc/blob/master/examples/example.en.py)
 
 Compile Result: [UzonCalc Full Example](https://calc.uzoncloud.com/example.en.html)
+
+## CLI
+
+``` bash
+uzoncalc path/to/your/script.py --output path/to/output.html
+```

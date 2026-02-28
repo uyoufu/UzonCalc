@@ -5,6 +5,8 @@ numpy
 # For Excel file handling
 openpyxl
 xlwings
+
+# For plot
 matplotlib
 
 # Testing dependencies
