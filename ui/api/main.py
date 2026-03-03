@@ -19,8 +19,9 @@ from app.response.response_result import fail
 from app.controller.depends import get_request_token
 from app.schedule.scheduler import start_scheduler, shutdown_scheduler
 from app.middleware.vue_spa import use_vue_spa_middleware
-from utils.jwt_helper import verify_jwt
+from app.mcp.startup import combine_lifespans, mount_mcp
 
+from utils.jwt_helper import verify_jwt
 
 from fastapi import FastAPI, Request
 from fastapi.concurrency import asynccontextmanager
@@ -70,7 +71,10 @@ async def lifespan(app: FastAPI):
     logger.info("Application lifespan ended...")
 
 
-app = FastAPI(lifespan=lifespan)
+# 将 MCP 的 lifespan 与主应用的 lifespan 进行合并，使得两者的生命周期能够正确管理
+combined_lifespans = combine_lifespans(lifespan)
+
+app = FastAPI(lifespan=combined_lifespans)
 
 logger.info(f"Load controllers ...")
 # 这部分为路由配置，每增加一个路由，都需要在这里进行配置
@@ -210,7 +214,7 @@ app.add_middleware(
 )
 
 # 添加 Vue SPA 中间件（必须在所有路由和中间件配置之后）
-use_vue_spa_middleware(app, "data/www")
+# use_vue_spa_middleware(app, "data/www")
 
 
 # 根路由仅在 Vue 前端不存在时提供 API 信息
@@ -225,11 +229,18 @@ if not os.path.exists("data/www/index.html"):
         return {"message": app_config.welcome}
 
 
+# region mcp
+mount_mcp(app)
+# endregion
+
 logger.info(f"{app_config.app_name} launched successfully!")
 
 if __name__ == "__main__":
     import uvicorn
 
     uvicorn.run(
-        app, host=app_config.host, port=app_config.port, log_level=app_config.log_level
+        app,
+        host=app_config.host,
+        port=app_config.port,
+        log_level=app_config.log_level,
     )

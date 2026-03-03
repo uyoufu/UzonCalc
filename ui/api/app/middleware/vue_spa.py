@@ -71,7 +71,11 @@ class VueSPAMiddleware:
         request_path = request.url.path
 
         # 如果是 API 路径或其他已处理的路径，先执行后续处理
-        if request_path.startswith("/api") or request_path.startswith("/public"):
+        if (
+            request_path.startswith("/api")
+            or request_path.startswith("/public")
+            or request_path.startswith("/openapi.json")
+        ):
             return await call_next(request)
 
         # 尝试查找静态文件

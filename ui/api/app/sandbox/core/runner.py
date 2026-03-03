@@ -4,7 +4,7 @@ from typing import Any, Callable, Optional, Dict, cast, Awaitable
 
 # Adjust import based on workspace structure 'uzoncalc' package availability
 from uzoncalc.context import CalcContext
-from uzoncalc.setup import run
+from uzoncalc import run
 from uzoncalc.utils.ui import UIPayloads
 from .dynamic_import import DynamicImportSession
 from .errors import SandboxCancelledError
@@ -95,7 +95,11 @@ class LocalSandboxRunner:
                 if self._ready_future and not self._ready_future.done():
                     # 将收集到的所有 UI windows 一起返回
                     self._ready_future.set_result(
-                        UIPayloads(html=ctx.html(), windows=ctx.ui_windows, is_waiting_for_input=False)
+                        UIPayloads(
+                            html=ctx.html(),
+                            windows=ctx.ui_windows,
+                            is_waiting_for_input=False,
+                        )
                     )
 
         except asyncio.CancelledError:

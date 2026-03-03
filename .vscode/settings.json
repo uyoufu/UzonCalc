@@ -39,8 +39,8 @@
   "python.testing.pytestArgs": ["core"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
-  "python.defaultInterpreterPath": "D:\\scoop\\apps\\miniconda3\\current\\python.exe",
   "editor.tabSize": 2,
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
   "python-envs.pythonProjects": [
     {
       "path": ".",

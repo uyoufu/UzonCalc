@@ -1,11 +1,10 @@
 {
-  "python.analysis.extraPaths": [
-    "../../",
-    "../../uzoncalc",
-  ],
+  "python.analysis.extraPaths": ["../../", "../../uzoncalc"],
   "cSpell.words": [
+    "fastmcp",
     "ilike",
     "jobstores",
+    "Qdrant",
     "uzon",
     "uzoncalc",
     "wwwroot"
@@ -16,5 +15,6 @@
       "envManager": "ms-python.python:venv",
       "packageManager": "ms-python.python:pip"
     }
-  ]
+  ],
+  "python.defaultInterpreterPath": "${workspaceFolder}/../../.venv/Scripts/python.exe"
 }

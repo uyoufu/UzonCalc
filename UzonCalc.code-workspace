@@ -36,6 +36,7 @@
       "ilike",
       "oids",
       "onupdate",
+      "Qdrant",
       "redoc",
       "sessionmaker",
       "uzoncalc",

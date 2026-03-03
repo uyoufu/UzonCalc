@@ -193,6 +193,18 @@ class AppConfig:
 
     # endregion
 
+    # region mcp
+    @property
+    def mcp_enabled(self) -> bool:
+        return self.__config.getboolean("mcp", "enabled")
+
+    @property
+    def get_mcp_qdrant_url(self) -> str:
+        """获取 MCP 使用的 Qdrant 服务地址"""
+        return self.get("mcp", "qdrant")
+
+    # endregion
+
     # region user
     @property
     def default_userId(self) -> str:

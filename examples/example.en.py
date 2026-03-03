@@ -6,8 +6,7 @@ import sys
 # ensure the project root is on sys.path so `import core` works.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from uzoncalc.setup import uzon_calc
-from uzoncalc.utils import *
+from uzoncalc import *
 from uzoncalc.utils_extra.excel import get_excel_table
 import numpy as np
 

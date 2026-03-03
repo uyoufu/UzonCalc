@@ -1,9 +1,5 @@
 {
-  "cSpell.words": [
-    "handcalc",
-    "uzon",
-    "uzoncalc"
-  ],
+  "cSpell.words": ["handcalc", "uzon", "uzoncalc"],
   "python-envs.pythonProjects": [
     {
       "path": ".",
