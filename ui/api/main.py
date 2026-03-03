@@ -19,7 +19,7 @@ from app.response.response_result import fail
 from app.controller.depends import get_request_token
 from app.schedule.scheduler import start_scheduler, shutdown_scheduler
 from app.middleware.vue_spa import use_vue_spa_middleware
-from app.mcp.startup import combine_lifespans, mount_mcp
+from app.mcp.startup import combine_lifespans, mount_mcp, init_tool_search, close_tool_search
 
 from utils.jwt_helper import verify_jwt
 
@@ -55,6 +55,9 @@ async def lifespan(app: FastAPI):
     # 启用定时器
     start_scheduler()
 
+    # 初始化工具搜索索引（MCP 启用时）
+    await init_tool_search()
+
     yield
 
     try:
@@ -64,6 +67,9 @@ async def lifespan(app: FastAPI):
 
         # 关闭定时器
         shutdown_scheduler()
+
+        # 释放工具搜索资源
+        await close_tool_search()
     except Exception as e:
         logger.error(f"Database shutdown error: {e}")
 

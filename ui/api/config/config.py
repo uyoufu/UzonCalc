@@ -203,6 +203,22 @@ class AppConfig:
         """获取 MCP 使用的 Qdrant 服务地址"""
         return self.get("mcp", "qdrant")
 
+    @property
+    def mcp_embed_url(self) -> str | None:
+        """获取 Embedding 服务地址（HTTP），未配置时返回 None，向量检索将被禁用"""
+        try:
+            return self.__config.get("mcp", "embed_url") or None
+        except Exception:
+            return None
+
+    @property
+    def mcp_embed_model(self) -> str:
+        """获取 Embedding 模型名称，默认 bge-small-zh-v1.5"""
+        try:
+            return self.__config.get("mcp", "embed_model") or "bge-small-zh-v1.5"
+        except Exception:
+            return "bge-small-zh-v1.5"
+
     # endregion
 
     # region user

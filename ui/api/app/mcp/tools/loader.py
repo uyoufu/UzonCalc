@@ -1,15 +1,13 @@
 # 仅为 pylance 提供类型提示，实际运行时不会导入 FastMCPComponent
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Sequence
 
-
-if TYPE_CHECKING:
-    from fastmcp.utilities.components import FastMCPComponent
+from fastmcp.tools import Tool
 
 # 在此处加载所有的 tools
 import app.mcp.tools.jtgb01_2014.core
 
 
-def get_all_tools() -> dict[str, FastMCPComponent]:
+async def get_all_tools() -> Sequence[Tool]:
     from .tools_mcp import mcp
 
-    return mcp.local_provider._components
+    return await mcp.list_tools()
