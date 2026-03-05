@@ -3163,6 +3163,7 @@ dependencies = [
     { name = "qdrant-client" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extra = ["standard"] },
+    { name = "uzoncalc" },
     { name = "websockets" },
 ]
 
@@ -3184,6 +3185,7 @@ requires-dist = [
     { name = "qdrant-client", specifier = ">=1.17.0" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extras = ["standard"] },
+    { name = "uzoncalc", editable = "uzoncalc" },
     { name = "websockets" },
 ]
 

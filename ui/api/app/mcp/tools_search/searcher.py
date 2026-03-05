@@ -76,7 +76,7 @@ async def init_searcher(vector: VectorStore | None = None) -> ToolSearcher:
     """启动时调用，创建全局搜索器实例并建立索引"""
     global _searcher
 
-    tools = extract_tools()
+    tools = await extract_tools()
     tool_map = {t.name: t for t in tools}
 
     fts = FtsStore()

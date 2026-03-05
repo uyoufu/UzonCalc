@@ -13,23 +13,23 @@ from .vector_store import VectorStore
 logger = logging.getLogger(__name__)
 
 
-def extract_tools() -> list[ToolRecord]:
+async def extract_tools() -> list[ToolRecord]:
     """
     从 FastMCP 已注册的工具中提取 ToolRecord 列表。
     category 从工具函数的模块路径中推断（最后一个包名）。
     """
     from app.mcp.tools.loader import get_all_tools
 
-    # components = await get_all_tools()
-    components = {}
+    tools = await get_all_tools()
     records: list[ToolRecord] = []
 
-    for name, component in components.items():
-        description = _get_attr(component, "description", "") or ""
-        fn = _get_attr(component, "fn") or _get_attr(component, "_fn")
+    for tool in tools:
+        description = tool.description or ""
+        # 获取工具函数
+        fn = _get_attr(tool, "fn") or _get_attr(tool, "_fn")
         category = _infer_category(fn)
         records.append(
-            ToolRecord(name=name, description=description, category=category)
+            ToolRecord(name=tool.name, description=description, category=category)
         )
 
     logger.info("提取工具元数据完成，共 %d 条", len(records))
@@ -46,7 +46,7 @@ async def build_indexes(
     :param tools: 可选的预提取工具列表，避免重复提取。
     """
     if tools is None:
-        tools = extract_tools()
+        tools = await extract_tools()
 
     await fts.index(tools)
     logger.info("FTS 索引构建完成")
