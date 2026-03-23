@@ -17,15 +17,6 @@ async def sheet():
     # 设置 title: 打印 pdf 时，将在页眉左侧显示
     doc_title("UzonCalc 使用说明")
 
-    inputs = await UI(
-        "自定义窗体",
-        [
-            Field("name", "姓名", FieldType.text, value="小明"),
-            Field("age", "年龄", FieldType.number, value=18),
-        ],
-    )
-    name = inputs["name"]
-
     # 设置页面大小, 如 A3, A4, Letter 等
     page_size("A4")
 
@@ -139,6 +130,16 @@ if __name__ == "__main__":
     "你可以通过调用 toc() 函数自动在调用的位置生成文档目录。"
     "本文的目录即为通过 toc('目录') 函数生成。"
     "目录会根据文档中的标题层级自动生成，并添加页码。"
+
+    H2("字段输入")
+    inputs = await UI(
+        "自定义窗体",
+        [
+            Field("name", "姓名", FieldType.text, value="小明"),
+            Field("age", "年龄", FieldType.number, value=18),
+        ],
+    )
+    name = inputs["name"]
 
     H2("标题")
 
@@ -679,13 +680,20 @@ save("../output/example.zh.html")
     "1. 添加 UI 与计算书发布功能"
     "2. 添加 AI 支持，当你积累了一定的计算模板后，可以通过 AI 自动生成新的计算书初稿"
 
-    save("../output/example.zh.html")
 
+@uzon_calc()
+async def sheet2():
+    "这是第二个计算书示例。"
+
+    "你可以在同一个项目中创建多个计算书脚本，分别生成不同的计算书文档。"
+
+    await sheet()
 
 if __name__ == "__main__":
     import time
 
     t0 = time.perf_counter()
-    run_sync(sheet)
+    ctx = run_sync(sheet2)
+    ctx.save("../output/example.zh.html")
     t1 = time.perf_counter()
     print(f"Execution time: {t1 - t0} seconds")

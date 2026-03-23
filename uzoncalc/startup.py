@@ -80,12 +80,22 @@ def uzon_calc(name: str | None = None):
             is_silent = kwargs.pop("is_silent", True)
             ctx_hook_created = kwargs.pop("ctx_hook_created", None)
 
-            async with uzon_calc_core(
-                name, file_path, is_silent=is_silent, ctx_hook_created=ctx_hook_created
-            ) as ctx:
-                valid_kwargs = _prepare_valid_kwargs(kwargs, ctx, sig)
-                await instrumented_fn(*args, **valid_kwargs)
-                return ctx
+            # 判断是否已经在一个 uzon_calc 上下文中，如果是，则直接调用函数
+            try:
+                current_ctx = get_current_instance()
+                valid_kwargs = _prepare_valid_kwargs(kwargs, current_ctx, sig)
+                return await instrumented_fn(*args, **valid_kwargs)
+            except RuntimeError:
+                # 如果没有当前上下文，则创建一个新的上下文来运行函数
+                async with uzon_calc_core(
+                    name,
+                    file_path,
+                    is_silent=is_silent,
+                    ctx_hook_created=ctx_hook_created,
+                ) as ctx:
+                    valid_kwargs = _prepare_valid_kwargs(kwargs, ctx, sig)
+                    await instrumented_fn(*args, **valid_kwargs)
+                    return ctx
 
         return _mark_as_entry(async_wrapper)
 

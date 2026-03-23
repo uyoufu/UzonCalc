@@ -102,6 +102,12 @@ class CalcContext:
         """
         return render_html_template(self.html_content(), self.options)
 
+    def save(self, path: str):
+        """将 HTML 内容保存到指定路径"""
+        html = self.html()
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(html)
+
     # endregion
 
     def get_location_dir(self) -> str:
