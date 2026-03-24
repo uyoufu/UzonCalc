@@ -5,8 +5,8 @@ import sys
 # 使用 pip 包时, 不需要该行；仅在从 core 目录运行该脚本时需要
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from uzoncalc.utils_extra.excel import get_excel_table
 from uzoncalc import *
+from uzoncalc.extension.excel import get_excel_table
 import numpy as np
 
 
@@ -613,6 +613,8 @@ Plot(get_contour3d_plot())
 
     show()
     Plot(get_contour3d_plot())
+
+    H3("ECharts 示例")
 
     H2("希腊字母转换")
 
