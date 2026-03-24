@@ -5,7 +5,8 @@ from .base_post_handler import BasePostHandler
 from .parentheses_simplify import ParenthesesSimplify
 from .swap_symbol import SwapSymbol
 from .swap_alias import SwapAlias
-from .subscriptify import Subscriptify
+from .subscripting import Subscripting
+from .format_url import FormatUrl
 
 
 def get_default_post_handlers() -> List[BasePostHandler]:
@@ -17,7 +18,8 @@ def get_default_post_handlers() -> List[BasePostHandler]:
         ParenthesesSimplify(),
         SwapSymbol(),
         SwapAlias(),
-        Subscriptify(),
+        Subscripting(),
+        FormatUrl(),
     ]
 
     # 按优先级排序（数值越小越靠前），同优先级按类名稳定排序

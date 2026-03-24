@@ -59,6 +59,14 @@ p {
   text-indent: 2em;
 }
 
+a {
+  color: #3498db !important;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
 /* Div 和 Span 样式 */
 div {
   margin: 0.5em 0;
@@ -91,8 +99,9 @@ math mi {
 
 math .array-var {
   /* 避免打印到 PDF 时落入仅 Regular 的数学字体导致粗体失效 */
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
-    "Microsoft YaHei", "微软雅黑";
+  font-family:
+    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei",
+    "微软雅黑";
   font-style: normal;
   font-weight: 700;
   color: #06d;
@@ -103,8 +112,9 @@ math .array-var {
  * 这里对“应为粗体”的标识符改用带粗体字重的文本字体，确保屏幕/打印一致。
  */
 math mi[mathvariant="bold"] {
-  font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif,
-    "Microsoft YaHei", "微软雅黑";
+  font-family:
+    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei",
+    "微软雅黑";
   font-weight: 700;
 }
 

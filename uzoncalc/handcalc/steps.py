@@ -340,6 +340,9 @@ def _style_array_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.Ma
 
 
 def value_to_ir(value: Any) -> ir.MathNode:
+    if isinstance(value, ir.MathNode):
+        return value
+
     # Numbers
     if isinstance(value, (int, float)):
         return ir.mn(_format_number(value))
@@ -496,6 +499,21 @@ def _render_value_only(value: Any) -> str:
     """仅渲染值（不显示表达式），直接返回字符串，不包裹 math"""
     if value is None:
         return ""
+
+    if isinstance(value, ir.MText):
+        return html.escape(value.text)
+
+    if isinstance(value, ir.Mn):
+        return html.escape(value.value)
+
+    if isinstance(value, ir.Mi):
+        return html.escape(value.name)
+
+    if isinstance(value, ir.Mo):
+        return html.escape(value.symbol)
+
+    if isinstance(value, ir.Mu):
+        return html.escape(value.name)
 
     # 直接将值转换为字符串
     if isinstance(value, str):

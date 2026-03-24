@@ -3,7 +3,7 @@ import re
 from .base_post_handler import BasePostHandler
 
 
-class Subscriptify(BasePostHandler):
+class Subscripting(BasePostHandler):
     """后处理器：将形如 a_b 的变量名渲染为下标。
 
     仅处理 MathML 中的 <mi>name</mi> 形式：

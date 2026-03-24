@@ -760,7 +760,7 @@ def code(content: str, language: str | None = None):
         children=str.join("\n", [line for line in lines]),
         classes=lang_class,
     )
-    pre_html = h("pre", children=code_html)
+    pre_html = h("pre", children=code_html, classes="my-2")
     return pre_html
 
 

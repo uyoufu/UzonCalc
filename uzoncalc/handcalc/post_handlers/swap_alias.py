@@ -6,7 +6,7 @@ from typing import TYPE_CHECKING, Optional
 from .base_post_handler import BasePostHandler
 
 if TYPE_CHECKING:
-    from ..context import CalcContext
+    from ...context import CalcContext
 
 
 class SwapAlias(BasePostHandler):
@@ -40,7 +40,7 @@ class SwapAlias(BasePostHandler):
 
         if not replacements:
             return data
-  
+
         for key, value in replacements:
             data = data.replace(key, value)
 
