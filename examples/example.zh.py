@@ -7,6 +7,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from uzoncalc import *
 from uzoncalc.extension.excel import get_excel_table
+from uzoncalc.extension.echarts import use_echarts, EChart
 import numpy as np
 
 
@@ -531,9 +532,98 @@ comparisonResult = (5 > 3) and (2 == 2) or (4 != 5)
     # use matplotlib to plot a sine wave
     H2("图表")
 
-    "你可以使用 Matplotlib 在 UzonCalc 中创建图表。"
+    "你可以使用 echarts、Matplotlib 在 UzonCalc 中创建图表。"
 
-    "当然, 由于你是在使用 python, 你也可以使用其他绘图库, 如 Plotly、Seaborn 等, 还可以直接使用 js 库进行绘图。"
+    "你也可以根据自己的喜好，使用其他绘图库, 如 Plotly、Seaborn 等"
+
+    "使用 js 图表具有交互效果，使用 matplotlib 图表会将图表渲染为静态图片，适合打印输出。"
+
+    H3("ECharts 示例")
+
+    Code(
+        """
+# 创建 echarts 图表
+EChart(options)
+""",
+        "python",
+    )
+
+    "示例中的 options 参数参考：https://echarts.apache.org/examples/zh/editor.html?c=area-stack"
+
+    # 参数参考：https://echarts.apache.org/examples/zh/editor.html?c=area-stack
+    EChart(
+        {
+            "title": {"text": "Stacked Area Chart"},
+            "tooltip": {
+                "trigger": "axis",
+                "axisPointer": {
+                    "type": "cross",
+                    "label": {"backgroundColor": "#6a7985"},
+                },
+            },
+            "legend": {
+                "data": [
+                    "Email",
+                    "Union Ads",
+                    "Video Ads",
+                    "Direct",
+                    "Search Engine",
+                ]
+            },
+            "toolbox": {"feature": {"saveAsImage": {}}},
+            "xAxis": [
+                {
+                    "type": "category",
+                    "boundaryGap": False,
+                    "data": ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"],
+                }
+            ],
+            "yAxis": [{"type": "value"}],
+            "series": [
+                {
+                    "name": "Email",
+                    "type": "line",
+                    "stack": "Total",
+                    "areaStyle": {},
+                    "emphasis": {"focus": "series"},
+                    "data": [120, 132, 101, 134, 90, 230, 210],
+                },
+                {
+                    "name": "Union Ads",
+                    "type": "line",
+                    "stack": "Total",
+                    "areaStyle": {},
+                    "emphasis": {"focus": "series"},
+                    "data": [220, 182, 191, 234, 290, 330, 310],
+                },
+                {
+                    "name": "Video Ads",
+                    "type": "line",
+                    "stack": "Total",
+                    "areaStyle": {},
+                    "emphasis": {"focus": "series"},
+                    "data": [150, 232, 201, 154, 190, 330, 410],
+                },
+                {
+                    "name": "Direct",
+                    "type": "line",
+                    "stack": "Total",
+                    "areaStyle": {},
+                    "emphasis": {"focus": "series"},
+                    "data": [320, 332, 301, 334, 390, 330, 320],
+                },
+                {
+                    "name": "Search Engine",
+                    "type": "line",
+                    "stack": "Total",
+                    "label": {"show": True, "position": "top"},
+                    "areaStyle": {},
+                    "emphasis": {"focus": "series"},
+                    "data": [820, 932, 901, 934, 1290, 1330, 1320],
+                },
+            ],
+        }
+    )
 
     H3("Matplotlib 示例")
 
@@ -613,8 +703,6 @@ Plot(get_contour3d_plot())
 
     show()
     Plot(get_contour3d_plot())
-
-    H3("ECharts 示例")
 
     H2("希腊字母转换")
 

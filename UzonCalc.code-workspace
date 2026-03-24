@@ -31,6 +31,8 @@
     "python.defaultInterpreterPath": "D:\\scoop\\apps\\miniconda3\\current\\python.exe",
     "editor.tabSize": 2,
     "cSpell.words": [
+      "echart",
+      "echarts",
       "gensalt",
       "hashpw",
       "ilike",

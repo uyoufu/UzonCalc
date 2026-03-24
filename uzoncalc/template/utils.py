@@ -2,6 +2,7 @@
 HTML template for rendering calculation sheets with LaTeX support.
 """
 
+import html
 import os
 from typing import Any
 from ..context_options import ContextOptions
@@ -55,6 +56,59 @@ def generate_custom_styles(styles: dict[str, dict[str, Any]]) -> str:
     return "\n".join(css_lines)
 
 
+def generate_custom_heads(heads: dict[str, tuple[str, dict[str, str]]]) -> str:
+    """
+    根据用户自定义头部字典生成 HTML 头部标签字符串
+
+    Args:
+        heads: 头部字典，格式为 {内容 hash: (标签名, {属性名: 属性值})}
+
+    Returns:
+        HTML 头部标签字符串
+    """
+    if not heads:
+        return ""
+
+    void_tags = {
+        "area",
+        "base",
+        "br",
+        "col",
+        "embed",
+        "hr",
+        "img",
+        "input",
+        "link",
+        "meta",
+        "param",
+        "source",
+        "track",
+        "wbr",
+    }
+
+    head_lines = []
+    for _, (tag, attrs) in heads.items():
+        if not tag:
+            continue
+
+        attr_parts = []
+        for attr_name, attr_value in attrs.items():
+            if attr_value is None:
+                continue
+
+            attr_parts.append(
+                f'{attr_name}="{html.escape(str(attr_value), quote=True)}"'
+            )
+
+        attr_text = f" {' '.join(attr_parts)}" if attr_parts else ""
+        if tag.lower() in void_tags:
+            head_lines.append(f"<{tag}{attr_text}>")
+        else:
+            head_lines.append(f"<{tag}{attr_text}></{tag}>")
+
+    return "\n".join(head_lines)
+
+
 def render_html_template(content: str, options: ContextOptions) -> str:
     """
     使用模板和选项生成最终的 HTML 内容
@@ -72,6 +126,9 @@ def render_html_template(content: str, options: ContextOptions) -> str:
     # 获取页面尺寸
     page_size, page_width = options.page_info.get_page_size_dimensions()
 
+    # 生成自定义头部内容
+    custom_heads = generate_custom_heads(options.heads)
+
     # 生成自定义样式
     custom_styles = generate_custom_styles(options.styles)
 
@@ -82,7 +139,7 @@ def render_html_template(content: str, options: ContextOptions) -> str:
         "PAGE_SIZE": page_size,
         "PAGE_WIDTH": page_width,
         "CUSTOM_STYLES": custom_styles,
-        "PAGE_SIZE": options.page_info.size,
+        "CUSTOM_HEADS": custom_heads,
         "PAGE_MARGIN": options.page_info.margin,
         "CONTENT": content,
     }

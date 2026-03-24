@@ -130,6 +130,10 @@ class ContextOptions:
         self.doc_title: str = "UzonCalc Calculation Sheet"
         self.page_info: PageInfo = PageInfo()
 
+        # 自定义的 HTML 头部内容列表，可以包含额外的 CSS、JS 引入等
+        # 格式为: {content_hash: (tag, {attr_name: attr_value})}
+        self.heads: dict[str, tuple[str, dict[str, str]]] = {}
+
         # 自定义样式字典，格式为 {选择器: {属性: 值}}
         # 例如: {"body": {"font_size": "14px", "line_height": "1.8"}}
         self.styles: dict[str, dict] = {}

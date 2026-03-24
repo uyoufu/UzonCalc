@@ -6,6 +6,8 @@
     "BINOP",
     "cmpop",
     "coeff",
+    "echart",
+    "echarts",
     "elts",
     "finalbody",
     "fstring",

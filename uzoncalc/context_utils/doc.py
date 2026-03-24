@@ -1,3 +1,5 @@
+import hashlib
+import json
 import os
 from typing import Any
 from ..globals import get_current_instance
@@ -36,6 +38,31 @@ def page_size(size: str):
     """
     ctx = get_current_instance()
     ctx.options.page_info.size = size
+
+
+def head(tag: str, attrs: dict[str, str]):
+    """
+    添加自定义 HTML 头部内容
+    :param content: HTML 内容字符串，可以包含 <style>、<link>、<script> 等标签
+    """
+    ctx = get_current_instance()
+
+    if not tag or not isinstance(attrs, dict):
+        raise ValueError(
+            "Invalid head content: tag must be a non-empty string and attrs must be a dictionary"
+        )
+
+    normalized_tag = tag.strip().lower()
+    normalized_attrs = {
+        attr_name.strip().lower(): str(attr_value)
+        for attr_name, attr_value in sorted(
+            attrs.items(), key=lambda item: item[0].lower()
+        )
+        if attr_value is not None
+    }
+    payload = json.dumps({"tag": normalized_tag, "normalized_attrs": normalized_attrs})
+    head_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
+    ctx.options.heads[head_hash] = (normalized_tag, normalized_attrs)
 
 
 def style(name: str, value: dict[str, Any]):
