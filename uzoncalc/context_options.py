@@ -123,6 +123,9 @@ class ContextOptions:
         # 别名映射
         self.aliases: dict[str, str] = {}
 
+        # 小数显示精度，默认为 3 位
+        self.float_precision: int = 3
+
         # 自定义的后处理器列表
         self.post_handlers: list[BasePostHandler] = get_default_post_handlers()
 

@@ -95,6 +95,15 @@ def alias(name, value):
 
 # endregion
 
-# region
+
+# region decimal precision
+def decimal(float_precision: int):
+    """
+    set float display precision
+    :param float_precision: number of decimal places to display, default is 3
+    """
+    ctx = get_current_instance()
+    ctx.options.float_precision = float_precision
+
 
 # endregion
