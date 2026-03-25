@@ -7,13 +7,13 @@ from typing import Any, Literal, Mapping, Protocol
 import pint
 
 from ..context import CalcContext
+from ..globals import get_current_instance
 from . import ir
 from .transformers import transform_ir
 import numpy as np
 
 # 常量定义
-FLOAT_PRECISION = 12  # 浮点数清理精度
-FLOAT_FORMAT_PRECISION = 15  # 浮点数格式化精度
+FLOAT_PRECISION = 12  # 浮点数清理精度（消除浮点误差）
 SYMBOL_COLON = ":"
 SYMBOL_COMMA = ","
 SYMBOL_LEFT_BRACKET = "["
@@ -135,7 +135,6 @@ class EquationStep:
     ) -> None:
         if ctx.options.skip_content:
             return
-
         locals_map = locals_map or {}
         lhs = _prepare_lhs(self.lhs, value, locals_map)
 
@@ -385,20 +384,30 @@ def _clean_float(value: float, precision: int = FLOAT_PRECISION) -> float:
     return round(value, precision)
 
 
+def _get_float_precision() -> int:
+    """获取当前上下文的小数显示精度"""
+    ctx = get_current_instance()
+    return max(0, ctx.options.float_precision)
+
+
 def _format_number(value: float | int) -> str:
-    """格式化数字，移除不必要的小数点和尾随零"""
+    """按当前小数位数格式化数字，并移除不必要的尾随零"""
     if isinstance(value, int):
         return str(value)
 
-    # 清理浮点数精度问题
-    cleaned = _clean_float(value)
+    display_precision = _get_float_precision()
+
+    # 先做一次足够精细的浮点清理，再按当前显示精度四舍五入
+    cleaned = _clean_float(value, max(display_precision, FLOAT_PRECISION))
 
     # 如果是整数值，不显示小数部分
     if cleaned == int(cleaned):
         return str(int(cleaned))
 
-    # 格式化为字符串并移除尾随零
-    return f"{cleaned:.{FLOAT_FORMAT_PRECISION}g}"
+    formatted = f"{cleaned:.{display_precision}f}"
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted or "0"
 
 
 def _is_private_lhs(lhs: Any) -> bool:
@@ -515,15 +524,21 @@ def _render_value_only(value: Any) -> str:
     if isinstance(value, ir.Mu):
         return html.escape(value.name)
 
-    # 直接将值转换为字符串
     if isinstance(value, str):
         return html.escape(value)
 
-    if isinstance(value, pint.Quantity):
-        # 对于 Quantity，显示数值和单位
-        return html.escape(f"{value.magnitude} {value.units}")
+    if isinstance(value, (int, float)):
+        return html.escape(_format_number(value))
 
-    # 对于其他类型，直接转字符串
+    if isinstance(value, pint.Quantity):
+        magnitude = value.magnitude
+        formatted = (
+            _format_number(magnitude)
+            if isinstance(magnitude, (int, float))
+            else str(magnitude)
+        )
+        return html.escape(f"{formatted} {value.units}")
+
     return html.escape(str(value))
 
 

@@ -123,7 +123,7 @@ class ContextOptions:
         # 别名映射
         self.aliases: dict[str, str] = {}
 
-        # 小数显示精度，默认为 3 位
+        # 小数显示精度（小数位数），默认为 3 位
         self.float_precision: int = 3
 
         # 自定义的后处理器列表

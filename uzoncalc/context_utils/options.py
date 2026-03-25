@@ -99,7 +99,7 @@ def alias(name, value):
 # region decimal precision
 def decimal(float_precision: int):
     """
-    set float display precision
+    set float display precision in decimal places
     :param float_precision: number of decimal places to display, default is 3
     """
     ctx = get_current_instance()
