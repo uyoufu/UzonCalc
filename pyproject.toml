@@ -11,3 +11,8 @@ version = "0.1.0"
 description = "UzonCalc: A calculation framework"
 requires-python = ">=3.10"
 dependencies = []
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = []
+exclude = ["ui*", "uzoncalc*", "tests*", "scripts*", "examples*"]

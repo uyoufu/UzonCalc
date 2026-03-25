@@ -11,3 +11,8 @@ dependencies = [
     "pywebview",
     "psutil",
 ]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app*", "config*", "utils*"]
+exclude = ["scrips*", "templates*"]

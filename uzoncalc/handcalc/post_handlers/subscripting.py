@@ -38,6 +38,22 @@ class Subscripting(BasePostHandler):
             if any(p == "" for p in parts):
                 return m.group(0)
 
+            # 如果被分割成 3 个或更多部分，认为是 Python 变量名（如 b_f_val），不处理
+            if len(parts) > 2:
+                return m.group(0)
+
+            # 如果第二部分包含 '.'，认为是链式调用（如 b_翼缘.to(...)）
+            # 只取 '.' 之前的部分作为下标，'.' 之后的内容保留为纯文本
+            if "." in parts[1]:
+                dot_idx = parts[1].index(".")
+                subscript_part = parts[1][:dot_idx]
+                after_dot = parts[1][dot_idx:]  # 保留 '.to(...)' 等
+                if subscript_part:
+                    base_xml = f"<mi{attrs}>{parts[0]}</mi>"
+                    sub_xml = f"<mtext>{subscript_part}</mtext>"
+                    return f"<msub>{base_xml}{sub_xml}</msub><mtext>{after_dot}</mtext>"
+                return m.group(0)
+
             base_xml = f"<mi{attrs}>{parts[0]}</mi>"
             for sub in parts[1:]:
                 sub_xml = f"<mtext>{sub}</mtext>"
