@@ -166,11 +166,31 @@ async def sheet():
         ],
         [
             ["宽度 (mm)", f"{b_f.magnitude:.0f}", f"{b_w.magnitude:.0f}", "-"],
-            ["高度 (mm)", f"{h_f.magnitude:.0f}", f"{h_w.magnitude:.0f}", f"{h_total.magnitude:.0f}"],
-            ["面积 (mm²)", f"{A_f.magnitude:.0f}", f"{A_w.magnitude:.0f}", f"{A_total.magnitude:.0f}"],
-            ["自身惯性矩 (mm⁴)", f"{I_f_self.magnitude:.2e}", f"{I_w_self.magnitude:.2e}", "-"],
+            [
+                "高度 (mm)",
+                f"{h_f.magnitude:.0f}",
+                f"{h_w.magnitude:.0f}",
+                f"{h_total.magnitude:.0f}",
+            ],
+            [
+                "面积 (mm²)",
+                f"{A_f.magnitude:.0f}",
+                f"{A_w.magnitude:.0f}",
+                f"{A_total.magnitude:.0f}",
+            ],
+            [
+                "自身惯性矩 (mm⁴)",
+                f"{I_f_self.magnitude:.2e}",
+                f"{I_w_self.magnitude:.2e}",
+                "-",
+            ],
             ["到中立轴距离 (mm)", f"{d_f.magnitude:.2f}", f"{d_w.magnitude:.2f}", "-"],
-            ["关于中立轴惯性矩 (mm⁴)", f"{I_f.magnitude:.2e}", f"{I_w.magnitude:.2e}", f"{I_total.magnitude:.2e}"],
+            [
+                "关于中立轴惯性矩 (mm⁴)",
+                f"{I_f.magnitude:.2e}",
+                f"{I_w.magnitude:.2e}",
+                f"{I_total.magnitude:.2e}",
+            ],
         ],
         title="T 形截面性质统计表",
     )
@@ -249,7 +269,10 @@ async def sheet():
                     "data": [
                         [(b_f_val - b_w_val) / 2, h_w_val],  # 翼缘左下
                         [(b_f_val - b_w_val) / 2 + b_w_val, h_w_val],  # 翼缘右下
-                        [(b_f_val - b_w_val) / 2 + b_w_val, h_w_val + h_f_val],  # 翼缘右上
+                        [
+                            (b_f_val - b_w_val) / 2 + b_w_val,
+                            h_w_val + h_f_val,
+                        ],  # 翼缘右上
                         [(b_f_val - b_w_val) / 2, h_w_val + h_f_val],  # 翼缘左上
                         [0, 0],  # 腹板左下
                         [b_w_val, 0],  # 腹板右下
@@ -262,7 +285,11 @@ async def sheet():
             ],
             "markLine": {
                 "data": [
-                    {"yAxis": y_c_val, "name": "中立轴", "lineStyle": {"color": "red", "type": "dashed"}},
+                    {
+                        "yAxis": y_c_val,
+                        "name": "中立轴",
+                        "lineStyle": {"color": "red", "type": "dashed"},
+                    },
                 ]
             },
         }
