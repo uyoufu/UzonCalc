@@ -71,7 +71,7 @@ def inline(separator: str = " "):
     ctx.start_inline(separator)
 
 
-def endline():
+def endInline():
     ctx = get_current_instance()
     ctx.end_inline()
 
@@ -92,5 +92,9 @@ def alias(name, value):
     # 将别名保存到上下文的别名字典中
     ctx.options.aliases[name] = value
 
+
+# endregion
+
+# region
 
 # endregion

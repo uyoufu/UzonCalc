@@ -286,7 +286,7 @@ export default {
           enableFStringEquation: '启用 F 字符串公式',
           disableFStringEquation: '禁用 F 字符串公式',
           inline: '行内',
-          endline: '换行',
+          endInline: '换行',
           alias: '别名'
         }
       }

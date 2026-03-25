@@ -109,7 +109,7 @@ export function useMenubar(editorRef: ShallowRef<monaco.editor.IStandaloneCodeEd
     { label: t('calcReportPage.editor.menubar.options.enableFStringEquation'), snippet: 'enable_fstring_equation()' },
     { label: t('calcReportPage.editor.menubar.options.disableFStringEquation'), snippet: 'disable_fstring_equation()' },
     { label: t('calcReportPage.editor.menubar.options.inline'), snippet: 'inline(${1:separator})' },
-    { label: t('calcReportPage.editor.menubar.options.endline'), snippet: 'endline()' },
+    { label: t('calcReportPage.editor.menubar.options.endInline'), snippet: 'endInline()' },
     { label: t('calcReportPage.editor.menubar.options.alias'), snippet: 'alias(${1:name}, ${2:value})' }
   ]
 

@@ -243,7 +243,7 @@ export default {
 					enableFStringEquation: 'Enable f-string equations',
 					disableFStringEquation: 'Disable f-string equations',
 					inline: 'Inline',
-					endline: 'New line',
+					endInline: 'New line',
 					alias: 'Alias'
 				}
 			}
