@@ -4,10 +4,15 @@ from uzoncalc import *
 @uzon_calc()
 async def test_float_precision():
     b_f = 10000.2 * unit.millimeter
-    alias("b_f", "翼缘宽度 b_翼缘")
+    # alias("b_f", "翼缘宽度 b_翼缘")
     b_f_val = b_f.to(unit.meter).magnitude
 
     b_f
+
+    def sum(a, b):
+        return a + b
+    
+    c = sum(b_f, b_f)
 
 
 if __name__ == "__main__":

@@ -178,15 +178,35 @@ def _expr_compare(node: ast.Compare) -> ir.MathNode:
 
 @expr_to_ir.register(ast.Call)
 def _expr_call(node: ast.Call) -> ir.MathNode:
-    func_name = _unparse(node.func)
     args = [expr_to_ir(a) for a in node.args]
 
     # 尝试使用特殊函数格式化器
-    special_formatted = format_special_function(func_name, args)
+    special_formatted = format_special_function(_unparse(node.func), args)
     if special_formatted is not None:
         return special_formatted
 
-    # Generic function call: f(a, b)
+    # 处理方法调用如 b_f.to(unit.meter)
+    if isinstance(node.func, ast.Attribute):
+        obj = expr_to_ir(node.func.value)
+        method_name = node.func.attr
+        # 方法名渲染为正体，参数渲染为斜体
+        arg_nodes: List[ir.MathNode] = []
+        for idx, a in enumerate(args):
+            if idx:
+                arg_nodes.append(ir.mo(","))
+            arg_nodes.append(a)
+        return ir.mrow(
+            [
+                obj,  # 对象，斜体
+                ir.mtext(f".{method_name}"),  # 方法名，正体
+                ir.mo("("),
+                *arg_nodes,  # 参数，斜体
+                ir.mo(")"),
+            ]
+        )
+
+    # 普通函数调用: f(a, b)
+    func_name = _unparse(node.func)
     arg_nodes: List[ir.MathNode] = []
     for idx, a in enumerate(args):
         if idx:
@@ -229,6 +249,12 @@ def _expr_attribute(node: ast.Attribute) -> ir.MathNode:
     # like unit.meter
     if isinstance(node.value, ast.Name) and node.value.id == "unit":
         return ir.mu(node.attr)
+    # 处理链式调用如 b_f.to(unit.meter).magnitude
+    # value 是 Call 时，这是一个字段访问
+    elif isinstance(node.value, ast.Call):
+        call_ir = expr_to_ir(node.value)
+        # 字段名渲染为斜体
+        return ir.mrow([call_ir, ir.mi(f".{node.attr}")])
     else:
         return ir.mi(_unparse(node))
 
