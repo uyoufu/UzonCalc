@@ -6,10 +6,10 @@
 
 ## 本地开发模块安装
 
-在 uzoncalc 模块的上一级目录下运行以下命令安装本地开发版本：
+在 uzoncalc 模块所在的目录中运行以下命令安装本地开发版本：
 
 ```bash
-pip install -e .
+uv pip install -e .
 ```
 
 ## 参考

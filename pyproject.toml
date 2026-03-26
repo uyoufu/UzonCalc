@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 members = ["uzoncalc", "ui/api", "ui/desktop"]
 
 [project]
-name = "uzoncalc-root"
+name = "uzoncalcR"
 version = "0.1.0"
 description = "UzonCalc: A calculation framework"
 requires-python = ">=3.10"

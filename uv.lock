@@ -14,7 +14,7 @@ members = [
     "uzoncalc",
     "uzoncalc-api",
     "uzoncalc-desktop",
-    "uzoncalc-root",
+    "uzoncalcR",
 ]
 
 [[package]]
@@ -3205,7 +3205,7 @@ requires-dist = [
 ]
 
 [[package]]
-name = "uzoncalc-root"
+name = "uzoncalcR"
 version = "0.1.0"
 source = { editable = "." }
 
