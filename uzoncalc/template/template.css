@@ -137,6 +137,11 @@ math[display="block"] {
   margin: 1em 0;
 }
 
+/* 下标中的第二个元素向右偏移 */
+msub > :nth-child(2) {
+  margin-left: 0.2em;
+}
+
 /* 分数字体：让 MathML 的分数及 MathJax 渲染的分子/分母继承正文字体大小 */
 mfrac,
 mfrac * {
