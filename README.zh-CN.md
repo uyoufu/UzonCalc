@@ -65,6 +65,10 @@ python example.py
 
 ---
 
+## 🖥 效果预览
+
+![image-20260329002252229](https://oss.uzoncloud.com:2234/public/files/images/image-20260329002252229.png)
+
 ## 📖 更多示例
 
 ### 带单位的工程计算
@@ -74,7 +78,7 @@ from uzoncalc import *
 
 @uzon_calc()
 async def sheet():
-    doc_title("单位计算示例")
+    doc_title("截面应力计算")
 
     H2("截面应力计算")
 
@@ -103,9 +107,7 @@ async def sheet():
 
 UzonCalc 会自动渲染为：
 
-> *截面面积* A = *b* × *h* = 300 mm × 500 mm = 150000 mm²
->
-> *截面应力* σ = *N* / *A* = 100 kN / 150000 mm² = 0.667 MPa
+![image-20260329001904932](https://oss.uzoncloud.com:2234/public/files/images/image-20260329001904932.png)
 
 ### T 形截面惯性矩计算
 
@@ -162,12 +164,6 @@ async def sheet():
 ```
 
 > 完整源码：[T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py)
-
----
-
-## 🖥 效果预览
-
-![image-20260110162359040](https://oss.uzoncloud.com:2234/public/files/images/image-20260110162359040.png)
 
 ---
 
