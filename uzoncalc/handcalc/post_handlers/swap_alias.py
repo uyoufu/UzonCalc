@@ -1,6 +1,9 @@
 """后处理器：按 ContextOptions.aliases 进行字符串替换"""
 
 from __future__ import annotations
+
+import re
+import re
 from typing import TYPE_CHECKING, Optional
 
 from .base_post_handler import BasePostHandler
@@ -14,6 +17,7 @@ class SwapAlias(BasePostHandler):
 
     说明：
     - 采用 dict 的插入顺序依次替换（Python 3.7+ 保序）
+    - 仅替换 HTML 元素文本内容中的完整匹配，不修改标签名和属性
     - 当 `ctx` 或 `aliases` 为空时直接返回原字符串
     """
 
@@ -42,6 +46,10 @@ class SwapAlias(BasePostHandler):
             return data
 
         for key, value in replacements:
-            data = data.replace(key, value)
+            # 仅替换作为元素完整文本内容出现的 key（即 >key< 形式）
+            # 避免替换标签名（如 <math>）或属性值（如 mathvariant）中的子串
+            pattern = '>' + re.escape(key) + '<'
+            replacement = '>' + value + '<'
+            data = data.replace(pattern, replacement)
 
         return data
