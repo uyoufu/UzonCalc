@@ -131,6 +131,10 @@ def download_python_embedded(platform_dir, python_version="3.11"):
     zip_path.unlink()
     print("解压完成")
 
+    # 设置可执行权限（zip 解压不会保留执行位，WSL/ Linux 交叉编译时需要）
+    for exe in python_dir.glob("*.exe"):
+        exe.chmod(0o755)
+
     # 修改 python311._pth 文件以启用 site-packages
     pth_files = list(python_dir.glob("python*._pth"))
     if pth_files:
@@ -204,11 +208,11 @@ def install_dependencies(platform_dir, platform):
 
     if platform.lower() == "windows":
         python_exe = platform_dir / "python" / "python.exe"
-        pip_exe = platform_dir / "python" / "Scripts" / "pip.exe"
+        pip_exe = None  # 使用 python.exe -m pip
     else:
         # macOS 和 Linux 使用系统 Python
         python_exe = sys.executable
-        pip_exe = "pip3"
+        pip_exe = None
 
     # 安装各个项目的依赖
     requirements_files = [
@@ -217,8 +221,8 @@ def install_dependencies(platform_dir, platform):
         (platform_dir / "api" / "requirements.txt", "api 依赖"),
     ]
 
-    # 准备 pip 命令参数
-    pip_args = [str(pip_exe), "install"]
+    # 准备 pip 命令参数（统一使用 python -m pip 避免权限问题）
+    pip_args = [str(python_exe), "-m", "pip", "install"]
     if USE_PIP_MIRROR and PIP_MIRROR_URL:
         pip_args.extend(["-i", PIP_MIRROR_URL])
         print(f"使用 pip 镜像: {PIP_MIRROR_URL}")
