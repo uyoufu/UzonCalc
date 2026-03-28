@@ -67,7 +67,7 @@ This will generate `example.html` in the current directory. Open it in a browser
 
 ## 🖥 Preview
 
-![image-20260329002252229](https://oss.uzoncloud.com:2234/public/files/images/image-20260329002252229.png)
+![image-20260329003206167](https://oss.uzoncloud.com:2234/public/files/images/image-20260329003206167.png)
 
 ## 📖 More Examples
 
@@ -107,7 +107,7 @@ async def sheet():
 
 UzonCalc will automatically render:
 
-![image-20260329001904932](https://oss.uzoncloud.com:2234/public/files/images/image-20260329001904932.png)
+![image-20260329003336680](https://oss.uzoncloud.com:2234/public/files/images/image-20260329003336680.png)
 
 ### T-Section Moment of Inertia Calculation
 
@@ -171,8 +171,8 @@ async def sheet():
 
 | Document | Source | Online Preview |
 |----------|--------|----------------|
-| Usage Guide | [example.en.py](examples/example.en.py) | [View Document](https://calc.uzoncloud.com/example.en.html) |
-| T-Section Moment of Inertia | [T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py) | [View Document](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
+| Usage Guide | [example.en.py](examples/example.en.py) | [View Document](https://calc.uzoncloud.com/examples/example.en.html) |
+| T-Section Moment of Inertia | [T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py) | [View Document](https://calc.uzoncloud.com/examples/T_section_moment_of_inertia.en.html) |
 
 ---
 

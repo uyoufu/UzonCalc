@@ -171,7 +171,7 @@ async def sheet():
 
 | 文档 | 源码 | 在线预览 |
 |------|------|----------|
-| 使用说明 | [example.zh.py](examples/example.zh.py) | [查看文档](https://calc.uzoncloud.com/example.zh.html) |
+| 使用说明 | [example.zh.py](examples/example.zh.py) | [查看文档](https://calc.uzoncloud.com/examples/example.zh.html) |
 | T 形截面惯性矩 | [T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py) | [查看文档](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
 
 ---
