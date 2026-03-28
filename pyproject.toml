@@ -10,7 +10,10 @@ name = "uzoncalcR"
 version = "0.1.0"
 description = "UzonCalc: A calculation framework"
 requires-python = ">=3.10"
-dependencies = []
+dependencies = [
+    "build>=1.4.2",
+    "twine>=6.2.0",
+]
 
 [tool.setuptools.packages.find]
 where = ["."]

@@ -15,13 +15,13 @@ UzonCalc is a tool for writing engineering calculation documents using Python. W
 
 **Installation**
 
-``` bash
+```bash
 pip install uzoncalc
 ```
 
 **Copy Template**
 
-``` Python
+```Python
 # example.py
 from uzoncalc import *
 
@@ -40,13 +40,13 @@ if __name__ == "__main__":
 
 **Execution**
 
-``` python
+```python
 python example.py
 ```
 
 ## Example
 
-``` python
+```python
 from numpy import sqrt
 from pathlib import Path
 import sys
@@ -55,11 +55,8 @@ import sys
 # this script from the `core` folder.
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-
-from core.setup import uzon_calc
-from core.utils import *
-from core.utils_extra.excel import get_excel_table
-
+from uzoncalc import *
+from uzoncalc.extension.excel import get_excel_table
 
 @uzon_calc()
 def sheet():
@@ -272,7 +269,6 @@ Preview:
 
 ![image-20260110162359040](https://oss.uzoncloud.com:2234/public/files/images/image-20260110162359040.png)
 
-
 ## Demo
 
 Source: [example.en.py](https://github.com/uyoufu/UzonCalc/blob/master/examples/example.en.py)
@@ -281,6 +277,6 @@ Compile Result: [UzonCalc Full Example](https://calc.uzoncloud.com/example.en.ht
 
 ## CLI
 
-``` bash
+```bash
 uzoncalc path/to/your/script.py --output path/to/output.html
 ```
