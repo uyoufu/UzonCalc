@@ -12,13 +12,6 @@ import numpy as np
 
 
 @uzon_calc()
-async def sheet1():
-    "这是第二个计算书示例。"
-
-    "你可以在同一个项目中创建多个计算书脚本, 分别生成不同的计算书文档。"
-
-
-@uzon_calc()
 async def sheet2():
     # 定义 UI
 

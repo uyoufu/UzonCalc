@@ -222,6 +222,8 @@ export default {
     viewer: {
       name: '名称',
       openLocalFile: '打开本地文件',
+      devLocalFilePathPlaceholder: '输入本机文件完整路径',
+      applyDevLocalFilePath: '使用该路径打开',
       restart: '重新开始',
       executeCalculation: '执行计算',
       resumeCalculation: '继续计算',

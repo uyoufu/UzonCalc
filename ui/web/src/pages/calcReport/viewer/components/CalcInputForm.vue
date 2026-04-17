@@ -122,6 +122,13 @@ const {
 import { useLocalFileSelector } from '../compositions/useLocalFileSelector'
 const { onOpenLocalFile } = useLocalFileSelector(currentReportOid, currentFilePath, calcReportNameRef, executeResult)
 
+import { useDevLocalFilePathInput } from '../compositions/useDevLocalFilePathInput'
+const {
+  isDev,
+  devFilePath,
+  onApplyDevFilePath
+} = useDevLocalFilePathInput(currentReportOid, currentFilePath, calcReportNameRef, executeResult)
+
 // 文件变化后，立即执行
 watch(currentFilePath, async () => {
   if (currentFilePath.value)
@@ -147,6 +154,15 @@ defineExpose({
         </span>
         <span>{{ calcReportNameRef }}</span>
       </div>
+
+      <q-input v-if="isDev" v-model="devFilePath" dense outlined clearable style="transform: scale(0.8);"
+        :placeholder="tCalcReportPageViewer('devLocalFilePathPlaceholder')" @keyup.enter="onApplyDevFilePath">
+        <template #append>
+          <q-btn dense flat round icon="check" color="primary" @click="onApplyDevFilePath">
+            <AsyncTooltip :tooltip="tCalcReportPageViewer('applyDevLocalFilePath')" />
+          </q-btn>
+        </template>
+      </q-input>
 
       <div>
         <div class="row items-center q-gutter-sm">

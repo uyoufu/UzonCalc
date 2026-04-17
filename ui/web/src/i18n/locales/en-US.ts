@@ -184,6 +184,8 @@ export default {
 		viewer: {
 			name: 'Name',
 			openLocalFile: 'Open local file',
+			devLocalFilePathPlaceholder: 'Enter local file full path',
+			applyDevLocalFilePath: 'Open with this path',
 			restart: 'Restart',
 			executeCalculation: 'Execute calculation',
 			resumeCalculation: 'Resume calculation',
