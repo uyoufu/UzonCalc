@@ -123,6 +123,13 @@ class AppConfig:
         origins = self.get("app", "allow_origins")
         return [origin.strip() for origin in origins.split(",")]
 
+    @property
+    def is_dev(self):
+        """
+        判断是否是开发环境
+        """
+        return "dev" in self.env
+
     # endregion
 
     # region log

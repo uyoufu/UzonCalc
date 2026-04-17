@@ -1,5 +1,5 @@
 {
-  // "extends": "./.quasar/tsconfig.json",
+  "extends": "./.quasar/tsconfig.json",
   "compilerOptions": {
     "esModuleInterop": true,
     "skipLibCheck": true,
@@ -17,7 +17,6 @@
     "noImplicitOverride": true,
     "exactOptionalPropertyTypes": false,
     "noUncheckedIndexedAccess": true,
-    "baseUrl": ".",
     "paths": {
       "src": ["./src"],
       "src/*": ["./src/*"],
@@ -38,13 +37,23 @@
       "#q-types/*": ["./node_modules/@quasar/app-vite/types/*"],
       "#q-app": ["./node_modules/@quasar/app-vite/types/index.d.ts"],
       "#q-app/wrappers": ["./node_modules/@quasar/app-vite/types/app-wrappers.d.ts"],
-      "#q-app/bex/background": ["./node_modules/@quasar/app-vite/types/bex/entrypoints/background.d.ts"],
+      "#q-app/bex/background": [
+        "./node_modules/@quasar/app-vite/types/bex/entrypoints/background.d.ts"
+      ],
       "#q-app/bex/content": ["./node_modules/@quasar/app-vite/types/bex/entrypoints/content.d.ts"],
-      "#q-app/bex/private/bex-bridge": ["./node_modules/@quasar/app-vite/types/bex/bex-bridge.d.ts"],
+      "#q-app/bex/private/bex-bridge": [
+        "./node_modules/@quasar/app-vite/types/bex/bex-bridge.d.ts"
+      ],
       "public/*": ["./public/*"]
     },
     "outDir": "/tmp/uzonmail"
   },
   "include": ["./*.d.ts", "./**/*"],
-  "exclude": ["./dist", "./node_modules", "./src-capacitor", "./src-cordova", "./quasar.config.*.temporary.compiled*"]
+  "exclude": [
+    "./dist",
+    "./node_modules",
+    "./src-capacitor",
+    "./src-cordova",
+    "./quasar.config.*.temporary.compiled*"
+  ]
 }

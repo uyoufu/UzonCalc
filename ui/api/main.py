@@ -1,6 +1,7 @@
 import os
 import time
 import sys
+import logging
 
 from pathlib import Path
 from gettext import gettext as _
@@ -19,11 +20,16 @@ from app.response.response_result import fail
 from app.controller.depends import get_request_token
 from app.schedule.scheduler import start_scheduler, shutdown_scheduler
 from app.middleware.vue_spa import use_vue_spa_middleware
-from app.mcp.startup import combine_lifespans, mount_mcp, init_tool_search, close_tool_search
+from app.mcp.startup import (
+    combine_lifespans,
+    mount_mcp,
+    init_tool_search,
+    close_tool_search,
+)
 
 from utils.jwt_helper import verify_jwt
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -110,7 +116,7 @@ logger.info(f"Initialize directories ...")
 # 设置静态目录
 # 若目录不存在，则创建一个
 if not os.path.exists("data/public"):
-    os.mkdir("data/public")
+    os.makedirs("data/public")
 app.mount("/public", StaticFiles(directory="data/public"), name="public")
 
 # 初始化 Vue 前端目录
@@ -179,6 +185,9 @@ async def catch_exception(request: Request, call_next):
         if isinstance(e, CustomException):
             payload = e.model_dump()
             response = JSONResponse(content=payload, status_code=e.code)
+        elif isinstance(e, HTTPException):
+            r = fail(message=f"{type(e).__name__}: {e.detail}", code=e.status_code)
+            response = JSONResponse(content=r.model_dump(), status_code=r.code)
         else:
             r = fail(message=f"{type(e).__name__}: {str(e)}")
             response = JSONResponse(content=r.model_dump(), status_code=r.code)
@@ -244,9 +253,25 @@ logger.info(f"{app_config.app_name} launched successfully!")
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(
-        app,
-        host=app_config.host,
-        port=app_config.port,
-        log_level=app_config.log_level,
-    )
+    if app_config.is_dev:
+        logger.info(
+            "Detected development environment, starting in development mode with auto-reload..."
+        )
+        # 关闭 watchfiles 的日志输出
+        logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
+        uvicorn.run(
+            "main:app",
+            host=app_config.host,
+            port=app_config.port,
+            log_level=logging.DEBUG,
+            reload=True,
+            reload_excludes=["*.log", "*.md"],
+        )
+    else:
+        logger.info("Detected production environment, starting in normal mode...")
+        uvicorn.run(
+            app,
+            host=app_config.host,
+            port=app_config.port,
+            log_level=app_config.log_level,
+        )

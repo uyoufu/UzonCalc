@@ -31,7 +31,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
           label: 'dashboardPage.newCalcReport',
           icon: 'terminal'
         },
-        component: () => import('pages/dashboard/dashboardIndex.vue')
+        component: () => import('pages/dashboard/DashboardIndex.vue')
       }
     ]
   },
@@ -223,3 +223,4 @@ export const exceptionRoutes: ExtendedRouteRecordRaw[] = [
     component: () => import('pages/ErrorNotFound.vue')
   }
 ]
+

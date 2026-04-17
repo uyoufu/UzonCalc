@@ -139,7 +139,7 @@ defineExpose({
 </script>
 
 <template>
-  <q-list class="full-height hover-scroll" separator>
+  <div class="full-height column no-wrap">
     <q-item v-if="!disableHeader">
       <div class="row items-center col">
         <span class="text-bold q-mr-sm">
@@ -162,32 +162,34 @@ defineExpose({
         </div>
       </div>
     </q-item>
+
     <q-separator v-if="!disableHeader" />
 
-    <template v-if="hashUis">
-      <q-expansion-item dense v-for="ui in inputUIs" :key="ui.title" :label="ui.title" default-opened
-        header-class="text-primary">
-        <LowCodeForm :fields="ui.fields" :disable-default-btns="['ok', 'cancel']" sync-value />
-      </q-expansion-item>
-    </template>
+    <q-list class="col hover-scroll" separator>
+      <template v-if="hashUis">
+        <q-expansion-item dense v-for="ui in inputUIs" :key="ui.title" :label="ui.title" default-opened
+          header-class="text-primary">
+          <LowCodeForm :fields="ui.fields" :disable-default-btns="['ok', 'cancel']" sync-value />
+        </q-expansion-item>
+      </template>
 
-    <div v-if="inputUIs.length === 0" class="full-height text-grey-6 column items-center justify-center">
-      <q-icon name="keyboard" size="xl" />
-      <div>{{ tCalcReportPageViewer('uiDisplayArea') }}</div>
-    </div>
+      <div v-if="inputUIs.length === 0" class="full-height text-grey-6 column items-center justify-center">
+        <q-icon name="keyboard" size="xl" />
+        <div>{{ tCalcReportPageViewer('uiDisplayArea') }}</div>
+      </div>
 
-
-    <div v-if="!disableButtons" class="row justify-end q-mr-md q-gutter-sm q-mt-xs">
-      <q-btn v-if="canRestartExecution" dense icon="replay" color="negative" size="sm" round @click="onRestartExecution"
-        :loading="isExecuting">
-        <AsyncTooltip :tooltip="tCalcReportPageViewer('restart')" />
-      </q-btn>
-      <q-btn v-if="canResumeExecution" dense icon="skip_next" color="primary" size="sm" round @click="onResumeExecution"
-        :loading="isExecuting">
-        <AsyncTooltip :tooltip="tCalcReportPageViewer('resumeCalculation')" />
-      </q-btn>
-    </div>
-  </q-list>
+      <div v-if="!disableButtons" class="row justify-end q-mr-md q-gutter-sm q-mt-xs">
+        <q-btn v-if="canRestartExecution" dense icon="replay" color="negative" size="sm" round
+          @click="onRestartExecution" :loading="isExecuting">
+          <AsyncTooltip :tooltip="tCalcReportPageViewer('restart')" />
+        </q-btn>
+        <q-btn v-if="canResumeExecution" dense icon="skip_next" color="primary" size="sm" round
+          @click="onResumeExecution" :loading="isExecuting">
+          <AsyncTooltip :tooltip="tCalcReportPageViewer('resumeCalculation')" />
+        </q-btn>
+      </div>
+    </q-list>
+  </div>
 </template>
 
 <style lang="scss" scoped></style>

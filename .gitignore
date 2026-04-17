@@ -211,3 +211,4 @@ ast_print.ast
 output/
 logs/
 publish
+ai-examples/

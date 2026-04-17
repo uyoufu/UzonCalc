@@ -5,7 +5,7 @@ from typing import Any, Callable, Optional, Dict, cast, Awaitable
 # Adjust import based on workspace structure 'uzoncalc' package availability
 from uzoncalc.context import CalcContext
 from uzoncalc import run
-from uzoncalc.utils.ui import UIPayloads
+from uzoncalc import UIPayloads
 from .dynamic_import import DynamicImportSession
 from .errors import SandboxCancelledError
 from .timeout_control import GlobalTimeout, build_timeout_error

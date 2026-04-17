@@ -81,12 +81,12 @@ async function onUserLogin() {
   // 1- 请求登录信息，返回用户信息、token、权限信息
   // 2- 保存信息、密码加密后保存，用于解析服务器的密码
   // 3- 跳转到主页或重定向的页面
-  const { data: { userInfo, token, access, installedPlugins, isLocalhost } } = await userLogin(username.value, password.value, currentLocale.value)
-  logger.debug('[Login] 用户登录信息:', userInfo, token, access)
+  const { data: { userInfo, access, installedPlugins, isLocalhost, accessToken } } = await userLogin(username.value, password.value, currentLocale.value)
+  logger.debug('[Login] 用户登录信息:', userInfo, accessToken, access)
 
   const userInfoStore = useUserInfoStore()
   userInfoStore.setInstalledPlugins(installedPlugins)
-  userInfoStore.setUserLoginInfo(userInfo, token, access)
+  userInfoStore.setUserLoginInfo(userInfo, accessToken, access)
   userInfoStore.setSecretKey(md5(password.value))
   systemInfoStore.setIsLocalhost(isLocalhost)
 

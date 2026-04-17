@@ -3,7 +3,7 @@ import type { IUserInfo } from 'src/stores/types'
 import { sha256 } from 'src/utils/encrypt'
 
 export interface IUserLoginInfo {
-  token: string
+  accessToken: string
   access: string[]
   userInfo: IUserInfo
   installedPlugins: string[]

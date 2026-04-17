@@ -43,11 +43,11 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
-    "@intlify/unplugin-vue-i18n": "^6.0.3",
+    "@intlify/unplugin-vue-i18n": "^11.0.0",
     "@intlify/vue-i18n-loader": "^4.2.0",
-    "@quasar/app-vite": "^2.3.0",
-    "@quasar/cli": "^2.5.0",
-    "@quasar/quasar-app-extension-testing-unit-vitest": "^1.2.3",
+    "@quasar/app-vite": "2.3.0",
+    "@quasar/cli": "^4.0.0",
+    "@quasar/quasar-app-extension-testing-unit-vitest": "^1.2.4",
     "@types/crypto-js": "^4.2.2",
     "@types/lodash": "^4.17.16",
     "@types/node": "^22.13.9",

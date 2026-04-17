@@ -1,4 +1,5 @@
 from ..response.response_result import ResponseResult
+from typing import NoReturn
 
 
 class CustomException(Exception):
@@ -31,7 +32,8 @@ class CustomException(Exception):
         ).model_dump(exclude_none=True)
 
 
-def raise_ex(message, code=500, data=None):
+# 抛出异常，没有返回值
+def raise_ex(message, code=500, data=None) -> NoReturn:
     """
     抛出异常
     :param message:

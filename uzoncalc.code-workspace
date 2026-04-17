@@ -2,24 +2,8 @@
   "folders": [
     {
       "name": "project",
-      "path": ".",
-    },
-    {
-      "name": "uzoncalc",
-      "path": "uzoncalc",
-    },
-    {
-      "name": "api",
-      "path": "ui/api",
-    },
-    {
-      "name": "desktop",
-      "path": "ui/desktop",
-    },
-    {
-      "name": "web",
-      "path": "ui/web",
-    },
+      "path": "."
+    }
   ],
   "settings": {
     "python.analysis.extraPaths": [

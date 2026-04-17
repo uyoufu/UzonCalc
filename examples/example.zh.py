@@ -203,13 +203,13 @@ f_c
 inputs = await UI(
     "结构参数输入",
     [
-        Field("widht", "宽度", FieldType.number, value=10),
+        Field("width", "宽度", FieldType.number, value=10),
         Field("length", "长度", FieldType.number, value=30),
         Field("height", "高度", FieldType.number, value=20),
     ],
 )
 
-f"用户输入的宽度为 {inputs['widht']}，长度为 {inputs['length']}，高度为 {inputs['height']}。"
+f"用户输入的宽度为 {inputs['width']}，长度为 {inputs['length']}，高度为 {inputs['height']}。"
 """,
         "python",
     )
@@ -217,7 +217,7 @@ f"用户输入的宽度为 {inputs['widht']}，长度为 {inputs['length']}，�
     inputs = await UI(
         "结构参数输入",
         [
-            Field("widht", "宽度", FieldType.number, value=10),
+            Field("width", "宽度", FieldType.number, value=10),
             Field("length", "长度", FieldType.number, value=30),
             Field("height", "高度", FieldType.number, value=20),
         ],
@@ -225,7 +225,7 @@ f"用户输入的宽度为 {inputs['widht']}，长度为 {inputs['length']}，�
 
     "上述代码输出结果："
 
-    f"用户输入的宽度为 {inputs['widht']}，长度为 {inputs['length']}，高度为 {inputs['height']}。"
+    f"用户输入的宽度为 {inputs['width']}，长度为 {inputs['length']}，高度为 {inputs['height']}。"
 
     # sub
     H2("变量下标")
