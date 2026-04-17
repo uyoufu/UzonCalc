@@ -155,13 +155,15 @@ defineExpose({
         <span>{{ calcReportNameRef }}</span>
       </div>
 
-      <q-input v-if="isDev" v-model="devFilePath" dense outlined clearable style="transform: scale(0.8);"
+      <q-input v-if="isDev && !reportOid" v-model="devFilePath" dense outlined clearable style="zoom: 0.8;"
         :placeholder="tCalcReportPageViewer('devLocalFilePathPlaceholder')" @keyup.enter="onApplyDevFilePath">
         <template #append>
           <q-btn dense flat round icon="check" color="primary" @click="onApplyDevFilePath">
             <AsyncTooltip :tooltip="tCalcReportPageViewer('applyDevLocalFilePath')" />
           </q-btn>
         </template>
+
+        <AsyncTooltip :tooltip="devFilePath" />
       </q-input>
 
       <div>

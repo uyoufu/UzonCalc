@@ -1,5 +1,6 @@
 import { type Ref } from 'vue'
 import type { ExecutionResult } from 'src/api/calcExecution'
+import { useCalcReportViewerStore } from 'src/stores/calcReportViewer'
 
 function createEmptyExecutionResult(): ExecutionResult {
   return {
@@ -17,7 +18,8 @@ export function useDevLocalFilePathInput(
   executeResult: Ref<ExecutionResult>
 ) {
   const isDev = import.meta.env.DEV
-  const devFilePath = ref(filePath.value)
+  const calcReportViewerStore = useCalcReportViewerStore()
+  const devFilePath = ref(calcReportViewerStore.devFilePath || filePath.value)
 
   watch(filePath, (newPath) => {
     devFilePath.value = newPath || ''
@@ -37,6 +39,7 @@ export function useDevLocalFilePathInput(
     filePath.value = path
     reportOid.value = null
     calcReportNameRef.value = fileName
+    calcReportViewerStore.setDevFilePath(path)
   }
 
   return {
@@ -45,4 +48,3 @@ export function useDevLocalFilePathInput(
     onApplyDevFilePath
   }
 }
-
