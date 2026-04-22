@@ -4,9 +4,9 @@ function createSectionNumber(counters: number[], level: number): string {
   const values: number[] = [];
 
   for (let index = 0; index <= level; index += 1) {
-    const val = counters[index];
-    if (val !== undefined && val > 0) {
-      values.push(val);
+    const value = counters[index] ?? 0;
+    if (value > 0) {
+      values.push(value);
     }
   }
 
@@ -43,7 +43,8 @@ export function generateToc(): void {
     return;
   }
 
-  const headings = document.querySelectorAll<HTMLHeadingElement>("h2, h3, h4, h5, h6");
+  const headings =
+    document.querySelectorAll<HTMLHeadingElement>("h2, h3, h4, h5, h6");
   const counters = [0, 0, 0, 0, 0];
   let toc_html = '<div class="toc-list">';
 
@@ -57,8 +58,16 @@ export function generateToc(): void {
     }
 
     const level = Number.parseInt(heading.tagName.substring(1), 10) - 2;
+    if (level < 0 || level >= counters.length) {
+      return;
+    }
+
     updateCounters(counters, level);
-    toc_html += renderTocItem(heading, level, createSectionNumber(counters, level));
+    toc_html += renderTocItem(
+      heading,
+      level,
+      createSectionNumber(counters, level),
+    );
   });
 
   toc_html += "</div>";

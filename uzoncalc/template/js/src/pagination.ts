@@ -7,9 +7,11 @@ const PAGE_HEIGHT_BY_SIZE: Record<string, number> = {
 
 function resolveEffectivePageHeight(content_element: Element): number {
   const page_size = content_element.getAttribute("page-size") || "A4";
-  const page_margin_text = content_element.getAttribute("page-margin") || "20mm";
+  const page_margin_text =
+    content_element.getAttribute("page-margin") || "20mm";
   const margins = parseMargins(page_margin_text);
-  const page_height = PAGE_HEIGHT_BY_SIZE[page_size] ?? PAGE_HEIGHT_BY_SIZE.A4;
+  const page_height =
+    PAGE_HEIGHT_BY_SIZE[page_size] ?? PAGE_HEIGHT_BY_SIZE.A4 ?? 1122.5;
 
   return page_height - margins.top - margins.bottom;
 }
@@ -39,7 +41,9 @@ export function calculatePageNumbers(): void {
       return;
     }
 
-    const content_page = Math.ceil((heading as HTMLElement).offsetTop / effective_page_height);
+    const content_page = Math.ceil(
+      (heading as HTMLElement).offsetTop / effective_page_height,
+    );
     const actual_page = toc_pages + content_page;
     const toc_page_element = document.querySelector(
       `[data-heading-id="${heading.id}"]`,

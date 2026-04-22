@@ -16,7 +16,7 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
-$server = "root@69.63.204.155"
+$server = "root@calc.uzoncloud.com"
 $remotePath = "/var/www/uzoncalc/scripts/template.js"
 
 $scriptDir = Split-Path -Path $PSCommandPath -Parent
