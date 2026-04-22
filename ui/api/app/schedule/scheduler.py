@@ -1,7 +1,7 @@
 import datetime
-from apscheduler.schedulers.asyncio import AsyncIOScheduler
-from apscheduler.executors.pool import ThreadPoolExecutor
+from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 from config import logger
 
@@ -22,7 +22,9 @@ def start_scheduler() -> AsyncIOScheduler:
     # APScheduler 不支持异步引擎，使用内存存储
     # 注意：内存存储意味着任务不会持久化，应用重启后需要重新注册
     jobstores = {"default": MemoryJobStore()}
-    executors = {"default": ThreadPoolExecutor(max_workers=10)}
+    # 当前定时任务统一定义为 async run_async()，必须使用事件循环执行器，
+    # 否则 coroutine 会在线程池中被当作普通返回值处理，导致 never awaited 告警。
+    executors = {"default": AsyncIOExecutor()}
 
     job_defaults = {
         "coalesce": False,  # 是否合并错过的任务
