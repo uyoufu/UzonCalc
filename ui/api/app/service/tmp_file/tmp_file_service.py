@@ -106,7 +106,7 @@ async def get_tmp_file(
     :param session: 数据库会话
     :return: TmpFile 模型对象或 None
     """
-    stmt = select(TmpFile).where(TmpFile.file_path == file_path)
+    stmt = select(TmpFile).where(TmpFile.filePath == file_path)
     tmp_file = await session.scalar(stmt)
     return tmp_file
 
@@ -124,7 +124,7 @@ async def clean_expired_tmp_files(session: AsyncSession) -> tuple[int, int]:
     current_time = datetime.now(timezone.utc)
 
     stmt = select(TmpFile).where(
-        and_(TmpFile.is_deleted == False, TmpFile.expire_time <= current_time)
+        and_(TmpFile.isDeleted == False, TmpFile.expireTime <= current_time)
     )
     expired_files = (await session.scalars(stmt)).all()
 
@@ -135,7 +135,7 @@ async def clean_expired_tmp_files(session: AsyncSession) -> tuple[int, int]:
 
     for tmp_file in expired_files:
         # 删除物理文件
-        is_deleted = await _delete_physical_file(tmp_file.file_path)
+        is_deleted = await _delete_physical_file(tmp_file.filePath)
 
         if not is_deleted:
             failed_count += 1

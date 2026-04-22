@@ -31,7 +31,7 @@ async def example_create_tmp_file():
         )
         session.add(tmp_file)
         await session.commit()
-        print(f"创建临时文件记录: {tmp_file.file_path}")
+        print(f"创建临时文件记录: {tmp_file.filePath}")
 
 
 # ============================================
@@ -57,7 +57,7 @@ async def example_create_tmp_directory():
         )
         session.add(tmp_dir)
         await session.commit()
-        print(f"创建临时目录记录: {tmp_dir.file_path}")
+        print(f"创建临时目录记录: {tmp_dir.filePath}")
 
 
 # ============================================
@@ -138,7 +138,7 @@ async def example_query_expired_files():
         current_time = datetime.datetime.now(datetime.timezone.utc)
 
         stmt = select(TmpFile).where(
-            and_(TmpFile.is_deleted == False, TmpFile.expire_time <= current_time)
+            and_(TmpFile.isDeleted == False, TmpFile.expireTime <= current_time)
         )
 
         result = await session.execute(stmt)
@@ -146,7 +146,7 @@ async def example_query_expired_files():
 
         print(f"找到 {len(expired_files)} 个过期文件")
         for file in expired_files:
-            print(f"  - {file.file_path} (过期时间: {file.expire_time})")
+            print(f"  - {file.filePath} (过期时间: {file.expireTime})")
 
 
 # ============================================
