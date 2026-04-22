@@ -26,10 +26,10 @@ class UserInputHistory(Base):
 
     __tablename__ = "user_input_history"
     __table_args__ = (
-        Index("idx_user_file_func", "user_id", "file_path", "func_name"),
-        Index("idx_user_created_at", "user_id", "created_at"),
+        Index("idx_user_file_func", "userId", "filePath", "funcName"),
+        Index("idx_user_created_at", "userId", "createdAt"),
         UniqueConstraint(
-            "user_id", "file_path", "func_name", "session_id", name="uq_user_execution"
+            "userId", "filePath", "funcName", "sessionId", name="uq_user_execution"
         ),
     )
 
@@ -129,7 +129,7 @@ class InputCache(Base):
 
     __tablename__ = "input_cache"
     __table_args__ = (
-        Index("idx_cache_user_file", "user_id", "file_path", "func_name"),
+        Index("idx_cache_user_file", "userId", "filePath", "funcName"),
     )
 
     id = Column(Integer, primary_key=True)

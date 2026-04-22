@@ -18,8 +18,8 @@ class TmpFileCleanerScheduleJob(BaseCronScheduleJob):
     def __init__(self):
         job_id = "tmp_file_cleaner_schedule_job"
         # Cron 表达式: 秒 分 时 日 月 周
-        # 每小时的第 0 分钟执行一次
-        cron = "0 0 * * * *"
+        # 每 5 分钟执行一次: "0 */5 * * * *"
+        cron = "0 */5 * * * *"
         super().__init__(job_id, cron)
 
     async def run_async(self):

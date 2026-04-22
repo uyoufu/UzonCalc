@@ -148,9 +148,9 @@ class HtmlCacher:
             # 创建临时文件记录，设置 1 小时过期
             expire_time = datetime.now(timezone.utc) + timedelta(hours=1)
             await create_tmp_file(
-                file_path=str(cache_dir),
+                filePath=str(cache_dir),
                 session=session,
-                expire_time=expire_time,
+                expireTime=expire_time,
                 remark=f"HTML cache for execution {execution_id}",
             )
             logger.info(f"已创建临时文件记录，过期时间: {expire_time}")

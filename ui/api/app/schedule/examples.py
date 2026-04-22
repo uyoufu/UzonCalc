@@ -1,6 +1,7 @@
 """
 定时任务使用示例
 """
+
 import datetime
 from pathlib import Path
 
@@ -8,6 +9,7 @@ from pathlib import Path
 # ============================================
 # 示例 1: 创建临时文件记录
 # ============================================
+
 
 async def example_create_tmp_file():
     """
@@ -21,14 +23,13 @@ async def example_create_tmp_file():
     # 创建一个 24 小时后过期的临时文件记录
     async with db_manager.session() as session:
         tmp_file = TmpFile(
-            file_path="/path/to/temp/file.pdf",
-            file_type="pdf",
-            file_size=1024000,  # 1MB
-            is_directory=False,
-            expire_time=datetime.datetime.now(datetime.timezone.utc)
+            filePath="/path/to/temp/file.pdf",
+            expireTime=datetime.datetime.now(datetime.timezone.utc)
             + datetime.timedelta(hours=24),
             remark="用户生成的临时 PDF 文件",
+            isDeleted=False,
         )
+
         session.add(tmp_file)
         await session.commit()
         print(f"创建临时文件记录: {tmp_file.filePath}")
@@ -37,6 +38,7 @@ async def example_create_tmp_file():
 # ============================================
 # 示例 2: 创建临时目录记录
 # ============================================
+
 
 async def example_create_tmp_directory():
     """
@@ -49,11 +51,11 @@ async def example_create_tmp_directory():
 
     async with db_manager.session() as session:
         tmp_dir = TmpFile(
-            file_path="/path/to/temp/export_folder",
-            is_directory=True,
-            expire_time=datetime.datetime.now(datetime.timezone.utc)
+            filePath="/path/to/temp/export_folder",
+            expireTime=datetime.datetime.now(datetime.timezone.utc)
             + datetime.timedelta(hours=48),  # 48 小时后过期
             remark="导出的临时文件夹",
+            isDeleted=False,
         )
         session.add(tmp_dir)
         await session.commit()
@@ -124,6 +126,7 @@ class DataSyncScheduleJob(BaseIntervalScheduleJob):
 # 示例 5: 查询过期的临时文件
 # ============================================
 
+
 async def example_query_expired_files():
     """
     查询过期的临时文件
@@ -152,6 +155,7 @@ async def example_query_expired_files():
 # ============================================
 # 示例 6: 手动触发临时文件清理
 # ============================================
+
 
 async def example_manual_cleanup():
     """
@@ -200,11 +204,11 @@ async def lifespan(app: FastAPI):
 # 示例 8: 创建带文件的临时文件记录
 # ============================================
 
+
 async def example_create_file_with_record(content: bytes, expire_hours: int = 24):
     """
     创建实际文件并记录到数据库
     """
-    import os
     from app.db.models.tmp_file import TmpFile
     from app.db.manager import get_db_manager
 
@@ -219,19 +223,16 @@ async def example_create_file_with_record(content: bytes, expire_hours: int = 24
 
     # 写入文件
     file_path.write_bytes(content)
-    file_size = file_path.stat().st_size
 
     # 记录到数据库
     db_manager = get_db_manager()
     async with db_manager.session() as session:
         tmp_file = TmpFile(
-            file_path=str(file_path.absolute()),
-            file_type="pdf",
-            file_size=file_size,
-            is_directory=False,
-            expire_time=datetime.datetime.now(datetime.timezone.utc)
+            filePath=str(file_path.absolute()),
+            expireTime=datetime.datetime.now(datetime.timezone.utc)
             + datetime.timedelta(hours=expire_hours),
             remark="API 生成的临时文件",
+            isDeleted=False,
         )
         session.add(tmp_file)
         await session.commit()
@@ -243,6 +244,7 @@ async def example_create_file_with_record(content: bytes, expire_hours: int = 24
 # ============================================
 # 示例 9: 批量创建临时文件记录
 # ============================================
+
 
 async def example_batch_create_tmp_files(file_paths: list[str], expire_hours: int = 24):
     """
@@ -259,10 +261,10 @@ async def example_batch_create_tmp_files(file_paths: list[str], expire_hours: in
     async with db_manager.session() as session:
         for file_path in file_paths:
             tmp_file = TmpFile(
-                file_path=file_path,
-                is_directory=False,
-                expire_time=expire_time,
+                filePath=file_path,
+                expireTime=expire_time,
                 remark="批量创建的临时文件",
+                isDeleted=False,
             )
             session.add(tmp_file)
 

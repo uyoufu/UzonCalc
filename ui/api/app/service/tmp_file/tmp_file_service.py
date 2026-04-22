@@ -43,9 +43,9 @@ async def _delete_physical_file(file_path: str) -> bool:
 
 
 async def create_tmp_file(
-    file_path: str,
+    filePath: str,
     session: AsyncSession,
-    expire_time: Optional[datetime] = None,
+    expireTime: Optional[datetime] = None,
     remark: Optional[str] = None,
 ) -> Optional[TmpFile]:
     """
@@ -53,38 +53,38 @@ async def create_tmp_file(
 
     如果过期时间已经过期，文件会被立即删除
 
-    :param file_path: 文件路径（绝对路径）
+    :param filePath: 文件路径（绝对路径）
     :param session: 数据库会话
-    :param expire_time: 过期时间（UTC时间），默认为1小时后
+    :param expireTime: 过期时间（UTC时间），默认为1小时后
     :param remark: 备注信息
     :return: TmpFile 模型对象，如果立即被删除则返回 None
     """
     # 计算过期时间，默认为1小时后
-    if expire_time is None:
-        expire_time = datetime.now(timezone.utc) + timedelta(hours=1)
+    if expireTime is None:
+        expireTime = datetime.now(timezone.utc) + timedelta(hours=1)
 
     # 获取当前时间
     now = datetime.now(timezone.utc)
 
-    # 检查是否已存在相同的 file_path 记录
-    existing_tmp_file = await get_tmp_file(file_path, session)
+    # 检查是否已存在相同的 filePath 记录
+    existing_tmp_file = await get_tmp_file(filePath, session)
     if existing_tmp_file is not None:
         # 如果已存在，则删除旧记录
         await session.delete(existing_tmp_file)
         await session.commit()
 
     # 如果过期时间已经过期，立即删除文件并返回 None
-    if expire_time <= now:
-        await _delete_physical_file(file_path)
-        logger.info(f"临时文件已立即删除（已过期）: {file_path}")
+    if expireTime <= now:
+        await _delete_physical_file(filePath)
+        logger.info(f"临时文件已立即删除（已过期）: {filePath}")
         return None
 
     # 创建新的临时文件记录
     tmp_file = TmpFile(
-        file_path=file_path,
-        expire_time=expire_time,
+        filePath=filePath,
+        expireTime=expireTime,
         remark=remark,
-        is_deleted=False,
+        isDeleted=False,
     )
 
     # 添加到数据库
@@ -96,17 +96,17 @@ async def create_tmp_file(
 
 
 async def get_tmp_file(
-    file_path: str,
+    filePath: str,
     session: AsyncSession,
 ) -> Optional[TmpFile]:
     """
     根据文件路径查询临时文件记录
 
-    :param file_path: 文件路径（绝对路径）
+    :param filePath: 文件路径（绝对路径）
     :param session: 数据库会话
     :return: TmpFile 模型对象或 None
     """
-    stmt = select(TmpFile).where(TmpFile.filePath == file_path)
+    stmt = select(TmpFile).where(TmpFile.filePath == filePath)
     tmp_file = await session.scalar(stmt)
     return tmp_file
 
@@ -153,28 +153,28 @@ async def clean_expired_tmp_files(session: AsyncSession) -> tuple[int, int]:
 
 
 async def delete_tmp_file(
-    file_path: str,
+    filePath: str,
     session: AsyncSession,
     delete_physical: bool = True,
 ) -> bool:
     """
     删除临时文件记录和物理文件
 
-    :param file_path: 文件路径（绝对路径）
+    :param filePath: 文件路径（绝对路径）
     :param session: 数据库会话
     :param delete_physical: 是否删除物理文件，默认为 True
     :return: 是否删除成功
     """
     # 查询数据库中的记录
-    tmp_file = await get_tmp_file(file_path, session)
+    tmp_file = await get_tmp_file(filePath, session)
 
     if tmp_file is None:
-        logger.warning(f"临时文件记录不存在: {file_path}")
+        logger.warning(f"临时文件记录不存在: {filePath}")
         return False
 
     # 删除物理文件
     if delete_physical:
-        success = await _delete_physical_file(file_path)
+        success = await _delete_physical_file(filePath)
         if not success:
             return False
 
@@ -182,5 +182,5 @@ async def delete_tmp_file(
     await session.delete(tmp_file)
     await session.commit()
 
-    logger.info(f"已删除临时文件记录: {file_path}")
+    logger.info(f"已删除临时文件记录: {filePath}")
     return True
