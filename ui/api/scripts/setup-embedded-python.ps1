@@ -7,7 +7,7 @@
 
 param(
     [string]$PythonVersion = "3.11.9",
-    [string]$TargetDir = "python-embedded"
+    [string]$TargetDir = "dist\python-embedded"
 )
 
 $ErrorActionPreference = "Stop"
@@ -174,5 +174,5 @@ Write-Host ""
 Write-Info "后续步骤："
 Write-Host "  1. 测试 Python: $pythonExe --version"
 Write-Host "  2. 运行应用: $pythonExe main.py"
-Write-Host "  3. 分发时，将整个项目文件夹（包括 $TargetDir）打包即可"
+Write-Host "  3. 分发时，保留 dist 目录中的嵌入式 Python 环境"
 Write-Host ""
