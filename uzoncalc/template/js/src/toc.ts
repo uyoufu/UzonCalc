@@ -4,8 +4,9 @@ function createSectionNumber(counters: number[], level: number): string {
   const values: number[] = [];
 
   for (let index = 0; index <= level; index += 1) {
-    if (counters[index] > 0) {
-      values.push(counters[index]);
+    const val = counters[index];
+    if (val !== undefined && val > 0) {
+      values.push(val);
     }
   }
 
@@ -13,7 +14,7 @@ function createSectionNumber(counters: number[], level: number): string {
 }
 
 function updateCounters(counters: number[], level: number): void {
-  counters[level] += 1;
+  counters[level] = (counters[level] ?? 0) + 1;
 
   for (let index = level + 1; index < counters.length; index += 1) {
     counters[index] = 0;
