@@ -1,0 +1,51 @@
+/* UzonCalc template design tokens */
+:root {
+  --uz-page-max-width: 900px;
+  --uz-page-margin: 20px;
+
+  --uz-text-color: #333;
+  --uz-text-color-strong: #2b3b4e;
+  --uz-text-color-muted: #999;
+  --uz-text-color-code: #d73a49;
+  --uz-text-color-math: #06d;
+  --uz-text-color-unit: #239561;
+  --uz-text-color-print: #000;
+
+  --uz-bg-color: #fff;
+  --uz-bg-color-subtle: #f9f9f9;
+  --uz-bg-color-muted: #f2f2f2;
+  --uz-bg-color-soft: #f6f8fa;
+  --uz-bg-color-placeholder: #f0f0f0;
+
+  --uz-border-color: #ddd;
+  --uz-border-color-soft: #e1e4e8;
+  --uz-border-color-muted: #bdc3c7;
+  --uz-border-color-light: #ecf0f1;
+  --uz-border-color-strong: #2b3b4e;
+
+  --uz-link-color: #3498db;
+  --uz-focus-color: #3498db;
+  --uz-focus-shadow: 0 0 3px rgba(52, 152, 219, 0.3);
+
+  --uz-shadow-soft: 0 1px 3px rgba(0, 0, 0, 0.05);
+  --uz-shadow-medium: 0 2px 4px rgba(0, 0, 0, 0.1);
+
+  --uz-radius-sm: 3px;
+  --uz-radius-md: 4px;
+
+  --uz-space-2xs: 0.2em;
+  --uz-space-xs: 0.3em;
+  --uz-space-sm: 0.4em;
+  --uz-space-md: 0.5em;
+  --uz-space-lg: 1em;
+  --uz-space-xl: 1.5em;
+
+  --uz-line-height-body: 1.8;
+  --uz-line-height-ui: 1.6;
+  --uz-line-height-code: 1.5;
+
+  --uz-font-mono: "Consolas", "Monaco", "Courier New", monospace;
+  --uz-font-math-zh:
+    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei",
+    "微软雅黑";
+}

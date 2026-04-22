@@ -1,0 +1,24 @@
+/* UzonCalc template base layout styles */
+.content {
+  max-width: var(--uz-page-max-width);
+  margin: 0 auto;
+}
+
+h2 {
+  counter-reset: h3-counter;
+  counter-increment: h2-counter;
+}
+
+h2::before {
+  content: counter(h2-counter) " ";
+  margin-right: var(--uz-space-md);
+}
+
+h3 {
+  counter-increment: h3-counter;
+}
+
+h3::before {
+  content: counter(h2-counter) "." counter(h3-counter) " ";
+  margin-right: var(--uz-space-md);
+}

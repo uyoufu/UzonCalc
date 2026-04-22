@@ -1,0 +1,27 @@
+/* UzonCalc template interactive styles */
+input {
+  border: 1px solid var(--uz-border-color-muted);
+  padding: var(--uz-space-xs) var(--uz-space-md);
+  border-radius: var(--uz-radius-sm);
+  font-size: 1em;
+  font-family: inherit;
+}
+
+input:focus {
+  outline: none;
+  border-color: var(--uz-focus-color);
+  box-shadow: var(--uz-focus-shadow);
+}
+
+.plot-container {
+  margin: var(--uz-space-xl) 0;
+  text-align: center;
+}
+
+.plot-container img {
+  max-width: 100%;
+  height: auto;
+  border: 1px solid var(--uz-border-color-light);
+  border-radius: var(--uz-radius-md);
+  box-shadow: var(--uz-shadow-medium);
+}

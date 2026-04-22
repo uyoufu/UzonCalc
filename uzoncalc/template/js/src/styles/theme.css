@@ -1,0 +1,62 @@
+/* UzonCalc template theme styles */
+body {
+  margin: var(--uz-page-margin);
+  line-height: var(--uz-line-height-body);
+  color: var(--uz-text-color);
+  background-color: var(--uz-bg-color);
+  counter-reset: h2-counter;
+}
+
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  margin-top: var(--uz-space-xl);
+  margin-bottom: var(--uz-space-md);
+  font-weight: 600;
+}
+
+h1 {
+  font-size: 2em;
+  border-bottom: 2px solid var(--uz-border-color-strong);
+  padding-bottom: var(--uz-space-xs);
+}
+
+h2 {
+  font-size: 1.5em;
+  border-bottom: 1px solid var(--uz-border-color-muted);
+  padding-bottom: var(--uz-space-2xs);
+}
+
+p {
+  padding: var(--uz-space-2xs) 0;
+  text-indent: 2em;
+}
+
+a {
+  color: var(--uz-link-color) !important;
+}
+
+a:hover {
+  text-decoration: underline;
+}
+
+div {
+  margin: var(--uz-space-md) 0;
+}
+
+span {
+  display: inline;
+}
+
+ul,
+ol {
+  margin: var(--uz-space-lg) 0;
+  padding-left: 2em;
+}
+
+li {
+  margin: 0.3em 0;
+}

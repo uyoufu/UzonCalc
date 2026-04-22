@@ -1,0 +1,67 @@
+/* UzonCalc template toc styles */
+.toc-list {
+  padding: 0;
+  list-style: none;
+}
+
+.toc-item {
+  margin: 0.5rem 0;
+  overflow-x: hidden;
+  page-break-inside: avoid;
+}
+
+.toc-link {
+  display: inline-flex;
+  align-items: center;
+  text-decoration: none;
+  color: var(--uz-text-color);
+  line-height: var(--uz-line-height-ui);
+  width: 100%;
+  white-space: nowrap;
+}
+
+.toc-link:hover {
+  color: var(--uz-text-color-math);
+}
+
+.toc-number {
+  font-weight: 600;
+  white-space: nowrap;
+  padding-right: var(--uz-space-xs);
+  background: var(--uz-bg-color);
+  flex-shrink: 0;
+}
+
+.toc-text {
+  white-space: nowrap;
+  padding-right: var(--uz-space-xs);
+  background: var(--uz-bg-color);
+  flex-shrink: 0;
+}
+
+.toc-dots {
+  flex-grow: 1;
+  height: 1em;
+  display: flex;
+  align-items: flex-end;
+  min-width: 20px;
+  margin: 0 var(--uz-space-xs);
+  border-bottom: 2px dotted var(--uz-text-color-muted);
+}
+
+.toc-page {
+  padding-left: var(--uz-space-xs);
+  background: var(--uz-bg-color);
+  white-space: nowrap;
+  flex-shrink: 0;
+  color: var(--uz-text-color);
+  text-align: right;
+  min-width: 1em;
+}
+
+.toc-page[data-page-placeholder="true"] {
+  font-family: inherit;
+  background-color: var(--uz-bg-color-placeholder);
+  padding: 0 0.25em;
+  border-radius: 2px;
+}

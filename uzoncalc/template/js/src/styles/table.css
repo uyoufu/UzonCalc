@@ -1,0 +1,28 @@
+/* UzonCalc template table styles */
+table {
+  border-collapse: collapse;
+  width: auto;
+  margin: var(--uz-space-lg) auto;
+}
+
+table th,
+table td {
+  text-align: center;
+}
+
+th,
+td {
+  font-size: 0.83rem;
+  border: 1px solid var(--uz-border-color);
+  padding: var(--uz-space-2xs) var(--uz-space-sm);
+  text-align: left;
+}
+
+th {
+  background-color: var(--uz-bg-color-muted);
+  font-weight: 600;
+}
+
+tr:nth-child(even) {
+  background-color: var(--uz-bg-color-subtle);
+}

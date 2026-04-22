@@ -1,0 +1,64 @@
+/* UzonCalc template math styles */
+.latex {
+  font-size: inherit;
+  line-height: inherit;
+  margin: var(--uz-space-md) 0;
+}
+
+math,
+.math {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+math mi {
+  font-style: italic;
+  color: var(--uz-text-color-math);
+}
+
+math .array-var {
+  font-family: var(--uz-font-math-zh);
+  font-style: normal;
+  font-weight: 700;
+  color: var(--uz-text-color-math);
+}
+
+math mi[mathvariant="bold"] {
+  font-family: var(--uz-font-math-zh);
+  font-weight: 700;
+}
+
+math .unit {
+  color: var(--uz-text-color-unit);
+  font-style: normal;
+}
+
+math[display="inline"] {
+  margin: 0 var(--uz-space-2xs);
+}
+
+math[display="block"] {
+  margin: var(--uz-space-lg) 0;
+}
+
+msub > :nth-child(2) {
+  margin-left: var(--uz-space-2xs);
+}
+
+mfrac,
+mfrac * {
+  font-size: inherit;
+  line-height: inherit;
+}
+
+mrow {
+  padding-top: 2px;
+}
+
+math > mrow {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: left;
+  gap: 2px;
+}

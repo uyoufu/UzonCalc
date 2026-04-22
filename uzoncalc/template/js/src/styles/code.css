@@ -1,0 +1,37 @@
+/* UzonCalc template code styles */
+pre,
+code {
+  font-family: var(--uz-font-mono);
+  background-color: var(--uz-bg-color-soft);
+  border-radius: var(--uz-radius-md);
+}
+
+code {
+  padding: var(--uz-space-2xs) var(--uz-space-sm);
+  font-size: 0.9em;
+  color: var(--uz-text-color-code);
+  border: 1px solid var(--uz-border-color-soft);
+}
+
+pre {
+  overflow-x: auto;
+  border: 1px solid var(--uz-border-color-soft);
+  line-height: var(--uz-line-height-code);
+  margin: var(--uz-space-lg) 0;
+  box-shadow: var(--uz-shadow-soft);
+}
+
+pre code {
+  padding: 0;
+  font-size: 0.9em;
+  color: inherit;
+  background-color: transparent;
+  border: none;
+  display: block;
+  white-space: pre;
+}
+
+pre .hljs {
+  background-color: transparent;
+  padding: 0;
+}
