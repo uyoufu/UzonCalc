@@ -8,7 +8,17 @@ type ScrollState = {
   stickToBottom: boolean;
 };
 
+function getQueryScrollKey(): string {
+  const scrollKey = new URLSearchParams(window.location.search).get("scrollKey");
+  return scrollKey?.trim() ?? "";
+}
+
 function getStorageKey(): string {
+  const queryScrollKey = getQueryScrollKey();
+  if (queryScrollKey) {
+    return `${STORAGE_PREFIX}${queryScrollKey}`;
+  }
+
   return `${STORAGE_PREFIX}${[
     window.location.pathname || "",
     window.location.search || "",

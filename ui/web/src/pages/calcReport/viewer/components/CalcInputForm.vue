@@ -3,6 +3,8 @@ import { tCalcReportPageViewer } from 'src/i18n/helpers'
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import { getCalcReport } from 'src/api/calcReport'
+import { useUserInfoStore } from 'src/stores/user'
+import { sha256 } from 'src/utils/encrypt'
 import {
   type ExecutionResult,
   type ICalcWindow
@@ -90,12 +92,24 @@ const executeResult = ref<ExecutionResult>({
 
 import { useConfig } from 'src/config/index'
 const config = useConfig()
+const userInfoStore = useUserInfoStore()
+const { username: userId } = storeToRefs(userInfoStore)
+
+function buildFullHtmlUrl(htmlPath: string) {
+  if (!htmlPath) return ''
+
+  const htmlUrl = new URL(htmlPath, `${config.baseUrl}/`)
+  const scrollTargetId = currentReportOid.value || (currentFilePath.value ? sha256(currentFilePath.value) : '')
+  const scrollKey = [userId.value, scrollTargetId].filter(Boolean).join('_')
+  if (scrollKey) htmlUrl.searchParams.set('scrollKey', scrollKey)
+
+  return htmlUrl.toString()
+}
+
 // 更新结果 HTML 地址
-watch(() => executeResult.value.html, () => {
-  if (executeResult.value.html)
-    fullHtmlUrl.value = config.baseUrl + '/' + executeResult.value.html
-  else fullHtmlUrl.value = ''
-})
+watch([() => executeResult.value.html, currentReportOid, currentFilePath, userId], () => {
+  fullHtmlUrl.value = buildFullHtmlUrl(executeResult.value.html)
+}, { immediate: true })
 // 最终显示的 UI
 const inputUIs = computed<ICalcWindow[]>(() => {
   return executeResult.value.windows || []
