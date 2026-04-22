@@ -85,7 +85,6 @@ def save(filename: str | None = None):
         return
 
     from ..template.utils import render_html_template
-    import shutil
 
     ctx = get_current_instance()
 
@@ -111,17 +110,6 @@ def save(filename: str | None = None):
     # 保存为 HTML 文件
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_output)
-
-    # 复制 CSS 文件到同一目录
-    output_dir = os.path.dirname(os.path.abspath(filename))
-    template_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "template")
-    css_source = os.path.join(template_dir, "template.css")
-    css_dest = os.path.join(output_dir, "template.css")
-
-    try:
-        shutil.copy2(css_source, css_dest)
-    except Exception as e:
-        print(f"Warning: Unable to copy CSS file: {e}")
 
     # Show web url
     print(f"Document saved to (open with browser): file:///{filename}")

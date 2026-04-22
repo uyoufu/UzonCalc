@@ -10,7 +10,6 @@ import argparse
 import importlib.util
 import inspect
 import os
-import shutil
 import sys
 
 # 环境变量名：设置后 doc.save() 将变为空操作
@@ -66,16 +65,6 @@ def _save_ctx(ctx, output_path: str | None, script_path: str):
     os.makedirs(os.path.dirname(filename), exist_ok=True)
     with open(filename, "w", encoding="utf-8") as f:
         f.write(html_output)
-
-    # 复制 CSS 文件到同一目录
-    output_dir = os.path.dirname(filename)
-    template_dir = os.path.join(os.path.dirname(__file__), "template")
-    css_source = os.path.join(template_dir, "template.css")
-    css_dest = os.path.join(output_dir, "template.css")
-    try:
-        shutil.copy2(css_source, css_dest)
-    except Exception as e:
-        print(f"Warning: Unable to copy CSS file: {e}")
 
     print(f"Document saved to (open with browser): file:///{filename}")
 
