@@ -17,6 +17,9 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PROJECT_ROOT = Split-Path -Parent $SCRIPT_DIR
 $DIST_DIR = Join-Path $PROJECT_ROOT "dist"
 $OUTPUT_DIR = Join-Path $DIST_DIR $OutputName
+$EMBEDDED_PYTHON_RELATIVE_DIR = "dist\python-embedded"
+$EMBEDDED_PYTHON_SOURCE_DIR = Join-Path $PROJECT_ROOT $EMBEDDED_PYTHON_RELATIVE_DIR
+$EMBEDDED_PYTHON_OUTPUT_DIR = Join-Path $OUTPUT_DIR $EMBEDDED_PYTHON_RELATIVE_DIR
 
 function Write-Info {
     param([string]$message)
@@ -38,7 +41,7 @@ Write-Step "步骤 1: 设置嵌入式 Python 环境"
 
 $setupScript = Join-Path $SCRIPT_DIR "setup-embedded-python.ps1"
 if (Test-Path $setupScript) {
-    & $setupScript -PythonVersion $PythonVersion
+    & $setupScript -PythonVersion $PythonVersion -TargetDir $EMBEDDED_PYTHON_RELATIVE_DIR
 } else {
     Write-Error "未找到 setup-embedded-python.ps1"
     exit 1
@@ -71,8 +74,7 @@ $itemsToCopy = @(
     "data",
     "utils",
     "main.py",
-    "requirements.txt",
-    "python-embedded"
+    "requirements.txt"
 )
 
 foreach ($item in $itemsToCopy) {
@@ -90,6 +92,18 @@ foreach ($item in $itemsToCopy) {
     } else {
         Write-Host "  跳过（不存在）: $item" -ForegroundColor Yellow
     }
+}
+
+if (Test-Path $EMBEDDED_PYTHON_SOURCE_DIR) {
+    $embeddedPythonOutputParent = Split-Path -Parent $EMBEDDED_PYTHON_OUTPUT_DIR
+    if (-not (Test-Path $embeddedPythonOutputParent)) {
+        New-Item -ItemType Directory -Path $embeddedPythonOutputParent -Force | Out-Null
+    }
+
+    Write-Info "复制: $EMBEDDED_PYTHON_RELATIVE_DIR"
+    Copy-Item -Path $EMBEDDED_PYTHON_SOURCE_DIR -Destination $embeddedPythonOutputParent -Recurse -Force
+} else {
+    Write-Host "  跳过（不存在）: $EMBEDDED_PYTHON_RELATIVE_DIR" -ForegroundColor Yellow
 }
 
 # ============================================
@@ -115,7 +129,7 @@ echo.
 cd /d "%~dp0"
 
 REM 使用嵌入式 Python 启动
-python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
+dist\python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
 
 pause
 "@
@@ -136,7 +150,7 @@ Write-Host "========================================" -ForegroundColor Cyan
 Write-Host ""
 
 # 检查嵌入式 Python
-`$pythonExe = Join-Path `$PSScriptRoot "python-embedded\python.exe"
+`$pythonExe = Join-Path `$PSScriptRoot "dist\python-embedded\python.exe"
 if (-not (Test-Path `$pythonExe)) {
     Write-Host "[错误] 未找到 Python: `$pythonExe" -ForegroundColor Red
     pause
@@ -187,7 +201,7 @@ $readme = @"
 
 ```bash
 cd /d <解压目录>
-python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
+dist\python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
 ```
 
 ## 访问方式
@@ -205,7 +219,8 @@ python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
 
 ```
 UzonCalc-Portable/
-├── python-embedded/     # 嵌入式 Python 环境
+├── dist/
+│   └── python-embedded/ # 嵌入式 Python 环境
 ├── app/                 # 应用代码
 ├── config/              # 配置文件
 ├── data/                # 数据文件
@@ -219,7 +234,7 @@ UzonCalc-Portable/
 
 1. 首次运行可能需要几秒钟初始化数据库
 2. 确保端口 3346 未被其他程序占用
-3. 不要删除或修改 `python-embedded` 目录
+3. 不要删除或修改 `dist/python-embedded` 目录
 
 ## 故障排查
 
@@ -231,7 +246,7 @@ UzonCalc-Portable/
 
 ### Python 未找到
 
-确保 `python-embedded` 目录完整，如有问题请重新解压。
+确保 `dist/python-embedded` 目录完整，如有问题请重新解压。
 
 ## 技术支持
 
@@ -277,7 +292,7 @@ $size = (Get-ChildItem -Path $OUTPUT_DIR -Recurse | Measure-Object -Property Len
 Write-Info "输出目录: $OUTPUT_DIR"
 Write-Info "总大小: $([Math]::Round($size, 2)) MB"
 Write-Host ""
-Write-Host "后续步骤：" -ForegroundColor Cyan
+Write-Host "api 打包后续步骤：" -ForegroundColor Cyan
 Write-Host "  1. 测试运行: cd '$OUTPUT_DIR' && .\启动服务.bat"
 Write-Host "  2. 压缩打包: 将整个 '$OutputName' 文件夹压缩为 .zip"
 Write-Host "  3. 分发给用户: 用户解压后即可运行"

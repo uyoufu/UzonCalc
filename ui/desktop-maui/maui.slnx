@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="uzoncalc/uzoncalc.csproj" Id="aa802131-8838-4a68-a57a-5ce6ac62bafd">
+    <Deploy Solution="Debug|*" />
+  </Project>
+</Solution>
