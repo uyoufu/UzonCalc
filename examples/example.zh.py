@@ -1012,6 +1012,9 @@ ctx.save("../output/example.zh.html")
     "1. 添加 UI 与计算书发布功能"
     "2. 添加 AI 支持, 当你积累了一定的计算模板后, 可以通过 AI 自动生成新的计算书初稿"
 
+    "未来已成"
+
+    "现在很完美了, 赶紧用起来吧！"
 
 if __name__ == "__main__":
     import time

@@ -43,6 +43,7 @@
     "xlsx": "^0.18.5"
   },
   "devDependencies": {
+    "@electron/packager": "^18.3.2",
     "@intlify/unplugin-vue-i18n": "^11.0.0",
     "@intlify/vue-i18n-loader": "^4.2.0",
     "@quasar/app-vite": "2.3.0",
@@ -57,6 +58,7 @@
     "@vue/eslint-config-typescript": "^14.5.0",
     "@vue/test-utils": "^2.4.6",
     "autoprefixer": "^10.4.20",
+    "electron": "^41.3.0",
     "eslint": "^9.21.0",
     "eslint-config-standard": "^17.1.0",
     "eslint-plugin-import": "^2.31.0",
