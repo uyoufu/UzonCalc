@@ -189,12 +189,7 @@ def _expr_call(node: ast.Call) -> ir.MathNode:
     if isinstance(node.func, ast.Attribute):
         obj = expr_to_ir(node.func.value)
         method_name = node.func.attr
-        # 方法名渲染为正体，参数渲染为斜体
-        arg_nodes: List[ir.MathNode] = []
-        for idx, a in enumerate(args):
-            if idx:
-                arg_nodes.append(ir.mo(","))
-            arg_nodes.append(a)
+        arg_nodes = _build_call_arg_nodes(node)
         return ir.mrow(
             [
                 obj,  # 对象，斜体
@@ -207,13 +202,37 @@ def _expr_call(node: ast.Call) -> ir.MathNode:
 
     # 普通函数调用: f(a, b)
     func_name = _unparse(node.func)
-    arg_nodes: List[ir.MathNode] = []
-    for idx, a in enumerate(args):
-        if idx:
-            arg_nodes.append(ir.mo(","))
-        arg_nodes.append(a)
+    arg_nodes = _build_call_arg_nodes(node)
 
     return ir.mrow([ir.mtext(func_name), ir.mo("("), *arg_nodes, ir.mo(")")])
+
+
+def _build_call_arg_nodes(node: ast.Call) -> List[ir.MathNode]:
+    """构建函数调用参数节点，统一支持位置参数和关键字参数"""
+    arg_nodes: List[ir.MathNode] = []
+
+    call_args = [_call_arg_to_ir(arg) for arg in node.args]
+    call_args.extend(_call_keyword_to_ir(keyword) for keyword in node.keywords)
+
+    for idx, arg_node in enumerate(call_args):
+        if idx:
+            arg_nodes.append(ir.mo(","))
+        arg_nodes.append(arg_node)
+
+    return arg_nodes
+
+
+def _call_arg_to_ir(node: ast.expr) -> ir.MathNode:
+    if isinstance(node, ast.Starred):
+        return ir.mrow([ir.mo("*"), expr_to_ir(node.value)])
+    return expr_to_ir(node)
+
+
+def _call_keyword_to_ir(node: ast.keyword) -> ir.MathNode:
+    value_ir = expr_to_ir(node.value)
+    if node.arg is None:
+        return ir.mrow([ir.mo("**"), value_ir])
+    return ir.mrow([ir.mtext(node.arg), ir.mo("="), value_ir])
 
 
 @expr_to_ir.register(ast.List)

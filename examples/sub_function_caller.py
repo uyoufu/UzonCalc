@@ -6,8 +6,8 @@ from uzoncalc import *
 class RectangleSection:
     """矩形基础平面截面计算器。"""
 
-    width: any # type: ignore
-    height: any # type: ignore
+    width: any  # type: ignore
+    height: any  # type: ignore
 
     def outline_points(self) -> list[tuple[float, float]]:
         """返回用于绘图的闭合轮廓点。"""
@@ -63,11 +63,28 @@ def build_rectangle_section(width, height) -> RectangleSection:
     return RectangleSection(width=width, height=height)
 
 
+def area(width, height):
+    """计算矩形截面面积的函数，供测试数值函数调用时使用。"""
+    return width * height
+
+
+def area_obj(section: RectangleSection):
+    """计算矩形截面面积的函数，供测试数值函数调用时使用。"""
+    return section.area
+
+
 @uzon_calc()
 async def sheet():
     width = 300 * unit.millimeter
     height = 500 * unit.millimeter
-    section = build_rectangle_section(width=width, height=height)
+    section = build_rectangle_section(width=200 * unit.millimeter, height=height)
+    section2 = build_rectangle_section(width, height)
+    section
+    width
+
+    area2 = area(width, height) + area(width, height)
+    area2_obj = area_obj(section) + area_obj(section2)
+    area2
 
 
 if __name__ == "__main__":

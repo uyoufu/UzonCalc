@@ -62,13 +62,14 @@ def _build_equation_parts(
     locals_map: Mapping[str, Any],
     value: Any,
 ) -> list[ir.MathNode]:
-    """构建方程的各部分（表达式、替换、结果值）"""
+    """构建方程的各部分（表达式、替换值、结果值）"""
     expr_node = _style_array_vars(expr_node, locals_map)
     parts: list[ir.MathNode] = [expr_node]
-    substituted = substitute_vars(expr_node, locals_map)
-    if substituted != expr_node:
-        parts.append(substituted)
-    if value is not None:
+    # 函数不显示替换值，只显示结果值，避免过于冗长
+    # substituted = substitute_vars(expr_node, locals_map)
+    # if substituted != expr_node:
+    #     parts.append(substituted)
+    if _should_render_runtime_value(value):
         value_ir = value_to_ir(value)
         if value_ir not in parts:
             parts.append(value_ir)
@@ -98,9 +99,22 @@ def _build_equation_parts_for_assignment(
         rhs_styled = _style_array_vars(rhs, locals_map)
         parts.extend(_build_equation_parts(rhs_styled, locals_map, value)[1:])
         parts.insert(1, rhs_styled)
-    elif value is not None:
+    elif _should_render_runtime_value(value):
         parts.append(value_to_ir(value))
     return parts
+
+
+def _should_render_runtime_value(value: Any) -> bool:
+    """仅追加适合展示的运行期值，避免复杂对象 repr 污染计算书"""
+    if value is None:
+        return False
+    if isinstance(value, ir.MathNode):
+        return True
+    if isinstance(value, (int, float, str)):
+        return True
+    if isinstance(value, (list, tuple, np.ndarray, pint.Quantity)):
+        return True
+    return False
 
 
 @dataclass(frozen=True, slots=True)
