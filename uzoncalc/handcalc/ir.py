@@ -9,7 +9,7 @@ import xml.etree.ElementTree as ET
 _FACTORY_NAME_OVERRIDES: dict[type, str] = {}
 
 
-# MathNode IR node definitions
+# MathNode IR(means Intermediate Representation) node definitions
 # ============================
 # These are simple dataclasses representing MathML-like structures.
 # They are intended to be easily constructed during AST-to-IR conversion

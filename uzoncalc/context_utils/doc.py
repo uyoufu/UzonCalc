@@ -52,6 +52,13 @@ def head(tag: str, attrs: dict[str, str]):
             "Invalid head content: tag must be a non-empty string and attrs must be a dictionary"
         )
 
+    normalized_tag, normalized_attrs = _normalize_head(tag, attrs)
+    head_hash = _compute_head_hash(normalized_tag, normalized_attrs)
+    ctx.options.heads[head_hash] = (normalized_tag, normalized_attrs)
+
+
+def _normalize_head(tag: str, attrs: dict[str, str]) -> tuple[str, dict[str, str]]:
+    """标准化 head 标签，保证相同内容生成相同 hash。"""
     normalized_tag = tag.strip().lower()
     normalized_attrs = {
         attr_name.strip().lower(): str(attr_value)
@@ -60,9 +67,14 @@ def head(tag: str, attrs: dict[str, str]):
         )
         if attr_value is not None
     }
+    return normalized_tag, normalized_attrs
+
+
+def _compute_head_hash(tag: str, attrs: dict[str, str]) -> str:
+    """计算 head 标签的稳定 hash。"""
+    normalized_tag, normalized_attrs = _normalize_head(tag, attrs)
     payload = json.dumps({"tag": normalized_tag, "normalized_attrs": normalized_attrs})
-    head_hash = hashlib.sha256(payload.encode("utf-8")).hexdigest()
-    ctx.options.heads[head_hash] = (normalized_tag, normalized_attrs)
+    return hashlib.sha256(payload.encode("utf-8")).hexdigest()
 
 
 def style(name: str, value: dict[str, Any]):

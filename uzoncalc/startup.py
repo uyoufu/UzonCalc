@@ -1,5 +1,4 @@
 import asyncio
-from contextvars import ContextVar
 from contextlib import asynccontextmanager
 from functools import wraps
 import inspect
@@ -76,17 +75,14 @@ def uzon_calc(name: str | None = None):
 
         @wraps(fn)
         async def async_wrapper(*args, **kwargs):
-            # 从 kwargs 中提取 is_silent，默认为 True
             is_silent = kwargs.pop("is_silent", True)
             ctx_hook_created = kwargs.pop("ctx_hook_created", None)
 
-            # 判断是否已经在一个 uzon_calc 上下文中，如果是，则直接调用函数
             try:
                 current_ctx = get_current_instance()
                 valid_kwargs = _prepare_valid_kwargs(kwargs, current_ctx, sig)
                 return await instrumented_fn(*args, **valid_kwargs)
             except RuntimeError:
-                # 如果没有当前上下文，则创建一个新的上下文来运行函数
                 async with uzon_calc_core(
                     name,
                     file_path,
@@ -134,11 +130,9 @@ async def run(
 
     result = func(*args, **kwargs)
 
-    # 只处理异步协程
-    if inspect.iscoroutine(result):
-        return await result
-    else:
+    if not inspect.iscoroutine(result):
         raise TypeError(f"Function {func.__name__} must be async")
+    return await result
 
 
 def run_sync(

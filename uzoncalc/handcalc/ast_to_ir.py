@@ -2,12 +2,22 @@ from __future__ import annotations
 
 import ast
 from functools import singledispatch
-from typing import Any, List, Optional
-from ..units import unit
-from pint.util import UnitsContainer
+from typing import List
+
 from . import ir
-from .unit_collector import UnitExpressionCollector, unit_powers_to_expr
-from .special_functions import format_special_function
+from .converters.call_rendering import render_call
+from .converters.operator_rendering import (
+    BINOP_INFIX,
+    CMP_OPS,
+    UNARY_OPS,
+    maybe_parenthesize_left,
+    maybe_parenthesize_right,
+)
+from .converters.subscript_rendering import render_subscript
+from .converters.unit_expression import (
+    extract_numeric_part,
+    try_fold_unit_expr_as_single_mu,
+)
 
 
 def _unparse(node: ast.AST) -> str:
@@ -17,29 +27,8 @@ def _unparse(node: ast.AST) -> str:
         return node.__class__.__name__
 
 
-# 操作符映射表
-_UNARY_OPS: dict[type, str] = {
-    ast.UAdd: "+",
-    ast.USub: "-",
-    ast.Not: "¬",
-    ast.Invert: "~",
-}
-
-_CMP_OPS: dict[type, str] = {
-    ast.Eq: "≡",
-    ast.NotEq: "≠",
-    ast.Lt: "<",
-    ast.LtE: "≤",
-    ast.Gt: ">",
-    ast.GtE: "≥",
-    ast.In: "in",
-    ast.NotIn: "not in",
-    ast.Is: "is",
-    ast.IsNot: "is not",
-}
-
-
 def target_to_ir(node: ast.AST) -> ir.MathNode:
+    """将赋值目标转换为 MathIR。"""
     # Targets are often Name/Attribute/Subscript/Tuple/List/Starred.
     if isinstance(node, ast.Name):
         return ir.mi(node.id)
@@ -66,88 +55,42 @@ def _expr_name(node: ast.Name) -> ir.MathNode:
 
 @expr_to_ir.register(ast.Constant)
 def _expr_constant(node: ast.Constant) -> ir.MathNode:
-    v = node.value
-    if isinstance(v, (int, float)):
-        return ir.mn(v)
+    value = node.value
+    if isinstance(value, (int, float)):
+        return ir.mn(value)
     # 布尔值和 None 的统一处理
-    return ir.mtext(str(v) if v is not None else "None")
+    return ir.mtext(str(value) if value is not None else "None")
 
 
 @expr_to_ir.register(ast.UnaryOp)
 def _expr_unary(node: ast.UnaryOp) -> ir.MathNode:
-    if (symbol := _UNARY_OPS.get(type(node.op))) is not None:
-        return ir.mrow([ir.mo(symbol), expr_to_ir(node.operand)])
-    return ir.mtext(_unparse(node))
-
-
-# 二元操作符映射: (symbol, is_infix) 或 None 表示特殊处理
-_BINOP_INFIX: dict[type, str] = {
-    ast.Add: "+",
-    ast.Sub: "-",
-    ast.Mult: "·",
-    ast.FloorDiv: "//",
-    ast.Mod: "%",
-}
-
-# 操作符优先级（数值越大优先级越高）
-_BINOP_PRECEDENCE: dict[type, int] = {
-    ast.Add: 1,
-    ast.Sub: 1,
-    ast.Mult: 2,
-    ast.Div: 2,
-    ast.FloorDiv: 2,
-    ast.Mod: 2,
-    ast.Pow: 3,
-}
-
-
-def _needs_parens(child: ast.AST, parent_op: type) -> bool:
-    """判断子表达式是否需要括号
-
-    当子表达式的操作符优先级低于父操作符时，需要括号
-    """
-    if not isinstance(child, ast.BinOp):
-        return False
-
-    child_prec = _BINOP_PRECEDENCE.get(type(child.op), 0)
-    parent_prec = _BINOP_PRECEDENCE.get(parent_op, 0)
-
-    return child_prec < parent_prec
+    symbol = UNARY_OPS.get(type(node.op))
+    if symbol is None:
+        return ir.mtext(_unparse(node))
+    return ir.mrow([ir.mo(symbol), expr_to_ir(node.operand)])
 
 
 @expr_to_ir.register(ast.BinOp)
 def _expr_binop(node: ast.BinOp) -> ir.MathNode:
     # 特殊处理单位表达式
-    if (folded := _try_fold_unit_expr_as_single_mu(node)) is not None:
-        if (numeric := _extract_numeric_part(node)) is not None:
+    folded = try_fold_unit_expr_as_single_mu(node)
+    if folded is not None:
+        numeric = extract_numeric_part(node)
+        if numeric is not None:
             return ir.mrow([numeric, ir.mo(""), folded])
         return folded
 
     op_type = type(node.op)
 
-    # 转换左右子节点
-    left = expr_to_ir(node.left)
-    right = expr_to_ir(node.right)
-
-    # 检查是否需要给左子节点添加括号
-    if _needs_parens(node.left, op_type):
-        left = ir.mrow([ir.mo("("), left, ir.mo(")")])
-
-    # 检查是否需要给右子节点添加括号
-    # 对于减法和除法，右侧即使同优先级也需要括号（因为不满足结合律）
-    # 由于除法采用分数形式展示，这里只需考虑减法情况
-    if _needs_parens(node.right, op_type):
-        right = ir.mrow([ir.mo("("), right, ir.mo(")")])
-    elif isinstance(node.right, ast.BinOp) and op_type is ast.Sub:
-        # 对于 a - (b + c) 或 a / (b * c) 这类情况，右侧同优先级也需要括号
-        right_prec = _BINOP_PRECEDENCE.get(type(node.right.op), 0)
-        parent_prec = _BINOP_PRECEDENCE.get(op_type, 0)
-        if right_prec == parent_prec:
-            right = ir.mrow([ir.mo("("), right, ir.mo(")")])
+    # 转换左右子节点，并根据操作符优先级补充必要括号
+    left = maybe_parenthesize_left(node.left, op_type, expr_to_ir(node.left))
+    right = maybe_parenthesize_right(node.right, op_type, expr_to_ir(node.right))
 
     # 中缀操作符
-    if (symbol := _BINOP_INFIX.get(op_type)) is not None:
+    symbol = BINOP_INFIX.get(op_type)
+    if symbol is not None:
         return ir.mrow([left, ir.mo(symbol), right])
+
     # 特殊操作符
     if op_type is ast.Div:
         return ir.mfrac(left, right)
@@ -160,107 +103,38 @@ def _expr_binop(node: ast.BinOp) -> ir.MathNode:
 def _expr_boolop(node: ast.BoolOp) -> ir.MathNode:
     op = "∧" if isinstance(node.op, ast.And) else "∨"
     items: List[ir.MathNode] = []
-    for idx, v in enumerate(node.values):
+    for idx, value in enumerate(node.values):
         if idx:
             items.append(ir.mo(op))
-        items.append(expr_to_ir(v))
+        items.append(expr_to_ir(value))
     return ir.mrow(items)
 
 
 @expr_to_ir.register(ast.Compare)
 def _expr_compare(node: ast.Compare) -> ir.MathNode:
     items: List[ir.MathNode] = [expr_to_ir(node.left)]
-    for op, comp in zip(node.ops, node.comparators):
-        items.append(ir.mo(_CMP_OPS.get(type(op), op.__class__.__name__)))
-        items.append(expr_to_ir(comp))
+    for op, comparator in zip(node.ops, node.comparators):
+        items.append(ir.mo(CMP_OPS.get(type(op), op.__class__.__name__)))
+        items.append(expr_to_ir(comparator))
     return ir.mrow(items)
 
 
 @expr_to_ir.register(ast.Call)
 def _expr_call(node: ast.Call) -> ir.MathNode:
-    args = [expr_to_ir(a) for a in node.args]
-
-    # 尝试使用特殊函数格式化器
-    special_formatted = format_special_function(_unparse(node.func), args)
-    if special_formatted is not None:
-        return special_formatted
-
-    # 处理方法调用如 b_f.to(unit.meter)
-    if isinstance(node.func, ast.Attribute):
-        obj = expr_to_ir(node.func.value)
-        method_name = node.func.attr
-        arg_nodes = _build_call_arg_nodes(node)
-        return ir.mrow(
-            [
-                obj,  # 对象，斜体
-                ir.mtext(f".{method_name}"),  # 方法名，正体
-                ir.mo("("),
-                *arg_nodes,  # 参数，斜体
-                ir.mo(")"),
-            ]
-        )
-
-    # 普通函数调用: f(a, b)
-    func_name = _unparse(node.func)
-    arg_nodes = _build_call_arg_nodes(node)
-
-    return ir.mrow([ir.mtext(func_name), ir.mo("("), *arg_nodes, ir.mo(")")])
-
-
-def _build_call_arg_nodes(node: ast.Call) -> List[ir.MathNode]:
-    """构建函数调用参数节点，统一支持位置参数和关键字参数"""
-    arg_nodes: List[ir.MathNode] = []
-
-    call_args = [_call_arg_to_ir(arg) for arg in node.args]
-    call_args.extend(_call_keyword_to_ir(keyword) for keyword in node.keywords)
-
-    for idx, arg_node in enumerate(call_args):
-        if idx:
-            arg_nodes.append(ir.mo(","))
-        arg_nodes.append(arg_node)
-
-    return arg_nodes
-
-
-def _call_arg_to_ir(node: ast.expr) -> ir.MathNode:
-    if isinstance(node, ast.Starred):
-        return ir.mrow([ir.mo("*"), expr_to_ir(node.value)])
-    return expr_to_ir(node)
-
-
-def _call_keyword_to_ir(node: ast.keyword) -> ir.MathNode:
-    value_ir = expr_to_ir(node.value)
-    if node.arg is None:
-        return ir.mrow([ir.mo("**"), value_ir])
-    return ir.mrow([ir.mtext(node.arg), ir.mo("="), value_ir])
+    # 函数调用的参数、特殊函数和方法调用格式化拆到 converters/call_rendering.py
+    return render_call(node, expr_to_ir=expr_to_ir, unparse=_unparse)
 
 
 @expr_to_ir.register(ast.List)
 def _expr_list(node: ast.List) -> ir.MathNode:
-    """Render list literals as array-value nodes.
-
-    This keeps display consistent with runtime list values (see value_to_ir),
-    so we don't end up with both a textual "[10, 20]" and a structured array
-    representation on the same equation line.
-    """
-
-    items: List[ir.MathNode] = []
-    for idx, elt in enumerate(node.elts):
-        if idx:
-            items.append(ir.mo(","))
-        items.append(expr_to_ir(elt))
-    return ir.mrow_array([ir.mo("["), *items, ir.mo("]")])
+    # 与运行期 list 值保持一致，避免同一行出现文本数组和结构化数组两种样式
+    return _sequence_to_array(node.elts)
 
 
 @expr_to_ir.register(ast.Tuple)
 def _expr_tuple(node: ast.Tuple) -> ir.MathNode:
     # Keep consistent with runtime tuple rendering, which currently uses brackets.
-    items: List[ir.MathNode] = []
-    for idx, elt in enumerate(node.elts):
-        if idx:
-            items.append(ir.mo(","))
-        items.append(expr_to_ir(elt))
-    return ir.mrow_array([ir.mo("["), *items, ir.mo("]")])
+    return _sequence_to_array(node.elts)
 
 
 @expr_to_ir.register(ast.Attribute)
@@ -268,136 +142,25 @@ def _expr_attribute(node: ast.Attribute) -> ir.MathNode:
     # like unit.meter
     if isinstance(node.value, ast.Name) and node.value.id == "unit":
         return ir.mu(node.attr)
+
     # 处理链式调用如 b_f.to(unit.meter).magnitude
     # value 是 Call 时，这是一个字段访问
-    elif isinstance(node.value, ast.Call):
-        call_ir = expr_to_ir(node.value)
+    if isinstance(node.value, ast.Call):
         # 字段名渲染为斜体
-        return ir.mrow([call_ir, ir.mi(f".{node.attr}")])
-    else:
-        return ir.mi(_unparse(node))
-
-
-def _subscript_base_name(node: ast.AST) -> Optional[str]:
-    if isinstance(node, ast.Name):
-        return node.id
-    if isinstance(node, ast.Attribute):
-        return _unparse(node)
-    return None
-
-
-def _slice_to_ir(node: ast.AST) -> ir.MathNode:
-    if isinstance(node, ast.Constant):
-        if isinstance(node.value, (int, float)):
-            return ir.mn(node.value)
-        return ir.mtext(str(node.value))
-    if isinstance(node, ast.Name):
-        return ir.mi(node.id)
-    if isinstance(node, ast.Tuple):
-        parts: list[ir.MathNode] = []
-        for idx, elt in enumerate(node.elts):
-            if idx:
-                parts.append(ir.mo(","))
-            parts.append(_slice_to_ir(elt))
-        return ir.mrow(parts)
-    if isinstance(node, ast.Slice):
-        parts: list[ir.MathNode] = []
-        if node.lower is not None:
-            parts.append(_slice_to_ir(node.lower))
-        parts.append(ir.mo(":"))
-        if node.upper is not None:
-            parts.append(_slice_to_ir(node.upper))
-        if node.step is not None:
-            parts.append(ir.mo(":"))
-            parts.append(_slice_to_ir(node.step))
-        return ir.mrow(parts)
-    return ir.mtext(_unparse(node).replace(" ", ""))
+        return ir.mrow([expr_to_ir(node.value), ir.mi(f".{node.attr}")])
+    return ir.mi(_unparse(node))
 
 
 @expr_to_ir.register(ast.Subscript)
 def _expr_subscript(node: ast.Subscript) -> ir.MathNode:
-    base_name = _subscript_base_name(node.value)
-    if base_name is None:
-        return ir.mtext(_unparse(node))
-
-    sub_ir = _slice_to_ir(node.slice)
-    return ir.msub(ir.mi(base_name), sub_ir)
+    return render_subscript(node, unparse=_unparse)
 
 
-# _cmp_op_to_str 已由 _CMP_OPS 字典替代
-
-
-def _try_fold_unit_expr_as_single_mu(node: ast.AST) -> Optional[ir.MathNode]:
-    """
-    遍历乘除法表达式树，提取出其中的单位及其幂次，构造一个单一的 ir.Mu 节点表示该单位表达式
-    若没有符合的单位乘除法表达式，返回 None
-    """
-    if not isinstance(node, ast.BinOp) or not isinstance(
-        node.op, (ast.Mult, ast.Div, ast.Pow)
-    ):
-        return None
-
-    # 使用辅助类来管理状态
-    collector = UnitExpressionCollector()
-    if not collector.walk(node, +1):
-        return None
-
-    if not collector.unit_powers:
-        return None
-
-    # 构建单位节点（只包含单位部分，不包含系数）
-    units = unit.parse_units(unit_powers_to_expr(collector.unit_powers))
-    return ir.mu(str(units))
-
-
-def _extract_numeric_part(node: ast.AST) -> Optional[ir.MathNode]:
-    """从包含单位的表达式中提取纯数值计算部分"""
-    if not isinstance(node, ast.BinOp):
-        return None
-
-    def _is_unit_node(n: ast.AST) -> bool:
-        """检查是否为单位相关节点"""
-        if (
-            isinstance(n, ast.Attribute)
-            and isinstance(n.value, ast.Name)
-            and n.value.id == "unit"
-        ):
-            return True
-        if isinstance(n, ast.BinOp) and isinstance(n.op, ast.Pow):
-            return _is_unit_node(n.left)
-        return False
-
-    def _extract(n: ast.AST) -> Optional[ir.MathNode]:
-        """递归提取数值部分"""
-        if isinstance(n, ast.Constant) and isinstance(n.value, (int, float)):
-            return ir.mn(n.value)
-        if isinstance(n, ast.UnaryOp):
-            # 处理带符号的数值（如 -15）
-            # 如果操作数是常量，直接应用符号到数值
-            if isinstance(n.operand, ast.Constant) and isinstance(
-                n.operand.value, (int, float)
-            ):
-                if isinstance(n.op, ast.USub):
-                    return ir.mn(-n.operand.value)
-                elif isinstance(n.op, ast.UAdd):
-                    return ir.mn(n.operand.value)
-            # 对于更复杂的表达式，递归提取
-            operand = _extract(n.operand)
-            if operand is not None:
-                symbol = _UNARY_OPS.get(type(n.op), "")
-                return ir.mrow([ir.mo(symbol), operand])
-            return None
-        if _is_unit_node(n):
-            return None
-        if isinstance(n, ast.BinOp):
-            left, right = _extract(n.left), _extract(n.right)
-            if left and right:
-                return (
-                    ir.mrow([left, ir.mo("·"), right])
-                    if isinstance(n.op, ast.Mult)
-                    else ir.mfrac(left, right)
-                )
-            return left or right
-        return None
-
-    return _extract(node)
+def _sequence_to_array(elements: list[ast.expr]) -> ir.MathNode:
+    """列表/元组按数组值样式渲染。"""
+    items: List[ir.MathNode] = []
+    for idx, element in enumerate(elements):
+        if idx:
+            items.append(ir.mo(","))
+        items.append(expr_to_ir(element))
+    return ir.mrow_array([ir.mo("["), *items, ir.mo("]")])

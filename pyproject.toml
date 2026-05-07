@@ -13,8 +13,14 @@ requires-python = ">=3.10"
 dependencies = [
     "build>=1.4.2",
     "fastapi>=0.134.0",
+    "matplotlib>=3.10.8",
+    "numpy",
+    "openpyxl",
+    "pint",
+    "pytest",
     "twine>=6.2.0",
     "uvicorn>=0.41.0",
+    "xlwings",
 ]
 
 [tool.setuptools.packages.find]

@@ -1,0 +1,149 @@
+from __future__ import annotations
+
+import html
+from typing import Any
+
+import numpy as np
+import pint
+
+from ...globals import get_current_instance
+from .. import ir
+
+FLOAT_PRECISION = 12  # 浮点数清理精度（消除浮点误差）
+SYMBOL_COMMA = ","
+SYMBOL_LEFT_BRACKET = "["
+SYMBOL_RIGHT_BRACKET = "]"
+
+
+def should_render_runtime_value(value: Any) -> bool:
+    """仅展示稳定、可读的运行期值，避免复杂对象 repr 污染计算书。"""
+    if value is None:
+        return False
+    if isinstance(value, ir.MathNode):
+        return True
+    if isinstance(value, (int, float, str)):
+        return True
+    if isinstance(value, (list, tuple, np.ndarray, pint.Quantity)):
+        return True
+    return False
+
+
+def is_array_value(value: Any) -> bool:
+    """判断运行期值是否应按数组样式展示。"""
+    return isinstance(value, (list, tuple, np.ndarray))
+
+
+def value_to_ir(value: Any) -> ir.MathNode:
+    """将 Python 运行期值转换为 MathIR。"""
+    if isinstance(value, ir.MathNode):
+        return value
+
+    # Numbers
+    if isinstance(value, (int, float)):
+        return ir.mn(format_number(value))
+
+    # Strings
+    if isinstance(value, str):
+        return ir.mtext(value)
+
+    if isinstance(value, (list, tuple)):
+        items: list[ir.MathNode] = []
+        for idx, item in enumerate(value):
+            if idx:
+                items.append(ir.mo(SYMBOL_COMMA))
+            items.append(value_to_ir(item))
+        return ir.mrow_array(
+            [ir.mo(SYMBOL_LEFT_BRACKET), *items, ir.mo(SYMBOL_RIGHT_BRACKET)]
+        )
+
+    if isinstance(value, np.ndarray):
+        return value_to_ir(value.tolist())
+
+    if isinstance(value, pint.Quantity):
+        # 使用 format_number 处理浮点数精度问题
+        magnitude = value.magnitude
+        formatted_magnitude = (
+            format_number(magnitude)
+            if isinstance(magnitude, (int, float))
+            else str(magnitude)
+        )
+        return ir.mrow([ir.mn(formatted_magnitude), ir.mo(""), ir.mu(str(value.units))])
+
+    return ir.mtext(str(value))
+
+
+def render_value_only(value: Any) -> str:
+    """仅渲染值（不显示表达式），直接返回字符串，不包裹 math。"""
+    if value is None:
+        return ""
+
+    if isinstance(value, ir.MText):
+        return html.escape(value.text)
+    if isinstance(value, ir.Mn):
+        return html.escape(value.value)
+    if isinstance(value, ir.Mi):
+        return html.escape(value.name)
+    if isinstance(value, ir.Mo):
+        return html.escape(value.symbol)
+    if isinstance(value, ir.Mu):
+        return html.escape(value.name)
+    if isinstance(value, str):
+        return html.escape(value)
+    if isinstance(value, (int, float)):
+        return html.escape(format_number(value))
+    if isinstance(value, pint.Quantity):
+        magnitude = value.magnitude
+        formatted = (
+            format_number(magnitude)
+            if isinstance(magnitude, (int, float))
+            else str(magnitude)
+        )
+        return html.escape(f"{formatted} {value.units}")
+
+    return html.escape(str(value))
+
+
+def apply_format_spec(value: Any, format_spec: str) -> Any:
+    """应用格式化规范到值。"""
+    if not format_spec or value is None:
+        return value
+
+    if isinstance(value, pint.Quantity):
+        # 分别格式化数值和单位
+        formatted_magnitude = format(value.magnitude, format_spec)
+        return ir.mrow([ir.mn(formatted_magnitude), ir.mo(""), ir.mu(str(value.units))])
+
+    # 对于非 Quantity 值，直接格式化
+    return value_to_ir(format(value, format_spec))
+
+
+def clean_float(value: float, precision: int = FLOAT_PRECISION) -> float:
+    """清理浮点数精度问题。"""
+    # 使用 round 移除浮点数运算误差
+    return round(value, precision)
+
+
+def get_float_precision() -> int:
+    """获取当前上下文的小数显示精度。"""
+    ctx = get_current_instance()
+    return max(0, ctx.options.float_precision)
+
+
+def format_number(value: float | int) -> str:
+    """按当前上下文精度格式化数字，并移除多余尾零。"""
+    if isinstance(value, int):
+        return str(value)
+
+    display_precision = get_float_precision()
+
+    # 先做一次足够精细的浮点清理，再按当前显示精度四舍五入
+    cleaned = clean_float(value, max(display_precision, FLOAT_PRECISION))
+
+    # 如果是整数值，不显示小数部分
+    if cleaned == int(cleaned):
+        return str(int(cleaned))
+
+    formatted = f"{cleaned:.{display_precision}f}"
+    if "." in formatted:
+        formatted = formatted.rstrip("0").rstrip(".")
+    return formatted or "0"
