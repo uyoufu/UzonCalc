@@ -1,0 +1,35 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.5.2.0
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "ui", "ui", "{FA674B5A-3394-926C-2B1E-70E5B00E4A5C}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "desktop-maui", "desktop-maui", "{59404D51-E44E-81CB-1394-1832C72CAC60}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "src", "src", "{23015307-792F-D832-C53B-995FFDCA4A11}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "UzoncalcMaui", "ui\desktop-maui\src\UzoncalcMaui.csproj", "{FE4CD91B-162B-66DE-998D-A1D866D18E07}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{FE4CD91B-162B-66DE-998D-A1D866D18E07}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{FE4CD91B-162B-66DE-998D-A1D866D18E07}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{FE4CD91B-162B-66DE-998D-A1D866D18E07}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{FE4CD91B-162B-66DE-998D-A1D866D18E07}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(SolutionProperties) = preSolution
+		HideSolutionNode = FALSE
+	EndGlobalSection
+	GlobalSection(NestedProjects) = preSolution
+		{59404D51-E44E-81CB-1394-1832C72CAC60} = {FA674B5A-3394-926C-2B1E-70E5B00E4A5C}
+		{23015307-792F-D832-C53B-995FFDCA4A11} = {59404D51-E44E-81CB-1394-1832C72CAC60}
+		{FE4CD91B-162B-66DE-998D-A1D866D18E07} = {23015307-792F-D832-C53B-995FFDCA4A11}
+	EndGlobalSection
+	GlobalSection(ExtensibilityGlobals) = postSolution
+		SolutionGuid = {F3F7CFDD-18FF-4F09-AE0B-7693A0DD63D8}
+	EndGlobalSection
+EndGlobal

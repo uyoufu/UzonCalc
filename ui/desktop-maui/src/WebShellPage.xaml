@@ -1,0 +1,56 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="uzoncalc.WebShellPage"
+             BackgroundColor="#111827">
+    <Grid>
+        <WebView x:Name="AppWebView"
+                 IsVisible="False" />
+
+        <Grid x:Name="LoadingView"
+              BackgroundColor="#111827"
+              Padding="32">
+            <VerticalStackLayout HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="16"
+                                 MaximumWidthRequest="420">
+                <ActivityIndicator IsRunning="True"
+                                   Color="#60A5FA"
+                                   WidthRequest="40"
+                                   HeightRequest="40"
+                                   HorizontalOptions="Center" />
+                <Label Text="UzonCalc"
+                       TextColor="White"
+                       FontSize="28"
+                       HorizontalTextAlignment="Center" />
+                <Label x:Name="StatusLabel"
+                       Text="Starting local service..."
+                       TextColor="#D1D5DB"
+                       FontSize="16"
+                       HorizontalTextAlignment="Center" />
+            </VerticalStackLayout>
+        </Grid>
+
+        <Grid x:Name="ErrorView"
+              IsVisible="False"
+              BackgroundColor="#111827"
+              Padding="32">
+            <VerticalStackLayout HorizontalOptions="Center"
+                                 VerticalOptions="Center"
+                                 Spacing="16"
+                                 MaximumWidthRequest="480">
+                <Label Text="Service startup failed"
+                       TextColor="White"
+                       FontSize="28"
+                       HorizontalTextAlignment="Center" />
+                <Label x:Name="ErrorLabel"
+                       TextColor="#FCA5A5"
+                       FontSize="16"
+                       HorizontalTextAlignment="Center" />
+                <Button Text="Retry"
+                        Clicked="RetryButton_OnClicked"
+                        HorizontalOptions="Center" />
+            </VerticalStackLayout>
+        </Grid>
+    </Grid>
+</ContentPage>

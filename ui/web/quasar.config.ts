@@ -134,6 +134,9 @@ export default defineConfig((ctx) => {
           }
         ],
         ['vite-plugin-checker', {
+          // Avoid Node DEP0190 during production builds.
+          // Keep checker in dev, but don't spawn its build-time workers.
+          enableBuild: false,
           vueTsc: true,
           eslint: {
             lintCommand: 'eslint -c ./eslint.config.js "./src*/**/*.{ts,js,mjs,cjs,vue}"',

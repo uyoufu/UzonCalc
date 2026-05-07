@@ -31,7 +31,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
           label: 'dashboardPage.newCalcReport',
           icon: 'terminal'
         },
-        component: () => import('pages/dashboard/DashboardIndex.vue')
+        component: () => import('pages/dashboard/dashboardIndex.vue')
       }
     ]
   },
