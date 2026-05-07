@@ -59,7 +59,7 @@ from uzoncalc import *
 from uzoncalc.extension.excel import get_excel_table
 
 @uzon_calc()
-def sheet():
+async def sheet():
     doc_title("UzonCalc Full Example")
     page_size("A4")
 
@@ -259,7 +259,7 @@ if __name__ == "__main__":
     import time
 
     t0 = time.perf_counter()
-    sheet()  # type: ignore
+    run_async(sheet)
     t1 = time.perf_counter()
     print(f"Execution time: {t1 - t0} seconds")
 
