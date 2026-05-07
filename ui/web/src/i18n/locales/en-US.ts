@@ -261,6 +261,7 @@ export default {
 			reportName: 'Report name',
 			reportDescription: 'Report description',
 			modifyReport: 'Modify report',
+      modifyInfo: 'Modify info',
 			modifyReportSourceCode: 'Modify source code',
 			showInFileExplorer: 'Show in file explorer',
 			modifyReportSuccess: 'Report updated successfully'

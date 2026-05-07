@@ -304,6 +304,7 @@ export default {
       reportName: '报告名称',
       reportDescription: '报告描述',
       modifyReport: '修改报告',
+      modifyInfo: '修改信息',
       modifyReportSourceCode: '修改源码',
       showInFileExplorer: '在文件资源管理器中显示',
       modifyReportSuccess: '修改报告成功'

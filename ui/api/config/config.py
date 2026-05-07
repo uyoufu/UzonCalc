@@ -2,6 +2,7 @@ import configparser
 import logging
 import logging.config
 import os
+import platform
 
 app_name = "uzoncalc"
 
@@ -95,13 +96,14 @@ class AppConfig:
     def is_desktop(self) -> bool:
         """是否为桌面版本"""
         try:
-            return self.__config.getboolean("app", "desktop")
+            return platform.system() in ["Windows", "Darwin"]
         except (configparser.NoOptionError, configparser.NoSectionError):
             return False
 
     def get_api_host_type(self) -> str:
         """获取 API 访问类型: desktop-api 或 web-api"""
         if self.is_desktop:
+            # 桌面端会自动使用默认账号登录，即没有登录界面
             return "desktop-api"
         else:
             return "web-api"

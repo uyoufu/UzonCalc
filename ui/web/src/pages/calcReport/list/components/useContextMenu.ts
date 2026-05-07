@@ -14,7 +14,10 @@ import { showCalcReportInExplorer } from 'src/api/desktop'
 
 import { useSystemInfo } from 'src/stores/system'
 
-export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn: deleteRowByIdType) {
+export function useContextMenu(
+  categoryOid: ComputedRef<string>,
+  deleteRowByIdFn: deleteRowByIdType
+) {
   const { navigateToEditCalcReport } = useEditCalcReportNavigator()
   const { navigateToCalcReportViewer } = useCalcReportViewerNavigator()
   const systemInfoStore = useSystemInfo()
@@ -51,7 +54,7 @@ export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn
       },
       {
         name: 'modify',
-        label: tGlobal('modify'),
+        label: t('calcReportPage.list.modifyInfo'),
         onClick: onModifyCalcReport
       },
       {
@@ -147,3 +150,4 @@ export function useContextMenu(categoryOid: ComputedRef<string>, deleteRowByIdFn
     itemContextMenuItems
   }
 }
+

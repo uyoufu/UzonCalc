@@ -2,6 +2,7 @@ import os
 import time
 import sys
 import logging
+import socket
 
 from pathlib import Path
 from gettext import gettext as _
@@ -250,19 +251,58 @@ mount_mcp(app)
 
 logger.info(f"{app_config.app_name} launched successfully!")
 
+
+def is_port_available(host: str, port: int) -> bool:
+    """检查指定地址和端口是否可绑定。"""
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+        try:
+            sock.bind((host, port))
+        except OSError:
+            return False
+    return True
+
+
+def find_available_port(host: str, preferred_port: int, max_tries: int = 20) -> int:
+    """在首选端口不可用时，向后探测可用端口。"""
+    for port in range(preferred_port, preferred_port + max_tries + 1):
+        if is_port_available(host, port):
+            return port
+
+    raise RuntimeError(
+        f"No available port found for host {host} in range "
+        f"{preferred_port}-{preferred_port + max_tries}"
+    )
+
+
 if __name__ == "__main__":
     import uvicorn
+
+    run_port = app_config.port
+
+    logger.info(
+        f"Starting {app_config.app_name}, host {app_config.host}, port {run_port}..."
+    )
 
     if app_config.is_dev:
         logger.info(
             "Detected development environment, starting in development mode with auto-reload..."
         )
+        if not is_port_available(app_config.host, run_port):
+            fallback_port = find_available_port(app_config.host, run_port + 1)
+            logger.warning(
+                "Port %s is already in use, switching development server to port %s.",
+                run_port,
+                fallback_port,
+            )
+            run_port = fallback_port
+
         # 关闭 watchfiles 的日志输出
         logging.getLogger("watchfiles.main").setLevel(logging.WARNING)
         uvicorn.run(
             "main:app",
             host=app_config.host,
-            port=app_config.port,
+            port=run_port,
             log_level=logging.DEBUG,
             reload=True,
             reload_excludes=["*.log", "*.md"],
@@ -272,6 +312,6 @@ if __name__ == "__main__":
         uvicorn.run(
             app,
             host=app_config.host,
-            port=app_config.port,
+            port=run_port,
             log_level=app_config.log_level,
         )
