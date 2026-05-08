@@ -153,16 +153,19 @@ const emit = defineEmits<{
   cancel: []
 }>()
 
+// 字段的基础样式类，用于控制布局
+const fieldClass = computed(() => {
+  if (props.oneColumn) return 'col-12'
+  // 使用 col-grow 配合 CSS 中的 min-width，可以实现按父级宽度动态显示列
+  return 'col-grow'
+})
+
 // 是否为匹配到的类型
 const commonInputTypes = ["text", "email", "search", "tel", "file", "url", "time", "date", "datetime-local"]
 function isMatchedType(field: ILowCodeField, types: string | string[]): boolean {
   if (Array.isArray(types)) return types.includes(field.type as string)
   // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
   return field.type === types
-}
-
-function isInputLikeField(field: ILowCodeField): boolean {
-  return isMatchedType(field, [...commonInputTypes, 'number', 'textarea', 'password'])
 }
 
 // function getContainerClass() {
@@ -247,19 +250,6 @@ const validFields = computed(() => {
   }
 
   return results
-})
-
-// 字段的基础样式类，用于控制布局
-const fieldClass = computed(() => {
-  if (props.oneColumn) return 'col-12'
-
-  // 仅有一个输入类字段时，避免父级按 80px 最小宽度收缩。
-  if (validFields.value.length === 1 && isInputLikeField(validFields.value[0]!)) {
-    return 'col-12 low-code__field--single'
-  }
-
-  // 使用 col-grow 配合 CSS 中的 min-width，可以实现按父级宽度动态显示列
-  return 'col-grow'
 })
 // #endregion
 
@@ -395,7 +385,7 @@ watch(fieldsModel, () => {
 
 <style lang="scss" scoped>
 .low-code_form-container {
-  min-width: 80px;
+  min-width: 300px;
   display: flex;
   flex-direction: column;
 }
@@ -409,12 +399,6 @@ watch(fieldsModel, () => {
   @media screen and (max-width: 600px) {
     min-width: 100%;
   }
-}
-
-.low-code__field--single {
-  width: 100%;
-  min-width: 300px;
-  flex-basis: 100%;
 }
 
 :deep(.low-code__field textarea) {
