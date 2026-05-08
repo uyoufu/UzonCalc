@@ -306,6 +306,10 @@ export default {
       modifyReport: '修改报告',
       modifyInfo: '修改信息',
       modifyReportSourceCode: '修改源码',
+      copy: '复制',
+      copyReport: '复制报告',
+      copyReportSuccess: '复制报告成功',
+      reportNameRequired: '请输入报告名称',
       showInFileExplorer: '在文件资源管理器中显示',
       modifyReportSuccess: '修改报告成功'
     }

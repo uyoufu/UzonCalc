@@ -1,4 +1,5 @@
 import os
+import shutil
 
 
 def get_user_calcs_root(user_id: int) -> str:
@@ -76,6 +77,14 @@ def sync_calc_report_file(old_file_path: str, new_file_path: str) -> None:
 
     os.makedirs(os.path.dirname(new_file_path), exist_ok=True)
     os.replace(old_file_path, new_file_path)
+
+
+def copy_calc_report_file(source_file_path: str, target_file_path: str) -> None:
+    """
+    复制计算报告源码文件
+    """
+    os.makedirs(os.path.dirname(target_file_path), exist_ok=True)
+    shutil.copy2(source_file_path, target_file_path)
 
 
 def write_calc_report_file(file_path: str, content: str) -> None:

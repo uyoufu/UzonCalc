@@ -87,6 +87,15 @@ export function updateCalcReport(
 }
 
 /**
+ * 复制计算报告
+ * @param reportOid 原报告OID
+ * @param data 复制后的报告信息
+ */
+export function copyCalcReport(reportOid: string, data: { name: string }) {
+  return httpClient.post<ICalcReportInfo>(`/calc-report/${reportOid}/copy`, { data })
+}
+
+/**
  * 删除计算报告
  * @param reportOid 报告OID
  */

@@ -263,6 +263,10 @@ export default {
 			modifyReport: 'Modify report',
       modifyInfo: 'Modify info',
 			modifyReportSourceCode: 'Modify source code',
+			copy: 'Copy',
+			copyReport: 'Copy report',
+			copyReportSuccess: 'Report copied successfully',
+			reportNameRequired: 'Please enter report name',
 			showInFileExplorer: 'Show in file explorer',
 			modifyReportSuccess: 'Report updated successfully'
 		}

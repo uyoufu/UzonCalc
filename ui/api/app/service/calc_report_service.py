@@ -21,6 +21,7 @@ from app.controller.calc.calc_dto import (
 from app.exception.custom_exception import raise_ex
 from app.utils.path_manager import (
     build_calc_report_file_path,
+    copy_calc_report_file,
     sync_calc_report_file,
     write_calc_report_file,
 )
@@ -425,6 +426,95 @@ async def update_calc_report(
     logger.info(f"计算报告更新成功: userId={user_id}, reportOid={report_oid}")
 
     return CalcReportResDTO.model_validate(report, from_attributes=True)
+
+
+async def copy_calc_report(
+    user_id: int, report_oid: str, new_name: str, session: AsyncSession
+) -> CalcReportResDTO:
+    """
+    复制计算报告到原分类下
+
+    :param user_id: 用户 ID
+    :param report_oid: 原报告 OID
+    :param new_name: 新报告名称
+    :param session: 数据库会话
+    :return: 新报告信息
+    """
+    if not new_name:
+        raise_ex("reportName is required", code=400)
+
+    # 获取原报告，确保只能复制当前用户自己的有效报告
+    report = await session.scalar(
+        select(CalcReport).where(
+            (CalcReport.oid == report_oid)
+            & (CalcReport.userId == user_id)
+            & (CalcReport.status == 1)
+        )
+    )
+    if not report:
+        raise_ex("Report not found", code=404)
+    report = cast(CalcReport, report)
+
+    category = await session.scalar(
+        select(CalcReportCategory).where(
+            (CalcReportCategory.id == report.categoryId)
+            & (CalcReportCategory.userId == user_id)
+            & (CalcReportCategory.status == 1)
+        )
+    )
+    if not category:
+        raise_ex("Category not found", code=404)
+    category = cast(CalcReportCategory, category)
+
+    # 复制时按原报告所在分类判重，避免覆盖同名源码文件
+    name_exists = await check_report_name_exists(
+        user_id,
+        new_name,
+        session,
+        exclude_oid=None,
+        category_id=report.categoryId,
+    )
+    if name_exists:
+        raise_ex(f"报告名称 '{new_name}' 已存在", code=400)
+
+    source_file_path = build_calc_report_file_path(user_id, report.name, category.name)
+    if not os.path.exists(source_file_path):
+        raise_ex("Report source file not found", code=404)
+
+    target_file_path = build_calc_report_file_path(user_id, new_name, category.name)
+
+    new_report = CalcReport(
+        userId=user_id,
+        categoryId=report.categoryId,
+        name=new_name,
+        description=report.description,
+        cover=report.cover,
+        type=report.type,
+        copyFromId=report.id,
+    )
+    session.add(new_report)
+    category.total += 1
+
+    try:
+        # 先刷新数据库默认值，确保返回的新报告包含 oid 等字段
+        await session.flush()
+        copy_calc_report_file(source_file_path, target_file_path)
+        await session.commit()
+    except Exception as ex:
+        await session.rollback()
+        logger.exception(
+            f"复制计算报告失败: userId={user_id}, reportOid={report_oid}, newName={new_name}"
+        )
+        raise_ex(f"Copy report failed: {ex}", code=500)
+
+    await session.refresh(new_report)
+
+    logger.info(
+        f"计算报告复制成功: userId={user_id}, sourceReportOid={report_oid}, "
+        f"newReportOid={new_report.oid}"
+    )
+
+    return CalcReportResDTO.model_validate(new_report, from_attributes=True)
 
 
 async def save_calc_report_source_code(

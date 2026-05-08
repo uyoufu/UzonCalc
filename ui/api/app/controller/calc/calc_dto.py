@@ -36,6 +36,10 @@ class CalcReportReqDTO(BaseDTO):
     cover: Optional[str] = None
 
 
+class CopyCalcReportReqDTO(BaseDTO):
+    name: str
+
+
 class CalcReportResDTO(CalcReportReqDTO):
     id: int
     oid: str

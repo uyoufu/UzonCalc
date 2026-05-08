@@ -16,6 +16,7 @@ from app.controller.calc.calc_dto import (
     CalcReportCountFilterDTO,
     SaveCalcReportReqDTO,
     CategoryInfoResDTO,
+    CopyCalcReportReqDTO,
 )
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
@@ -298,6 +299,50 @@ async def update_calc_report(
         tokenPayloads.id, reportOid, data, session
     )
     logger.info(f"更新计算报告: userId={tokenPayloads.id}, reportOid={reportOid}")
+    return ok(data=result)
+
+
+@router.post("/{reportOid}/copy")
+async def copy_calc_report(
+    reportOid: str,
+    data: CopyCalcReportReqDTO,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcReportResDTO]:
+    """
+    复制计算报告
+
+    **功能说明:**
+    - 将指定报告复制到原报告所在分类
+    - 复制报告基础信息和源码文件
+    - 只能复制自己的报告
+
+    **认证:**
+    - 需要有效的 Authorization token
+
+    **路径参数:**
+    - reportOid: 原报告 OID
+
+    **请求参数:**
+    - name: 新报告名称 (必填)
+
+    **返回数据:**
+    - 新复制的报告详细信息
+
+    **错误处理:**
+    - 400: 新报告名称为空或同分类下重名
+    - 404: 原报告、分类或源码文件不存在
+    """
+    new_name = data.name.strip()
+    if not new_name:
+        raise_ex("reportName cannot be empty", code=400)
+
+    result = await calc_report_service.copy_calc_report(
+        tokenPayloads.id, reportOid, new_name, session
+    )
+    logger.info(
+        f"复制计算报告: userId={tokenPayloads.id}, reportOid={reportOid}, newReportOid={result.oid}"
+    )
     return ok(data=result)
 
 

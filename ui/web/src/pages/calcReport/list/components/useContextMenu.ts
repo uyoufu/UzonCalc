@@ -2,17 +2,20 @@ import { computed, type ComputedRef } from 'vue'
 import { t, tGlobal } from 'src/i18n/helpers'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import type { ICalcReportInfo } from 'src/api/calcReport'
-import { deleteCalcReport, updateCalcReport } from 'src/api/calcReport'
-import { confirmOperation, notifySuccess } from 'src/utils/dialog'
+import { copyCalcReport, deleteCalcReport, updateCalcReport } from 'src/api/calcReport'
+import { confirmOperation, notifyError, notifySuccess } from 'src/utils/dialog'
 import type { deleteRowByIdType } from 'src/compositions/qTableUtils'
 import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { useEditCalcReportNavigator } from '../../edit/useEditCalcReportNavigator'
 import { useCalcReportViewerNavigator } from '../../viewer/useCalcReportViewerNavigator'
+import { useCalcListStore } from '../compositions/useCalcListStore'
 import { showCalcReportInExplorer } from 'src/api/desktop'
 
 import { useSystemInfo } from 'src/stores/system'
+
+const COPY_REPORT_NAME_SUFFIX = '_副本'
 
 export function useContextMenu(
   categoryOid: ComputedRef<string>,
@@ -20,6 +23,7 @@ export function useContextMenu(
 ) {
   const { navigateToEditCalcReport } = useEditCalcReportNavigator()
   const { navigateToCalcReportViewer } = useCalcReportViewerNavigator()
+  const { calcListUpdateSignal } = useCalcListStore()
   const systemInfoStore = useSystemInfo()
 
   /**
@@ -61,6 +65,11 @@ export function useContextMenu(
         name: 'modifyReportSourceCode',
         label: t('calcReportPage.list.modifyReportSourceCode'),
         onClick: onModifyReportSourceCode
+      },
+      {
+        name: 'copy',
+        label: t('calcReportPage.list.copy'),
+        onClick: onCopyCalcReport
       },
       {
         name: 'showInFileExplorer',
@@ -126,6 +135,40 @@ export function useContextMenu(
   }
 
   /**
+   * 复制计算报告
+   */
+  async function onCopyCalcReport(report: ICalcReportInfo) {
+    const popupParams: IPopupDialogParams = {
+      title: t('calcReportPage.list.copyReport'),
+      fields: [
+        {
+          name: 'name',
+          label: t('calcReportPage.list.reportName'),
+          value: `${report.name}${COPY_REPORT_NAME_SUFFIX}`,
+          type: LowCodeFieldType.text,
+          required: true
+        }
+      ],
+      oneColumn: true
+    }
+
+    const result = await showDialog<{ name: string }>(popupParams)
+    if (!result.ok) return
+
+    const name = result.data.name.trim()
+    if (!name) {
+      notifyError('calcReportPage.list.reportNameRequired')
+      return false
+    }
+
+    // 后端会复制数据库记录和源码文件，完成后统一刷新列表与分类计数
+    await copyCalcReport(report.oid, { name })
+    calcListUpdateSignal.value++
+
+    notifySuccess(t('calcReportPage.list.copyReportSuccess'))
+  }
+
+  /**
    * 删除计算报告
    */
   async function onDeleteCalcReport(report: ICalcReportInfo) {
@@ -150,4 +193,3 @@ export function useContextMenu(
     itemContextMenuItems
   }
 }
-
