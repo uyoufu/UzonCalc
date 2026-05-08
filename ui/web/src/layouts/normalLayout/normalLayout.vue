@@ -20,8 +20,8 @@
     </q-drawer>
 
     <q-page-container class="page-container">
-      <q-page class="q-px-md q-pb-md full-height full-with">
-        <q-scroll-area class="page__scroll-area full-height full-with" :thumb-style="thumbStyle"
+      <q-page class="q-px-md q-pb-md full-height full-width">
+        <q-scroll-area class="page__scroll-area full-height full-width" :thumb-style="thumbStyle"
           :content-style="contentStyle" :content-active-style="contentActiveStyle">
           <router-view v-slot="{ Component }">
             <transition appear enter-active-class="animated fadeInDown">
