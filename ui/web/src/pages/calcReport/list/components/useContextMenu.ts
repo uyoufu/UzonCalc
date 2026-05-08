@@ -15,8 +15,6 @@ import { showCalcReportInExplorer } from 'src/api/desktop'
 
 import { useSystemInfo } from 'src/stores/system'
 
-const COPY_REPORT_NAME_SUFFIX = '_副本'
-
 export function useContextMenu(
   categoryOid: ComputedRef<string>,
   deleteRowByIdFn: deleteRowByIdType
@@ -144,7 +142,7 @@ export function useContextMenu(
         {
           name: 'name',
           label: t('calcReportPage.list.reportName'),
-          value: `${report.name}${COPY_REPORT_NAME_SUFFIX}`,
+          value: `${report.name}${t('calcReportPage.list.copyReportNameSuffix')}`,
           type: LowCodeFieldType.text,
           required: true
         }

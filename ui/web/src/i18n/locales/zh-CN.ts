@@ -308,6 +308,7 @@ export default {
       modifyReportSourceCode: '修改源码',
       copy: '复制',
       copyReport: '复制报告',
+      copyReportNameSuffix: '_副本',
       copyReportSuccess: '复制报告成功',
       reportNameRequired: '请输入报告名称',
       showInFileExplorer: '在文件资源管理器中显示',
