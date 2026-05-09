@@ -9,6 +9,7 @@ from sqlalchemy import select
 
 from app.db.models.user_setting import UserSetting
 from app.exception.custom_exception import raise_ex
+from app.i18n import _
 from config import logger
 
 
@@ -100,7 +101,10 @@ async def delete_user_setting(user_id: int, key: str, session: AsyncSession) -> 
     setting = await _get_user_setting_model(user_id, key, session)
 
     if not setting:
-        raise_ex(f"User setting with key '{key}' not found", code=404)
+        raise_ex(
+            _("User setting with key '{key}' not found").format(key=key),
+            code=404,
+        )
 
     await session.delete(setting)
     await session.commit()

@@ -19,6 +19,7 @@ from app.controller.calc.calc_dto import (
     CategoryInfoResDTO,
 )
 from app.exception.custom_exception import raise_ex
+from app.i18n import _
 from app.utils.path_manager import (
     build_calc_report_file_path,
     copy_calc_report_file,
@@ -475,7 +476,10 @@ async def copy_calc_report(
         category_id=report.categoryId,
     )
     if name_exists:
-        raise_ex(f"报告名称 '{new_name}' 已存在", code=400)
+        raise_ex(
+            _("Report name '{name}' already exists").format(name=new_name),
+            code=400,
+        )
 
     source_file_path = build_calc_report_file_path(user_id, report.name, category.name)
     if not os.path.exists(source_file_path):
@@ -505,7 +509,10 @@ async def copy_calc_report(
         logger.exception(
             f"复制计算报告失败: userId={user_id}, reportOid={report_oid}, newName={new_name}"
         )
-        raise_ex(f"Copy report failed: {ex}", code=500)
+        raise_ex(
+            _("Copy report failed: {error}").format(error=ex),
+            code=500,
+        )
 
     await session.refresh(new_report)
 

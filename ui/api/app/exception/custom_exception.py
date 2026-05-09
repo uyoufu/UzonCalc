@@ -1,6 +1,8 @@
 from ..response.response_result import ResponseResult
 from typing import NoReturn
 
+from app.i18n import _
+
 
 class CustomException(Exception):
     def __init__(self, code, message, data):
@@ -40,4 +42,4 @@ def raise_ex(message, code=500, data=None) -> NoReturn:
     :param code:
     :param data:
     """
-    raise CustomException(code, message, data)
+    raise CustomException(code, _(message), data)

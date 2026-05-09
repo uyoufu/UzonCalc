@@ -5,6 +5,7 @@ from app.controller.calc.code_format_dto import (
     PythonBlackFormatResDTO,
 )
 from app.exception.custom_exception import raise_ex
+from app.i18n import _
 from config import logger
 
 
@@ -30,7 +31,10 @@ async def format_python_with_black(
     except black.NothingChanged:
         return PythonBlackFormatResDTO(formattedCode=data.code, changed=False)
     except black.InvalidInput as ex:
-        raise_ex(f"Black format failed: {ex}", code=400)
+        raise_ex(
+            _("Black format failed: {error}").format(error=ex),
+            code=400,
+        )
     except Exception as ex:
         logger.error(f"Unexpected Black formatting error: {ex}", exc_info=True)
         raise_ex("Python formatting failed", code=500)

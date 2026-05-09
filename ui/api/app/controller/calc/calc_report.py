@@ -19,6 +19,7 @@ from app.controller.calc.calc_dto import (
     CopyCalcReportReqDTO,
 )
 from app.controller.depends import get_session, get_token_payload
+from app.i18n import _
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_service
 from config import logger, app_config
@@ -293,7 +294,10 @@ async def update_calc_report(
         exclude_oid=reportOid,
     )
     if name_exists:
-        raise_ex(f"Duplicate report name: '{data.name}'", code=400)
+        raise_ex(
+            _("Duplicate report name: '{name}'").format(name=data.name),
+            code=400,
+        )
 
     result = await calc_report_service.update_calc_report(
         tokenPayloads.id, reportOid, data, session
@@ -474,10 +478,16 @@ async def save_calc_report(
     if name_exists:
         if data.reportOid:
             raise_ex(
-                f"报告名称 '{data.reportName}' 已存在，不能与其他报告重名", code=400
+                _("Report name '{name}' already exists and cannot duplicate another report").format(
+                    name=data.reportName
+                ),
+                code=400,
             )
         else:
-            raise_ex(f"报告名称 '{data.reportName}' 已存在", code=400)
+            raise_ex(
+                _("Report name '{name}' already exists").format(name=data.reportName),
+                code=400,
+            )
 
     # 保存或更新数据库记录，并统一处理文件同步
     report_dto, file_path = await calc_report_service.save_calc_report_source_code(

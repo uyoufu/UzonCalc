@@ -106,7 +106,7 @@ async def register_user(
     )
     if existing_user:
         logger.warning(f"用户注册失败: 用户名已存在 - {username}")
-        raise_ex("用户名已存在", code=400)
+        raise_ex("Username already exists", code=400)
     # 加密密码
     hashed_password, salt = hash_password(password)
     # 创建新用户
@@ -134,7 +134,7 @@ async def get_user_by_id(user_id: int, session: AsyncSession) -> Dict[str, Any]:
     res = await session.execute(select(User).filter(User.id == user_id))
     user: User | None = res.scalars().first()
     if not user or user.status == UserStatus.Deleted.value:  # type: ignore
-        raise_ex("用户不存在", code=404)
+        raise_ex("User not found", code=404)
     return {
         "user_id": user.id,  # type: ignore
         "userId": user.username,  # type: ignore
@@ -157,11 +157,11 @@ async def change_password(
     res = await session.execute(select(User).filter(User.id == user_id))
     user: User | None = res.scalars().first()
     if not user:
-        raise_ex("用户不存在", code=404)
+        raise_ex("User not found", code=404)
     # 验证旧密码
     if not verify_password(old_password, user.password, user.salt):  # type: ignore
         logger.warning(f"修改密码失败: 旧密码错误 - user_id: {user_id}")
-        raise_ex("旧密码错误", code=401)
+        raise_ex("Old password is incorrect", code=401)
     # 加密新密码
     hashed_password, salt = hash_password(new_password)
     # 更新密码和 salt
@@ -185,7 +185,7 @@ async def reset_password(
     res = await session.execute(select(User).filter(User.id == user_id))
     user: User | None = res.scalars().first()
     if not user:
-        raise_ex("用户不存在", code=404)
+        raise_ex("User not found", code=404)
     # 加密新密码
     hashed_password, salt = hash_password(new_password)
     # 更新密码和 salt
@@ -206,7 +206,7 @@ async def get_user_by_username(username: str, session: AsyncSession) -> UserDeta
     res = await session.execute(select(User).filter(User.username == username))
     user: User | None = res.scalars().first()
     if not user or user.status == UserStatus.Deleted.value:  # type: ignore
-        raise_ex("用户不存在", code=404)
+        raise_ex("User not found", code=404)
 
     user = cast(User, user)
     user_detail = UserDetailDTO.model_validate(user, from_attributes=True)
@@ -227,7 +227,7 @@ async def update_user_avatar(
     res = await session.execute(select(User).filter(User.id == user_id))
     user: User | None = res.scalars().first()
     if not user:
-        raise_ex("用户不存在", code=404)
+        raise_ex("User not found", code=404)
     # 更新头像
     user.avatar = avatar_url  # type: ignore
     await session.commit()

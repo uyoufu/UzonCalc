@@ -1,8 +1,21 @@
+import asyncio
+
+import pytest
 from fastapi import FastAPI, Request
 from fastapi.testclient import TestClient
 
-from app.i18n import _, DEFAULT_LOCALE, get_translation, select_locale
+from app.exception.custom_exception import CustomException, raise_ex
+from app.i18n import (
+    _,
+    DEFAULT_LOCALE,
+    get_translation,
+    reset_locale,
+    select_locale,
+    set_locale,
+)
 from app.middleware.i18n import i18n_middleware
+from app.response.response_result import ok
+from app.service.calc_report_service import copy_calc_report
 
 
 def test_select_locale_uses_query_lang_first():
@@ -71,3 +84,47 @@ def test_i18n_middleware_falls_back_to_default_locale():
 
     assert response.status_code == 200
     assert response.json() == {"state": "en", "context": "Authorization failed!"}
+
+
+def test_ok_message_uses_current_locale():
+    token = set_locale("zh-CN")
+    try:
+        response = ok()
+    finally:
+        reset_locale(token)
+
+    assert response.message == "成功"
+
+
+def test_raise_ex_message_uses_current_locale():
+    token = set_locale("zh-CN")
+    try:
+        with pytest.raises(CustomException) as exc_info:
+            raise_ex("Category not found", code=404)
+    finally:
+        reset_locale(token)
+
+    assert exc_info.value.model_dump()["message"] == "分类不存在"
+
+
+def test_service_error_message_uses_current_locale():
+    token = set_locale("zh-CN")
+    try:
+        with pytest.raises(CustomException) as exc_info:
+            asyncio.run(
+                copy_calc_report(1, "source-report", "", None)  # type: ignore[arg-type]
+            )
+    finally:
+        reset_locale(token)
+
+    assert exc_info.value.model_dump()["message"] == "报告名称必填"
+
+
+def test_dynamic_message_keeps_placeholder_values():
+    token = set_locale("zh-CN")
+    try:
+        message = _("Report name '{name}' already exists").format(name="demo")
+    finally:
+        reset_locale(token)
+
+    assert message == "报告名称 'demo' 已存在"

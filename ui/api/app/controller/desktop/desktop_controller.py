@@ -8,6 +8,7 @@ from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.depends import get_session, get_token_payload
+from app.i18n import _
 from app.service import calc_report_service
 from app.response.response_result import ResponseResult, ok, fail
 from app.utils.show_dialog import show_file_dialog
@@ -33,7 +34,10 @@ async def select_local_file() -> ResponseResult[str]:
         file_path = await run_in_threadpool(show_file_dialog)
         return ok(file_path if file_path else "")
     except Exception as e:
-        return fail(message=f"Failed to select file: {str(e)}", code=500)
+        return fail(
+            message=_("Failed to select file: {error}").format(error=str(e)),
+            code=500,
+        )
 
 
 @router.post("/calc-report/{report_oid}/show-in-explorer")

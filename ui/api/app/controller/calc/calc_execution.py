@@ -14,6 +14,7 @@ from app.controller.calc.calc_dto import (
     CalcResumeReqDTO,
 )
 from app.controller.depends import get_session, get_token_payload
+from app.i18n import _
 from app.response.response_result import ResponseResult, ok
 from app.sandbox.core.execution_result import ExecutionResult
 from app.service.calc_execution_service import (
@@ -88,11 +89,12 @@ async def start_file_calc_execution(
     """
     if not app_config.is_desktop:
         raise HTTPException(
-            status_code=403, detail="File execution is not allowed in server deployment"
+            status_code=403,
+            detail=_("File execution is not allowed in server deployment"),
         )
 
     if not data.filePath:
-        raise HTTPException(status_code=400, detail="filePath is required")
+        raise HTTPException(status_code=400, detail=_("filePath is required"))
 
     result = await start_file_execution(
         db_session, tokenPayloads.id, data.filePath, data.defaults or {}

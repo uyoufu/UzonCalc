@@ -188,10 +188,13 @@ async def catch_exception(request: Request, call_next):
             payload = e.model_dump()
             response = JSONResponse(content=payload, status_code=e.code)
         elif isinstance(e, HTTPException):
-            r = fail(message=f"{type(e).__name__}: {e.detail}", code=e.status_code)
+            r = fail(
+                message=f"{type(e).__name__}: {_(str(e.detail))}",
+                code=e.status_code,
+            )
             response = JSONResponse(content=r.model_dump(), status_code=r.code)
         else:
-            r = fail(message=f"{type(e).__name__}: {str(e)}")
+            r = fail(message=f"{type(e).__name__}: {_(str(e))}")
             response = JSONResponse(content=r.model_dump(), status_code=r.code)
     return response
 
