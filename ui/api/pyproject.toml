@@ -13,6 +13,7 @@ dependencies = [
     "python-multipart",
     "PyJWT",
     "bcrypt",
+    "Babel",
     "aiofiles",
     "interval",
     "numpy",

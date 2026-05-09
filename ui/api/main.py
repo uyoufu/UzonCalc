@@ -5,7 +5,6 @@ import logging
 import socket
 
 from pathlib import Path
-from gettext import gettext as _
 from typing import Callable
 
 HERE = Path(__file__).resolve().parent
@@ -19,6 +18,8 @@ from app.utils.dynamic_loader import load_routers_from_directory
 from app.exception.custom_exception import CustomException, raise_ex
 from app.response.response_result import fail
 from app.controller.depends import get_request_token
+from app.i18n import _
+from app.middleware.i18n import i18n_middleware
 from app.schedule.scheduler import start_scheduler, shutdown_scheduler
 from app.middleware.vue_spa import use_vue_spa_middleware
 from app.mcp.startup import (
@@ -193,6 +194,11 @@ async def catch_exception(request: Request, call_next):
             r = fail(message=f"{type(e).__name__}: {str(e)}")
             response = JSONResponse(content=r.model_dump(), status_code=r.code)
     return response
+
+
+@app.middleware("http")
+async def use_i18n(request: Request, call_next: Callable):
+    return await i18n_middleware(request, call_next)
 
 
 # # 全局异常处理
