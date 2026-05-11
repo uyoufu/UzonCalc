@@ -72,8 +72,8 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         name: 'calcReportList',
         path: 'list',
         meta: {
-          icon: 'list_alt',
-          label: 'calcReportPage.myCalcs'
+          icon: 'assignment',
+          label: 'calcReportPage.calcReport'
         },
         component: () => import('pages/calcReport/list/CalcReportList.vue')
       },
@@ -86,6 +86,27 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
           noMenu: true
         },
         component: () => import('pages/calcReport/edit/editCalcReport.vue')
+      }
+    ]
+  },
+  {
+    name: 'CalcReportInstanceManagement',
+    path: '/calc-report-instance',
+    component: NormalLayout,
+    meta: {
+      label: 'calcReportInstancePage.calcsManagement',
+      icon: 'article'
+    },
+    redirect: '/calc-report-instance/list',
+    children: [
+      {
+        name: 'calcReportInstanceList',
+        path: 'list',
+        meta: {
+          icon: 'list_alt',
+          label: 'calcReportInstancePage.myCalcs'
+        },
+        component: () => import('pages/calcReportInstance/list/InstanceList.vue')
       }
     ]
   },
@@ -103,7 +124,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         name: 'calcReportViewer',
         path: 'view',
         meta: {
-          icon: 'view_array',
+          icon: 'view_carousel',
           label: 'calcReportPage.calcReportViewer'
         },
         component: () => import('pages/calcReport/viewer/calcReportViewer.vue')
@@ -223,4 +244,3 @@ export const exceptionRoutes: ExtendedRouteRecordRaw[] = [
     component: () => import('pages/ErrorNotFound.vue')
   }
 ]
-

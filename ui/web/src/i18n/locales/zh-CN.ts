@@ -82,7 +82,8 @@ export default {
     youCanRightClickToAddNewCategory: '您可以右键单击以添加新分类',
     newCategory: '新增分类',
     newCategorySuccess: '新增分类成功',
-    onlyLettersNumbersUnderscoresAndCannotStartWithNumber: '仅支持字母、数字、下划线，且不能以数字开头',
+    onlyLettersNumbersUnderscoresAndCannotStartWithNumber:
+      '仅支持字母、数字、下划线，且不能以数字开头',
 
     modifyCategory: '修改分类',
     deleteCategory: '删除分类',
@@ -314,6 +315,11 @@ export default {
       showInFileExplorer: '在文件资源管理器中显示',
       modifyReportSuccess: '修改报告成功'
     }
+  },
+
+  calcReportInstancePage: {
+    calcsManagement: '计算管理',
+    myCalcs: '我的计算'
   },
 
   calcModulePage: {
