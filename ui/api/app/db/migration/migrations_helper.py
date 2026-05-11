@@ -1,156 +1,125 @@
 """
-Migration Helper - Utilities for Alembic migration management
+Alembic 数据库迁移工具
 """
 
-import subprocess
+from __future__ import annotations
+
 import os
 from pathlib import Path
-import logging
 
-logger = logging.getLogger(__name__)
+from alembic import command
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+from sqlalchemy.engine import Connection
+from sqlalchemy.ext.asyncio import AsyncEngine
+
+from config import app_config, logger
+
+
+def _convert_url_to_async(database_url: str) -> str:
+    """
+    将项目配置中的同步数据库 URL 转为 Alembic async env 可用的 URL。
+    """
+    if database_url.startswith("sqlite+aiosqlite://"):
+        return database_url
+    if database_url.startswith("sqlite://"):
+        return database_url.replace("sqlite://", "sqlite+aiosqlite://", 1)
+    if database_url.startswith("postgresql+asyncpg://"):
+        return database_url
+    if database_url.startswith("postgresql://"):
+        return database_url.replace("postgresql://", "postgresql+asyncpg://", 1)
+    return database_url
 
 
 class MigrationHelper:
-    """Helper class for managing Alembic migrations"""
-    
+    """管理 Alembic 迁移。"""
+
     def __init__(self, migration_dir: str | None = None):
-        """
-        Initialize migration helper.
-        
-        Args:
-            migration_dir: Path to migration directory (default: current dir)
-        """
         if migration_dir is None:
             migration_dir = os.path.dirname(os.path.abspath(__file__))
-        
-        self.migration_dir = migration_dir
-        self.alembic_ini = os.path.join(migration_dir, "alembic.ini")
-    
-    def init_migrations(self, project_name: str = "project") -> bool:
+
+        self.migration_dir = str(Path(migration_dir).resolve())
+        self.alembic_ini = os.path.join(self.migration_dir, "alembic.ini")
+
+    def _make_config(self, database_url: str | None = None) -> Config:
+        config = Config(self.alembic_ini)
+        config.set_main_option("script_location", self.migration_dir)
+        config.set_main_option(
+            "sqlalchemy.url",
+            _convert_url_to_async(database_url or app_config.get_db_connection()),
+        )
+        return config
+
+    def create_migration(self, message: str, autogenerate: bool = False) -> bool:
         """
-        Initialize Alembic for a project.
-        
-        Args:
-            project_name: Name of the project
-            
-        Returns:
-            True if successful
-        """
-        try:
-            cmd = f"alembic init -t generic {project_name}"
-            subprocess.run(cmd, cwd=self.migration_dir, check=True)
-            logger.info(f"Migrations initialized for {project_name}")
-            return True
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to initialize migrations: {e}")
-            return False
-    
-    def create_migration(self, message: str, autogenerate: bool = True) -> bool:
-        """
-        Create a new migration file.
-        
-        Args:
-            message: Migration description
-            autogenerate: Auto-generate migration from models
-            
-        Returns:
-            True if successful
+        创建迁移文件。默认生成空迁移，后续手动补充 upgrade/downgrade。
         """
         try:
-            auto_flag = "--autogenerate" if autogenerate else ""
-            cmd = f"alembic revision {auto_flag} -m \"{message}\""
-            subprocess.run(cmd, cwd=self.migration_dir, check=True)
+            command.revision(
+                self._make_config(),
+                message=message,
+                autogenerate=autogenerate,
+            )
             logger.info(f"Migration created: {message}")
             return True
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             logger.error(f"Failed to create migration: {e}")
             return False
-    
+
+    async def upgrade_to_head(self, engine: AsyncEngine) -> None:
+        """使用现有异步引擎将数据库迁移到 head。"""
+        await self.upgrade_async(engine, "head")
+
+    async def upgrade_async(self, engine: AsyncEngine, revision: str = "head") -> None:
+        """使用现有异步引擎执行迁移。"""
+        async with engine.begin() as connection:
+            await connection.run_sync(self._upgrade_with_connection, revision)
+
+    def _upgrade_with_connection(
+        self, connection: Connection, revision: str = "head"
+    ) -> None:
+        config = self._make_config()
+        config.attributes["connection"] = connection
+        command.upgrade(config, revision)
+
     def upgrade(self, revision: str = "head") -> bool:
         """
-        Apply migrations.
-        
-        Args:
-            revision: Target revision (default: head)
-            
-        Returns:
-            True if successful
+        同步入口，供命令行脚本或临时维护任务调用。
         """
         try:
-            cmd = f"alembic upgrade {revision}"
-            subprocess.run(cmd, cwd=self.migration_dir, check=True)
+            command.upgrade(self._make_config(), revision)
             logger.info(f"Migrated to {revision}")
             return True
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             logger.error(f"Migration failed: {e}")
             return False
-    
+
     def downgrade(self, revision: str) -> bool:
-        """
-        Rollback migrations.
-        
-        Args:
-            revision: Target revision
-            
-        Returns:
-            True if successful
-        """
+        """回滚迁移。"""
         try:
-            cmd = f"alembic downgrade {revision}"
-            subprocess.run(cmd, cwd=self.migration_dir, check=True)
+            command.downgrade(self._make_config(), revision)
             logger.info(f"Rolled back to {revision}")
             return True
-        except subprocess.CalledProcessError as e:
+        except Exception as e:
             logger.error(f"Rollback failed: {e}")
             return False
-    
-    def get_current_revision(self) -> str:
-        """
-        Get current database revision.
-        
-        Returns:
-            Current revision ID or error message
-        """
-        try:
-            result = subprocess.run(
-                "alembic current",
-                cwd=self.migration_dir,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            return result.stdout.strip()
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to get current revision: {e}")
-            return "unknown"
-    
+
+    def get_heads(self) -> list[str]:
+        """获取当前迁移脚本 head。"""
+        script = ScriptDirectory.from_config(self._make_config())
+        return list(script.get_heads())
+
     def get_migration_history(self) -> list[str]:
-        """
-        Get migration history.
-        
-        Returns:
-            List of migration revisions
-        """
-        try:
-            result = subprocess.run(
-                "alembic history",
-                cwd=self.migration_dir,
-                capture_output=True,
-                text=True,
-                check=True,
-            )
-            return result.stdout.strip().split("\n")
-        except subprocess.CalledProcessError as e:
-            logger.error(f"Failed to get migration history: {e}")
-            return []
-    
+        """获取迁移文件历史。"""
+        script = ScriptDirectory.from_config(self._make_config())
+        return [revision.revision for revision in script.walk_revisions()]
+
     def show_migrations(self) -> None:
-        """Display migration files in the versions directory."""
-        versions_dir = os.path.join(self.migration_dir, "versions")
-        if not os.path.exists(versions_dir):
+        """显示迁移文件。"""
+        versions_dir = Path(self.migration_dir) / "versions"
+        if not versions_dir.exists():
             logger.info("No migrations yet")
             return
-        
-        migrations = sorted(Path(versions_dir).glob("*.py"))
-        for migration in migrations:
+
+        for migration in sorted(versions_dir.glob("*.py")):
             print(f"  {migration.name}")

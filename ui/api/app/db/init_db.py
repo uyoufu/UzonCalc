@@ -4,8 +4,6 @@ Database initialization script for application startup - Async version
 
 from sqlalchemy import select
 
-import os
-
 from app.db.models import SystemSetting
 
 from .manager import get_db_manager
@@ -41,9 +39,10 @@ async def init_database():
             logger.error("Database health check failed!")
             return False
 
-        # Create all tables (only creates new tables, doesn't modify existing)
-        logger.info("Creating database tables...")
-        await db_manager.create_all_tables()
+        # 通过 Alembic 执行迁移，schema 统一由迁移文件维护
+        if not await run_migrations():
+            logger.error("Database migration failed!")
+            return False
 
         # 进行初始化
         await init_default_user()
@@ -82,35 +81,24 @@ async def init_default_user():
             session.add(system_settings)
 
 
-def run_migrations():
+async def run_migrations():
     """
     Run pending database migrations using Alembic.
     """
     logger.info("Running database migrations...")
 
     try:
-        migration_dir = os.path.join(os.path.dirname(__file__), "migration")
-
-        helper = MigrationHelper(migration_dir)
-
-        # Get current revision
-        current = helper.get_current_revision()
-        logger.info(f"Current database revision: {current}")
-
-        # Run migrations to head
-        if helper.upgrade("head"):
-            logger.info("Migrations applied successfully")
-            return True
-        else:
-            logger.error("Failed to apply migrations")
-            return False
+        helper = MigrationHelper()
+        await helper.upgrade_to_head(get_db_manager().engine)
+        logger.info("Migrations applied successfully")
+        return True
 
     except Exception as e:
-        logger.error(f"Migration execution failed: {e}")
+        logger.exception(f"Migration execution failed: {e}")
         return False
 
 
-def create_migration(message: str, autogenerate: bool = True):
+def create_migration(message: str, autogenerate: bool = False):
     """
     Create a new migration file.
 
@@ -121,9 +109,7 @@ def create_migration(message: str, autogenerate: bool = True):
     logger.info(f"Creating migration: {message}")
 
     try:
-        migration_dir = os.path.join(os.path.dirname(__file__), "migration")
-
-        helper = MigrationHelper(migration_dir)
+        helper = MigrationHelper()
 
         if helper.create_migration(message, autogenerate=autogenerate):
             logger.info("Migration created successfully")
