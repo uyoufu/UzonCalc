@@ -2,7 +2,8 @@
   <div class="full-height column card-like">
     <q-splitter v-model="splitterModel" class="full-height col no-wrap">
       <template #before>
-        <CalcInputForm v-model="fullHtmlUrl" :report-oid="reportOid" :file-path="filePath" :is-silent="isSilent">
+        <CalcInputForm v-model="fullHtmlUrl" :report-oid="reportOid" :file-path="filePath" :is-silent="isSilent"
+          :instance-info="instanceInfo">
         </CalcInputForm>
       </template>
 
@@ -24,6 +25,8 @@
 <script lang="ts" setup>
 import { tCalcReportPageViewer } from 'src/i18n/helpers'
 import CalcInputForm from './components/CalcInputForm.vue'
+import type { ICalcReportInstanceInfo } from 'src/api/calcReportInstance'
+import type { PropType } from 'vue'
 
 defineProps({
   // 报告的 oid
@@ -45,6 +48,12 @@ defineProps({
     type: Boolean,
     required: false,
     default: true
+  },
+
+  instanceInfo: {
+    type: Object as PropType<ICalcReportInstanceInfo | null>,
+    required: false,
+    default: null
   }
 })
 

@@ -49,6 +49,41 @@ class CalcReportResDTO(CalcReportReqDTO):
     lastModified: datetime.datetime
 
 
+class CalcReportInstanceCountFilterDTO(BaseDTO):
+    categoryId: Optional[int] = None
+    filter: Optional[str] = None
+
+
+class CalcReportInstanceListFilterDTO(CalcReportInstanceCountFilterDTO):
+    pagination: PaginationDTO
+
+
+class CalcReportInstanceReqDTO(BaseDTO):
+    categoryId: int
+    name: str
+    description: Optional[str] = None
+
+
+class CalcReportInstanceSaveReqDTO(CalcReportInstanceReqDTO):
+    reportOid: str
+    defaults: dict[str, dict[str, Any]] = {}
+    resultPath: str
+
+
+class CalcReportInstanceResDTO(CalcReportInstanceReqDTO):
+    id: int
+    oid: str
+    userId: int
+    reportId: int
+    reportOid: str
+    reportName: Optional[str] = None
+    defaults: dict[str, dict[str, Any]] = {}
+    resultPath: Optional[str] = None
+    createdAt: datetime.datetime
+    version: int
+    lastModified: datetime.datetime
+
+
 # 执行计算报告请求 DTO
 class CalcExecutionReqDTO(BaseDTO):
     reportOid: str

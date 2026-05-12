@@ -6,6 +6,8 @@ from .base import BaseModel
 from .calc_report import CalcReport
 from .calc_report_archive import CalcReportArchive
 from .calc_report_category import CalcReportCategory
+from .calc_report_instance import CalcReportInstance
+from .calc_report_instance_category import CalcReportInstanceCategory
 from .favorite_calc_report import FavoriteCalcReport
 from .user import User
 from .user_setting import UserSetting
@@ -17,6 +19,8 @@ __all__ = [
     "CalcReport",
     "CalcReportArchive",
     "CalcReportCategory",
+    "CalcReportInstance",
+    "CalcReportInstanceCategory",
     "FavoriteCalcReport",
     "User",
     "UserSetting",

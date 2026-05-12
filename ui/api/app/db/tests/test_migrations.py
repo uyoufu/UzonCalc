@@ -48,6 +48,8 @@ def test_upgrade_to_head_creates_sqlite_schema(tmp_path: Path):
         "calc_report",
         "calc_report_category",
         "calc_report_archive",
+        "calc_report_instance",
+        "calc_report_instance_category",
         "tmp_files",
         "favorite_calc_reports",
     }.issubset(tables)
@@ -72,7 +74,7 @@ def test_upgrade_to_head_is_idempotent_for_sqlite(tmp_path: Path):
 
     revision = asyncio.run(run_migration_twice(tmp_path / "app.sqlite3"))
 
-    assert revision == "001_initial_schema"
+    assert revision == "002_calc_report_instance"
 
 
 def test_upgrade_to_head_fails_when_legacy_table_exists_without_revision(

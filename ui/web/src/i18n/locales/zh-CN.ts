@@ -233,7 +233,13 @@ export default {
       missingReportOidOrPath: '缺失计算报告 oid 或路径',
       calculationCompleted: '计算执行完成',
       missingExecutionId: '缺失执行 ID',
-      resumeExecutionFailed: '恢复计算执行失败'
+      resumeExecutionFailed: '恢复计算执行失败',
+      saveAsInstance: '保存为计算实例',
+      saveCurrentInstance: '保存当前实例',
+      saveInstance: '保存计算实例',
+      saveInstanceSuccess: '计算实例保存成功',
+      instanceCategory: '实例分类',
+      resultNotReady: '请先执行计算'
     },
     // #endregion
 
@@ -319,7 +325,22 @@ export default {
 
   calcReportInstancePage: {
     calcsManagement: '计算管理',
-    myCalcs: '我的计算'
+    myCalcs: '我的计算',
+    defaultCategoryName: '默认分类',
+    list: {
+      col_name: '名称',
+      col_description: '描述',
+      col_reportName: '来源计算',
+      col_version: '版本',
+      col_lastModified: '最后修改时间',
+      col_createdAt: '创建时间',
+      instanceName: '实例名称',
+      instanceDescription: '实例描述',
+      modifyInstance: '修改计算实例',
+      modifyInfo: '修改信息',
+      modifyInstanceSuccess: '修改计算实例成功',
+      deleteInstanceConfirm: '确认删除计算实例 "{name}"？'
+    }
   },
 
   calcModulePage: {

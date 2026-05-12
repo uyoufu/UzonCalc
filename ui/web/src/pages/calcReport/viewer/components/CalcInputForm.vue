@@ -1,14 +1,30 @@
 <script lang="ts" setup>
-import { tCalcReportPageViewer } from 'src/i18n/helpers'
+import { t, tCalcReportPageViewer } from 'src/i18n/helpers'
 import AsyncTooltip from 'src/components/asyncTooltip/AsyncTooltip.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import { getCalcReport } from 'src/api/calcReport'
+import {
+  saveCalcReportInstance,
+  updateCalcReportInstanceResult,
+  type ICalcReportInstanceInfo
+} from 'src/api/calcReportInstance'
+import {
+  getCalcReportInstanceCategories,
+  getOrCreateDefaultInstanceCategory
+} from 'src/api/calcReportInstanceCategory'
 import { useUserInfoStore } from 'src/stores/user'
 import { sha256 } from 'src/utils/encrypt'
+import { notifyError, notifySuccess } from 'src/utils/dialog'
+import { useRouter } from 'vue-router'
 import {
   type ExecutionResult,
   type ICalcWindow
 } from 'src/api/calcExecution'
+import type { ICategoryInfo } from 'src/components/categoryList/types'
+import type { ILowCodeField, IPopupDialogParams } from 'src/components/lowCode/types'
+import { LowCodeFieldType } from 'src/components/lowCode/types'
+import { showDialog } from 'src/components/lowCode/PopupDialog'
+import type { PropType } from 'vue'
 
 // #region v-models
 const fullHtmlUrl = defineModel({
@@ -57,21 +73,29 @@ const props = defineProps({
     type: Boolean,
     required: false,
     default: false
+  },
+
+  instanceInfo: {
+    type: Object as PropType<ICalcReportInstanceInfo | null>,
+    required: false,
+    default: null
   }
 })
 
 // #region 报告信息
 const { isSilent } = toRefs(props)
-const currentReportOid = ref<string>(props.reportOid)
+const currentReportOid = ref<string>(props.reportOid || '')
 watch(() => props.reportOid, () => {
-  currentReportOid.value = props.reportOid
+  currentReportOid.value = props.reportOid || ''
 })
 
 const currentFilePath = ref(props.filePath)
 
 const calcReportNameRef = ref('')
+const currentInstance = ref<ICalcReportInstanceInfo | null>(props.instanceInfo)
 
 onMounted(async () => {
+  if (currentInstance.value) return
   // 如果存在 currentReportOid, 则获取参数
   if (currentReportOid.value) {
     const { data: reportInfo } = await getCalcReport(currentReportOid.value)
@@ -90,6 +114,23 @@ const executeResult = ref<ExecutionResult>({
   isCompleted: false
 })
 
+function applyInstanceInfo(instanceInfo: ICalcReportInstanceInfo) {
+  currentInstance.value = instanceInfo
+  currentReportOid.value = instanceInfo.reportOid
+  calcReportNameRef.value = instanceInfo.name
+  executeResult.value = {
+    executionId: '',
+    html: instanceInfo.resultPath || '',
+    windows: [],
+    isCompleted: true
+  }
+}
+
+watch(() => props.instanceInfo, (instanceInfo) => {
+  if (!instanceInfo) return
+  applyInstanceInfo(instanceInfo)
+}, { immediate: true })
+
 import { useConfig } from 'src/config/index'
 const config = useConfig()
 const userInfoStore = useUserInfoStore()
@@ -99,7 +140,7 @@ function buildFullHtmlUrl(htmlPath: string) {
   if (!htmlPath) return ''
 
   const htmlUrl = new URL(htmlPath, `${config.baseUrl}/`)
-  const scrollTargetId = currentReportOid.value || (currentFilePath.value ? sha256(currentFilePath.value) : '')
+  const scrollTargetId = currentInstance.value?.oid || currentReportOid.value || (currentFilePath.value ? sha256(currentFilePath.value) : '')
   const scrollKey = [userId.value, scrollTargetId].filter(Boolean).join('_')
   if (scrollKey) htmlUrl.searchParams.set('scrollKey', scrollKey)
 
@@ -107,7 +148,7 @@ function buildFullHtmlUrl(htmlPath: string) {
 }
 
 // 更新结果 HTML 地址
-watch([() => executeResult.value.html, currentReportOid, currentFilePath, userId], () => {
+watch([() => executeResult.value.html, currentReportOid, currentFilePath, userId, currentInstance], () => {
   fullHtmlUrl.value = buildFullHtmlUrl(executeResult.value.html)
 }, { immediate: true })
 // 最终显示的 UI
@@ -127,9 +168,143 @@ const {
   canStartExecution,
   canResumeExecution,
   canRestartExecution,
+  getInputValues,
   onStartExecution,
   onResumeExecution,
   onRestartExecution } = useCalcExecutor(currentReportOid, currentFilePath, isSilent, executeResult)
+
+const router = useRouter()
+const hasUnsavedCompletedResult = ref(false)
+const canSaveInstance = computed(() => {
+  return hasUnsavedCompletedResult.value && executeResult.value.isCompleted && !!executeResult.value.html && !!currentReportOid.value
+})
+
+function getCurrentDefaults() {
+  const values = getInputValues()
+  if (Object.keys(values).length > 0) return values
+  return currentInstance.value?.defaults || {}
+}
+
+function markSaveableIfCompleted(result?: ExecutionResult) {
+  if ((result || executeResult.value).isCompleted && executeResult.value.html) {
+    hasUnsavedCompletedResult.value = true
+  }
+}
+
+async function onStartExecutionAndSaveable() {
+  const defaults = Object.keys(getInputValues()).length > 0
+    ? getInputValues()
+    : currentInstance.value?.defaults
+  const result = await onStartExecution(defaults)
+  markSaveableIfCompleted(result)
+}
+
+async function onResumeExecutionAndSaveable() {
+  const result = await onResumeExecution()
+  markSaveableIfCompleted(result)
+}
+
+async function onRestartExecutionAndSaveable() {
+  const result = await onRestartExecution()
+  markSaveableIfCompleted(result)
+}
+
+async function getInstanceCategories() {
+  const { data } = await getCalcReportInstanceCategories()
+  if (data && data.length > 0) return data
+
+  const defaultCategory = await getOrCreateDefaultInstanceCategory(
+    t('calcReportInstancePage.defaultCategoryName')
+  )
+  return defaultCategory.data ? [defaultCategory.data] : []
+}
+
+function buildSaveInstanceFields(categories: ICategoryInfo[]): ILowCodeField[] {
+  return [
+    {
+      name: 'name',
+      label: t('calcReportInstancePage.list.instanceName'),
+      value: currentInstance.value?.name || calcReportNameRef.value,
+      type: LowCodeFieldType.text,
+      required: true
+    },
+    {
+      name: 'categoryId',
+      label: tCalcReportPageViewer('instanceCategory'),
+      value: currentInstance.value?.categoryId || categories[0]?.id,
+      type: LowCodeFieldType.selectOne,
+      options: categories,
+      optionLabel: 'name',
+      optionValue: 'id',
+      emitValue: true,
+      mapOptions: true,
+      required: true
+    },
+    {
+      name: 'description',
+      label: t('calcReportInstancePage.list.instanceDescription'),
+      value: currentInstance.value?.description || '',
+      type: LowCodeFieldType.textarea
+    }
+  ]
+}
+
+async function onSaveCalcReportInstance() {
+  if (!executeResult.value.html || !executeResult.value.isCompleted) {
+    notifyError(tCalcReportPageViewer('resultNotReady'))
+    return
+  }
+
+  const categories = await getInstanceCategories()
+  if (categories.length === 0) return
+
+  let name = currentInstance.value?.name || calcReportNameRef.value
+  let description = currentInstance.value?.description || ''
+  let categoryId = currentInstance.value?.categoryId || categories[0]!.id
+
+  if (!currentInstance.value) {
+    const popupParams: IPopupDialogParams = {
+      title: tCalcReportPageViewer('saveInstance'),
+      fields: buildSaveInstanceFields(categories),
+      oneColumn: true
+    }
+    const result = await showDialog<{ name: string; description: string; categoryId: number }>(popupParams)
+    if (!result.ok) return
+
+    name = result.data.name
+    description = result.data.description
+    categoryId = result.data.categoryId
+  }
+
+  const payload = {
+    name,
+    description,
+    categoryId: categoryId as number,
+    reportOid: currentReportOid.value,
+    defaults: getCurrentDefaults(),
+    resultPath: executeResult.value.html
+  }
+
+  const response = currentInstance.value
+    ? await updateCalcReportInstanceResult(currentInstance.value.oid, payload)
+    : await saveCalcReportInstance(payload)
+
+  currentInstance.value = response.data
+  calcReportNameRef.value = response.data.name
+  executeResult.value.html = response.data.resultPath || executeResult.value.html
+  hasUnsavedCompletedResult.value = false
+
+  await router.replace({
+    name: 'calcReportViewer',
+    query: {
+      instanceOid: response.data.oid,
+      tagName: response.data.name,
+      __cacheKey: response.data.oid
+    }
+  })
+
+  notifySuccess(tCalcReportPageViewer('saveInstanceSuccess'))
+}
 // #endregion
 
 // #region 本机文件
@@ -146,15 +321,15 @@ const {
 // 文件变化后，立即执行
 watch(currentFilePath, async () => {
   if (currentFilePath.value)
-    await onStartExecution()
+    await onStartExecutionAndSaveable()
 })
 // #endregion
 
 // #region 暴露调用的方法
 defineExpose({
-  onStartExecution,
-  onResumeExecution,
-  onRestartExecution
+  onStartExecution: onStartExecutionAndSaveable,
+  onResumeExecution: onResumeExecutionAndSaveable,
+  onRestartExecution: onRestartExecutionAndSaveable
 })
 // #endregion
 </script>
@@ -188,8 +363,14 @@ defineExpose({
           </q-btn>
 
           <q-btn v-if="canStartExecution" dense icon="play_arrow" color="secondary" size="sm" round
-            @click="onStartExecution()" :loading="isExecuting">
+            @click="onStartExecutionAndSaveable" :loading="isExecuting">
             <AsyncTooltip :tooltip="tCalcReportPageViewer('executeCalculation')" />
+          </q-btn>
+
+          <q-btn v-if="canSaveInstance" dense icon="save" color="primary" size="sm" round
+            @click="onSaveCalcReportInstance" :loading="isExecuting">
+            <AsyncTooltip
+              :tooltip="currentInstance ? tCalcReportPageViewer('saveCurrentInstance') : tCalcReportPageViewer('saveAsInstance')" />
           </q-btn>
         </div>
       </div>
@@ -212,11 +393,11 @@ defineExpose({
 
       <div v-if="!disableButtons" class="row justify-end q-mr-md q-gutter-sm q-mt-xs">
         <q-btn v-if="canRestartExecution" dense icon="replay" color="negative" size="sm" round
-          @click="onRestartExecution" :loading="isExecuting">
+          @click="onRestartExecutionAndSaveable" :loading="isExecuting">
           <AsyncTooltip :tooltip="tCalcReportPageViewer('restart')" />
         </q-btn>
         <q-btn v-if="canResumeExecution" dense icon="skip_next" color="primary" size="sm" round
-          @click="onResumeExecution" :loading="isExecuting">
+          @click="onResumeExecutionAndSaveable" :loading="isExecuting">
           <AsyncTooltip :tooltip="tCalcReportPageViewer('resumeCalculation')" />
         </q-btn>
       </div>

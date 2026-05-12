@@ -196,7 +196,13 @@ export default {
       missingReportOidOrPath: 'Missing report oid or path',
       calculationCompleted: 'Calculation completed',
       missingExecutionId: 'Missing execution ID',
-      resumeExecutionFailed: 'Failed to resume execution'
+      resumeExecutionFailed: 'Failed to resume execution',
+      saveAsInstance: 'Save as calculation instance',
+      saveCurrentInstance: 'Save current instance',
+      saveInstance: 'Save calculation instance',
+      saveInstanceSuccess: 'Calculation instance saved',
+      instanceCategory: 'Instance category',
+      resultNotReady: 'Please execute the calculation first'
     },
 
     editor: {
@@ -278,7 +284,22 @@ export default {
 
   calcReportInstancePage: {
     calcsManagement: 'Calculations management',
-    myCalcs: 'My calculations'
+    myCalcs: 'My calculations',
+    defaultCategoryName: 'Default',
+    list: {
+      col_name: 'Name',
+      col_description: 'Description',
+      col_reportName: 'Source calculation',
+      col_version: 'Version',
+      col_lastModified: 'Last modified',
+      col_createdAt: 'Created at',
+      instanceName: 'Instance name',
+      instanceDescription: 'Instance description',
+      modifyInstance: 'Modify instance',
+      modifyInfo: 'Modify info',
+      modifyInstanceSuccess: 'Instance updated successfully',
+      deleteInstanceConfirm: 'Confirm delete calculation instance "{name}"?'
+    }
   },
 
   calcModulePage: {

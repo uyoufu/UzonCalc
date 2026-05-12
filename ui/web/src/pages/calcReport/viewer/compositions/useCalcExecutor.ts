@@ -79,6 +79,7 @@ export function useCalcExecutor(
     if (result.isCompleted) {
       notifySuccess(tCalcReportPageViewer('calculationCompleted'))
     }
+    return result
   }
 
   const canResumeExecution = computed(() => {
@@ -106,6 +107,7 @@ export function useCalcExecutor(
       if (result.isCompleted) {
         notifySuccess(tCalcReportPageViewer('calculationCompleted'))
       }
+      return result
     } catch {
       notifyError(tCalcReportPageViewer('resumeExecutionFailed'))
     } finally {
@@ -119,7 +121,7 @@ export function useCalcExecutor(
   async function onRestartExecution() {
     const defaults = getInputValues()
     // 相当于重新执行即可
-    await onStartExecution(defaults)
+    return await onStartExecution(defaults)
   }
 
   return {
@@ -127,6 +129,7 @@ export function useCalcExecutor(
     canStartExecution,
     canResumeExecution,
     canRestartExecution,
+    getInputValues,
     onStartExecution,
     onResumeExecution,
     onRestartExecution

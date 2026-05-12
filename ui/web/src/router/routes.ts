@@ -73,7 +73,8 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         path: 'list',
         meta: {
           icon: 'assignment',
-          label: 'calcReportPage.calcReport'
+          label: 'calcReportPage.calcReport',
+          noCache: true
         },
         component: () => import('pages/calcReport/list/CalcReportList.vue')
       },
@@ -104,7 +105,8 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         path: 'list',
         meta: {
           icon: 'list_alt',
-          label: 'calcReportInstancePage.myCalcs'
+          label: 'calcReportInstancePage.myCalcs',
+          noCache: true
         },
         component: () => import('pages/calcReportInstance/list/InstanceList.vue')
       }
