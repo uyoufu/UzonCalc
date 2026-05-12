@@ -60,7 +60,7 @@ function mouseenterTag(item: IRouteHistory) {
 
 // 移除按钮
 async function onRemoveTag(item: IRouteHistory) {
-  await removeHistory(router, item as unknown as IRouteHistory)
+  await removeHistory(router, item)
 }
 
 // 右键菜单
