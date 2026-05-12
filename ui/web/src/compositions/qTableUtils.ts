@@ -1,11 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { QTableColumn } from 'quasar'
-import type {
-  IQTableInitParams,
-  TTableFilterObject,
-  IQTablePagination,
-  IRequestPagination
-} from './types'
+import type { IQTableInitParams, TTableFilterObject, IQTablePagination } from './types'
 import QTableIndex from 'src/components/tableComponents/TableIndex.vue'
 
 export type addNewRowType<T = Record<string, any>> = (newRow: T, idField?: string) => void
