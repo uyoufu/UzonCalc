@@ -1,7 +1,7 @@
-﻿using Android.App;
+using Android.App;
 using Android.Runtime;
 
-namespace uzoncalc
+namespace UzoncalcMaui
 {
     [Application]
     public class MainApplication : MauiApplication

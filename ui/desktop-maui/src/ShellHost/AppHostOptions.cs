@@ -1,4 +1,4 @@
-namespace uzoncalc.ShellHost;
+namespace UzoncalcMaui.ShellHost;
 
 public sealed class AppHostOptions
 {

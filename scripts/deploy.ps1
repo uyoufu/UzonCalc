@@ -4,6 +4,7 @@ param(
     [string]$Framework,
     [string]$RuntimeIdentifier,
     [string]$PythonVersion,
+    [string]$PythonCacheRoot,
     [switch]$SkipApiBuild,
     [switch]$SkipMauiPublish
 )
@@ -31,18 +32,25 @@ if ([string]::IsNullOrWhiteSpace($PythonVersion)) {
     $PythonVersion = $config.PythonVersion
 }
 
+if ([string]::IsNullOrWhiteSpace($PythonCacheRoot)) {
+    $PythonCacheRoot = $config.PythonCacheRoot
+}
+
 $publishRoot = $config.PublishRoot
 $coreRoot = Join-Path $publishRoot "core"
 $apiPublishRoot = Join-Path $coreRoot "api"
 $pythonPublishRoot = Join-Path $coreRoot "python"
 $uzoncalcPublishRoot = Join-Path $coreRoot "uzoncalc"
-$mauiPublishRoot = Join-Path $publishRoot "maui"
+$mauiPublishRoot = $publishRoot
 $apiProjectRoot = $config.ApiRoot
 $apiPortableOutputName = "desktop-maui-api-portable"
 $apiPortableOutputRoot = Join-Path (Join-Path $apiProjectRoot "dist") $apiPortableOutputName
 $apiBuildScript = Join-Path $apiProjectRoot "scripts\build-portable.ps1"
-$mauiProjectFile = Join-Path $config.DesktopMauiRoot "uzoncalc\uzoncalc.csproj"
+$mauiProjectFile = $config.MauiProjectFile
 $uzoncalcSourceRoot = Join-Path $config.RepoRoot "uzoncalc"
+$pythonCacheRoot = $PythonCacheRoot
+$satelliteResourceLanguages = $config.SatelliteResourceLanguages
+$satelliteResourceLanguagesProperty = "-p:SatelliteResourceLanguages=`"$satelliteResourceLanguages`""
 
 function Write-Section {
     param([string]$Message)
@@ -228,7 +236,7 @@ Write-Section "Prepare output directories"
 Write-Info "Cleaning existing directory: $publishRoot"
 Remove-DirectoryIfExists -Path $publishRoot
 
-foreach ($path in @($publishRoot, $coreRoot, $apiPublishRoot, $pythonPublishRoot, $uzoncalcPublishRoot, $mauiPublishRoot)) {
+foreach ($path in @($publishRoot, $coreRoot, $apiPublishRoot, $pythonPublishRoot, $uzoncalcPublishRoot)) {
     Ensure-Directory -Path $path
 }
 
@@ -239,7 +247,7 @@ if (-not $SkipApiBuild) {
         throw "API build script was not found: $apiBuildScript"
     }
 
-    & $apiBuildScript -OutputName $apiPortableOutputName -PythonVersion $PythonVersion
+    & $apiBuildScript -OutputName $apiPortableOutputName -PythonVersion $PythonVersion -PythonCacheRoot $pythonCacheRoot
 
     if (-not (Test-Path -LiteralPath $apiPortableOutputRoot)) {
         throw "Portable API output was not found: $apiPortableOutputRoot"
@@ -294,6 +302,10 @@ if (-not $SkipMauiPublish) {
         throw "MAUI project file was not found: $mauiProjectFile"
     }
 
+    if ([string]::IsNullOrWhiteSpace($RuntimeIdentifier)) {
+        throw "RuntimeIdentifier is required for self-contained MAUI publishing."
+    }
+
     $publishArgs = @(
         "publish"
         $mauiProjectFile
@@ -302,19 +314,23 @@ if (-not $SkipMauiPublish) {
         "-f"
         $Framework
         "--self-contained"
-        "false"
+        "true"
+        "-r"
+        $RuntimeIdentifier
+        "-p:SelfContained=true"
+        "-p:PublishSingleFile=true"
+        "-p:UseMonoRuntime=false"
+        "-p:IncludeNativeLibrariesForSelfExtract=true"
+        $satelliteResourceLanguagesProperty
         "-p:WindowsPackageType=None"
         "-p:AppxPackage=false"
         "-o"
         $mauiPublishRoot
     )
 
-    if (-not [string]::IsNullOrWhiteSpace($RuntimeIdentifier)) {
-        Write-Info "Publishing MAUI app with runtime identifier: $RuntimeIdentifier"
-        $publishArgs += @("-r", $RuntimeIdentifier)
-    } else {
-        Write-Info "Publishing MAUI app without an explicit runtime identifier"
-    }
+    Write-Info "Publishing MAUI app with runtime identifier: $RuntimeIdentifier"
+    Write-Info "Keeping satellite resource languages: $satelliteResourceLanguages"
+    Write-Info "Publishing MAUI app into: $mauiPublishRoot"
 
     & dotnet @publishArgs
 } else {
@@ -327,11 +343,12 @@ Write-Section "Done"
 Write-Info "publish/win root: $publishRoot"
 Write-Info "API directory: $apiPublishRoot"
 Write-Info "Python directory: $pythonPublishRoot"
+Write-Info "Python cache directory: $pythonCacheRoot"
 Write-Info "uzoncalc directory: $uzoncalcPublishRoot"
-Write-Info "MAUI directory: $mauiPublishRoot"
+Write-Info "MAUI app directory: $mauiPublishRoot"
 Write-Host ""
 Write-Host "Suggested verification commands:" -ForegroundColor Cyan
-Write-Host "  powershell -ExecutionPolicy Bypass -File ui\desktop-maui\scripts\deploy.ps1"
+Write-Host "  powershell -ExecutionPolicy Bypass -File scripts\deploy.ps1"
 Write-Host ('  Test-Path "{0}"' -f (Join-Path $pythonPublishRoot "python.exe"))
 Write-Host ('  Test-Path "{0}"' -f (Join-Path $apiPublishRoot "main.py"))
-Write-Host ('  Get-ChildItem "{0}"' -f $mauiPublishRoot)
+Write-Host ('  Get-ChildItem "{0}"' -f $publishRoot)

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.Logging;
 
-namespace uzoncalc;
+namespace UzoncalcMaui;
 
 public static class MauiProgram
 {

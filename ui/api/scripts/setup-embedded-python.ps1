@@ -7,7 +7,8 @@
 
 param(
     [string]$PythonVersion = "3.11.9",
-    [string]$TargetDir = "dist\python-embedded"
+    [string]$TargetDir = "dist\python-embedded",
+    [string]$CacheRoot
 )
 
 $ErrorActionPreference = "Stop"
@@ -15,7 +16,15 @@ $ErrorActionPreference = "Stop"
 # 获取脚本所在目录
 $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PROJECT_ROOT = Split-Path -Parent $SCRIPT_DIR
+$UI_ROOT = Split-Path -Parent $PROJECT_ROOT
+$REPO_ROOT = Split-Path -Parent $UI_ROOT
 $EMBED_DIR = Join-Path $PROJECT_ROOT $TargetDir
+
+if ([string]::IsNullOrWhiteSpace($CacheRoot)) {
+    $CacheRoot = Join-Path $REPO_ROOT ".cache\desktop-maui\python"
+} elseif (-not [System.IO.Path]::IsPathRooted($CacheRoot)) {
+    $CacheRoot = Join-Path $REPO_ROOT $CacheRoot
+}
 
 function Write-Info {
     param([string]$message)
@@ -25,6 +34,42 @@ function Write-Info {
 function Write-Error-Message {
     param([string]$message)
     Write-Host "[ERROR] $message" -ForegroundColor Red
+}
+
+function Ensure-Directory {
+    param([string]$Path)
+
+    if (-not (Test-Path -LiteralPath $Path)) {
+        New-Item -ItemType Directory -Path $Path | Out-Null
+    }
+}
+
+function Remove-DirectoryIfExists {
+    param([string]$Path)
+
+    if (Test-Path -LiteralPath $Path) {
+        Remove-Item -LiteralPath $Path -Recurse -Force
+    }
+}
+
+function Copy-DirectoryContents {
+    param(
+        [string]$Source,
+        [string]$Destination
+    )
+
+    Ensure-Directory -Path $Destination
+    Get-ChildItem -LiteralPath $Source -Force | ForEach-Object {
+        Copy-Item -LiteralPath $_.FullName -Destination $Destination -Recurse -Force
+    }
+}
+
+function Assert-LastCommandSucceeded {
+    param([string]$Message)
+
+    if ($LASTEXITCODE -ne 0) {
+        throw $Message
+    }
 }
 
 # ============================================
@@ -37,6 +82,34 @@ Write-Info "开始设置嵌入式 Python 环境..."
 $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "win32" }
 $downloadUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-$arch.zip"
 $zipFile = Join-Path $env:TEMP "python-embedded.zip"
+$requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
+$requirementsHash = "no-requirements"
+if (Test-Path -LiteralPath $requirementsFile) {
+    $requirementsHash = (Get-FileHash -LiteralPath $requirementsFile -Algorithm SHA256).Hash.ToLowerInvariant()
+}
+
+$cacheKey = "v1-$PythonVersion-$arch-$requirementsHash"
+$cacheDir = Join-Path $CacheRoot $cacheKey
+$cachePythonExe = Join-Path $cacheDir "python.exe"
+
+Write-Info "Python cache root: $CacheRoot"
+Write-Info "Python cache key: $cacheKey"
+
+if (Test-Path -LiteralPath $cachePythonExe) {
+    Write-Info "检测到缓存的嵌入式 Python 环境，直接复制到目标目录..."
+    Remove-DirectoryIfExists -Path $EMBED_DIR
+    Copy-DirectoryContents -Source $cacheDir -Destination $EMBED_DIR
+
+    $pythonExe = Join-Path $EMBED_DIR "python.exe"
+    Write-Info "========================================="
+    Write-Info "嵌入式 Python 环境设置完成（来自缓存）！"
+    Write-Info "========================================="
+    Write-Host ""
+    Write-Host "Python 路径: $EMBED_DIR" -ForegroundColor Cyan
+    Write-Host "Python 可执行文件: $pythonExe" -ForegroundColor Cyan
+    Write-Host ""
+    return
+}
 
 Write-Info "下载 Python $PythonVersion ($arch)..."
 Write-Host "  URL: $downloadUrl"
@@ -61,7 +134,7 @@ Write-Info "解压 Python 到 $EMBED_DIR..."
 
 if (Test-Path $EMBED_DIR) {
     Write-Info "目标目录已存在，将覆盖..."
-    Remove-Item -Recurse -Force $EMBED_DIR
+    Remove-DirectoryIfExists -Path $EMBED_DIR
 }
 
 Expand-Archive -Path $zipFile -DestinationPath $EMBED_DIR -Force
@@ -117,12 +190,13 @@ try {
     # 使用嵌入式 Python 安装 pip
     $pythonExe = Join-Path $EMBED_DIR "python.exe"
     & $pythonExe $getPipFile --no-warn-script-location
+    Assert-LastCommandSucceeded -Message "pip 安装命令执行失败。"
     
     Remove-Item $getPipFile
     Write-Info "pip 安装成功"
 } catch {
     Write-Error-Message "pip 安装失败: $_"
-    Write-Host "可以稍后手动安装 pip"
+    throw
 }
 
 # ============================================
@@ -145,20 +219,30 @@ if (-not (Test-Path $sitePackages)) {
 
 Write-Info "安装项目依赖..."
 
-$requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
 $pythonExe = Join-Path $EMBED_DIR "python.exe"
 $pipExe = Join-Path $EMBED_DIR "Scripts\pip.exe"
 
 if (Test-Path $requirementsFile) {
     if (Test-Path $pipExe) {
         & $pipExe install -r $requirementsFile --no-warn-script-location
+        Assert-LastCommandSucceeded -Message "项目依赖安装命令执行失败。"
         Write-Info "依赖安装完成"
     } else {
-        Write-Error-Message "pip.exe 未找到，请手动安装依赖"
+        throw "pip.exe 未找到，无法安装项目依赖。"
     }
 } else {
     Write-Host "  未找到 requirements.txt，跳过依赖安装" -ForegroundColor Yellow
 }
+
+# ============================================
+# 7. 写入缓存
+# ============================================
+
+Write-Info "写入嵌入式 Python 缓存..."
+Ensure-Directory -Path $CacheRoot
+Remove-DirectoryIfExists -Path $cacheDir
+Copy-DirectoryContents -Source $EMBED_DIR -Destination $cacheDir
+Write-Info "缓存完成: $cacheDir"
 
 # ============================================
 # 完成

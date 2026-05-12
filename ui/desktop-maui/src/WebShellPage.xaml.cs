@@ -1,4 +1,4 @@
-namespace uzoncalc;
+namespace UzoncalcMaui;
 
 public partial class WebShellPage : ContentPage
 {

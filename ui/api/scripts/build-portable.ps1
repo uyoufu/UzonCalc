@@ -7,7 +7,8 @@
 
 param(
     [string]$OutputName = "UzonCalc-Portable",
-    [string]$PythonVersion = "3.11.9"
+    [string]$PythonVersion = "3.11.9",
+    [string]$PythonCacheRoot
 )
 
 $ErrorActionPreference = "Stop"
@@ -41,7 +42,18 @@ Write-Step "步骤 1: 设置嵌入式 Python 环境"
 
 $setupScript = Join-Path $SCRIPT_DIR "setup-embedded-python.ps1"
 if (Test-Path $setupScript) {
-    & $setupScript -PythonVersion $PythonVersion -TargetDir $EMBEDDED_PYTHON_RELATIVE_DIR
+    $setupArgs = @(
+        "-PythonVersion"
+        $PythonVersion
+        "-TargetDir"
+        $EMBEDDED_PYTHON_RELATIVE_DIR
+    )
+
+    if (-not [string]::IsNullOrWhiteSpace($PythonCacheRoot)) {
+        $setupArgs += @("-CacheRoot", $PythonCacheRoot)
+    }
+
+    & $setupScript @setupArgs
 } else {
     Write-Error "未找到 setup-embedded-python.ps1"
     exit 1

@@ -1,6 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 
-namespace uzoncalc;
+namespace UzoncalcMaui;
 
 public partial class App : Application
 {

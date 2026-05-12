@@ -1,7 +1,7 @@
 using System.Diagnostics;
 using Microsoft.Extensions.Logging;
 
-namespace uzoncalc.ShellHost;
+namespace UzoncalcMaui.ShellHost;
 
 public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
 {
@@ -14,14 +14,12 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
 
     public LocalServiceBootstrapper(
         AppHostOptions options,
-        ILogger<LocalServiceBootstrapper> logger)
+        ILogger<LocalServiceBootstrapper> logger
+    )
     {
         _options = options;
         _logger = logger;
-        _httpClient = new HttpClient
-        {
-            Timeout = TimeSpan.FromSeconds(2),
-        };
+        _httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(2), };
     }
 
     public async Task<ServiceBootstrapResult> StartAsync(CancellationToken cancellationToken)
@@ -37,13 +35,17 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
 
             if (!ShouldStartLocalService())
             {
-                return ServiceBootstrapResult.Skipped("Local auto-start is skipped on this platform. Loading the configured URL.");
+                return ServiceBootstrapResult.Skipped(
+                    "Local auto-start is skipped on this platform. Loading the configured URL."
+                );
             }
 
             var launch = ResolveLaunchCommand();
             if (launch is null)
             {
-                return ServiceBootstrapResult.Failed("Could not locate ui/api/main.py or a usable Python runtime.");
+                return ServiceBootstrapResult.Failed(
+                    "Could not locate ui/api/main.py or a usable Python runtime."
+                );
             }
 
             var startInfo = new ProcessStartInfo
@@ -62,7 +64,8 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
             _logger.LogInformation(
                 "Starting local API service with command: {FileName} {Arguments}",
                 startInfo.FileName,
-                startInfo.Arguments);
+                startInfo.Arguments
+            );
 
             _ownedProcess = Process.Start(startInfo);
             if (_ownedProcess is null)
@@ -70,14 +73,21 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
                 return ServiceBootstrapResult.Failed("The local API process could not be started.");
             }
 
-            var isReady = await WaitForHealthyAsync(TimeSpan.FromSeconds(_options.StartupTimeoutSeconds), cancellationToken);
+            var isReady = await WaitForHealthyAsync(
+                TimeSpan.FromSeconds(_options.StartupTimeoutSeconds),
+                cancellationToken
+            );
             if (!isReady)
             {
                 await StopOwnedProcessAsync();
-                return ServiceBootstrapResult.Failed("The local API service did not become healthy before the startup timeout expired.");
+                return ServiceBootstrapResult.Failed(
+                    "The local API service did not become healthy before the startup timeout expired."
+                );
             }
 
-            return ServiceBootstrapResult.Started("Local API started. Loading http://localhost:3346/.");
+            return ServiceBootstrapResult.Started(
+                "Local API started. Loading http://localhost:3346/."
+            );
         }
         catch (OperationCanceledException)
         {
@@ -114,7 +124,10 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
         return OperatingSystem.IsWindows();
     }
 
-    private async Task<bool> WaitForHealthyAsync(TimeSpan timeout, CancellationToken cancellationToken)
+    private async Task<bool> WaitForHealthyAsync(
+        TimeSpan timeout,
+        CancellationToken cancellationToken
+    )
     {
         using var timeoutCts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         timeoutCts.CancelAfter(timeout);
@@ -128,7 +141,10 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
 
             if (_ownedProcess is not null && _ownedProcess.HasExited)
             {
-                _logger.LogWarning("Local API process exited early with code {ExitCode}.", _ownedProcess.ExitCode);
+                _logger.LogWarning(
+                    "Local API process exited early with code {ExitCode}.",
+                    _ownedProcess.ExitCode
+                );
                 return false;
             }
 
@@ -142,11 +158,14 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
     {
         try
         {
-            using var response = await _httpClient.GetAsync(_options.HealthCheckUrl, cancellationToken);
+            using var response = await _httpClient.GetAsync(
+                _options.HealthCheckUrl,
+                cancellationToken
+            );
             return response.IsSuccessStatusCode;
         }
-        catch (Exception ex) when (
-            ex is HttpRequestException or TaskCanceledException or InvalidOperationException)
+        catch (Exception ex)
+            when (ex is HttpRequestException or TaskCanceledException or InvalidOperationException)
         {
             return false;
         }
@@ -163,7 +182,10 @@ public sealed class LocalServiceBootstrapper : ILocalServiceBootstrapper
         {
             if (!_ownedProcess.HasExited)
             {
-                _logger.LogInformation("Stopping owned local API process {ProcessId}.", _ownedProcess.Id);
+                _logger.LogInformation(
+                    "Stopping owned local API process {ProcessId}.",
+                    _ownedProcess.Id
+                );
                 _ownedProcess.Kill(entireProcessTree: true);
                 await _ownedProcess.WaitForExitAsync();
             }

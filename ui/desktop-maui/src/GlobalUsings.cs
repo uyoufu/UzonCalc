@@ -1,1 +1,1 @@
-global using uzoncalc.ShellHost;
+global using UzoncalcMaui.ShellHost;

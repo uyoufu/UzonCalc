@@ -1,6 +1,6 @@
-﻿using Foundation;
+using Foundation;
 
-namespace uzoncalc
+namespace UzoncalcMaui
 {
     [Register("AppDelegate")]
     public class AppDelegate : MauiUIApplicationDelegate

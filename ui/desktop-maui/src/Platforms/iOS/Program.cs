@@ -1,7 +1,7 @@
-﻿using ObjCRuntime;
+using ObjCRuntime;
 using UIKit;
 
-namespace uzoncalc
+namespace UzoncalcMaui
 {
     public class Program
     {
