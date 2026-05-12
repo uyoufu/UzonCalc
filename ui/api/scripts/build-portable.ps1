@@ -291,9 +291,3 @@ $size = (Get-ChildItem -Path $OUTPUT_DIR -Recurse | Measure-Object -Property Len
 
 Write-Info "输出目录: $OUTPUT_DIR"
 Write-Info "总大小: $([Math]::Round($size, 2)) MB"
-Write-Host ""
-Write-Host "api 打包后续步骤：" -ForegroundColor Cyan
-Write-Host "  1. 测试运行: cd '$OUTPUT_DIR' && .\启动服务.bat"
-Write-Host "  2. 压缩打包: 将整个 '$OutputName' 文件夹压缩为 .zip"
-Write-Host "  3. 分发给用户: 用户解压后即可运行"
-Write-Host ""
