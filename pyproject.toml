@@ -13,6 +13,7 @@ requires-python = ">=3.10"
 dependencies = [
     "build>=1.4.2",
     "fastapi>=0.134.0",
+    "isort>=8.0.1",
     "matplotlib>=3.10.8",
     "numpy",
     "openpyxl",
