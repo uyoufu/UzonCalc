@@ -50,5 +50,17 @@
       "envManager": "ms-python.python:venv",
       "packageManager": "ms-python.python:pip"
     }
-  ]
+  ],
+  "rust-analyzer.linkedProjects": ["ui/web/src-tauri/Cargo.toml"],
+  "rust-analyzer.server.extraEnv": {
+    "HTTP_PROXY": "http://127.0.0.1:7890",
+    "HTTPS_PROXY": "http://127.0.0.1:7890",
+    "ALL_PROXY": "http://127.0.0.1:7890"
+  },
+
+  "rust-analyzer.cargo.extraEnv": {
+    "HTTP_PROXY": "http://127.0.0.1:7890",
+    "HTTPS_PROXY": "http://127.0.0.1:7890",
+    "ALL_PROXY": "http://127.0.0.1:7890"
+  }
 }
