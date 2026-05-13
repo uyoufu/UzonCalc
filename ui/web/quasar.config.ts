@@ -36,7 +36,7 @@ export default defineConfig((ctx) => {
     // app boot file (/src/boot)
     // --> boot files are part of "main.js"
     // https://v2.quasar.dev/quasar-cli-vite/boot-files
-    boot: ['config.ts', 'quasar-lang-pack', 'i18n', 'axios', 'logger', "dayjs", 'monaco-editor'],
+    boot: ['config.ts', 'quasar-lang-pack', 'i18n', 'axios', 'logger', 'dayjs'],
 
     // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js#css
     css: ['app.scss'],
@@ -77,7 +77,7 @@ export default defineConfig((ctx) => {
         // extendTsConfig (tsConfig) {}
       },
 
-      vueRouterMode: 'history', // available values: 'hash', 'history'
+      vueRouterMode: ctx.modeName === 'electron' ? 'hash' : 'history', // available values: 'hash', 'history'
       // vueRouterBase,
       // vueDevtools,
       // vueOptionsAPI: false,
@@ -133,16 +133,20 @@ export default defineConfig((ctx) => {
             resolvers: [ElementPlusResolver(), QuasarResolver()]
           }
         ],
-        ['vite-plugin-checker', {
-          // Avoid Node DEP0190 during production builds.
-          // Keep checker in dev, but don't spawn its build-time workers.
-          enableBuild: false,
-          vueTsc: true,
-          eslint: {
-            lintCommand: 'eslint -c ./eslint.config.js "./src*/**/*.{ts,js,mjs,cjs,vue}"',
-            useFlatConfig: true
-          }
-        }, { server: false }]
+        [
+          'vite-plugin-checker',
+          {
+            // Avoid Node DEP0190 during production builds.
+            // Keep checker in dev, but don't spawn its build-time workers.
+            enableBuild: false,
+            vueTsc: true,
+            eslint: {
+              lintCommand: 'eslint -c ./eslint.config.js "./src*/**/*.{ts,js,mjs,cjs,vue}"',
+              useFlatConfig: true
+            }
+          },
+          { server: false }
+        ]
       ]
     },
 
