@@ -7,6 +7,9 @@ import prettierSkipFormatting from '@vue/eslint-config-prettier/skip-formatting'
 
 export default defineConfigWithVueTs(
   {
+    ignores: ['**/src-tauri/**', '**/node_modules/**', '**/dist/**']
+  },
+  {
     /**
      * Ignore the following files.
      * Please note that pluginQuasar.configs.recommended() already ignores
@@ -33,15 +36,12 @@ export default defineConfigWithVueTs(
    * pluginVue.configs["flat/recommended"]
    *   -> Above, plus rules to enforce subjective community defaults to ensure consistency.
    */
-  pluginVue.configs[ 'flat/essential' ],
+  pluginVue.configs['flat/essential'],
 
   {
     files: ['**/*.ts', '**/*.vue'],
     rules: {
-      '@typescript-eslint/consistent-type-imports': [
-        'error',
-        { prefer: 'type-imports' }
-      ],
+      '@typescript-eslint/consistent-type-imports': ['error', { prefer: 'type-imports' }]
     }
   },
   // https://github.com/vuejs/eslint-config-typescript
@@ -74,7 +74,7 @@ export default defineConfigWithVueTs(
   },
 
   {
-    files: [ 'src-pwa/custom-service-worker.ts' ],
+    files: ['src-pwa/custom-service-worker.ts'],
     languageOptions: {
       globals: {
         ...globals.serviceworker
@@ -82,6 +82,5 @@ export default defineConfigWithVueTs(
     }
   },
 
-  
   prettierSkipFormatting
 )
