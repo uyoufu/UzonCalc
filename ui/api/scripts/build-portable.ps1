@@ -74,7 +74,6 @@ Write-Step "步骤 3: 复制项目文件"
 $itemsToCopy = @(
     "app",
     "config",
-    "data",
     "utils",
     "main.py",
     "requirements.txt"
@@ -110,36 +109,45 @@ if (Test-Path $EMBEDDED_PYTHON_SOURCE_DIR) {
 }
 
 # ============================================
+# 步骤 3.1: 设置便携包运行环境
+# ============================================
+
+$portableConfigDir = Join-Path $OUTPUT_DIR "config"
+if (Test-Path $portableConfigDir) {
+    Write-Info "设置便携包运行环境: prod"
+
+    $portableEnvPath = Join-Path $portableConfigDir ".env"
+    $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+    [System.IO.File]::WriteAllText($portableEnvPath, "prod", $utf8NoBom)
+
+    $portableDevConfig = Join-Path $portableConfigDir "app.dev.ini"
+    if (Test-Path $portableDevConfig) {
+        Write-Info "移除开发环境配置: config\app.dev.ini"
+        Remove-Item -Path $portableDevConfig -Force
+    }
+} else {
+    Write-Host "  跳过（不存在）: config" -ForegroundColor Yellow
+}
+
+$portableDataDirs = @(
+    "data\db",
+    "data\public",
+    "data\www",
+    "data\calcs"
+)
+
+foreach ($dataDir in $portableDataDirs) {
+    $portableDataDir = Join-Path $OUTPUT_DIR $dataDir
+    if (-not (Test-Path $portableDataDir)) {
+        New-Item -ItemType Directory -Path $portableDataDir -Force | Out-Null
+    }
+}
+
+# ============================================
 # 步骤 4: 创建启动脚本
 # ============================================
 
 Write-Step "步骤 4: 创建启动脚本"
-
-# Windows 批处理启动脚本
-$startBat = @"
-@echo off
-chcp 65001 >nul
-title UzonCalc API Server
-
-echo ========================================
-echo UzonCalc API 后台服务
-echo ========================================
-echo.
-
-echo [信息] 启动服务...
-echo.
-
-cd /d "%~dp0"
-
-REM 使用嵌入式 Python 启动
-dist\python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
-
-pause
-"@
-
-$startBatPath = Join-Path $OUTPUT_DIR "启动服务.bat"
-$utf8WithBom = New-Object System.Text.UTF8Encoding($true)
-[System.IO.File]::WriteAllText($startBatPath, $startBat, $utf8WithBom)
 
 # PowerShell 启动脚本（更强大）
 $startPs1 = @"
@@ -168,11 +176,17 @@ Write-Host ""
 
 # 启动服务
 & `$pythonExe -m uvicorn main:app --host 127.0.0.1 --port 3346 --log-level info
+`$exitCode = `$LASTEXITCODE
+if (`$exitCode -ne 0) {
+    Write-Host ""
+    Write-Host "[错误] 服务已退出，退出码: `$exitCode" -ForegroundColor Red
+    Write-Host "请检查上方日志中的错误信息。" -ForegroundColor Yellow
+}
 
 pause
 "@
 
-$startPs1 | Out-File -FilePath (Join-Path $OUTPUT_DIR "启动服务.ps1") -Encoding UTF8
+$startPs1 | Out-File -FilePath (Join-Path $OUTPUT_DIR "start.ps1") -Encoding UTF8
 
 # ============================================
 # 步骤 5: 创建说明文档
@@ -194,15 +208,11 @@ $readme = @"
 
 ## 使用方法
 
-### 方法 1: 双击批处理文件（推荐新手）
+### 方法 1: PowerShell 脚本
 
-直接双击 `启动服务.bat` 即可启动服务。
+右键点击 `start.ps1`，选择"使用 PowerShell 运行"。
 
-### 方法 2: PowerShell 脚本
-
-右键点击 `启动服务.ps1`，选择"使用 PowerShell 运行"。
-
-### 方法 3: 手动启动
+### 方法 2: 手动启动
 
 ```bash
 cd /d <解压目录>
@@ -230,8 +240,7 @@ UzonCalc-Portable/
 ├── config/              # 配置文件
 ├── data/                # 数据文件
 ├── main.py              # 主程序入口
-├── 启动服务.bat         # Windows 启动脚本
-├── 启动服务.ps1         # PowerShell 启动脚本
+├── start.ps1            # PowerShell 启动脚本
 └── README.txt           # 本文件
 ```
 
