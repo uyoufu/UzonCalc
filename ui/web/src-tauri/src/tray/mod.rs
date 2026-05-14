@@ -5,15 +5,17 @@ use tauri::{
     Manager, WebviewWindow, WindowEvent,
 };
 
+use crate::APP_NAME;
+
 const QUIT_MENU_ID: &str = "quit";
 
-pub fn setup_tray(app: &mut tauri::App, window: &WebviewWindow) -> Result<(), Box<dyn Error>> {
+pub fn setup_tray(app: &tauri::App, window: &WebviewWindow) -> Result<(), Box<dyn Error>> {
     let quit = MenuItem::with_id(app, QUIT_MENU_ID, "退出", true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&quit])?;
     let window_label = window.label().to_string();
     let mut tray_builder = TrayIconBuilder::new()
         .menu(&menu)
-        .tooltip("UzonCalc")
+        .tooltip(APP_NAME)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
             if event.id().as_ref() == QUIT_MENU_ID {

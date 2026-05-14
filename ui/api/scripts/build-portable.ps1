@@ -1,4 +1,4 @@
-# ============================================
+﻿# ============================================
 # 便携式打包脚本
 # ============================================
 # 功能：创建可分发的便携式应用包
@@ -42,6 +42,9 @@ Write-Step "步骤 1: 设置嵌入式 Python 环境"
 $setupScript = Join-Path $SCRIPT_DIR "setup-embedded-python.ps1"
 if (Test-Path $setupScript) {
     & $setupScript -PythonVersion $PythonVersion -TargetDir $EMBEDDED_PYTHON_RELATIVE_DIR
+    if ($LASTEXITCODE -ne 0) {
+        throw "嵌入式 Python 环境设置失败，退出码: $LASTEXITCODE"
+    }
 } else {
     Write-Error "未找到 setup-embedded-python.ps1"
     exit 1
@@ -134,7 +137,9 @@ dist\python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
 pause
 "@
 
-$startBat | Out-File -FilePath (Join-Path $OUTPUT_DIR "启动服务.bat") -Encoding ASCII
+$startBatPath = Join-Path $OUTPUT_DIR "启动服务.bat"
+$utf8WithBom = New-Object System.Text.UTF8Encoding($true)
+[System.IO.File]::WriteAllText($startBatPath, $startBat, $utf8WithBom)
 
 # PowerShell 启动脚本（更强大）
 $startPs1 = @"
