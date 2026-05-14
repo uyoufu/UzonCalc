@@ -18,14 +18,10 @@ configureVueProject({
 export default defineConfigWithVueTs(
   {
     ignores: [
-      'src-tauri',
       'src-tauri/**',
-      './src-tauri/**',
-      '**/src-tauri/**',
-      '.pytest_cache',
-      '.pytest_cache/**',
-      './.pytest_cache/**',
       '**/.pytest_cache/**',
+      '**/.github/skills/**',
+      'public/**',
       '**/node_modules/**',
       '**/dist/**'
     ]

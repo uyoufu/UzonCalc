@@ -1,5 +1,3 @@
-/* eslint-env node */
-
 // Configuration for your app
 // https://v2.quasar.dev/quasar-cli-vite/quasar-config-js
 
@@ -141,8 +139,7 @@ export default defineConfig((ctx) => {
             enableBuild: false,
             vueTsc: true,
             eslint: {
-              lintCommand: 'eslint -c ./eslint.config.js "./src/**/*.{ts,js,mjs,cjs,vue}"',
-              useFlatConfig: true
+              lintCommand: 'eslint -c ./eslint.config.js "./src/**/*.{ts,js,mjs,cjs,vue}"'
             }
           },
           { server: false }
