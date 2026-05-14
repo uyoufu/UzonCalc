@@ -52,6 +52,12 @@
   "exclude": [
     "./dist",
     "./node_modules",
+    "./.pytest_cache",
+    "./.pytest_cache/**/*",
+    "**/.pytest_cache/**/*",
+    "./src-tauri",
+    "./src-tauri/**/*",
+    "**/src-tauri/**/*",
     "./src-capacitor",
     "./src-cordova",
     "./quasar.config.*.temporary.compiled*"

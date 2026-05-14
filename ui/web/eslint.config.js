@@ -2,12 +2,33 @@ import js from '@eslint/js'
 import globals from 'globals'
 import pluginVue from 'eslint-plugin-vue'
 import pluginQuasar from '@quasar/app-vite/eslint'
-import { defineConfigWithVueTs, vueTsConfigs } from '@vue/eslint-config-typescript'
+import tsParser from '@typescript-eslint/parser'
+import { fileURLToPath } from 'node:url'
+import {
+  configureVueProject,
+  defineConfigWithVueTs,
+  vueTsConfigs
+} from '@vue/eslint-config-typescript'
 import prettierSkipFormatting from '@vue/eslint-config-prettier/skip-formatting'
+
+configureVueProject({
+  rootDir: fileURLToPath(new URL('./src', import.meta.url))
+})
 
 export default defineConfigWithVueTs(
   {
-    ignores: ['**/src-tauri/**', '**/node_modules/**', '**/dist/**']
+    ignores: [
+      'src-tauri',
+      'src-tauri/**',
+      './src-tauri/**',
+      '**/src-tauri/**',
+      '.pytest_cache',
+      '.pytest_cache/**',
+      './.pytest_cache/**',
+      '**/.pytest_cache/**',
+      '**/node_modules/**',
+      '**/dist/**'
+    ]
   },
   {
     /**
@@ -46,6 +67,17 @@ export default defineConfigWithVueTs(
   },
   // https://github.com/vuejs/eslint-config-typescript
   vueTsConfigs.recommendedTypeChecked,
+
+  {
+    files: ['**/*.vue'],
+    languageOptions: {
+      parserOptions: {
+        projectService: true,
+        parser: tsParser,
+        extraFileExtensions: ['.vue']
+      }
+    }
+  },
 
   {
     languageOptions: {

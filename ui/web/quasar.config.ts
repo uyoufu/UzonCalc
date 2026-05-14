@@ -141,7 +141,7 @@ export default defineConfig((ctx) => {
             enableBuild: false,
             vueTsc: true,
             eslint: {
-              lintCommand: 'eslint -c ./eslint.config.js "./src*/**/*.{ts,js,mjs,cjs,vue}"',
+              lintCommand: 'eslint -c ./eslint.config.js "./src/**/*.{ts,js,mjs,cjs,vue}"',
               useFlatConfig: true
             }
           },
