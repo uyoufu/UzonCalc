@@ -39,10 +39,6 @@ pub fn app_title() -> String {
     t!("app.title").to_string()
 }
 
-pub fn duplicate_instance_message() -> String {
-    t!("app.duplicate_instance_message").to_string()
-}
-
 pub fn tray_quit_text() -> String {
     t!("tray.quit").to_string()
 }

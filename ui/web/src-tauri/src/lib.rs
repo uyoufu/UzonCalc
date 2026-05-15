@@ -1,17 +1,18 @@
 #[macro_use]
 extern crate rust_i18n;
 
+pub mod api_process;
 pub mod config;
 pub mod locale;
 pub mod server;
 pub mod tray;
 
+use api_process::ApiProcessState;
 use config::{app_config_paths, load_app_config, AppConfig};
-use locale::{app_title, duplicate_instance_message, set_current_locale};
+use locale::{app_title, set_current_locale};
 use server::{spawn_language_server, SharedState};
 use std::error::Error;
 use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder};
-use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
 rust_i18n::i18n!("locales");
 
@@ -26,12 +27,11 @@ pub fn run() {
     #[cfg(desktop)]
     {
         builder = builder.plugin(tauri_plugin_single_instance::init(|app, _args, _cwd| {
-            notify_duplicate_instance(app);
+            restore_existing_instance(app);
         }));
     }
 
     builder
-        .plugin(tauri_plugin_dialog::init())
         .setup(|app| {
             if cfg!(debug_assertions) {
                 app.handle().plugin(
@@ -53,6 +53,7 @@ pub fn run() {
                 tray_state,
             );
             app.manage(shared_state.clone());
+            app.manage(ApiProcessState::try_start());
             spawn_language_server(shared_state);
 
             Ok(())
@@ -61,7 +62,7 @@ pub fn run() {
         .expect("error while running tauri application");
 }
 
-fn notify_duplicate_instance(app: &AppHandle) {
+fn restore_existing_instance(app: &AppHandle) {
     if let Some(window) = app
         .get_webview_window(MAIN_WINDOW_LABEL)
         .or_else(|| app.webview_windows().into_values().next())
@@ -70,16 +71,14 @@ fn notify_duplicate_instance(app: &AppHandle) {
             log::error!("failed to show existing window: {error}");
         }
 
+        if let Err(error) = window.unminimize() {
+            log::debug!("failed to unminimize existing window: {error}");
+        }
+
         if let Err(error) = window.set_focus() {
             log::error!("failed to focus existing window: {error}");
         }
     }
-
-    app.dialog()
-        .message(duplicate_instance_message())
-        .kind(MessageDialogKind::Info)
-        .title(app_title())
-        .show(|_| {});
 }
 
 fn create_main_window(
