@@ -10,6 +10,7 @@ import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import create_async_engine
 
+from app.db.migration import migrations_helper
 from app.db.migration.migrations_helper import MigrationHelper
 
 
@@ -73,6 +74,45 @@ def test_upgrade_to_head_is_idempotent_for_sqlite(tmp_path: Path):
             await engine.dispose()
 
     revision = asyncio.run(run_migration_twice(tmp_path / "app.sqlite3"))
+
+    assert revision == "002_calc_report_instance"
+
+
+def test_upgrade_to_head_skips_alembic_when_database_is_current(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+):
+    """数据库版本已是 head 时应快速返回，不再调用 Alembic upgrade。"""
+
+    db_path = tmp_path / "app.sqlite3"
+
+    async def migrate_once() -> None:
+        engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
+        try:
+            helper = MigrationHelper()
+            await helper.upgrade_to_head(engine)
+        finally:
+            await engine.dispose()
+
+    async def run_current_database_check() -> str | None:
+        engine = create_async_engine(f"sqlite+aiosqlite:///{db_path}")
+        try:
+            helper = MigrationHelper()
+            await helper.upgrade_to_head(engine)
+            async with engine.connect() as conn:
+                result = await conn.execute(
+                    text("select version_num from alembic_version")
+                )
+                return result.scalar_one_or_none()
+        finally:
+            await engine.dispose()
+
+    def fail_if_called(*args, **kwargs):
+        raise AssertionError("Alembic upgrade should be skipped for current database")
+
+    asyncio.run(migrate_once())
+    monkeypatch.setattr(migrations_helper.command, "upgrade", fail_if_called)
+
+    revision = asyncio.run(run_current_database_check())
 
     assert revision == "002_calc_report_instance"
 

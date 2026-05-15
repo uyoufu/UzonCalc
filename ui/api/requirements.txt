@@ -10,7 +10,6 @@ asyncpg==0.31.0
 attrs==25.4.0
 authlib==1.6.8
 babel==2.18.0
-bcrypt==5.0.0
 beartype==0.22.9
 black==26.1.0
 build==1.4.2

@@ -12,7 +12,6 @@ dependencies = [
     "uvicorn[standard]",
     "python-multipart",
     "PyJWT",
-    "bcrypt",
     "Babel",
     "aiofiles",
     "interval",

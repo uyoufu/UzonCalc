@@ -10,6 +10,7 @@ from pathlib import Path
 from alembic import command
 from alembic.config import Config
 from alembic.script import ScriptDirectory
+from sqlalchemy import inspect, text
 from sqlalchemy.engine import Connection
 from sqlalchemy.ext.asyncio import AsyncEngine
 
@@ -80,7 +81,29 @@ class MigrationHelper:
     ) -> None:
         config = self._make_config()
         config.attributes["connection"] = connection
+
+        if revision == "head":
+            heads = set(ScriptDirectory.from_config(config).get_heads())
+            current_revisions = self._get_current_revisions(connection)
+            logger.info(
+                "Database migration state: current=%s, heads=%s",
+                sorted(current_revisions) or ["<none>"],
+                sorted(heads) or ["<none>"],
+            )
+
+            if current_revisions and current_revisions == heads:
+                logger.info("Database already at migration head, skipping upgrade")
+                return
+
         command.upgrade(config, revision)
+
+    def _get_current_revisions(self, connection: Connection) -> set[str]:
+        """读取数据库当前 Alembic revision；没有版本表时返回空集合。"""
+        if not inspect(connection).has_table("alembic_version"):
+            return set()
+
+        result = connection.execute(text("select version_num from alembic_version"))
+        return {row[0] for row in result}
 
     def upgrade(self, revision: str = "head") -> bool:
         """

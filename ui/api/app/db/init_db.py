@@ -2,6 +2,8 @@
 Database initialization script for application startup - Async version
 """
 
+import time
+
 from sqlalchemy import select
 
 from app.db.models import SystemSetting
@@ -86,15 +88,18 @@ async def run_migrations():
     Run pending database migrations using Alembic.
     """
     logger.info("Running database migrations...")
+    started_at = time.perf_counter()
 
     try:
         helper = MigrationHelper()
         await helper.upgrade_to_head(get_db_manager().engine)
-        logger.info("Migrations applied successfully")
+        elapsed = time.perf_counter() - started_at
+        logger.info("Migrations completed successfully in %.2fs", elapsed)
         return True
 
     except Exception as e:
-        logger.exception(f"Migration execution failed: {e}")
+        elapsed = time.perf_counter() - started_at
+        logger.exception("Migration execution failed after %.2fs: %s", elapsed, e)
         return False
 
 
