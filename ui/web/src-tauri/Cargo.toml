@@ -8,6 +8,10 @@ repository = "https://github.com/uyoufu/UzonCalc"
 edition = "2021"
 rust-version = "1.77.2"
 
+[package.metadata.i18n]
+load-path = "locales"
+default-locale = "zh-CN"
+
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [lib]
@@ -18,6 +22,9 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.6.1", features = [] }
 
 [dependencies]
+axum = { version = "0.8", features = ["tokio"] }
+rust-i18n = "3"
+tokio = { version = "1", features = ["net", "rt-multi-thread", "sync"] }
 serde_json = "1.0"
 serde = { version = "1.0", features = ["derive"] }
 log = "0.4"
@@ -25,6 +32,7 @@ tauri = { version = "2.11.1", features = ["tray-icon"] }
 tauri-plugin-dialog = "2"
 tauri-plugin-log = "2"
 toml = "0.9"
+tower-http = { version = "0.6", features = ["cors"] }
 
 [target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
 tauri-plugin-single-instance = "2"

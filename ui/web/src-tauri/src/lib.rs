@@ -1,17 +1,26 @@
+#[macro_use]
+extern crate rust_i18n;
+
 pub mod config;
+pub mod locale;
+pub mod server;
 pub mod tray;
 
-use config::{load_app_config, AppConfig};
+use config::{app_config_paths, load_app_config, AppConfig};
+use locale::{app_title, duplicate_instance_message, set_current_locale};
+use server::{spawn_language_server, SharedState};
 use std::error::Error;
 use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder};
 use tauri_plugin_dialog::{DialogExt, MessageDialogKind};
 
-pub const APP_NAME: &str = "UzonCalc";
-const DUPLICATE_INSTANCE_MESSAGE: &str = "程序已在运行中。";
+rust_i18n::i18n!("locales");
+
 const MAIN_WINDOW_LABEL: &str = "main";
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
+    set_current_locale(locale::AppLocale::ZhCn);
+
     let mut builder = tauri::Builder::default();
 
     #[cfg(desktop)]
@@ -33,9 +42,18 @@ pub fn run() {
             }
 
             let app_config = load_app_config(app);
+            set_current_locale(app_config.locale());
             let window = create_main_window(app, &app_config)?;
-            app.manage(app_config);
-            tray::setup_tray(app, &window)?;
+            let tray_state = tray::setup_tray(app, &window)?;
+            let shared_state = SharedState::new(
+                app.handle().clone(),
+                app_config_paths(app),
+                app_config,
+                window.label().to_string(),
+                tray_state,
+            );
+            app.manage(shared_state.clone());
+            spawn_language_server(shared_state);
 
             Ok(())
         })
@@ -58,9 +76,9 @@ fn notify_duplicate_instance(app: &AppHandle) {
     }
 
     app.dialog()
-        .message(DUPLICATE_INSTANCE_MESSAGE)
+        .message(duplicate_instance_message())
         .kind(MessageDialogKind::Info)
-        .title(APP_NAME)
+        .title(app_title())
         .show(|_| {});
 }
 
@@ -79,6 +97,8 @@ fn create_main_window(
     if let Some(url) = app_config.webview_url() {
         window_config.url = url;
     }
+
+    window_config.title = app_title();
 
     let window = WebviewWindowBuilder::from_config(app.handle(), &window_config)?.build()?;
     Ok(window)

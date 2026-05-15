@@ -1,0 +1,7 @@
+app:
+  title: "UzonCalc"
+  duplicate_instance_message: "程序已在运行中。"
+tray:
+  quit: "退出"
+language:
+  unsupported: "不支持的语言。"

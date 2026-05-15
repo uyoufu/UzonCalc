@@ -1,0 +1,7 @@
+app:
+  title: "UzonCalc"
+  duplicate_instance_message: "The program is already running."
+tray:
+  quit: "Quit"
+language:
+  unsupported: "Unsupported language."

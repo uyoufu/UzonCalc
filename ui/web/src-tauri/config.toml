@@ -1,2 +1,4 @@
+language = "zh-CN"
+
 [webview]
 url = "index.html"

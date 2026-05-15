@@ -32,6 +32,7 @@
     "pandoc",
     "pytest",
     "redoc",
+    "retcode",
     "rowspan",
     "subscriptify",
     "tauri",

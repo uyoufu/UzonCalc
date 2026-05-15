@@ -3,6 +3,8 @@ import type { LogLevelNames } from 'loglevel'
 export interface IAppConfig {
   baseUrl: string,
   api: string,
+  localAppBaseUrl: string,
+  localAppApi: string,
   signalRHub: string,
   // 日志配置
   logger: {

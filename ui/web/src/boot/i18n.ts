@@ -1,6 +1,8 @@
 import { defineBoot } from '#q-app/wrappers'
 import { createI18n } from 'vue-i18n'
 import { useSessionStorage } from '@vueuse/core'
+import { setAppLanguage } from 'src/api/localApp/appLanguage'
+import { isLocalAppAvailable } from 'src/api/localApp/healthCheck'
 
 /*
  * All i18n resources specified in the plugin `include` option can be loaded
@@ -28,16 +30,22 @@ declare module 'vue-i18n' {
 
 function getDefaultLocale (): string {
   // 判断 session 中是否有 locale，若有，则使用 session 中的 locale
-  const browserLang = useSessionStorage('locale', '').value
-  if (!browserLang) return 'zh-CN'
+  const localeStorage = useSessionStorage('locale', '')
+  const browserLang = localeStorage.value
+  if (!browserLang) {
+    localeStorage.value = 'zh-CN'
+    return 'zh-CN'
+  }
 
   const messagesKeys = Object.keys(messages)
-  const browserLangKey = messagesKeys.find(key => key.startsWith(browserLang))
-  return browserLangKey || 'zh-CN'
+  const browserLangKey = messagesKeys.find(key => key === browserLang)
+  const locale = browserLangKey || 'zh-CN'
+  localeStorage.value = locale
+  return locale
 }
 
 export const i18n = createI18n({
-  locale: getDefaultLocale(),
+  locale: 'zh-CN',
   // 回退语言
   fallbackLocale: 'zh-CN',
   silentFallbackWarn: true, // 控制台上不打印警告
@@ -47,7 +55,14 @@ export const i18n = createI18n({
 })
 
 
-export default defineBoot(({ app }) => {
+export default defineBoot(async ({ app }) => {
+  const locale = getDefaultLocale()
+  i18n.global.locale.value = locale
+
+  if (await isLocalAppAvailable()) {
+    await setAppLanguage(locale)
+  }
+
   // Set i18n instance on app
   app.use(i18n)
 })

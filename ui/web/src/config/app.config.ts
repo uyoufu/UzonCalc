@@ -11,6 +11,8 @@ export default {
   default: {
     baseUrl: 'http://localhost:3345',
     api: '/api/v1',
+    localAppBaseUrl: 'http://127.0.0.1:38472',
+    localAppApi: '/api',
     signalRHub: '/hubs/uzonMailHub',
     // 日志配置
     logger: {
@@ -23,6 +25,8 @@ export default {
   prod: {
     baseUrl: 'http://localhost:3345',
     api: '/api/v1',
+    localAppBaseUrl: 'http://127.0.0.1:38472',
+    localAppApi: '/api',
     signalRHub: '/hubs/uzonMailHub',
     // 日志配置
     logger: {
@@ -34,6 +38,8 @@ export default {
   dev: {
     baseUrl: 'http://localhost:3345',
     api: '/api/v1',
+    localAppBaseUrl: 'http://127.0.0.1:38472',
+    localAppApi: '/api',
     signalRHub: '/hubs/uzonMailHub',
     // 日志配置
     logger: {

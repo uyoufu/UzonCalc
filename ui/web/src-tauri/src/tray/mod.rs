@@ -2,20 +2,51 @@ use std::error::Error;
 use tauri::{
     menu::{Menu, MenuItem},
     tray::{MouseButton, MouseButtonState, TrayIconBuilder, TrayIconEvent},
-    Manager, WebviewWindow, WindowEvent,
+    AppHandle, Manager, WebviewWindow, WindowEvent,
 };
 
-use crate::APP_NAME;
+use crate::locale::{app_title, tray_quit_text};
 
+const TRAY_ID: &str = "main-tray";
 const QUIT_MENU_ID: &str = "quit";
 
-pub fn setup_tray(app: &tauri::App, window: &WebviewWindow) -> Result<(), Box<dyn Error>> {
-    let quit = MenuItem::with_id(app, QUIT_MENU_ID, "退出", true, None::<&str>)?;
+#[derive(Clone)]
+pub struct TrayState {
+    tray_id: String,
+    quit_item: MenuItem<tauri::Wry>,
+}
+
+impl TrayState {
+    pub fn apply_locale(&self, app: &AppHandle) {
+        if let Err(error) = self.quit_item.set_text(tray_quit_text()) {
+            log::error!("failed to update tray quit text: {error}");
+        }
+
+        let title = app_title();
+        let Some(tray) = app.tray_by_id(&self.tray_id) else {
+            log::warn!("tray {} not found while applying locale", self.tray_id);
+            return;
+        };
+
+        if let Err(error) = tray.set_tooltip(Some(&title)) {
+            log::debug!("failed to update tray tooltip: {error}");
+        }
+
+        if let Err(error) = tray.set_title(Some(&title)) {
+            log::debug!("failed to update tray title: {error}");
+        }
+    }
+}
+
+pub fn setup_tray(app: &tauri::App, window: &WebviewWindow) -> Result<TrayState, Box<dyn Error>> {
+    let quit = MenuItem::with_id(app, QUIT_MENU_ID, tray_quit_text(), true, None::<&str>)?;
     let menu = Menu::with_items(app, &[&quit])?;
     let window_label = window.label().to_string();
-    let mut tray_builder = TrayIconBuilder::new()
+    let title = app_title();
+    let mut tray_builder = TrayIconBuilder::with_id(TRAY_ID)
         .menu(&menu)
-        .tooltip(APP_NAME)
+        .tooltip(&title)
+        .title(&title)
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
             if event.id().as_ref() == QUIT_MENU_ID {
@@ -51,7 +82,10 @@ pub fn setup_tray(app: &tauri::App, window: &WebviewWindow) -> Result<(), Box<dy
         }
     });
 
-    Ok(())
+    Ok(TrayState {
+        tray_id: TRAY_ID.to_string(),
+        quit_item: quit,
+    })
 }
 
 fn toggle_window_visibility(window: &WebviewWindow) {

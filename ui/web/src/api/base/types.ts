@@ -1,6 +1,9 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { AxiosRequestConfig, AxiosResponse } from 'axios'
 
+export type HttpClientConfigValue = string | (() => string)
+export type HttpClientApiConfigValue = HttpClientConfigValue | null
+
 /**
  * 初始化化 Client 的参数
  */
@@ -8,9 +11,9 @@ export interface IHttpClientOptions {
   // 提示错误
   notifyError?: boolean,
   // 重写配置中的 baseUrl
-  baseUrl?: string,
+  baseUrl?: HttpClientConfigValue,
   // 重写配置中的 api
-  api?: string,
+  api?: HttpClientApiConfigValue,
 
   // 默认不移除
   removeRequestInterceptors?: boolean,

@@ -3,7 +3,13 @@ import type { AxiosInstance, AxiosResponse } from 'axios'
 import axios from 'axios'
 import logger from 'loglevel'
 
-import type { IAxiosRequestConfig, IHttpClientOptions, IResponseData } from './types'
+import type {
+  HttpClientApiConfigValue,
+  HttpClientConfigValue,
+  IAxiosRequestConfig,
+  IHttpClientOptions,
+  IResponseData
+} from './types'
 import { useUserInfoStore } from 'src/stores/user'
 import { StatusCode } from 'status-code-enum'
 import { notifyError } from 'src/utils/dialog'
@@ -31,11 +37,20 @@ export default class HttpClient {
     if (!options.removeResponseInterceptors) this.setResponseInterceptors(this._axios)
   }
 
+  private resolveConfigValue (value: HttpClientConfigValue): string {
+    return typeof value === 'function' ? value() : value
+  }
+
+  private resolveApiConfigValue (value: HttpClientApiConfigValue): string {
+    if (value === null) return ''
+    return this.resolveConfigValue(value)
+  }
+
   // 获取基础 url
   private getBaseUrl(): string {
     const config = useConfig()
-    const baseUrl = this._options.baseUrl || config.baseUrl
-    const api = this._options.api === null || this._options.api === undefined ? config.api : this._options.api
+    const baseUrl = this._options.baseUrl ? this.resolveConfigValue(this._options.baseUrl) : config.baseUrl
+    const api = this._options.api === undefined ? config.api : this.resolveApiConfigValue(this._options.api)
     const finalBaseUrl = `${baseUrl}${api}`
     logger.debug('[HttpClient] BaseUrl:', finalBaseUrl)
     return finalBaseUrl
