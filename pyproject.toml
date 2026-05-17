@@ -3,28 +3,33 @@ requires = ["setuptools>=61.0", "wheel"]
 build-backend = "setuptools.build_meta"
 
 [tool.uv.workspace]
-members = ["uzoncalc", "ui/api", "ui/desktop"]
+members = ["ui/api"]
 
 [project]
-name = "uzoncalcR"
-version = "0.1.0"
-description = "UzonCalc: A calculation framework"
+name = "uzoncalc"
+version = "1.1.0"
+description = "UzonCalc is a tool for writing engineering calculation documents using Python. With it, you can write calculation reports as smoothly as writing Python, and benefit from the full Python ecosystem and AI assistance."
+readme = { file = "uzoncalc/README.md", content-type = "text/markdown" }
+authors = [{ name = "uyoufu", email = "uyoufu@uzoncloud.com" }]
 requires-python = ">=3.10"
 dependencies = [
-    "build>=1.4.2",
-    "fastapi>=0.134.0",
-    "isort>=8.0.1",
-    "matplotlib>=3.10.8",
+    "pint",
     "numpy",
     "openpyxl",
-    "pint",
-    "pytest",
-    "twine>=6.2.0",
-    "uvicorn>=0.41.0",
     "xlwings",
+    "matplotlib>=3.10.8",
 ]
+
+[project.urls]
+Homepage = "https://github.com/uyoufu/UzonCalc"
+
+[project.scripts]
+uzoncalc = "uzoncalc.cli:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = []
-exclude = ["ui*", "uzoncalc*", "tests*", "scripts*", "examples*"]
+include = ["uzoncalc", "uzoncalc.*"]
+exclude = ["uzoncalc.build", "uzoncalc.build.*"]
+
+[tool.setuptools.package-data]
+"uzoncalc.template" = ["*.html", "*.css"]

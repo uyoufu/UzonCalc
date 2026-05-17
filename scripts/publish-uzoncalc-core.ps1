@@ -47,7 +47,7 @@ Write-Host "Starting build and upload script..."
 # can be executed from anywhere and still operate on the repository root.
 $scriptDir = Split-Path -Path $PSCommandPath -Parent
 $projectRoot = Split-Path -Path $scriptDir -Parent
-$buildRoot = Join-Path $projectRoot "uzoncalc"
+$buildRoot = $projectRoot
 
 Write-Host "Project root: $projectRoot"
 Write-Host "Build root:   $buildRoot"
