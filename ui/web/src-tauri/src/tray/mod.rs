@@ -5,7 +5,10 @@ use tauri::{
     AppHandle, Manager, WebviewWindow, WindowEvent,
 };
 
-use crate::locale::{app_title, tray_quit_text};
+use crate::{
+    api_process::ApiProcessState,
+    locale::{app_title, tray_quit_text},
+};
 
 const TRAY_ID: &str = "main-tray";
 const QUIT_MENU_ID: &str = "quit";
@@ -50,6 +53,7 @@ pub fn setup_tray(app: &tauri::App, window: &WebviewWindow) -> Result<TrayState,
         .show_menu_on_left_click(false)
         .on_menu_event(|app, event| {
             if event.id().as_ref() == QUIT_MENU_ID {
+                stop_api_process(app);
                 app.exit(0);
             }
         })
@@ -86,6 +90,15 @@ pub fn setup_tray(app: &tauri::App, window: &WebviewWindow) -> Result<TrayState,
         tray_id: TRAY_ID.to_string(),
         quit_item: quit,
     })
+}
+
+fn stop_api_process(app: &AppHandle) {
+    let Some(api_process) = app.try_state::<ApiProcessState>() else {
+        log::warn!("api process state is not available while quitting from tray");
+        return;
+    };
+
+    api_process.stop();
 }
 
 fn toggle_window_visibility(window: &WebviewWindow) {

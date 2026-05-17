@@ -25,7 +25,7 @@ impl ApiProcessState {
         }
     }
 
-    fn stop(&self) {
+    pub fn stop(&self) {
         let Ok(mut child_guard) = self.child.lock() else {
             log::error!("failed to lock api process state while stopping");
             return;
