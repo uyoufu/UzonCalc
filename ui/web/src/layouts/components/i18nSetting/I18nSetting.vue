@@ -18,6 +18,8 @@
 import HoverableTip from 'src/components/hoverableTip/HoverableTip.vue'
 import { translations } from 'src/i18n/index'
 import { useUserInfoStore } from 'src/stores/user'
+import { setAppLanguage } from 'src/api/localApp/appLanguage'
+import { isLocalAppAvailable } from 'src/api/localApp/healthCheck'
 
 const store = useUserInfoStore()
 const sortedTranslations = computed(() => {
@@ -31,7 +33,7 @@ const { locale } = useI18n()
 // 预加载所有可能的语言文件
 const modules = import.meta.glob('/node_modules/quasar/lang/*.js')
 
-import type { QuasarLanguage} from 'quasar';
+import type { QuasarLanguage } from 'quasar'
 import { Lang } from 'quasar'
 async function onSwitchLocale (value: string) {
   store.setLocale(value)
@@ -42,6 +44,10 @@ async function onSwitchLocale (value: string) {
   if (modules[moduleFile]) {
     const lang = await modules[moduleFile]()
     Lang.set((lang as Record<string, QuasarLanguage>).default as QuasarLanguage)
+  }
+
+  if (await isLocalAppAvailable()) {
+    await setAppLanguage(value)
   }
 }
 </script>

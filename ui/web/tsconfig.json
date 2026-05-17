@@ -52,6 +52,18 @@
   "exclude": [
     "./dist",
     "./node_modules",
+    "./.pytest_cache",
+    "./.pytest_cache/**/*",
+    "**/.pytest_cache/**/*",
+    "./.github/skills",
+    "./.github/skills/**/*",
+    "**/.github/skills/**/*",
+    "./public/tinymce",
+    "./public/tinymce/**/*",
+    "**/public/tinymce/**/*",
+    "./src-tauri",
+    "./src-tauri/**/*",
+    "**/src-tauri/**/*",
     "./src-capacitor",
     "./src-cordova",
     "./quasar.config.*.temporary.compiled*"

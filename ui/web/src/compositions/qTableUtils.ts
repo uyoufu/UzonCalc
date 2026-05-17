@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import type { QTableColumn } from 'quasar'
-import type { IQTableInitParams, TTableFilterObject, IQTablePagination, IRequestPagination } from './types'
+import type { IQTableInitParams, TTableFilterObject, IQTablePagination } from './types'
 import QTableIndex from 'src/components/tableComponents/TableIndex.vue'
 
 export type addNewRowType<T = Record<string, any>> = (newRow: T, idField?: string) => void
@@ -109,7 +109,8 @@ export function useQTable(initParams: IQTableInitParams) {
     if (refreshCounter.value < 0) return
     if (!initParams.onRequest) return
 
-    const { page, rowsPerPage, sortBy, descending } = (qTableProps.pagination || pagination.value) as IQTablePagination
+    const { page, rowsPerPage, sortBy, descending } = (qTableProps.pagination ||
+      pagination.value) as IQTablePagination
     const filter = qTableProps.filter
 
     try {
@@ -127,7 +128,7 @@ export function useQTable(initParams: IQTableInitParams) {
           descending,
           skip: startRow,
           limit: fetchCount
-        } as IRequestPagination)
+        })
       }
 
       // 更新数据

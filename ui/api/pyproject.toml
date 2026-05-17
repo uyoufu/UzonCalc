@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uzoncalc-api"
-version = "0.1.0"
+version = "1.1.0"
 description = "UzonCalc API server"
 requires-python = ">=3.10"
 dependencies = [
@@ -12,7 +12,6 @@ dependencies = [
     "uvicorn[standard]",
     "python-multipart",
     "PyJWT",
-    "bcrypt",
     "Babel",
     "aiofiles",
     "interval",

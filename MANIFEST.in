@@ -1,0 +1,16 @@
+include LICENSE
+include README.md
+include uzoncalc/README.md
+include uzoncalc/template/*.html
+
+prune tests
+prune ui
+prune scripts
+prune examples
+prune build
+prune dist
+prune uzoncalc/build
+prune uzoncalc/dist
+prune uzoncalc/*.egg-info
+
+global-exclude __pycache__ *.py[cod]
