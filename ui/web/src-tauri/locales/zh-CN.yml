@@ -4,5 +4,11 @@ tray:
   quit: "退出"
 startup:
   loading: "正在启动服务..."
+welcome:
+  title: "欢迎使用 UzonCalc"
+  subtitle: "AI 友好的工程计算软件"
+  loading: "正在启动后台服务，请稍候..."
+  footer: "准备就绪后将自动进入应用界面"
+  html_lang: "zh-CN"
 language:
   unsupported: "不支持的语言。"

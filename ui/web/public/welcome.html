@@ -119,19 +119,42 @@
 <body>
   <div class="wrap">
     <div class="card">
-      <h1 class="title">欢迎使用 UzonCalc</h1>
-      <div class="sub">AI 友好的工程计算软件</div>
+      <h1 class="title" id="welcome-title">欢迎使用 UzonCalc</h1>
+      <div class="sub" id="welcome-subtitle">AI 友好的工程计算软件</div>
       <div class="status" id="startup-status">正在启动后台服务，请稍候...</div>
       <div class="progress">
         <div class="bar"></div>
       </div>
-      <div class="footer">准备就绪后将自动进入应用界面</div>
+      <div class="footer" id="welcome-footer">准备就绪后将自动进入应用界面</div>
     </div>
   </div>
   <script>
-    const statusText = window.__UZON_WELCOME_LOADING_TEXT__;
-    if (typeof statusText === 'string' && statusText.length > 0) {
-      document.getElementById('startup-status').textContent = statusText;
+    const texts = window.__UZON_WELCOME_TEXTS__;
+
+    function setText(id, value) {
+      if (typeof value !== 'string' || value.length === 0) {
+        return;
+      }
+
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    }
+
+    if (texts && typeof texts === 'object') {
+      setText('welcome-title', texts.title);
+      setText('welcome-subtitle', texts.subtitle);
+      setText('startup-status', texts.loading);
+      setText('welcome-footer', texts.footer);
+
+      if (typeof texts.html_lang === 'string' && texts.html_lang.length > 0) {
+        document.documentElement.lang = texts.html_lang;
+      } else if (typeof texts.locale === 'string' && texts.locale.length > 0) {
+        document.documentElement.lang = texts.locale;
+      }
+    } else if (typeof window.__UZON_WELCOME_LOADING_TEXT__ === 'string' && window.__UZON_WELCOME_LOADING_TEXT__.length > 0) {
+      setText('startup-status', window.__UZON_WELCOME_LOADING_TEXT__);
     }
   </script>
 </body>

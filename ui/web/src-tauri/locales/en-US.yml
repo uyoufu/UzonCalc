@@ -4,5 +4,11 @@ tray:
   quit: "Quit"
 startup:
   loading: "Starting service..."
+welcome:
+  title: "Welcome to UzonCalc"
+  subtitle: "AI-friendly engineering calculation software"
+  loading: "Starting background service, please wait..."
+  footer: "The app will open automatically when ready"
+  html_lang: "en-US"
 language:
   unsupported: "Unsupported language."

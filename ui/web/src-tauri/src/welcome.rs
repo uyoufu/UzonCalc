@@ -1,6 +1,6 @@
 use crate::{
     api_process::ApiProcessState,
-    locale::{app_title, startup_loading_text},
+    locale::{app_title, welcome_texts},
 };
 use std::{
     error::Error,
@@ -33,10 +33,8 @@ pub fn create_welcome_window(app: &mut tauri::App) -> Result<WebviewWindow, Box<
 }
 
 fn welcome_initialization_script() -> Result<String, serde_json::Error> {
-    let loading_text = serde_json::to_string(&startup_loading_text())?;
-    Ok(format!(
-        "window.__UZON_WELCOME_LOADING_TEXT__ = {loading_text};"
-    ))
+    let texts = serde_json::to_string(&welcome_texts())?;
+    Ok(format!("window.__UZON_WELCOME_TEXTS__ = {texts};"))
 }
 
 pub fn start_api_and_finish_welcome(

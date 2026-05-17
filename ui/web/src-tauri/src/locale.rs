@@ -2,6 +2,16 @@ pub const DEFAULT_LOCALE: &str = "zh-CN";
 pub const EN_US_LOCALE: &str = "en-US";
 pub const SUPPORTED_LOCALES: [&str; 2] = [DEFAULT_LOCALE, EN_US_LOCALE];
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct WelcomeTexts {
+    pub locale: String,
+    pub title: String,
+    pub subtitle: String,
+    pub loading: String,
+    pub footer: String,
+    pub html_lang: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppLocale {
     ZhCn,
@@ -45,6 +55,17 @@ pub fn tray_quit_text() -> String {
 
 pub fn startup_loading_text() -> String {
     t!("startup.loading").to_string()
+}
+
+pub fn welcome_texts() -> WelcomeTexts {
+    WelcomeTexts {
+        locale: current_locale().as_str().to_string(),
+        title: t!("welcome.title").to_string(),
+        subtitle: t!("welcome.subtitle").to_string(),
+        loading: t!("welcome.loading").to_string(),
+        footer: t!("welcome.footer").to_string(),
+        html_lang: t!("welcome.html_lang").to_string(),
+    }
 }
 
 pub fn unsupported_language_message() -> String {
