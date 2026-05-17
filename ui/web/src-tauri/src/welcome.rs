@@ -1,5 +1,6 @@
 use crate::{
     api_process::ApiProcessState,
+    launch_error::show_launch_error,
     locale::{app_title, launch_error_texts, welcome_texts},
 };
 use std::{
@@ -87,21 +88,5 @@ fn finish_welcome(
 
     if let Err(error) = main_window.set_focus() {
         log::debug!("failed to focus main window: {error}");
-    }
-}
-
-fn show_launch_error(welcome_window: WebviewWindow, error_message: String) {
-    log::warn!("showing launch error page: {error_message}");
-
-    let message_json = serde_json::to_string(&error_message).unwrap_or_else(|error| {
-        log::warn!("failed to serialize launch error message: {error}");
-        "\"\"".to_string()
-    });
-    let script = format!(
-        "window.location.replace('launch-error.html?message=' + encodeURIComponent({message_json}));"
-    );
-
-    if let Err(error) = welcome_window.eval(&script) {
-        log::error!("failed to navigate welcome window to launch error page: {error}");
     }
 }

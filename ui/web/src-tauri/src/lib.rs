@@ -3,6 +3,7 @@ extern crate rust_i18n;
 
 pub mod api_process;
 pub mod config;
+pub mod launch_error;
 pub mod locale;
 pub mod server;
 pub mod tray;
