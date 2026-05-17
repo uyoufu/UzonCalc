@@ -18,8 +18,8 @@ export interface IDesktopAutoLoginInfo {
  * 获取服务器版本
  * @returns
  */
-export function getServerVersion() {
-  return httpClient.get<string>('/system-info/version')
+export function getServerVersion(stopNotifyError = false) {
+  return httpClient.get<string>('/system-info/version', { stopNotifyError })
 }
 
 /**

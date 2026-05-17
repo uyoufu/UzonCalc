@@ -100,17 +100,36 @@ async function onUserLogin() {
 // #region 显示版本号
 import { useConfig } from 'src/config'
 import { getDesktopAutoLoginInfo, getServerVersion } from 'src/api/system'
+import { setTimeoutAsync } from 'src/utils/tsUtils'
 const config = useConfig()
 const clientVersion = ref(config.version)
 const serverVersion = ref('connecting...')
+let isPollingServerVersion = true
 
-onMounted(async () => {
-  const { data: version } = await getServerVersion()
-  serverVersion.value = version
+async function pollServerVersion() {
+  let retryDelay = 1000
+  const maxRetryDelay = 10000
 
-  // 将版本号保存到全局状态，供其他页面使用
-  systemInfoStore.setVersion(version)
-})
+  while (isPollingServerVersion) {
+    try {
+      const { data: version } = await getServerVersion(true)
+      if (!isPollingServerVersion) {
+        return
+      }
+
+      serverVersion.value = version
+
+      // 将版本号保存到全局状态，供其他页面使用
+      systemInfoStore.setVersion(version)
+      return
+    } catch (error) {
+      logger.debug('[Login] 后端版本请求失败，等待后重试:', error)
+      await setTimeoutAsync(retryDelay)
+      retryDelay = Math.min(Math.ceil(retryDelay * 1.5), maxRetryDelay)
+    }
+  }
+}
+
 const serverVersionClass = computed(() => {
   return {
     'text-negative': serverVersion.value === 'connecting...'
@@ -138,6 +157,12 @@ const { systemConfig } = useSystemConfig()
 
 // #region MARK: 当为桌面版本时，自动登录
 onMounted(async () => {
+  await pollServerVersion()
+
+  if (!isPollingServerVersion) {
+    return
+  }
+
   if (!Platform.is.desktop) {
     return
   }
@@ -150,6 +175,10 @@ onMounted(async () => {
   username.value = autoLoginInfo.username
   password.value = autoLoginInfo.password
   await onUserLogin()
+})
+
+onUnmounted(() => {
+  isPollingServerVersion = false
 })
 // #endregion
 </script>
