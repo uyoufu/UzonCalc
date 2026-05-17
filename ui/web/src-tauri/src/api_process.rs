@@ -1,14 +1,18 @@
 use std::{
+    fs::{self, OpenOptions},
     net::{SocketAddr, TcpStream},
     path::{Path, PathBuf},
     process::{Child, Command, Stdio},
     sync::Mutex,
-    time::Duration,
+    thread,
+    time::{Duration, Instant},
 };
 
 const API_HOST: &str = "127.0.0.1";
-const API_PORT: u16 = 3346;
+const API_PORT: u16 = 3345;
 const API_CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
+const API_READY_TIMEOUT: Duration = Duration::from_secs(20);
+const API_READY_POLL_INTERVAL: Duration = Duration::from_millis(300);
 
 pub struct ApiProcessState {
     child: Mutex<Option<Child>>,
@@ -32,7 +36,10 @@ impl ApiProcessState {
         };
 
         match child.try_wait() {
-            Ok(Some(_status)) => return,
+            Ok(Some(status)) => {
+                log::info!("api process already exited with status: {status}");
+                return;
+            }
             Ok(None) => {}
             Err(error) => {
                 log::warn!("failed to query api process status: {error}");
@@ -41,10 +48,13 @@ impl ApiProcessState {
 
         if let Err(error) = child.kill() {
             log::warn!("failed to stop api process: {error}");
+        } else {
+            log::info!("sent kill signal to api process");
         }
 
-        if let Err(error) = child.wait() {
-            log::warn!("failed to wait for api process exit: {error}");
+        match child.wait() {
+            Ok(status) => log::info!("api process exited with status: {status}"),
+            Err(error) => log::warn!("failed to wait for api process exit: {error}"),
         }
     }
 }
@@ -56,6 +66,8 @@ impl Drop for ApiProcessState {
 }
 
 fn start_api_process() -> Option<Child> {
+    log::info!("checking api service on {API_HOST}:{API_PORT}");
+
     if is_api_running() {
         log::info!("api is already running on {API_HOST}:{API_PORT}");
         return None;
@@ -70,6 +82,7 @@ fn start_api_process() -> Option<Child> {
         .join("python-embedded")
         .join("python.exe");
     let main_py = exe_dir.join("main.py");
+    let log_dir = exe_dir.join("logs");
 
     if !python_exe.is_file() {
         log::info!(
@@ -87,29 +100,57 @@ fn start_api_process() -> Option<Child> {
         return None;
     }
 
+    if let Err(error) = fs::create_dir_all(&log_dir) {
+        log::warn!(
+            "failed to create api diagnostic log directory {}: {error}",
+            log_dir.display()
+        );
+    }
+
+    let stdout = open_process_log(&log_dir.join("tauri-api.stdout.log"), "stdout");
+    let stderr = open_process_log(&log_dir.join("tauri-api.stderr.log"), "stderr");
+
+    log::info!(
+        "starting api process: python={}, main={}, working_dir={}, target=http://{API_HOST}:{API_PORT}",
+        python_exe.display(),
+        main_py.display(),
+        exe_dir.display()
+    );
+
     let mut command = Command::new(&python_exe);
     command
-        .args([
-            "-m",
-            "uvicorn",
-            "main:app",
-            "--host",
-            API_HOST,
-            "--port",
-            &API_PORT.to_string(),
-            "--log-level",
-            "info",
-        ])
+        .arg(&main_py)
         .current_dir(&exe_dir)
-        .stdin(Stdio::null())
-        .stdout(Stdio::null())
-        .stderr(Stdio::null());
+        .stdin(Stdio::null());
+
+    match stdout {
+        Some(stdout) => {
+            command.stdout(Stdio::from(stdout));
+        }
+        None => {
+            command.stdout(Stdio::null());
+        }
+    }
+
+    match stderr {
+        Some(stderr) => {
+            command.stderr(Stdio::from(stderr));
+        }
+        None => {
+            command.stderr(Stdio::null());
+        }
+    }
 
     configure_background_process(&mut command);
 
     match command.spawn() {
-        Ok(child) => {
-            log::info!("started api process from {}", python_exe.display());
+        Ok(mut child) => {
+            log::info!(
+                "started api process from {}, pid={}",
+                python_exe.display(),
+                child.id()
+            );
+            wait_for_api_ready(&mut child);
             Some(child)
         }
         Err(error) => {
@@ -122,9 +163,55 @@ fn start_api_process() -> Option<Child> {
     }
 }
 
+fn wait_for_api_ready(child: &mut Child) {
+    let started_at = Instant::now();
+
+    while started_at.elapsed() < API_READY_TIMEOUT {
+        match child.try_wait() {
+            Ok(Some(status)) => {
+                log::warn!("api process exited before becoming ready: {status}");
+                return;
+            }
+            Ok(None) => {}
+            Err(error) => {
+                log::warn!("failed to query api process during readiness check: {error}");
+                return;
+            }
+        }
+
+        if is_api_running() {
+            log::info!(
+                "api service is listening on {API_HOST}:{API_PORT} after {:?}",
+                started_at.elapsed()
+            );
+            return;
+        }
+
+        thread::sleep(API_READY_POLL_INTERVAL);
+    }
+
+    log::warn!(
+        "api service did not listen on {API_HOST}:{API_PORT} within {:?}; process is still tracked for shutdown",
+        API_READY_TIMEOUT
+    );
+}
+
 fn is_api_running() -> bool {
     let address = SocketAddr::from(([127, 0, 0, 1], API_PORT));
     TcpStream::connect_timeout(&address, API_CONNECT_TIMEOUT).is_ok()
+}
+
+fn open_process_log(path: &Path, name: &str) -> Option<fs::File> {
+    match OpenOptions::new().create(true).append(true).open(path) {
+        Ok(file) => Some(file),
+        Err(error) => {
+            log::warn!(
+                "failed to open api {name} diagnostic log {}: {error}",
+                path.display()
+            );
+            None
+        }
+    }
 }
 
 fn current_exe_dir() -> Option<PathBuf> {

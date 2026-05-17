@@ -33,18 +33,20 @@ pub fn run() {
 
     builder
         .setup(|app| {
-            if cfg!(debug_assertions) {
-                app.handle().plugin(
-                    tauri_plugin_log::Builder::default()
-                        .level(log::LevelFilter::Info)
-                        .build(),
-                )?;
-            }
+            app.handle().plugin(
+                tauri_plugin_log::Builder::default()
+                    .level(log::LevelFilter::Info)
+                    .build(),
+            )?;
 
+            log::info!("tauri setup started");
             let app_config = load_app_config(app);
+            log::info!("app config loaded");
             set_current_locale(app_config.locale());
             let window = create_main_window(app, &app_config)?;
+            log::info!("main window created: {}", window.label());
             let tray_state = tray::setup_tray(app, &window)?;
+            log::info!("tray initialized");
             let shared_state = SharedState::new(
                 app.handle().clone(),
                 app_config_paths(app),
@@ -53,8 +55,11 @@ pub fn run() {
                 tray_state,
             );
             app.manage(shared_state.clone());
+            log::info!("starting api process state");
             app.manage(ApiProcessState::try_start());
+            log::info!("starting language service");
             spawn_language_server(shared_state);
+            log::info!("tauri setup completed");
 
             Ok(())
         })

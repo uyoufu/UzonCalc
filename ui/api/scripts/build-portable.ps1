@@ -167,7 +167,7 @@ $startPs1 = @"
 `$ErrorActionPreference = "Stop"
 
 `$apiHost = "127.0.0.1"
-`$apiPort = 3346
+`$apiPort = 3345
 
 # 切换到脚本所在目录
 Set-Location `$PSScriptRoot
@@ -300,8 +300,8 @@ dist\python-embedded\python.exe main.py
 
 启动后，在浏览器中访问：
 
-- API 文档: http://127.0.0.1:3346/docs
-- 主页: http://127.0.0.1:3346/
+- API 文档: http://127.0.0.1:3345/docs
+- 主页: http://127.0.0.1:3345/
 
 ## 停止服务
 
@@ -324,7 +324,7 @@ UzonCalc-Portable/
 ## 注意事项
 
 1. 首次运行可能需要几秒钟初始化数据库
-2. 确保端口 3346 未被其他程序占用
+2. 确保端口 3345 未被其他程序占用
 3. 不要删除或修改 `dist/python-embedded` 目录
 
 ## 故障排查
