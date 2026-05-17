@@ -2,5 +2,7 @@ app:
   title: "UzonCalc"
 tray:
   quit: "Quit"
+startup:
+  loading: "Starting service..."
 language:
   unsupported: "Unsupported language."

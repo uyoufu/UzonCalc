@@ -43,6 +43,10 @@ pub fn tray_quit_text() -> String {
     t!("tray.quit").to_string()
 }
 
+pub fn startup_loading_text() -> String {
+    t!("startup.loading").to_string()
+}
+
 pub fn unsupported_language_message() -> String {
     t!("language.unsupported").to_string()
 }

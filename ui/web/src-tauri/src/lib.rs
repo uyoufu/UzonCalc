@@ -9,14 +9,21 @@ pub mod tray;
 
 use api_process::ApiProcessState;
 use config::{app_config_paths, load_app_config, AppConfig};
-use locale::{app_title, set_current_locale};
+use locale::{app_title, set_current_locale, startup_loading_text};
 use server::{spawn_language_server, SharedState};
-use std::error::Error;
-use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder};
+use std::{
+    error::Error,
+    path::PathBuf,
+    thread,
+    time::{Duration, Instant},
+};
+use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
 
 rust_i18n::i18n!("locales");
 
 const MAIN_WINDOW_LABEL: &str = "main";
+const WELCOME_WINDOW_LABEL: &str = "welcome";
+const WELCOME_MIN_DISPLAY_DURATION: Duration = Duration::from_secs(1);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -43,22 +50,32 @@ pub fn run() {
             let app_config = load_app_config(app);
             log::info!("app config loaded");
             set_current_locale(app_config.locale());
-            let window = create_main_window(app, &app_config)?;
-            log::info!("main window created: {}", window.label());
-            let tray_state = tray::setup_tray(app, &window)?;
+
+            let welcome_window = create_welcome_window(app)?;
+            let welcome_started_at = Instant::now();
+            log::info!("welcome window created: {}", welcome_window.label());
+
+            let main_window = create_main_window(app, &app_config)?;
+            log::info!("main window created: {}", main_window.label());
+
+            let tray_state = tray::setup_tray(app, &main_window)?;
             log::info!("tray initialized");
             let shared_state = SharedState::new(
                 app.handle().clone(),
                 app_config_paths(app),
                 app_config,
-                window.label().to_string(),
+                main_window.label().to_string(),
                 tray_state,
             );
             app.manage(shared_state.clone());
-            log::info!("starting api process state");
-            app.manage(ApiProcessState::try_start());
             log::info!("starting language service");
             spawn_language_server(shared_state);
+            start_api_and_finish_welcome(
+                app.handle().clone(),
+                welcome_window,
+                main_window,
+                welcome_started_at,
+            );
             log::info!("tauri setup completed");
 
             Ok(())
@@ -86,6 +103,32 @@ fn restore_existing_instance(app: &AppHandle) {
     }
 }
 
+fn create_welcome_window(app: &mut tauri::App) -> Result<WebviewWindow, Box<dyn Error>> {
+    let window = WebviewWindowBuilder::new(
+        app.handle(),
+        WELCOME_WINDOW_LABEL,
+        WebviewUrl::App(PathBuf::from("welcome.html")),
+    )
+    .title(app_title())
+    .inner_size(720.0, 420.0)
+    .resizable(false)
+    .maximizable(false)
+    .minimizable(false)
+    .decorations(false)
+    .center()
+    .initialization_script(welcome_initialization_script()?)
+    .build()?;
+
+    Ok(window)
+}
+
+fn welcome_initialization_script() -> Result<String, serde_json::Error> {
+    let loading_text = serde_json::to_string(&startup_loading_text())?;
+    Ok(format!(
+        "window.__UZON_WELCOME_LOADING_TEXT__ = {loading_text};"
+    ))
+}
+
 fn create_main_window(
     app: &mut tauri::App,
     app_config: &AppConfig,
@@ -104,8 +147,46 @@ fn create_main_window(
 
     window_config.title = app_title();
 
-    let window = WebviewWindowBuilder::from_config(app.handle(), &window_config)?.build()?;
+    let window = WebviewWindowBuilder::from_config(app.handle(), &window_config)?
+        .visible(false)
+        .build()?;
     Ok(window)
+}
+
+fn start_api_and_finish_welcome(
+    app_handle: AppHandle,
+    welcome_window: WebviewWindow,
+    main_window: WebviewWindow,
+    welcome_started_at: Instant,
+) {
+    thread::spawn(move || {
+        log::info!("starting api process state");
+        app_handle.manage(ApiProcessState::try_start());
+        finish_welcome(welcome_window, main_window, welcome_started_at);
+    });
+}
+
+fn finish_welcome(
+    welcome_window: WebviewWindow,
+    main_window: WebviewWindow,
+    welcome_started_at: Instant,
+) {
+    if let Some(remaining) = WELCOME_MIN_DISPLAY_DURATION.checked_sub(welcome_started_at.elapsed())
+    {
+        thread::sleep(remaining);
+    }
+
+    if let Err(error) = welcome_window.close() {
+        log::warn!("failed to close welcome window: {error}");
+    }
+
+    if let Err(error) = main_window.show() {
+        log::error!("failed to show main window: {error}");
+    }
+
+    if let Err(error) = main_window.set_focus() {
+        log::debug!("failed to focus main window: {error}");
+    }
 }
 
 fn missing_main_window_error() -> std::io::Error {
