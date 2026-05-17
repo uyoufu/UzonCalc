@@ -42,7 +42,6 @@ Write-Step "步骤 1: 设置嵌入式 Python 环境"
 
 $setupScript = Join-Path $SCRIPT_DIR "setup-embedded-python.ps1"
 if (Test-Path $setupScript) {
-<<<<<<< HEAD
     $setupArgs = @(
         "-PythonVersion"
         $PythonVersion
@@ -55,13 +54,8 @@ if (Test-Path $setupScript) {
     }
 
     & $setupScript @setupArgs
-=======
-    & $setupScript -PythonVersion $PythonVersion -TargetDir $EMBEDDED_PYTHON_RELATIVE_DIR
-    if ($LASTEXITCODE -ne 0) {
-        throw "嵌入式 Python 环境设置失败，退出码: $LASTEXITCODE"
-    }
->>>>>>> dev
-} else {
+}
+else {
     Write-Error "未找到 setup-embedded-python.ps1"
     exit 1
 }
@@ -103,11 +97,13 @@ foreach ($item in $itemsToCopy) {
         if (Test-Path $sourcePath -PathType Container) {
             # 目录
             Copy-Item -Path $sourcePath -Destination $OUTPUT_DIR -Recurse -Force
-        } else {
+        }
+        else {
             # 文件
             Copy-Item -Path $sourcePath -Destination $OUTPUT_DIR -Force
         }
-    } else {
+    }
+    else {
         Write-Host "  跳过（不存在）: $item" -ForegroundColor Yellow
     }
 }
@@ -120,7 +116,8 @@ if (Test-Path $EMBEDDED_PYTHON_SOURCE_DIR) {
 
     Write-Info "复制: $EMBEDDED_PYTHON_RELATIVE_DIR"
     Copy-Item -Path $EMBEDDED_PYTHON_SOURCE_DIR -Destination $embeddedPythonOutputParent -Recurse -Force
-} else {
+}
+else {
     Write-Host "  跳过（不存在）: $EMBEDDED_PYTHON_RELATIVE_DIR" -ForegroundColor Yellow
 }
 
@@ -141,7 +138,8 @@ if (Test-Path $portableConfigDir) {
         Write-Info "移除开发环境配置: config\app.dev.ini"
         Remove-Item -Path $portableDevConfig -Force
     }
-} else {
+}
+else {
     Write-Host "  跳过（不存在）: config" -ForegroundColor Yellow
 }
 

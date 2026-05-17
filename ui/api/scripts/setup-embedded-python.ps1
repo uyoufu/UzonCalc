@@ -24,7 +24,8 @@ $pipExe = Join-Path $EMBED_DIR "Scripts\pip.exe"
 
 if ([string]::IsNullOrWhiteSpace($CacheRoot)) {
     $CacheRoot = Join-Path $REPO_ROOT ".cache\desktop-maui\python"
-} elseif (-not [System.IO.Path]::IsPathRooted($CacheRoot)) {
+}
+elseif (-not [System.IO.Path]::IsPathRooted($CacheRoot)) {
     $CacheRoot = Join-Path $REPO_ROOT $CacheRoot
 }
 
@@ -116,7 +117,8 @@ if (Test-Path -LiteralPath $cachePythonExe) {
 if (Test-Path $pythonExe) {
     Write-Info "检测到已缓存的嵌入式 Python: $EMBED_DIR"
     Write-Info "跳过下载和解压，继续检查配置并安装依赖..."
-} else {
+}
+else {
     Write-Info "下载 Python $PythonVersion ($arch)..."
     Write-Host "  URL: $downloadUrl"
 
@@ -125,32 +127,24 @@ if (Test-Path $pythonExe) {
         $webClient = New-Object System.Net.WebClient
         $webClient.DownloadFile($downloadUrl, $zipFile)
         Write-Info "下载完成"
-} catch {
-    Write-Error-Message "下载失败: $_"
-    Write-Host "请手动下载并解压到: $EMBED_DIR"
-    Write-Host "下载地址: $downloadUrl"
-    throw
+    }
+    catch {
+        Write-Error-Message "下载失败: $_"
+        Write-Host "请手动下载并解压到: $EMBED_DIR"
+        Write-Host "下载地址: $downloadUrl"
+        throw
+    }
 }
 
-    # ============================================
-    # 2. 解压到目标目录
-    # ============================================
+# ============================================
+# 2. 解压到目标目录
+# ============================================
 
-    Write-Info "解压 Python 到 $EMBED_DIR..."
+Write-Info "解压 Python 到 $EMBED_DIR..."
 
-<<<<<<< HEAD
 if (Test-Path $EMBED_DIR) {
     Write-Info "目标目录已存在，将覆盖..."
     Remove-DirectoryIfExists -Path $EMBED_DIR
-=======
-    if (Test-Path $EMBED_DIR) {
-        Write-Info "目标目录已存在但未找到 python.exe，将覆盖..."
-        Remove-Item -Recurse -Force $EMBED_DIR
-    }
-
-    Expand-Archive -Path $zipFile -DestinationPath $EMBED_DIR -Force
-    Remove-Item $zipFile
->>>>>>> dev
 }
 
 # ============================================
@@ -195,48 +189,26 @@ Write-Info "检查 pip..."
 
 if (Test-Path $pipExe) {
     Write-Info "pip 已存在，跳过 pip 安装"
-} else {
+}
+else {
     Write-Info "安装 pip..."
-
-<<<<<<< HEAD
-try {
-    $webClient = New-Object System.Net.WebClient
-    $webClient.DownloadFile($getPipUrl, $getPipFile)
-    
-    # 使用嵌入式 Python 安装 pip
-    $pythonExe = Join-Path $EMBED_DIR "python.exe"
-    & $pythonExe $getPipFile --no-warn-script-location
-    Assert-LastCommandSucceeded -Message "pip 安装命令执行失败。"
-    
-    Remove-Item $getPipFile
-    Write-Info "pip 安装成功"
-} catch {
-    Write-Error-Message "pip 安装失败: $_"
-    throw
-=======
-    $getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
-    $getPipFile = Join-Path $env:TEMP "get-pip.py"
 
     try {
         $webClient = New-Object System.Net.WebClient
         $webClient.DownloadFile($getPipUrl, $getPipFile)
         
         # 使用嵌入式 Python 安装 pip
+        $pythonExe = Join-Path $EMBED_DIR "python.exe"
         & $pythonExe $getPipFile --no-warn-script-location
-        if ($LASTEXITCODE -ne 0) {
-            throw "get-pip.py 执行失败，退出码: $LASTEXITCODE"
-        }
+        Assert-LastCommandSucceeded -Message "pip 安装命令执行失败。"
         
+        Remove-Item $getPipFile
         Write-Info "pip 安装成功"
-    } catch {
+    }
+    catch {
         Write-Error-Message "pip 安装失败: $_"
         throw
-    } finally {
-        if (Test-Path $getPipFile) {
-            Remove-Item $getPipFile -Force
-        }
     }
->>>>>>> dev
 }
 
 # ============================================
@@ -259,25 +231,16 @@ if (-not (Test-Path $sitePackages)) {
 
 Write-Info "安装项目依赖..."
 
-<<<<<<< HEAD
 $pythonExe = Join-Path $EMBED_DIR "python.exe"
 $pipExe = Join-Path $EMBED_DIR "Scripts\pip.exe"
-=======
 $requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
->>>>>>> dev
 
 if (Test-Path $requirementsFile) {
     if (Test-Path $pipExe) {
         & $pipExe install -r $requirementsFile --no-warn-script-location
-<<<<<<< HEAD
-        Assert-LastCommandSucceeded -Message "项目依赖安装命令执行失败。"
-        Write-Info "依赖安装完成"
-    } else {
-        throw "pip.exe 未找到，无法安装项目依赖。"
-=======
-    } else {
+    }
+    else {
         & $pythonExe -m pip install -r $requirementsFile --no-warn-script-location
->>>>>>> dev
     }
 
     if ($LASTEXITCODE -ne 0) {
@@ -286,7 +249,8 @@ if (Test-Path $requirementsFile) {
     }
 
     Write-Info "依赖安装完成"
-} else {
+}
+else {
     Write-Host "  未找到 requirements.txt，跳过依赖安装" -ForegroundColor Yellow
 }
 
