@@ -166,6 +166,9 @@ $startPs1 = @"
 # UzonCalc API 后台服务启动脚本
 `$ErrorActionPreference = "Stop"
 
+`$apiHost = "127.0.0.1"
+`$apiPort = 3346
+
 # 切换到脚本所在目录
 Set-Location `$PSScriptRoot
 
@@ -182,12 +185,74 @@ if (-not (Test-Path `$pythonExe)) {
     exit 1
 }
 
+`$mainPy = Join-Path `$PSScriptRoot "main.py"
+if (-not (Test-Path `$mainPy)) {
+    Write-Host "[错误] 未找到入口文件: `$mainPy" -ForegroundColor Red
+    pause
+    exit 1
+}
+
+`$logDir = Join-Path `$PSScriptRoot "logs"
+if (-not (Test-Path `$logDir)) {
+    New-Item -ItemType Directory -Path `$logDir -Force | Out-Null
+}
+
+`$logPath = Join-Path `$logDir "uzoncalc.log"
+try {
+    `$logStream = [System.IO.File]::Open(`$logPath, [System.IO.FileMode]::OpenOrCreate, [System.IO.FileAccess]::Write, [System.IO.FileShare]::ReadWrite)
+    `$logStream.Close()
+}
+catch {
+    Write-Host "[错误] 日志文件不可写: `$logPath" -ForegroundColor Red
+    Write-Host "可能已有残留 Python 服务正在占用日志文件，请先关闭后重试。" -ForegroundColor Yellow
+    Write-Host "详细信息: `$(`$_.Exception.Message)" -ForegroundColor Yellow
+    pause
+    exit 1
+}
+
+`$listenerPid = `$null
+if (Get-Command -Name Get-NetTCPConnection -ErrorAction SilentlyContinue) {
+    `$listener = Get-NetTCPConnection -LocalPort `$apiPort -State Listen -ErrorAction SilentlyContinue | Select-Object -First 1
+    if (`$listener) {
+        `$listenerPid = `$listener.OwningProcess
+    }
+}
+
+if (-not `$listenerPid) {
+    `$netstatPattern = "^\s*TCP\s+\S+:`$apiPort\s+\S+\s+LISTENING\s+(\d+)\s*`$"
+    `$netstatLine = netstat -ano | Select-String -Pattern `$netstatPattern | Select-Object -First 1
+    if (`$netstatLine -and `$netstatLine.Line -match `$netstatPattern) {
+        `$listenerPid = `$matches[1]
+    }
+}
+
+if (`$listenerPid) {
+    Write-Host "[错误] 端口 `$apiPort 已被占用，PID: `$listenerPid" -ForegroundColor Red
+    Write-Host "请关闭占用该端口的程序后重试。" -ForegroundColor Yellow
+    pause
+    exit 1
+}
+
+try {
+    `$tcpListener = [System.Net.Sockets.TcpListener]::new([System.Net.IPAddress]::Parse(`$apiHost), `$apiPort)
+    `$tcpListener.Start()
+    `$tcpListener.Stop()
+}
+catch {
+    Write-Host "[错误] 端口 `$apiPort 无法绑定。" -ForegroundColor Red
+    Write-Host "可能已有程序占用该端口，请关闭后重试。" -ForegroundColor Yellow
+    Write-Host "详细信息: `$(`$_.Exception.Message)" -ForegroundColor Yellow
+    pause
+    exit 1
+}
+
 Write-Host "[信息] Python: `$pythonExe" -ForegroundColor Green
+Write-Host "[信息] 地址: http://`$(`$apiHost):`$apiPort" -ForegroundColor Green
 Write-Host "[信息] 启动服务..." -ForegroundColor Green
 Write-Host ""
 
 # 启动服务
-& `$pythonExe -m uvicorn main:app --host 127.0.0.1 --port 3346 --log-level info
+& `$pythonExe `$mainPy
 `$exitCode = `$LASTEXITCODE
 if (`$exitCode -ne 0) {
     Write-Host ""
@@ -228,7 +293,7 @@ $readme = @"
 
 ```bash
 cd /d <解压目录>
-dist\python-embedded\python.exe -m uvicorn main:app --host 127.0.0.1 --port 3346
+dist\python-embedded\python.exe main.py
 ```
 
 ## 访问方式
