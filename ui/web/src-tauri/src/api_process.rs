@@ -11,17 +11,32 @@ use std::{
 const API_HOST: &str = "127.0.0.1";
 const API_PORT: u16 = 3345;
 const API_CONNECT_TIMEOUT: Duration = Duration::from_millis(300);
-const API_READY_TIMEOUT: Duration = Duration::from_secs(20);
+const API_READY_TIMEOUT: Duration = Duration::from_secs(60);
 const API_READY_POLL_INTERVAL: Duration = Duration::from_millis(300);
 
 pub struct ApiProcessState {
     child: Mutex<Option<Child>>,
 }
 
+pub struct ApiStartupResult {
+    pub state: ApiProcessState,
+    pub error_message: Option<String>,
+}
+
+struct StartApiProcessResult {
+    child: Option<Child>,
+    error_message: Option<String>,
+}
+
 impl ApiProcessState {
-    pub fn try_start() -> Self {
-        Self {
-            child: Mutex::new(start_api_process()),
+    pub fn try_start() -> ApiStartupResult {
+        let result = start_api_process();
+
+        ApiStartupResult {
+            state: Self {
+                child: Mutex::new(result.child),
+            },
+            error_message: result.error_message,
         }
     }
 
@@ -65,17 +80,25 @@ impl Drop for ApiProcessState {
     }
 }
 
-fn start_api_process() -> Option<Child> {
+fn start_api_process() -> StartApiProcessResult {
     log::info!("checking api service on {API_HOST}:{API_PORT}");
 
     if is_api_running() {
         log::info!("api is already running on {API_HOST}:{API_PORT}");
-        return None;
+        return StartApiProcessResult {
+            child: None,
+            error_message: None,
+        };
     }
 
     let exe_dir = match current_exe_dir() {
         Some(exe_dir) => exe_dir,
-        None => return None,
+        None => {
+            return StartApiProcessResult {
+                child: None,
+                error_message: Some("Failed to resolve current executable directory.".to_string()),
+            };
+        }
     };
     let python_exe = exe_dir
         .join("dist")
@@ -85,19 +108,21 @@ fn start_api_process() -> Option<Child> {
     let log_dir = exe_dir.join("logs");
 
     if !python_exe.is_file() {
-        log::info!(
-            "skip api startup because python executable is missing: {}",
-            python_exe.display()
-        );
-        return None;
+        let message = format!("Python executable is missing: {}", python_exe.display());
+        log::warn!("{message}");
+        return StartApiProcessResult {
+            child: None,
+            error_message: Some(message),
+        };
     }
 
     if !main_py.is_file() {
-        log::info!(
-            "skip api startup because main.py is missing: {}",
-            main_py.display()
-        );
-        return None;
+        let message = format!("Backend entry file is missing: {}", main_py.display());
+        log::warn!("{message}");
+        return StartApiProcessResult {
+            child: None,
+            error_message: Some(message),
+        };
     }
 
     if let Err(error) = fs::create_dir_all(&log_dir) {
@@ -150,32 +175,47 @@ fn start_api_process() -> Option<Child> {
                 python_exe.display(),
                 child.id()
             );
-            wait_for_api_ready(&mut child);
-            Some(child)
+            match wait_for_api_ready(&mut child) {
+                Ok(()) => StartApiProcessResult {
+                    child: Some(child),
+                    error_message: None,
+                },
+                Err(error_message) => StartApiProcessResult {
+                    child: Some(child),
+                    error_message: Some(error_message),
+                },
+            }
         }
         Err(error) => {
-            log::warn!(
+            let message = format!(
                 "failed to start api process from {}: {error}",
                 python_exe.display()
             );
-            None
+            log::warn!("{message}");
+            StartApiProcessResult {
+                child: None,
+                error_message: Some(message),
+            }
         }
     }
 }
 
-fn wait_for_api_ready(child: &mut Child) {
+fn wait_for_api_ready(child: &mut Child) -> Result<(), String> {
     let started_at = Instant::now();
 
     while started_at.elapsed() < API_READY_TIMEOUT {
         match child.try_wait() {
             Ok(Some(status)) => {
-                log::warn!("api process exited before becoming ready: {status}");
-                return;
+                let message = format!("API process exited before becoming ready: {status}");
+                log::warn!("{message}");
+                return Err(message);
             }
             Ok(None) => {}
             Err(error) => {
-                log::warn!("failed to query api process during readiness check: {error}");
-                return;
+                let message =
+                    format!("Failed to query API process during readiness check: {error}");
+                log::warn!("{message}");
+                return Err(message);
             }
         }
 
@@ -184,16 +224,18 @@ fn wait_for_api_ready(child: &mut Child) {
                 "api service is listening on {API_HOST}:{API_PORT} after {:?}",
                 started_at.elapsed()
             );
-            return;
+            return Ok(());
         }
 
         thread::sleep(API_READY_POLL_INTERVAL);
     }
 
-    log::warn!(
+    let message = format!(
         "api service did not listen on {API_HOST}:{API_PORT} within {:?}; process is still tracked for shutdown",
         API_READY_TIMEOUT
     );
+    log::warn!("{message}");
+    Err(message)
 }
 
 fn is_api_running() -> bool {

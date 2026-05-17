@@ -10,5 +10,14 @@ welcome:
   loading: "正在启动后台服务，请稍候..."
   footer: "准备就绪后将自动进入应用界面"
   html_lang: "zh-CN"
+launch_error:
+  page_title: "UzonCalc - 启动失败"
+  title: "后台服务启动失败"
+  lead: "UzonCalc 无法连接本地后台服务，因此暂时不能进入应用界面。"
+  details_label: "错误详情"
+  default_error_message: "后台服务未能正常启动。"
+  action_restart: "请关闭应用后重新启动，等待后台服务完成初始化。"
+  action_logs: "如果问题持续出现，请检查应用目录下的日志文件或确认安装包资源完整。"
+  html_lang: "zh-CN"
 language:
   unsupported: "不支持的语言。"

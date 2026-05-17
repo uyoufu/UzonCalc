@@ -12,6 +12,19 @@ pub struct WelcomeTexts {
     pub html_lang: String,
 }
 
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct LaunchErrorTexts {
+    pub locale: String,
+    pub page_title: String,
+    pub title: String,
+    pub lead: String,
+    pub details_label: String,
+    pub default_error_message: String,
+    pub action_restart: String,
+    pub action_logs: String,
+    pub html_lang: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum AppLocale {
     ZhCn,
@@ -65,6 +78,20 @@ pub fn welcome_texts() -> WelcomeTexts {
         loading: t!("welcome.loading").to_string(),
         footer: t!("welcome.footer").to_string(),
         html_lang: t!("welcome.html_lang").to_string(),
+    }
+}
+
+pub fn launch_error_texts() -> LaunchErrorTexts {
+    LaunchErrorTexts {
+        locale: current_locale().as_str().to_string(),
+        page_title: t!("launch_error.page_title").to_string(),
+        title: t!("launch_error.title").to_string(),
+        lead: t!("launch_error.lead").to_string(),
+        details_label: t!("launch_error.details_label").to_string(),
+        default_error_message: t!("launch_error.default_error_message").to_string(),
+        action_restart: t!("launch_error.action_restart").to_string(),
+        action_logs: t!("launch_error.action_logs").to_string(),
+        html_lang: t!("launch_error.html_lang").to_string(),
     }
 }
 

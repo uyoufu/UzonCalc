@@ -4,7 +4,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>__APP_NAME__ - 启动失败</title>
+  <title>UzonCalc - 启动失败</title>
   <style>
     :root {
       --primary: #7367f0;
@@ -162,25 +162,85 @@
     <section class="card" aria-labelledby="launch-error-title">
       <div class="mark">!</div>
       <h1 class="title" id="launch-error-title">后台服务启动失败</h1>
-      <p class="lead">__APP_NAME__ 无法连接本地后台服务，因此暂时不能进入应用界面。</p>
+      <p class="lead" id="launch-error-lead">UzonCalc 无法连接本地后台服务，因此暂时不能进入应用界面。</p>
 
-      <section class="details" aria-label="错误详情">
-        <p class="details-label">错误详情</p>
-        <p class="message">__ERROR_MESSAGE__</p>
+      <section class="details" aria-label="错误详情" id="launch-error-details">
+        <p class="details-label" id="launch-error-details-label">错误详情</p>
+        <p class="message" id="launch-error-message">后台服务未能正常启动。</p>
       </section>
 
       <div class="actions">
         <div class="action">
           <span class="dot"></span>
-          <span>请关闭应用后重新启动，等待后台服务完成初始化。</span>
+          <span id="launch-error-action-restart">请关闭应用后重新启动，等待后台服务完成初始化。</span>
         </div>
         <div class="action">
           <span class="dot"></span>
-          <span>如果问题持续出现，请检查应用目录下的日志文件或确认安装包资源完整。</span>
+          <span id="launch-error-action-logs">如果问题持续出现，请检查应用目录下的日志文件或确认安装包资源完整。</span>
         </div>
       </div>
     </section>
   </main>
+  <script>
+    const texts = window.__UZON_LAUNCH_ERROR_TEXTS__;
+
+    function setText(id, value) {
+      if (typeof value !== 'string' || value.length === 0) {
+        return;
+      }
+
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    }
+
+    function setAttribute(id, name, value) {
+      if (typeof value !== 'string' || value.length === 0) {
+        return;
+      }
+
+      const element = document.getElementById(id);
+      if (element) {
+        element.setAttribute(name, value);
+      }
+    }
+
+    function getErrorMessage() {
+      const params = new URLSearchParams(window.location.search);
+      const message = params.get('message');
+      if (typeof message === 'string' && message.length > 0) {
+        return message;
+      }
+
+      if (texts && typeof texts.default_error_message === 'string') {
+        return texts.default_error_message;
+      }
+
+      return '';
+    }
+
+    if (texts && typeof texts === 'object') {
+      setText('launch-error-title', texts.title);
+      setText('launch-error-lead', texts.lead);
+      setText('launch-error-details-label', texts.details_label);
+      setText('launch-error-action-restart', texts.action_restart);
+      setText('launch-error-action-logs', texts.action_logs);
+      setAttribute('launch-error-details', 'aria-label', texts.details_label);
+
+      if (typeof texts.page_title === 'string' && texts.page_title.length > 0) {
+        document.title = texts.page_title;
+      }
+
+      if (typeof texts.html_lang === 'string' && texts.html_lang.length > 0) {
+        document.documentElement.lang = texts.html_lang;
+      } else if (typeof texts.locale === 'string' && texts.locale.length > 0) {
+        document.documentElement.lang = texts.locale;
+      }
+    }
+
+    setText('launch-error-message', getErrorMessage());
+  </script>
 </body>
 
 </html>
