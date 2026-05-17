@@ -42,15 +42,13 @@ Write-Step "步骤 1: 设置嵌入式 Python 环境"
 
 $setupScript = Join-Path $SCRIPT_DIR "setup-embedded-python.ps1"
 if (Test-Path $setupScript) {
-    $setupArgs = @(
-        "-PythonVersion"
-        $PythonVersion
-        "-TargetDir"
-        $EMBEDDED_PYTHON_RELATIVE_DIR
-    )
+    $setupArgs = @{
+        PythonVersion = $PythonVersion
+        TargetDir = $EMBEDDED_PYTHON_RELATIVE_DIR
+    }
 
     if (-not [string]::IsNullOrWhiteSpace($PythonCacheRoot)) {
-        $setupArgs += @("-CacheRoot", $PythonCacheRoot)
+        $setupArgs.CacheRoot = $PythonCacheRoot
     }
 
     & $setupScript @setupArgs

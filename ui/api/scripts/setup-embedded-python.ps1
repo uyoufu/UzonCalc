@@ -75,6 +75,17 @@ function Assert-LastCommandSucceeded {
     }
 }
 
+function Invoke-PipInstall {
+    param([string[]]$Arguments)
+
+    if (Test-Path $pipExe) {
+        & $pipExe @Arguments --no-warn-script-location
+    }
+    else {
+        & $pythonExe -m pip @Arguments --no-warn-script-location
+    }
+}
+
 # ============================================
 # 1. 下载嵌入式 Python
 # ============================================
@@ -85,6 +96,8 @@ Write-Info "开始设置嵌入式 Python 环境..."
 $arch = if ([Environment]::Is64BitOperatingSystem) { "amd64" } else { "win32" }
 $downloadUrl = "https://www.python.org/ftp/python/$PythonVersion/python-$PythonVersion-embed-$arch.zip"
 $zipFile = Join-Path $env:TEMP "python-embedded.zip"
+$getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
+$getPipFile = Join-Path $env:TEMP "get-pip.py"
 $requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
 $requirementsHash = "no-requirements"
 if (Test-Path -LiteralPath $requirementsFile) {
@@ -114,6 +127,8 @@ if (Test-Path -LiteralPath $cachePythonExe) {
     return
 }
 
+$downloadedPython = $false
+
 if (Test-Path $pythonExe) {
     Write-Info "检测到已缓存的嵌入式 Python: $EMBED_DIR"
     Write-Info "跳过下载和解压，继续检查配置并安装依赖..."
@@ -126,6 +141,7 @@ else {
         # 使用 .NET 下载（更可靠）
         $webClient = New-Object System.Net.WebClient
         $webClient.DownloadFile($downloadUrl, $zipFile)
+        $downloadedPython = $true
         Write-Info "下载完成"
     }
     catch {
@@ -142,9 +158,21 @@ else {
 
 Write-Info "解压 Python 到 $EMBED_DIR..."
 
-if (Test-Path $EMBED_DIR) {
-    Write-Info "目标目录已存在，将覆盖..."
-    Remove-DirectoryIfExists -Path $EMBED_DIR
+if ($downloadedPython) {
+    if (Test-Path $EMBED_DIR) {
+        Write-Info "目标目录已存在，将覆盖..."
+        Remove-DirectoryIfExists -Path $EMBED_DIR
+    }
+
+    Ensure-Directory -Path $EMBED_DIR
+    Expand-Archive -LiteralPath $zipFile -DestinationPath $EMBED_DIR -Force
+
+    if (-not (Test-Path -LiteralPath $pythonExe)) {
+        throw "Python 解压失败，未找到: $pythonExe"
+    }
+}
+else {
+    Write-Info "未下载新的 Python，跳过解压。"
 }
 
 # ============================================
@@ -236,16 +264,30 @@ $pipExe = Join-Path $EMBED_DIR "Scripts\pip.exe"
 $requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
 
 if (Test-Path $requirementsFile) {
-    if (Test-Path $pipExe) {
-        & $pipExe install -r $requirementsFile --no-warn-script-location
-    }
-    else {
-        & $pythonExe -m pip install -r $requirementsFile --no-warn-script-location
-    }
+    $filteredRequirementsFile = Join-Path $env:TEMP "uzoncalc-api-requirements.txt"
+    $requirementsContent = Get-Content -LiteralPath $requirementsFile |
+        Where-Object { $_ -notmatch '^\s*-e\s+file:' }
 
-    if ($LASTEXITCODE -ne 0) {
-        Write-Error-Message "依赖安装失败，退出码: $LASTEXITCODE"
-        throw "依赖安装失败，退出码: $LASTEXITCODE"
+    $requirementsContent | Set-Content -LiteralPath $filteredRequirementsFile -Encoding UTF8
+
+    try {
+        Invoke-PipInstall -Arguments @("install", "-r", $filteredRequirementsFile)
+        Assert-LastCommandSucceeded -Message "依赖安装命令执行失败。"
+
+        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $REPO_ROOT)
+        Assert-LastCommandSucceeded -Message "uzoncalc 安装命令执行失败。"
+
+        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $PROJECT_ROOT)
+        Assert-LastCommandSucceeded -Message "uzoncalc-api 安装命令执行失败。"
+    }
+    catch {
+        Write-Error-Message "依赖安装失败: $_"
+        throw
+    }
+    finally {
+        if (Test-Path -LiteralPath $filteredRequirementsFile) {
+            Remove-Item -LiteralPath $filteredRequirementsFile -Force
+        }
     }
 
     Write-Info "依赖安装完成"
