@@ -53,7 +53,7 @@ pub fn run() {
             let main_window = create_main_window(app, &app_config)?;
             log::info!("main window created: {}", main_window.label());
 
-            let tray_state = tray::setup_tray(app, &main_window)?;
+            let tray_state = tray::setup_tray(app, &main_window, &welcome_window)?;
             log::info!("tray initialized");
             let shared_state = SharedState::new(
                 app.handle().clone(),

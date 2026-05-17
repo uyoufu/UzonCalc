@@ -66,6 +66,10 @@ pub fn tray_quit_text() -> String {
     t!("tray.quit").to_string()
 }
 
+pub fn tray_show_text() -> String {
+    t!("tray.show").to_string()
+}
+
 pub fn startup_loading_text() -> String {
     t!("startup.loading").to_string()
 }

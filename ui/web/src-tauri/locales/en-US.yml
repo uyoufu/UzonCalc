@@ -1,6 +1,7 @@
 app:
   title: "UzonCalc"
 tray:
+  show: "Show"
   quit: "Quit"
 startup:
   loading: "Starting service..."
