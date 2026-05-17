@@ -6,24 +6,18 @@ pub mod config;
 pub mod locale;
 pub mod server;
 pub mod tray;
+pub mod welcome;
 
-use api_process::ApiProcessState;
 use config::{app_config_paths, load_app_config, AppConfig};
-use locale::{app_title, set_current_locale, startup_loading_text};
+use locale::{app_title, set_current_locale};
 use server::{spawn_language_server, SharedState};
-use std::{
-    error::Error,
-    path::PathBuf,
-    thread,
-    time::{Duration, Instant},
-};
-use tauri::{AppHandle, Manager, WebviewUrl, WebviewWindow, WebviewWindowBuilder};
+use std::{error::Error, time::Instant};
+use tauri::{AppHandle, Manager, WebviewWindow, WebviewWindowBuilder};
+use welcome::{create_welcome_window, start_api_and_finish_welcome};
 
 rust_i18n::i18n!("locales");
 
 const MAIN_WINDOW_LABEL: &str = "main";
-const WELCOME_WINDOW_LABEL: &str = "welcome";
-const WELCOME_MIN_DISPLAY_DURATION: Duration = Duration::from_secs(1);
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
 pub fn run() {
@@ -103,32 +97,6 @@ fn restore_existing_instance(app: &AppHandle) {
     }
 }
 
-fn create_welcome_window(app: &mut tauri::App) -> Result<WebviewWindow, Box<dyn Error>> {
-    let window = WebviewWindowBuilder::new(
-        app.handle(),
-        WELCOME_WINDOW_LABEL,
-        WebviewUrl::App(PathBuf::from("welcome.html")),
-    )
-    .title(app_title())
-    .inner_size(720.0, 420.0)
-    .resizable(false)
-    .maximizable(false)
-    .minimizable(false)
-    .decorations(false)
-    .center()
-    .initialization_script(welcome_initialization_script()?)
-    .build()?;
-
-    Ok(window)
-}
-
-fn welcome_initialization_script() -> Result<String, serde_json::Error> {
-    let loading_text = serde_json::to_string(&startup_loading_text())?;
-    Ok(format!(
-        "window.__UZON_WELCOME_LOADING_TEXT__ = {loading_text};"
-    ))
-}
-
 fn create_main_window(
     app: &mut tauri::App,
     app_config: &AppConfig,
@@ -151,42 +119,6 @@ fn create_main_window(
         .visible(false)
         .build()?;
     Ok(window)
-}
-
-fn start_api_and_finish_welcome(
-    app_handle: AppHandle,
-    welcome_window: WebviewWindow,
-    main_window: WebviewWindow,
-    welcome_started_at: Instant,
-) {
-    thread::spawn(move || {
-        log::info!("starting api process state");
-        app_handle.manage(ApiProcessState::try_start());
-        finish_welcome(welcome_window, main_window, welcome_started_at);
-    });
-}
-
-fn finish_welcome(
-    welcome_window: WebviewWindow,
-    main_window: WebviewWindow,
-    welcome_started_at: Instant,
-) {
-    if let Some(remaining) = WELCOME_MIN_DISPLAY_DURATION.checked_sub(welcome_started_at.elapsed())
-    {
-        thread::sleep(remaining);
-    }
-
-    if let Err(error) = welcome_window.close() {
-        log::warn!("failed to close welcome window: {error}");
-    }
-
-    if let Err(error) = main_window.show() {
-        log::error!("failed to show main window: {error}");
-    }
-
-    if let Err(error) = main_window.set_focus() {
-        log::debug!("failed to focus main window: {error}");
-    }
 }
 
 fn missing_main_window_error() -> std::io::Error {
