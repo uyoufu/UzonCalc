@@ -23,9 +23,22 @@ Homepage = "https://github.com/uyoufu/UzonCalc"
 [project.scripts]
 uzoncalc = "uzoncalc.cli:main"
 
-[tool.setuptools.packages.find]
-where = [".."]
-include = ["uzoncalc", "uzoncalc.*"]
+[tool.setuptools]
+packages = [
+    "uzoncalc",
+    "uzoncalc.cache",
+    "uzoncalc.context_utils",
+    "uzoncalc.extension",
+    "uzoncalc.handcalc",
+    "uzoncalc.handcalc.converters",
+    "uzoncalc.handcalc.post_handlers",
+    "uzoncalc.handcalc.rendering",
+    "uzoncalc.template",
+    "uzoncalc.utils_core",
+]
+
+[tool.setuptools.package-dir]
+uzoncalc = "."
 
 [tool.setuptools.package-data]
 "uzoncalc.template" = ["*.html", "*.css"]

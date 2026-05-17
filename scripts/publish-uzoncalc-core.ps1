@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Installs build/twine (unless skipped), runs `python -m build` to produce
-    sdist and wheel, removes any .egg files, then uploads allowed distributions.
+    sdist and wheel, removes old distributions, then uploads the current build.
 
 .PARAMETER UseTestPyPI
     If present, upload to TestPyPI instead of the default PyPI endpoint.
@@ -31,6 +31,15 @@ $ErrorActionPreference = 'Stop'
 function Write-ErrAndExit($msg, $code = 1) {
   Write-Host $msg -ForegroundColor Red
   exit $code
+}
+
+function Get-DistributionFiles {
+  $patterns = @("*.egg", "*.tar.gz", "*.whl")
+  $files = foreach ($pattern in $patterns) {
+    Get-ChildItem -Path dist -Filter $pattern -File -ErrorAction SilentlyContinue
+  }
+
+  return @($files | Sort-Object -Property FullName -Unique)
 }
 
 Write-Host "Starting build and upload script..."
@@ -60,27 +69,55 @@ try {
     New-Item -Path "dist" -ItemType Directory | Out-Null
   }
 
-  Write-Host "Removing old .egg files from dist/ (if any)..."
-  Get-ChildItem -Path dist -Filter *.egg -File -ErrorAction SilentlyContinue | Remove-Item -Force -ErrorAction SilentlyContinue
+  $distFilesBeforeBuild = @{}
+  foreach ($file in Get-DistributionFiles) {
+    $distFilesBeforeBuild[$file.FullName] = $file.LastWriteTimeUtc
+  }
 
   Write-Host "Running build (sdist + wheel) in $projectRoot..."
   python -m build
   if ($LASTEXITCODE -ne 0) { Write-ErrAndExit "Build failed (exit code $LASTEXITCODE)." $LASTEXITCODE }
 
-  $sdist = Get-ChildItem -Path dist -Filter *.tar.gz -File -ErrorAction SilentlyContinue
-  $wheels = Get-ChildItem -Path dist -Filter *.whl -File -ErrorAction SilentlyContinue
+  $distFilesAfterBuild = Get-DistributionFiles
+  $builtDistributions = @(
+    $distFilesAfterBuild | Where-Object {
+      (-not $distFilesBeforeBuild.ContainsKey($_.FullName)) -or
+      ($_.LastWriteTimeUtc -gt $distFilesBeforeBuild[$_.FullName])
+    }
+  )
 
-  if ((-not $sdist) -and (-not $wheels)) {
+  $builtUploadDistributions = @(
+    $builtDistributions | Where-Object {
+      ($_.Name -like "*.tar.gz") -or ($_.Name -like "*.whl")
+    }
+  )
+
+  if (-not $builtUploadDistributions) {
     Write-ErrAndExit "No sdist (.tar.gz) or wheel (.whl) found in dist/. Aborting."
   }
 
+  $builtDistributionFullNames = @($builtDistributions | ForEach-Object { $_.FullName })
+  $oldDistributions = @(
+    $distFilesAfterBuild | Where-Object { $builtDistributionFullNames -notcontains $_.FullName }
+  )
+
+  if ($oldDistributions) {
+    Write-Host "Removing old distribution files from dist/..."
+    $oldDistributions | ForEach-Object {
+      Write-Host "  Removing $($_.Name)"
+      Remove-Item -LiteralPath $_.FullName -Force
+    }
+  }
+
+  $builtDistributionPaths = @($builtUploadDistributions | ForEach-Object { $_.FullName })
+
   if ($UseTestPyPI) {
     Write-Host "Uploading to TestPyPI (https://test.pypi.org/legacy/)..."
-    python -m twine upload --repository-url https://test.pypi.org/legacy/ dist\*  
+    python -m twine upload --repository-url https://test.pypi.org/legacy/ --verbose $builtDistributionPaths
   }
   else {
     Write-Host "Uploading to PyPI (default repository, use --repository or .pypirc to change)..."
-    python -m twine upload dist\*
+    python -m twine upload --verbose $builtDistributionPaths
   }
 
   if ($LASTEXITCODE -ne 0) {
