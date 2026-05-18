@@ -4,7 +4,7 @@
 
 .DESCRIPTION
     Builds the Tauri desktop executable and the API portable package, then
-    combines both outputs into publish\win-x64.
+    combines both outputs into publish\uzoncalc-win-x64-<rust-version>.
 #>
 
 [CmdletBinding()]
@@ -42,11 +42,12 @@ function Join-RepoPath {
 function Resolve-OutputPath {
     param(
         [string]$Root,
-        [string]$Path
+        [string]$Path,
+        [string]$Version
     )
 
     if ([string]::IsNullOrWhiteSpace($Path)) {
-        return (Join-RepoPath $Root "publish\win-x64")
+        return (Join-RepoPath $Root "publish\uzoncalc-win-x64-$Version")
     }
 
     if ([System.IO.Path]::IsPathRooted($Path)) {
@@ -54,6 +55,27 @@ function Resolve-OutputPath {
     }
 
     return (Join-RepoPath $Root $Path)
+}
+
+function Get-CargoPackageVersion {
+    param([string]$ManifestPath)
+
+    Assert-PathExists $ManifestPath "Rust 项目 Cargo.toml"
+
+    $inPackageSection = $false
+
+    foreach ($line in Get-Content -LiteralPath $ManifestPath) {
+        if ($line -match '^\s*\[(.+)\]\s*$') {
+            $inPackageSection = ($Matches[1] -eq "package")
+            continue
+        }
+
+        if ($inPackageSection -and $line -match '^\s*version\s*=\s*"([^"]+)"\s*$') {
+            return $Matches[1]
+        }
+    }
+
+    throw "未找到 Rust 项目版本号: $ManifestPath"
 }
 
 function Assert-PathExists {
@@ -142,7 +164,9 @@ $apiPortableDir = Join-RepoPath $apiDir "dist\$ApiOutputName"
 $releaseDir = Join-RepoPath $tauriDir "target\release"
 $releaseConfig = Join-Path $releaseDir "config.toml"
 $sourceConfig = Join-RepoPath $tauriDir "config.toml"
-$resolvedOutputDir = Resolve-OutputPath $repoRoot $OutputDir
+$cargoManifest = Join-RepoPath $tauriDir "Cargo.toml"
+$rustVersion = Get-CargoPackageVersion $cargoManifest
+$resolvedOutputDir = Resolve-OutputPath $repoRoot $OutputDir $rustVersion
 
 Assert-IsInsidePath $resolvedOutputDir $repoRoot
 Assert-PathExists $webDir "Web 目录"
