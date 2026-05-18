@@ -213,3 +213,5 @@ output/
 logs/
 publish
 ai-examples/
+
+.fake
