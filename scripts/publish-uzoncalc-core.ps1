@@ -42,6 +42,94 @@ function Get-DistributionFiles {
   return @($files | Sort-Object -Property FullName -Unique)
 }
 
+function Clear-BuildArtifacts {
+  $paths = @("dist", "build", "uzoncalc.egg-info")
+  foreach ($path in $paths) {
+    if (Test-Path -LiteralPath $path) {
+      Write-Host "Removing stale build artifact: $path"
+      Remove-Item -LiteralPath $path -Recurse -Force
+    }
+  }
+}
+
+function Test-ArchiveContains {
+  param(
+    [Parameter(Mandatory = $true)]
+    [string]$ArchivePath,
+
+    [Parameter(Mandatory = $true)]
+    [string[]]$RequiredEntries
+  )
+
+  $pythonCode = @"
+import sys
+import tarfile
+import zipfile
+from pathlib import Path
+
+archive_path = Path(sys.argv[1])
+required_entries = sys.argv[2:]
+
+if archive_path.suffix == ".whl":
+    with zipfile.ZipFile(archive_path) as archive_file:
+        names = set(archive_file.namelist())
+    missing = [entry for entry in required_entries if entry not in names]
+else:
+    with tarfile.open(archive_path) as archive_file:
+        names = set(archive_file.getnames())
+    missing = [
+        entry for entry in required_entries
+        if not any(name.endswith(entry) for name in names)
+    ]
+
+if missing:
+    print(f"{archive_path} missing required entries: {', '.join(missing)}")
+    sys.exit(1)
+"@
+
+  python -c $pythonCode $ArchivePath @RequiredEntries
+  if ($LASTEXITCODE -ne 0) {
+    Write-ErrAndExit "Distribution content validation failed for $ArchivePath." $LASTEXITCODE
+  }
+}
+
+function Test-DistributionFiles {
+  param(
+    [Parameter(Mandatory = $true)]
+    [object[]]$DistributionFiles
+  )
+
+  $wheelFiles = @($DistributionFiles | Where-Object { $_.Name -like "*.whl" })
+  $sdistFiles = @($DistributionFiles | Where-Object { $_.Name -like "*.tar.gz" })
+
+  if (-not $wheelFiles) {
+    Write-ErrAndExit "No wheel (.whl) found in built distributions. Aborting."
+  }
+
+  if (-not $sdistFiles) {
+    Write-ErrAndExit "No sdist (.tar.gz) found in built distributions. Aborting."
+  }
+
+  $requiredWheelEntries = @(
+    "uzoncalc/__init__.py",
+    "uzoncalc/startup.py",
+    "uzoncalc/template/calc_template.html"
+  )
+  $requiredSdistEntries = @(
+    "pyproject.toml",
+    "uzoncalc/__init__.py",
+    "uzoncalc/template/calc_template.html"
+  )
+
+  foreach ($wheelFile in $wheelFiles) {
+    Test-ArchiveContains -ArchivePath $wheelFile.FullName -RequiredEntries $requiredWheelEntries
+  }
+
+  foreach ($sdistFile in $sdistFiles) {
+    Test-ArchiveContains -ArchivePath $sdistFile.FullName -RequiredEntries $requiredSdistEntries
+  }
+}
+
 Write-Host "Starting build and upload script..."
 # Determine project root as the parent of the script folder so this script
 # can be executed from anywhere and still operate on the repository root.
@@ -65,29 +153,16 @@ try {
     python -m pip install --upgrade build twine
   }
 
-  if (-not (Test-Path -Path "dist")) {
-    New-Item -Path "dist" -ItemType Directory | Out-Null
-  }
-
-  $distFilesBeforeBuild = @{}
-  foreach ($file in Get-DistributionFiles) {
-    $distFilesBeforeBuild[$file.FullName] = $file.LastWriteTimeUtc
-  }
+  # 每次发布前清理构建缓存，避免旧的空包或错误产物被上传。
+  Clear-BuildArtifacts
 
   Write-Host "Running build (sdist + wheel) in $projectRoot..."
   python -m build
   if ($LASTEXITCODE -ne 0) { Write-ErrAndExit "Build failed (exit code $LASTEXITCODE)." $LASTEXITCODE }
 
   $distFilesAfterBuild = Get-DistributionFiles
-  $builtDistributions = @(
-    $distFilesAfterBuild | Where-Object {
-      (-not $distFilesBeforeBuild.ContainsKey($_.FullName)) -or
-      ($_.LastWriteTimeUtc -gt $distFilesBeforeBuild[$_.FullName])
-    }
-  )
-
   $builtUploadDistributions = @(
-    $builtDistributions | Where-Object {
+    $distFilesAfterBuild | Where-Object {
       ($_.Name -like "*.tar.gz") -or ($_.Name -like "*.whl")
     }
   )
@@ -96,18 +171,8 @@ try {
     Write-ErrAndExit "No sdist (.tar.gz) or wheel (.whl) found in dist/. Aborting."
   }
 
-  $builtDistributionFullNames = @($builtDistributions | ForEach-Object { $_.FullName })
-  $oldDistributions = @(
-    $distFilesAfterBuild | Where-Object { $builtDistributionFullNames -notcontains $_.FullName }
-  )
-
-  if ($oldDistributions) {
-    Write-Host "Removing old distribution files from dist/..."
-    $oldDistributions | ForEach-Object {
-      Write-Host "  Removing $($_.Name)"
-      Remove-Item -LiteralPath $_.FullName -Force
-    }
-  }
+  Write-Host "Validating distribution contents before upload..."
+  Test-DistributionFiles -DistributionFiles $builtUploadDistributions
 
   $builtDistributionPaths = @($builtUploadDistributions | ForEach-Object { $_.FullName })
 
