@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from dataclasses import fields, is_dataclass, replace
 from typing import Any, Mapping
 
 import numpy as np
@@ -77,7 +76,7 @@ def build_equation_parts_for_assignment(
 def substitute_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.MathNode:
     """Replace variables with runtime values when available (conservative)."""
 
-    def _walk(n: ir.MathNode) -> ir.MathNode:
+    def _repl(n: ir.MathNode) -> ir.MathNode | None:
         resolved = _try_resolve_subscript(n, locals_map)
         if resolved is not None:
             return resolved
@@ -85,19 +84,15 @@ def substitute_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.Math
         if isinstance(n, ir.Mi) and n.name in locals_map:
             return value_to_ir(locals_map[n.name])
 
-        if not is_dataclass(n):
-            return n
+        return None
 
-        updated, changed = _update_node_fields(n, _walk)
-        if not changed:
-            return n
-
-        try:
-            return replace(n, **updated)  # type: ignore[return-value]
-        except Exception:
-            return n
-
-    return _walk(node)
+    return transform_ir(
+        node,
+        _repl,
+        should_descend=lambda parent, field_name: not (
+            isinstance(parent, ir.MSub) and field_name == "base"
+        ),
+    )
 
 
 def style_array_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.MathNode:
@@ -115,39 +110,6 @@ def style_array_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.Mat
 def is_private_lhs(lhs: Any) -> bool:
     """判断赋值左侧是否为默认隐藏的私有变量。"""
     return isinstance(lhs, ir.Mi) and lhs.name.startswith("_")
-
-
-def _update_node_fields(node: ir.MathNode, transform_fn) -> tuple[dict[str, Any], bool]:
-    """递归更新 MathIR 数据类字段。"""
-    updated: dict[str, Any] = {}
-    changed = False
-
-    for f in fields(node):
-        v = getattr(node, f.name)
-
-        # 处理单个 MathNode 字段
-        if isinstance(v, ir.MathNode):
-            # MSub 的 base 字段不进行替换
-            new_v = (
-                v
-                if isinstance(node, ir.MSub) and f.name == "base"
-                else transform_fn(v)
-            )
-            updated[f.name] = new_v
-            changed = changed or (new_v is not v)
-            continue
-
-        # 处理 MathNode 列表字段
-        if isinstance(v, list) and all(isinstance(ch, ir.MathNode) for ch in v):
-            new_list = [transform_fn(ch) for ch in v]
-            updated[f.name] = new_list
-            changed = changed or any(nv is not ov for nv, ov in zip(new_list, v))
-            continue
-
-        # 其他字段保持不变
-        updated[f.name] = v
-
-    return updated, changed
 
 
 def _try_resolve_subscript(

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html
+from dataclasses import dataclass
 from typing import Any
 
 import numpy as np
@@ -15,11 +16,21 @@ SYMBOL_LEFT_BRACKET = "["
 SYMBOL_RIGHT_BRACKET = "]"
 
 
+@dataclass(frozen=True, slots=True)
+class FormattedQuantity:
+    """A quantity whose magnitude has already been formatted for display."""
+
+    magnitude: str
+    units: str
+
+
 def should_render_runtime_value(value: Any) -> bool:
     """仅展示稳定、可读的运行期值，避免复杂对象 repr 污染计算书。"""
     if value is None:
         return False
     if isinstance(value, ir.MathNode):
+        return True
+    if isinstance(value, FormattedQuantity):
         return True
     if isinstance(value, (int, float, str)):
         return True
@@ -37,6 +48,9 @@ def value_to_ir(value: Any) -> ir.MathNode:
     """将 Python 运行期值转换为 MathIR。"""
     if isinstance(value, ir.MathNode):
         return value
+
+    if isinstance(value, FormattedQuantity):
+        return _quantity_to_ir(value.magnitude, value.units)
 
     # Numbers
     if isinstance(value, (int, float)):
@@ -67,26 +81,20 @@ def value_to_ir(value: Any) -> ir.MathNode:
             if isinstance(magnitude, (int, float))
             else str(magnitude)
         )
-        return ir.mrow([ir.mn(formatted_magnitude), ir.mo(""), ir.mu(str(value.units))])
+        return _quantity_to_ir(formatted_magnitude, str(value.units))
 
     return ir.mtext(str(value))
 
 
-def render_value_only(value: Any) -> str:
-    """仅渲染值（不显示表达式），直接返回字符串，不包裹 math。"""
+def render_value_text(value: Any) -> str:
+    """Render a runtime value as escaped text without MathML wrappers."""
     if value is None:
         return ""
 
-    if isinstance(value, ir.MText):
-        return html.escape(value.text)
-    if isinstance(value, ir.Mn):
-        return html.escape(value.value)
-    if isinstance(value, ir.Mi):
-        return html.escape(value.name)
-    if isinstance(value, ir.Mo):
-        return html.escape(value.symbol)
-    if isinstance(value, ir.Mu):
-        return html.escape(value.name)
+    if isinstance(value, ir.MathNode):
+        return html.escape(_math_node_to_text(value))
+    if isinstance(value, FormattedQuantity):
+        return html.escape(f"{value.magnitude} {value.units}")
     if isinstance(value, str):
         return html.escape(value)
     if isinstance(value, (int, float)):
@@ -103,18 +111,53 @@ def render_value_only(value: Any) -> str:
     return html.escape(str(value))
 
 
-def apply_format_spec(value: Any, format_spec: str) -> Any:
-    """应用格式化规范到值。"""
+def render_value_fragment(value: Any) -> str:
+    """Render a runtime value for f-string mixed HTML output."""
+    if value is None:
+        return ""
+    if isinstance(value, ir.MathNode):
+        return value.to_mathml_xml()
+    if isinstance(value, (FormattedQuantity, pint.Quantity)):
+        return value_to_ir(value).to_mathml_xml()
+    return render_value_text(value)
+
+def format_runtime_value(value: Any, format_spec: str) -> Any:
+    """Apply an f-string format spec without choosing the final output format."""
     if not format_spec or value is None:
         return value
 
     if isinstance(value, pint.Quantity):
         # 分别格式化数值和单位
         formatted_magnitude = format(value.magnitude, format_spec)
-        return ir.mrow([ir.mn(formatted_magnitude), ir.mo(""), ir.mu(str(value.units))])
+        return FormattedQuantity(formatted_magnitude, str(value.units))
 
     # 对于非 Quantity 值，直接格式化
-    return value_to_ir(format(value, format_spec))
+    return format(value, format_spec)
+
+
+def apply_format_spec(value: Any, format_spec: str) -> Any:
+    """Backward-compatible alias for f-string runtime formatting."""
+    return format_runtime_value(value, format_spec)
+
+
+def _quantity_to_ir(magnitude: str, units: str) -> ir.MathNode:
+    return ir.mrow([ir.mn(magnitude), ir.mo(""), ir.mu(units)])
+
+
+def _math_node_to_text(value: ir.MathNode) -> str:
+    if isinstance(value, ir.MText):
+        return value.text
+    if isinstance(value, ir.Mn):
+        return value.value
+    if isinstance(value, ir.Mi):
+        return value.name
+    if isinstance(value, ir.Mo):
+        return value.symbol
+    if isinstance(value, ir.Mu):
+        return value.name
+    if isinstance(value, ir.MRow):
+        return "".join(_math_node_to_text(child) for child in value.children)
+    return value.to_mathml_xml()
 
 
 def clean_float(value: float, precision: int = FLOAT_PRECISION) -> float:
