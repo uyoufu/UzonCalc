@@ -3126,6 +3126,7 @@ name = "uzoncalc"
 version = "1.1.1"
 source = { editable = "." }
 dependencies = [
+    { name = "fastapi" },
     { name = "matplotlib" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "numpy", version = "2.4.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
@@ -3133,6 +3134,7 @@ dependencies = [
     { name = "pint", version = "0.24.4", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
     { name = "pint", version = "0.25.2", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version >= '3.11'" },
     { name = "twine" },
+    { name = "uvicorn" },
     { name = "xlwings" },
 ]
 
@@ -3143,11 +3145,13 @@ dev = [
 
 [package.metadata]
 requires-dist = [
+    { name = "fastapi", specifier = ">=0.134.0" },
     { name = "matplotlib", specifier = ">=3.10.8" },
     { name = "numpy" },
     { name = "openpyxl" },
     { name = "pint" },
     { name = "twine", specifier = ">=6.2.0" },
+    { name = "uvicorn", specifier = ">=0.41.0" },
     { name = "xlwings" },
 ]
 
@@ -3189,7 +3193,7 @@ requires-dist = [
     { name = "asyncpg" },
     { name = "babel" },
     { name = "black" },
-    { name = "fastapi" },
+    { name = "fastapi", specifier = ">=0.134.0" },
     { name = "fastmcp", specifier = ">=3.0.2" },
     { name = "interval" },
     { name = "numpy" },
@@ -3197,7 +3201,7 @@ requires-dist = [
     { name = "python-multipart" },
     { name = "qdrant-client", specifier = ">=1.17.0" },
     { name = "sqlalchemy" },
-    { name = "uvicorn", extras = ["standard"] },
+    { name = "uvicorn", extras = ["standard"], specifier = ">=0.41.0" },
     { name = "uzoncalc", editable = "." },
     { name = "websockets" },
 ]

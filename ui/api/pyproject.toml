@@ -8,8 +8,9 @@ version = "1.1.0"
 description = "UzonCalc API server"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi",
-    "uvicorn[standard]",
+    # API 服务独立声明自身运行依赖，不依赖根项目的依赖声明。
+    "fastapi>=0.134.0",
+    "uvicorn[standard]>=0.41.0",
     "python-multipart",
     "PyJWT",
     "Babel",
