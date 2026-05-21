@@ -1,6 +1,17 @@
 """测试异步生成器的 send 参数传递问题"""
 import asyncio
 
+import pytest
+
+
+pytestmark = pytest.mark.anyio
+
+
+@pytest.fixture
+def anyio_backend():
+    """固定使用 asyncio 后端运行异步测试"""
+    return "asyncio"
+
 
 # ========== 测试 1: 直接使用异步生成器 (正常工作) ==========
 async def inner_generator():

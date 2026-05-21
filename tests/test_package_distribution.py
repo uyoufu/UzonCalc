@@ -10,7 +10,8 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-PACKAGE_VERSION = "1.1.1"
+CORE_CONFIG = tomllib.loads((REPO_ROOT / "src/core/pyproject.toml").read_text("utf-8"))
+PACKAGE_VERSION = CORE_CONFIG["project"]["version"]
 WHEEL_REQUIRED_FILES = {
     "uzoncalc/__init__.py",
     "uzoncalc/startup.py",
