@@ -8,7 +8,7 @@ from .execution_result import ExecutionResult
 from .runner import LocalSandboxRunner
 from .auto_cleanup import AutoCleanupScheduler
 
-from uzoncalc import UIPayloads
+from src.uzoncalc import UIPayloads
 
 
 class SandboxManager:

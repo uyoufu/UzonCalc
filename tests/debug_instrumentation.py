@@ -6,7 +6,7 @@ import inspect
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from uzoncalc import *
+from src.uzoncalc import *
 
 
 @uzon_calc()
@@ -23,7 +23,7 @@ def test_calc():
 
 if __name__ == "__main__":
     # 获取插桩后的函数
-    from uzoncalc.handcalc.ast_instrument import instrument_function
+    from src.uzoncalc.handcalc.ast_instrument import instrument_function
     instrumented = instrument_function(test_calc.__wrapped__)
     
     # 打印插桩后的代码
@@ -41,7 +41,7 @@ if __name__ == "__main__":
                 break
         
         # 应用插桩
-        from uzoncalc.handcalc.ast_visitor import AstNodeVisitor
+        from src.uzoncalc.handcalc.ast_visitor import AstNodeVisitor
         visitor = AstNodeVisitor()
         tree = visitor.visit(tree)
         

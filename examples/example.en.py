@@ -6,9 +6,9 @@ import sys
 # only needed when running this script from the core directory
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from uzoncalc import *
-from uzoncalc.extension.excel import get_excel_table
-from uzoncalc.extension.echarts import use_echarts, EChart, Javascript
+from src.uzoncalc import *
+from src.uzoncalc.extension.excel import get_excel_table
+from src.uzoncalc.extension.echarts import use_echarts, EChart, Javascript
 import numpy as np
 
 

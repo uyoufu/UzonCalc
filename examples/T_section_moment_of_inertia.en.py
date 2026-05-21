@@ -5,8 +5,8 @@ import numpy as np
 # When using pip packages, this line is not needed; only needed when running this script from the core directory
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from uzoncalc import *
-from uzoncalc.extension.echarts import EChart
+from src.uzoncalc import *
+from src.uzoncalc.extension.echarts import EChart
 
 
 @uzon_calc()

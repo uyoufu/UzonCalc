@@ -5,7 +5,7 @@ import inspect
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from uzoncalc import uzon_calc
+from src.uzoncalc import uzon_calc
 
 
 @uzon_calc()

@@ -1,4 +1,4 @@
-from uzoncalc import *
+from src.uzoncalc import *
 
 
 @uzon_calc()

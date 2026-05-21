@@ -7,9 +7,9 @@ import sys
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 try:
-    from uzoncalc import run_sync, unit, uzon_calc
+    from src.uzoncalc import run_sync, unit, uzon_calc
 except ImportError:
-    from uzoncalc.uzoncalc import run_sync, unit, uzon_calc
+    from src.uzoncalc.uzoncalc import run_sync, unit, uzon_calc
 
 
 @dataclass(slots=True)
