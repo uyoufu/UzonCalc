@@ -50,6 +50,12 @@ msub > :nth-child(2) {
   margin-left: var(--uz-space-2xs);
 }
 
+msup > :nth-child(2) {
+  /* 幂标略小；左侧间距由 MathML mspace 保证。 */
+  font-size: 0.75em;
+  line-height: 1;
+}
+
 mfrac,
 mfrac * {
   font-size: inherit;

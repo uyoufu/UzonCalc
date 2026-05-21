@@ -7,6 +7,7 @@ import xml.etree.ElementTree as ET
 
 
 _FACTORY_NAME_OVERRIDES: dict[type, str] = {}
+_POWER_EXPONENT_SPACE_WIDTH = "0.4em"
 
 
 # MathNode IR(means Intermediate Representation) node definitions
@@ -264,13 +265,27 @@ class MSup(MathNode):
     def to_mathml_element(self) -> ET.Element:
         e = ET.Element(self.tag)
 
+        base_needs_parentheses = self._needs_parentheses_for_power_base(self.base)
         base_el = _wrap_row(self.base)
-        if self._needs_parentheses_for_power_base(self.base):
+        if base_needs_parentheses:
             base_el = self._parenthesize(base_el)
 
         e.append(base_el)
-        e.append(_wrap_row(self.exponent))
+        e.append(self._wrap_exponent_with_spacing(not base_needs_parentheses))
         return e
+
+    def _wrap_exponent_with_spacing(self, add_spacing: bool) -> ET.Element:
+        """按底数类型为幂标添加 MathML 原生间距。"""
+        # 原子底数需要轻微间距；括号底数已有右括号边界，不再额外加宽。
+        exponent_row = _wrap_row(self.exponent)
+        if not add_spacing:
+            return exponent_row
+
+        leading_space = ET.Element(
+            "mspace", attrib={"width": _POWER_EXPONENT_SPACE_WIDTH}
+        )
+        exponent_row.insert(0, leading_space)
+        return exponent_row
 
     @staticmethod
     def _needs_parentheses_for_power_base(node: MathNode) -> bool:

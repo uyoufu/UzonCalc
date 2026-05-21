@@ -127,6 +127,12 @@ math[display="block"] {
   margin: 1em 0;
 }
 
+msup > :nth-child(2) {
+  /* 幂标略小；左侧间距由 MathML mspace 保证。 */
+  font-size: 0.75em;
+  line-height: 1;
+}
+
 /* 分数字体：让 MathML 的分数及 MathJax 渲染的分子/分母继承正文字体大小 */
 mfrac,
 mfrac * {
