@@ -1,6 +1,6 @@
 [tool.uv.workspace]
 # 根目录仅管理 workspace，避免根工具依赖进入核心包发布元数据。
-members = ["src/uzoncalc", "src/api"]
+members = ["src/core", "src/api"]
 
 [dependency-groups]
 # 根目录预览服务依赖，仅用于 dev_server.py。

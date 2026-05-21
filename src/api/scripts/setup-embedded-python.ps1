@@ -18,6 +18,8 @@ $SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
 $PROJECT_ROOT = Split-Path -Parent $SCRIPT_DIR
 $UI_ROOT = Split-Path -Parent $PROJECT_ROOT
 $REPO_ROOT = Split-Path -Parent $UI_ROOT
+# 核心包是 workspace 成员，安装时指向真实项目根目录。
+$CORE_PROJECT_ROOT = Join-Path $REPO_ROOT "src/core"
 $EMBED_DIR = Join-Path $PROJECT_ROOT $TargetDir
 $pythonExe = Join-Path $EMBED_DIR "python.exe"
 $pipExe = Join-Path $EMBED_DIR "Scripts\pip.exe"
@@ -274,7 +276,7 @@ if (Test-Path $requirementsFile) {
         Invoke-PipInstall -Arguments @("install", "-r", $filteredRequirementsFile)
         Assert-LastCommandSucceeded -Message "依赖安装命令执行失败。"
 
-        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $REPO_ROOT)
+        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $CORE_PROJECT_ROOT)
         Assert-LastCommandSucceeded -Message "uzoncalc 安装命令执行失败。"
 
         Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $PROJECT_ROOT)

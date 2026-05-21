@@ -1,0 +1,2 @@
+# 排除目录重构后遗留的嵌套包目录，避免进入源码发行包。
+prune uzoncalc/uzoncalc

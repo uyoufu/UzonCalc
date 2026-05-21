@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "uzoncalc"
 version = "1.1.1"
 description = "UzonCalc is a tool for writing engineering calculation documents using Python. With it, you can write calculation reports as smoothly as writing Python, and benefit from the full Python ecosystem and AI assistance."
-readme = { file = "README.md", content-type = "text/markdown" }
+readme = { file = "uzoncalc/README.md", content-type = "text/markdown" }
 authors = [{ name = "uyoufu", email = "uyoufu@uzoncloud.com" }]
 requires-python = ">=3.10"
 dependencies = ["pint", "numpy", "openpyxl", "xlwings", "matplotlib>=3.10.8"]
@@ -18,12 +18,14 @@ Homepage = "https://github.com/uyoufu/UzonCalc"
 uzoncalc = "uzoncalc.cli:main"
 
 [tool.setuptools]
-# pyproject 位于包目录内，从父目录发现 uzoncalc 及其子包。
-package-dir = { "" = ".." }
+# 关闭隐式数据收集，只发布下面明确声明的模板资源。
+include-package-data = false
 
 [tool.setuptools.packages.find]
-where = [".."]
+# 仅发现带 __init__.py 的真实包，避免把重构残留目录打进发行包。
+where = ["."]
 include = ["uzoncalc*"]
+namespaces = false
 
 [tool.setuptools.package-data]
 "uzoncalc.template" = ["*.html", "*.css"]

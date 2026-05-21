@@ -2,6 +2,7 @@ import os
 import re
 import subprocess
 import tarfile
+import tomllib
 import venv
 import zipfile
 from email.parser import Parser
@@ -21,6 +22,44 @@ SDIST_REQUIRED_SUFFIXES = {
     "template/calc_template.html",
 }
 FORBIDDEN_RUNTIME_DEPENDENCIES = {"fastapi", "uvicorn", "twine", "build"}
+
+
+def test_workspace_discovers_core_package_from_src_core():
+    """核心包项目根目录应位于 src/core，便于 uv workspace 自动发现。"""
+    root_config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text("utf-8"))
+    core_config_path = REPO_ROOT / "src/core/pyproject.toml"
+
+    assert "src/core" in root_config["tool"]["uv"]["workspace"]["members"]
+    assert "src/uzoncalc" not in root_config["tool"]["uv"]["workspace"]["members"]
+    assert core_config_path.exists()
+    assert not (REPO_ROOT / "src/core/uzoncalc/pyproject.toml").exists()
+
+    core_config = tomllib.loads(core_config_path.read_text("utf-8"))
+    assert core_config["project"]["name"] == "uzoncalc"
+    assert core_config["project"]["readme"]["file"] == "uzoncalc/README.md"
+    assert core_config["tool"]["setuptools"]["packages"]["find"]["where"] == ["."]
+    assert core_config["tool"]["setuptools"]["packages"]["find"]["namespaces"] is False
+
+
+def test_power_shell_scripts_reference_current_core_layout():
+    """编译和上传脚本应使用 src/core/uzoncalc 目录结构。"""
+    publish_script = (REPO_ROOT / "scripts/publish-uzoncalc-core.ps1").read_text("utf-8")
+    upload_script = (REPO_ROOT / "scripts/upload-template-js.ps1").read_text("utf-8")
+    setup_script = (REPO_ROOT / "src/api/scripts/setup-embedded-python.ps1").read_text("utf-8-sig")
+
+    assert 'Join-Path $projectRoot "src/core"' in publish_script
+    assert 'Join-Path $projectRoot "src/core/uzoncalc/template/js/dist/template.js"' in upload_script
+    assert 'Join-Path $REPO_ROOT "src/core"' in setup_script
+
+    assert "src/uzoncalc" not in publish_script
+    assert "src/uzoncalc" not in upload_script
+
+
+def test_packaged_cli_uses_published_package_imports():
+    """发布后的 CLI 入口不能依赖源码目录中的 core 命名空间。"""
+    cli_source = (REPO_ROOT / "src/core/uzoncalc/cli.py").read_text("utf-8")
+
+    assert "core.uzoncalc" not in cli_source
 
 
 def build_distribution_artifacts(tmp_path: Path) -> tuple[Path, Path]:
@@ -46,11 +85,13 @@ def test_distribution_artifacts_include_package_sources(tmp_path):
     with zipfile.ZipFile(wheel_path) as wheel_file:
         wheel_names = set(wheel_file.namelist())
     assert WHEEL_REQUIRED_FILES <= wheel_names
+    assert not any(name.startswith("uzoncalc/uzoncalc/") for name in wheel_names)
 
     with tarfile.open(sdist_path) as sdist_file:
         sdist_names = set(sdist_file.getnames())
     for required_suffix in SDIST_REQUIRED_SUFFIXES:
         assert any(name.endswith(required_suffix) for name in sdist_names)
+    assert not any("/uzoncalc/uzoncalc/" in name for name in sdist_names)
 
 
 def test_built_wheel_can_be_installed_and_imported(tmp_path):

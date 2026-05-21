@@ -39,7 +39,7 @@ def _find_entry_functions(module) -> list:
 
 def _save_ctx(ctx, output_path: str | None, script_path: str):
     """将 CalcContext 渲染并保存为 HTML，逻辑与 doc.save() 一致"""
-    from core.uzoncalc.template.utils import render_html_template
+    from uzoncalc.template.utils import render_html_template
 
     # 确定文件名
     if output_path:
@@ -115,7 +115,7 @@ def main():
         sys.exit(1)
 
     # 执行所有入口函数并保存
-    from core.uzoncalc.startup import run_sync
+    from uzoncalc.startup import run_sync
 
     for entry_fn in entries:
         try:

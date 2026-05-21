@@ -3,7 +3,7 @@
     Build the project and upload distributions to PyPI or TestPyPI.
 
 .DESCRIPTION
-    Installs build/twine (unless skipped), runs `python -m build` for uzoncalc/ to produce
+    Installs build/twine (unless skipped), runs `python -m build` for src/core to produce
     sdist and wheel, removes old distributions, then uploads the current build.
 
 .PARAMETER UseTestPyPI
@@ -46,7 +46,11 @@ function Clear-BuildArtifacts {
   $paths = @(
     (Join-Path $buildRoot "dist"),
     (Join-Path $buildRoot "build"),
-    (Join-Path $buildRoot "uzoncalc.egg-info")
+    (Join-Path $buildRoot "uzoncalc.egg-info"),
+    # 目录上移后，清理旧位置残留产物，避免误读历史构建结果。
+    (Join-Path $buildRoot "uzoncalc\dist"),
+    (Join-Path $buildRoot "uzoncalc\build"),
+    (Join-Path $buildRoot "uzoncalc\uzoncalc.egg-info")
   )
   foreach ($path in $paths) {
     if (Test-Path -LiteralPath $path) {
@@ -139,8 +143,8 @@ Write-Host "Starting build and upload script..."
 # can be executed from anywhere and still operate on the repository root.
 $scriptDir = Split-Path -Path $PSCommandPath -Parent
 $projectRoot = Split-Path -Path $scriptDir -Parent
-# 核心包源码已迁移到 src/uzoncalc，包内名称仍保持 uzoncalc。
-$buildRoot = Join-Path $projectRoot "src/uzoncalc"
+# 核心包项目根目录为 src/core，包内名称仍保持 uzoncalc。
+$buildRoot = Join-Path $projectRoot "src/core"
 
 Write-Host "Project root: $projectRoot"
 Write-Host "Build root:   $buildRoot"

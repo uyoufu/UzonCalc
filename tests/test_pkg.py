@@ -1,8 +1,8 @@
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 @uzon_calc()
-def sheet():
+async def sheet():
     doc_title("hello_uzoncalc")
 
     "Hello, UzonCalc!"
