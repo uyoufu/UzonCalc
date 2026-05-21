@@ -8,7 +8,7 @@ from urllib.request import urlopen
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/core"))
 
-from uzoncalc import cli
+from uzoncalc import cli, startup
 
 
 def _read_preview_html(selected_port: int) -> str:
@@ -102,19 +102,68 @@ def test_watch_script_file_updates_preview_state(tmp_path, monkeypatch):
     preview_state = cli.HtmlPreviewState("<html>旧内容</html>")
     rendered_html_values = iter(["<html>新内容</html>"])
 
-    def fake_render_script_html(script_path_arg, output_path_arg):
+    def fake_render_script_html(script_path_arg):
         """模拟脚本重新渲染，验证监听器传递路径。"""
         assert script_path_arg == str(script_path)
-        assert output_path_arg is None
         return next(rendered_html_values)
 
     monkeypatch.setattr(cli, "_render_script_html", fake_render_script_html)
 
     cli._watch_script_file_once(
         str(script_path),
-        None,
         preview_state,
         last_mtime=script_path.stat().st_mtime - 1,
     )
 
     assert preview_state.get_html() == "<html>新内容</html>"
+
+
+def test_server_render_script_html_does_not_save_file(tmp_path, monkeypatch):
+    """服务模式渲染应只返回内存 HTML，不写入输出文件。"""
+    script_path = tmp_path / "calc_script.py"
+    output_path = tmp_path / "result.html"
+    script_path.write_text("version = 1", encoding="utf-8")
+
+    class FakeOptions:
+        """模拟 CalcContext 的 options。"""
+
+    class FakeContext:
+        """模拟 CalcContext 的 HTML 输出。"""
+
+        options = FakeOptions()
+
+        def html_content(self):
+            """返回上下文正文 HTML。"""
+            return "<body>计算结果</body>"
+
+    def fake_load_module_from_path(script_path_arg):
+        """模拟脚本模块加载。"""
+        assert script_path_arg == str(script_path)
+        return object()
+
+    def fake_find_entry_functions(module):
+        """模拟脚本中的计算入口函数。"""
+        return [lambda: None]
+
+    def fake_run_sync(entry_fn):
+        """模拟入口函数执行结果。"""
+        return FakeContext()
+
+    def fake_render_ctx_html(ctx):
+        """模拟上下文渲染结果。"""
+        return f"<html>{ctx.html_content()}</html>"
+
+    def fail_save_ctx(ctx, output_path_arg, script_path_arg):
+        """服务模式不应调用保存函数。"""
+        raise AssertionError("server render should not save html file")
+
+    monkeypatch.setattr(cli, "_load_module_from_path", fake_load_module_from_path)
+    monkeypatch.setattr(cli, "_find_entry_functions", fake_find_entry_functions)
+    monkeypatch.setattr(cli, "_save_ctx", fail_save_ctx)
+    monkeypatch.setattr(cli, "_render_ctx_html", fake_render_ctx_html)
+    monkeypatch.setattr(startup, "run_sync", fake_run_sync)
+
+    html_output = cli._render_script_html(str(script_path))
+
+    assert html_output == "<html><body>计算结果</body></html>"
+    assert not output_path.exists()

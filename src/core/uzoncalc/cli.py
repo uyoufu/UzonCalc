@@ -15,7 +15,6 @@ import inspect
 import os
 import sys
 import threading
-import time
 import traceback
 
 # 环境变量名：设置后 doc.save() 将变为空操作
@@ -104,8 +103,8 @@ def _save_ctx(ctx, output_path: str | None, script_path: str) -> str:
     return html_output
 
 
-def _render_script_html(script_path: str, output_path: str | None) -> str:
-    """加载脚本、执行入口函数并返回保存后的 HTML。"""
+def _run_script_contexts(script_path: str) -> list:
+    """加载脚本并执行所有计算入口，返回上下文列表。"""
     # 设置 CLI 模式环境变量，使脚本内 doc.save() 变为空操作
     os.environ[_CLI_MODE_ENV] = "1"
     try:
@@ -121,10 +120,10 @@ def _render_script_html(script_path: str, output_path: str | None) -> str:
     if not entries:
         raise RuntimeError("未找到 @uzon_calc 装饰的入口函数")
 
-    # 执行所有入口函数并保存，多个入口时预览最后一个结果
+    # 执行所有入口函数，多个入口时由调用方决定如何处理结果
     from .startup import run_sync
 
-    html_output = ""
+    contexts = []
     for entry_fn in entries:
         try:
             ctx = run_sync(entry_fn)
@@ -133,6 +132,25 @@ def _render_script_html(script_path: str, output_path: str | None) -> str:
                 f"Error: 入口函数 '{entry_fn.__name__}' 执行失败: {e}", file=sys.stderr
             )
             raise
+        contexts.append(ctx)
+    return contexts
+
+
+def _render_script_html(script_path: str) -> str:
+    """加载脚本并渲染 HTML 字符串，不写入文件。"""
+    contexts = _run_script_contexts(script_path)
+    html_output = ""
+    for ctx in contexts:
+        # 服务模式只保留内存结果，多个入口时预览最后一个结果
+        html_output = _render_ctx_html(ctx)
+    return html_output
+
+
+def _render_and_save_script_html(script_path: str, output_path: str | None) -> str:
+    """加载脚本、执行入口函数、保存文件并返回 HTML。"""
+    contexts = _run_script_contexts(script_path)
+    html_output = ""
+    for ctx in contexts:
         html_output = _save_ctx(ctx, output_path, script_path)
     return html_output
 
@@ -182,7 +200,6 @@ def _create_html_server(
 
 def _watch_script_file_once(
     script_path: str,
-    output_path: str | None,
     preview_state: HtmlPreviewState,
     last_mtime: float,
 ) -> float:
@@ -197,7 +214,7 @@ def _watch_script_file_once(
         return last_mtime
 
     try:
-        html_output = _render_script_html(script_path, output_path)
+        html_output = _render_script_html(script_path)
     except Exception:
         # 渲染失败时保留上一版可用内容，便于用户修正脚本后继续预览
         traceback.print_exc()
@@ -210,7 +227,6 @@ def _watch_script_file_once(
 
 def _watch_script_file(
     script_path: str,
-    output_path: str | None,
     preview_state: HtmlPreviewState,
     stop_event: threading.Event,
 ):
@@ -222,14 +238,13 @@ def _watch_script_file(
 
     while not stop_event.wait(_WATCH_POLL_INTERVAL_SECONDS):
         last_mtime = _watch_script_file_once(
-            script_path, output_path, preview_state, last_mtime
+            script_path, preview_state, last_mtime
         )
 
 
 def _serve_html(
     html_output: str,
     script_path: str,
-    output_path: str | None,
     preferred_port: int = _DEFAULT_SERVER_PORT,
 ):
     """启动本地 HTTP 服务和文件监听，并阻塞直到用户中断"""
@@ -238,7 +253,7 @@ def _serve_html(
     stop_event = threading.Event()
     watch_thread = threading.Thread(
         target=_watch_script_file,
-        args=(script_path, output_path, preview_state, stop_event),
+        args=(script_path, preview_state, stop_event),
         daemon=True,
     )
     watch_thread.start()
@@ -289,13 +304,15 @@ def main():
         sys.path.insert(0, script_dir)
 
     try:
-        html_output = _render_script_html(script_path, output_path)
+        if args.server:
+            # 服务模式只返回内存 HTML，避免生成或更新本地文件
+            html_output = _render_script_html(script_path)
+            _serve_html(html_output, script_path)
+        else:
+            _render_and_save_script_html(script_path, output_path)
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         raise
-
-    if args.server:
-        _serve_html(html_output, script_path, output_path)
 
 
 if __name__ == "__main__":

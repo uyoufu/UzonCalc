@@ -1,5 +1,5 @@
 {
-  "python.analysis.extraPaths": ["./"],
+  "python.analysis.extraPaths": ["./", "./src/core"],
   "cSpell.words": [
     "asctime",
     "astpretty",
@@ -45,7 +45,7 @@
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,
   "editor.tabSize": 2,
-  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/Scripts/python.exe",
+  "python.defaultInterpreterPath": "${workspaceFolder}/.venv/bin/python",
   "python-envs.pythonProjects": [
     {
       "path": ".",
