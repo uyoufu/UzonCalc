@@ -139,7 +139,8 @@ Write-Host "Starting build and upload script..."
 # can be executed from anywhere and still operate on the repository root.
 $scriptDir = Split-Path -Path $PSCommandPath -Parent
 $projectRoot = Split-Path -Path $scriptDir -Parent
-$buildRoot = Join-Path $projectRoot "uzoncalc"
+# 核心包源码已迁移到 src/uzoncalc，包内名称仍保持 uzoncalc。
+$buildRoot = Join-Path $projectRoot "src/uzoncalc"
 
 Write-Host "Project root: $projectRoot"
 Write-Host "Build root:   $buildRoot"

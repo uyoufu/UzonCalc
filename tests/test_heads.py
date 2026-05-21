@@ -1,6 +1,6 @@
-from src.uzoncalc.context_options import ContextOptions
-from src.uzoncalc.context_utils import doc
-from src.uzoncalc.template.utils import generate_custom_heads
+from core.uzoncalc.context_options import ContextOptions
+from core.uzoncalc.context_utils import doc
+from core.uzoncalc.template.utils import generate_custom_heads
 
 
 class DummyContext:

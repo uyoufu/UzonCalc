@@ -6,7 +6,7 @@ import numpy as np
 # this script from the `core` folder.
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
-from src.uzoncalc import *
+from core.uzoncalc import *
 
 
 @uzon_calc()

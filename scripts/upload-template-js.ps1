@@ -3,7 +3,7 @@
     Upload template.js to the production server.
 
 .DESCRIPTION
-    Uses scp to copy uzoncalc/template/js/dist/template.js to the remote server
+    Uses scp to copy src/uzoncalc/template/js/dist/template.js to the remote server
     at /var/www/uzoncalc/scripts/.
 
 .EXAMPLE
@@ -21,7 +21,8 @@ $remotePath = "/var/www/uzoncalc/scripts/template.js"
 
 $scriptDir = Split-Path -Path $PSCommandPath -Parent
 $projectRoot = Split-Path -Path $scriptDir -Parent
-$localPath = Join-Path $projectRoot "uzoncalc/template/js/dist/template.js"
+# 模板脚本源码随核心包迁移到 src/uzoncalc。
+$localPath = Join-Path $projectRoot "src/uzoncalc/template/js/dist/template.js"
 
 if (-not (Test-Path $localPath)) {
     Write-Host "ERROR: Local file not found: $localPath" -ForegroundColor Red

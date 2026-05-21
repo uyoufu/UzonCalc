@@ -1,16 +1,17 @@
 include LICENSE
 include README.md
-include uzoncalc/README.md
-include uzoncalc/template/*.html
+include src/uzoncalc/README.md
+include src/uzoncalc/template/*.html
 
 prune tests
-prune ui
+prune src/api
+prune src/web
 prune scripts
 prune examples
 prune build
 prune dist
-prune uzoncalc/build
-prune uzoncalc/dist
-prune uzoncalc/*.egg-info
+prune src/uzoncalc/build
+prune src/uzoncalc/dist
+prune src/uzoncalc/*.egg-info
 
 global-exclude __pycache__ *.py[cod]

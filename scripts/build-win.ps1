@@ -156,10 +156,11 @@ $scriptDir = Split-Path -Path $PSCommandPath -Parent
 $repoRoot = Split-Path -Path $scriptDir -Parent
 $repoRoot = [System.IO.Path]::GetFullPath($repoRoot)
 
-$webDir = Join-RepoPath $repoRoot "ui\web"
-$tauriDir = Join-RepoPath $repoRoot "ui\web\src-tauri"
-$apiDir = Join-RepoPath $repoRoot "ui\api"
-$apiBuildScript = Join-RepoPath $repoRoot "ui\api\scripts\build-portable.ps1"
+# 目录重构后，桌面端与 API 均位于 src 目录下。
+$webDir = Join-RepoPath $repoRoot "src\web"
+$tauriDir = Join-RepoPath $repoRoot "src\web\src-tauri"
+$apiDir = Join-RepoPath $repoRoot "src\api"
+$apiBuildScript = Join-RepoPath $repoRoot "src\api\scripts\build-portable.ps1"
 $apiPortableDir = Join-RepoPath $apiDir "dist\$ApiOutputName"
 $releaseDir = Join-RepoPath $tauriDir "target\release"
 $releaseConfig = Join-Path $releaseDir "config.toml"

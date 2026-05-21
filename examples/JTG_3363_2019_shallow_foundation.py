@@ -6,7 +6,7 @@ import sys
 # 使用 pip 包时不需要该行；从仓库目录直接运行示例时用于定位本地包。
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.uzoncalc import *  # noqa: E402,F403
+from core.uzoncalc import *  # noqa: E402,F403
 
 
 @dataclass(frozen=True, slots=True)

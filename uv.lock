@@ -3179,7 +3179,7 @@ wheels = [
 [[package]]
 name = "uzoncalc"
 version = "1.1.1"
-source = { editable = "uzoncalc" }
+source = { editable = "src/uzoncalc" }
 dependencies = [
     { name = "matplotlib" },
     { name = "numpy", version = "2.2.6", source = { registry = "https://pypi.org/simple" }, marker = "python_full_version < '3.11'" },
@@ -3222,7 +3222,7 @@ test = [
 [[package]]
 name = "uzoncalc-api"
 version = "1.1.0"
-source = { editable = "ui/api" }
+source = { editable = "src/api" }
 dependencies = [
     { name = "aiofiles" },
     { name = "aiosqlite" },
@@ -3263,7 +3263,7 @@ requires-dist = [
     { name = "qdrant-client", specifier = ">=1.17.0" },
     { name = "sqlalchemy" },
     { name = "uvicorn", extras = ["standard"], specifier = ">=0.41.0" },
-    { name = "uzoncalc", editable = "uzoncalc" },
+    { name = "uzoncalc", editable = "src/uzoncalc" },
     { name = "websockets" },
 ]
 

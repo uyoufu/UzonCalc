@@ -15,7 +15,7 @@ from app.sandbox.core.executor_local import LocalSandboxExecutor
 from app.sandbox.core.executor_remote import RemoteSandboxExecutor
 from app.utils.path_manager import combine_calc_report_path, get_user_calcs_root
 from config import logger, app_config
-from src.uzoncalc.utils_core.dot_dict import deep_update
+from core.uzoncalc.utils_core.dot_dict import deep_update
 
 
 _executor_instance: ISandboxExecutor | None = None

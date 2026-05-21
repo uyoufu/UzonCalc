@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from src.uzoncalc import *
+from core.uzoncalc import *
 
 
 @dataclass(slots=True)

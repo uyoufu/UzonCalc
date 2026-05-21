@@ -9,13 +9,7 @@ description = "UzonCalc is a tool for writing engineering calculation documents 
 readme = { file = "README.md", content-type = "text/markdown" }
 authors = [{ name = "uyoufu", email = "uyoufu@uzoncloud.com" }]
 requires-python = ">=3.10"
-dependencies = [
-    "pint",
-    "numpy",
-    "openpyxl",
-    "xlwings",
-    "matplotlib>=3.10.8",
-]
+dependencies = ["pint", "numpy", "openpyxl", "xlwings", "matplotlib>=3.10.8"]
 
 [project.urls]
 Homepage = "https://github.com/uyoufu/UzonCalc"
@@ -23,26 +17,19 @@ Homepage = "https://github.com/uyoufu/UzonCalc"
 [project.scripts]
 uzoncalc = "uzoncalc.cli:main"
 
-[tool.setuptools.package-dir]
-"" = ".."
+[tool.setuptools]
+# pyproject 位于包目录内，从父目录发现 uzoncalc 及其子包。
+package-dir = { "" = ".." }
 
 [tool.setuptools.packages.find]
-# 自动发现核心包及其子包，避免新增目录时手动维护列表。
 where = [".."]
 include = ["uzoncalc*"]
-namespaces = false
 
 [tool.setuptools.package-data]
 "uzoncalc.template" = ["*.html", "*.css"]
 
 [dependency-groups]
 # 核心包测试依赖，与发布运行依赖分离。
-test = [
-    "astpretty>=3.0.0",
-    "pytest>=9.0.3",
-]
+test = ["astpretty>=3.0.0", "pytest>=9.0.3"]
 # 核心包构建/发布依赖，只在发布流程中显式启用。
-publish = [
-    "build>=1.3.0",
-    "twine>=6.2.0",
-]
+publish = ["build>=1.3.0", "twine>=6.2.0"]

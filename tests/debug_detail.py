@@ -17,7 +17,7 @@ def debug_function():
 
 
 if __name__ == "__main__":
-    from src.uzoncalc.handcalc.ast_visitor import AstNodeVisitor
+    from core.uzoncalc.handcalc.ast_visitor import AstNodeVisitor
     
     print("=" * 60)
     print("第1步：获取原始函数信息")
