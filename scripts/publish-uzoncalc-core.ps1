@@ -3,7 +3,7 @@
     Build the project and upload distributions to PyPI or TestPyPI.
 
 .DESCRIPTION
-    Installs build/twine (unless skipped), runs `python -m build` to produce
+    Installs build/twine (unless skipped), runs `python -m build` for uzoncalc/ to produce
     sdist and wheel, removes old distributions, then uploads the current build.
 
 .PARAMETER UseTestPyPI
@@ -36,14 +36,18 @@ function Write-ErrAndExit($msg, $code = 1) {
 function Get-DistributionFiles {
   $patterns = @("*.egg", "*.tar.gz", "*.whl")
   $files = foreach ($pattern in $patterns) {
-    Get-ChildItem -Path dist -Filter $pattern -File -ErrorAction SilentlyContinue
+    Get-ChildItem -Path (Join-Path $buildRoot "dist") -Filter $pattern -File -ErrorAction SilentlyContinue
   }
 
   return @($files | Sort-Object -Property FullName -Unique)
 }
 
 function Clear-BuildArtifacts {
-  $paths = @("dist", "build", "uzoncalc.egg-info")
+  $paths = @(
+    (Join-Path $buildRoot "dist"),
+    (Join-Path $buildRoot "build"),
+    (Join-Path $buildRoot "uzoncalc.egg-info")
+  )
   foreach ($path in $paths) {
     if (Test-Path -LiteralPath $path) {
       Write-Host "Removing stale build artifact: $path"
@@ -117,8 +121,8 @@ function Test-DistributionFiles {
   )
   $requiredSdistEntries = @(
     "pyproject.toml",
-    "uzoncalc/__init__.py",
-    "uzoncalc/template/calc_template.html"
+    "__init__.py",
+    "template/calc_template.html"
   )
 
   foreach ($wheelFile in $wheelFiles) {
@@ -135,7 +139,7 @@ Write-Host "Starting build and upload script..."
 # can be executed from anywhere and still operate on the repository root.
 $scriptDir = Split-Path -Path $PSCommandPath -Parent
 $projectRoot = Split-Path -Path $scriptDir -Parent
-$buildRoot = $projectRoot
+$buildRoot = Join-Path $projectRoot "uzoncalc"
 
 Write-Host "Project root: $projectRoot"
 Write-Host "Build root:   $buildRoot"
@@ -156,7 +160,7 @@ try {
   # 每次发布前清理构建缓存，避免旧的空包或错误产物被上传。
   Clear-BuildArtifacts
 
-  Write-Host "Running build (sdist + wheel) in $projectRoot..."
+  Write-Host "Running build (sdist + wheel) in $buildRoot..."
   python -m build
   if ($LASTEXITCODE -ne 0) { Write-ErrAndExit "Build failed (exit code $LASTEXITCODE)." $LASTEXITCODE }
 

@@ -1,9 +1,10 @@
 import os
+import re
 import subprocess
-import sys
 import tarfile
 import venv
 import zipfile
+from email.parser import Parser
 from pathlib import Path
 
 
@@ -16,16 +17,17 @@ WHEEL_REQUIRED_FILES = {
 }
 SDIST_REQUIRED_SUFFIXES = {
     "pyproject.toml",
-    "uzoncalc/__init__.py",
-    "uzoncalc/template/calc_template.html",
+    "__init__.py",
+    "template/calc_template.html",
 }
+FORBIDDEN_RUNTIME_DEPENDENCIES = {"fastapi", "uvicorn", "twine", "build"}
 
 
 def build_distribution_artifacts(tmp_path: Path) -> tuple[Path, Path]:
     """构建临时发行包，避免复用仓库内旧 dist 产物。"""
     output_dir = tmp_path / "dist"
     subprocess.run(
-        [sys.executable, "-m", "build", "--outdir", str(output_dir)],
+        ["uv", "build", "--package", "uzoncalc", "--out-dir", str(output_dir)],
         cwd=REPO_ROOT,
         check=True,
         text=True,
@@ -72,3 +74,21 @@ def test_built_wheel_can_be_installed_and_imported(tmp_path):
         check=True,
         text=True,
     )
+
+
+def test_built_wheel_runtime_dependencies_are_core_only(tmp_path):
+    """核心包发布依赖不能混入根工具或 API 服务依赖。"""
+    wheel_path, _ = build_distribution_artifacts(tmp_path)
+
+    with zipfile.ZipFile(wheel_path) as wheel_file:
+        metadata_name = next(
+            name for name in wheel_file.namelist() if name.endswith(".dist-info/METADATA")
+        )
+        metadata = Parser().parsestr(wheel_file.read(metadata_name).decode("utf-8"))
+
+    runtime_dependencies = set()
+    for dependency in metadata.get_all("Requires-Dist", []):
+        normalized_name = re.split(r"[<>=!~ ;\[]", dependency, maxsplit=1)[0].lower()
+        runtime_dependencies.add(normalized_name)
+
+    assert FORBIDDEN_RUNTIME_DEPENDENCIES.isdisjoint(runtime_dependencies)

@@ -87,10 +87,17 @@ UzonCalc 的目标是让工程计算书直接用 Python 编写，并自动生成
 
 ## 本地开发模块安装
 
-在 `uzoncalc` 模块所在目录执行：
+在仓库根目录执行：
 
 ```bash
-uv pip install -e .
+uv sync --package uzoncalc --group test
+uv run --package uzoncalc --group test pytest tests
+```
+
+如只需要核心包运行环境，可执行：
+
+```bash
+uv sync --package uzoncalc --no-default-groups
 ```
 
 ## 参考

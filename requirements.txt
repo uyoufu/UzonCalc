@@ -1,13 +1,10 @@
-# Core dependencies
-pint
-numpy
+# 根目录工具依赖
+# 核心包依赖请维护 uzoncalc/pyproject.toml 或 uzoncalc/requirements.txt。
 
-# For Excel file handling
-openpyxl
-xlwings
-matplotlib
+# HTML 预览服务
+fastapi
+uvicorn
 
-# Testing dependencies
+# 根目录测试入口
 pytest
 astpretty
-
