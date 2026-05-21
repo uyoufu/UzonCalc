@@ -9,7 +9,7 @@ from core.uzoncalc import *
 
 
 @uzon_calc()
-def test_hide_show_scope():
+async def test_hide_show_scope():
     """测试在子块中调用 show() 后，退出子块应该恢复外部的 hide() 状态"""
     
     a = 1  # 应该显示
@@ -33,5 +33,5 @@ def test_hide_show_scope():
 
 
 if __name__ == "__main__":
-    test_hide_show_scope()
+    run_sync(test_hide_show_scope)
     print("测试完成，请查看 output/test_show_hide_scope.html")

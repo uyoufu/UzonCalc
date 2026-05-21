@@ -9,7 +9,7 @@ from core.uzoncalc import *
 
 
 @uzon_calc()
-def test_exception():
+async def test_exception():
     """测试异常行号"""
     a = 1  # 第14行
     b = 2  # 第15行

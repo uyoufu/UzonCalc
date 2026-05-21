@@ -10,7 +10,7 @@ from core.uzoncalc import *
 
 
 @uzon_calc()
-def test_calc():
+async def test_calc():
     """测试行号对应"""
     # 这是一个赋值
     x = 10

@@ -53,6 +53,8 @@ def _prepare_valid_kwargs(
 
 def _mark_as_entry(func: Callable) -> Callable:
     """标记函数被 uzon_calc 装饰"""
+    # 避免 pytest 将计算入口误识别为普通测试函数
+    setattr(func, "__test__", False)
     setattr(func, "_uzon_calc_entry", True)
     return func
 

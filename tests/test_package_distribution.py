@@ -48,7 +48,9 @@ def test_power_shell_scripts_reference_current_core_layout():
     setup_script = (REPO_ROOT / "src/api/scripts/setup-embedded-python.ps1").read_text("utf-8-sig")
 
     assert 'Join-Path $projectRoot "src/core"' in publish_script
+    assert 'Join-Path $projectRoot "src/core/uzoncalc/template/js"' in upload_script
     assert 'Join-Path $projectRoot "src/core/uzoncalc/template/js/dist/template.js"' in upload_script
+    assert "bun run build" in upload_script
     assert 'Join-Path $REPO_ROOT "src/core"' in setup_script
 
     assert "src/uzoncalc" not in publish_script

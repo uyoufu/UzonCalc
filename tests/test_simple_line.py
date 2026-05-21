@@ -9,7 +9,8 @@ import traceback
 
 
 @uzon_calc()
-def simple_test():
+async def simple_test():
+    """测试简单异常场景的源码行号"""
     x = 10  # 这是第 13 行
     y = 20  # 这是第 14 行
     z = x / 0  # 这是第 15 行 - 会抛出错误

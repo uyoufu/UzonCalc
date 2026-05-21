@@ -9,7 +9,7 @@ from core.uzoncalc import *
 
 
 @uzon_calc()
-def test_nested_scope():
+async def test_nested_scope():
     """测试嵌套块中的 show/hide 作用域"""
     
     a = 1  # 应该显示
@@ -38,6 +38,6 @@ def test_nested_scope():
 
 
 if __name__ == "__main__":
-    test_nested_scope()
+    run_sync(test_nested_scope)
     print("测试完成，请查看 output/test_nested_scope.html")
     print("预期显示: a=1, d=4, e=5, g=7, i=9")
