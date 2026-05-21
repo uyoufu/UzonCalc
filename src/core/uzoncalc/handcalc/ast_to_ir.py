@@ -14,11 +14,7 @@ from .converters.operator_rendering import (
     maybe_parenthesize_right,
 )
 from .converters.subscript_rendering import render_subscript
-from .converters.unit_expression import (
-    extract_numeric_part,
-    try_fold_mixed_unit_expr,
-    try_fold_unit_expr_as_single_mu,
-)
+from .converters.unit_expression import try_fold_mixed_unit_expr
 
 
 def _unparse(node: ast.AST) -> str:
@@ -77,13 +73,6 @@ def _expr_binop(node: ast.BinOp) -> ir.MathNode:
     mixed_unit = try_fold_mixed_unit_expr(node, expr_to_ir=expr_to_ir)
     if mixed_unit is not None:
         return mixed_unit
-
-    folded = try_fold_unit_expr_as_single_mu(node)
-    if folded is not None:
-        numeric = extract_numeric_part(node)
-        if numeric is not None:
-            return ir.mrow([numeric, ir.mo(""), folded])
-        return folded
 
     op_type = type(node.op)
 

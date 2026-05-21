@@ -46,3 +46,38 @@ def test_non_unit_denominator_stays_fraction_with_folded_unit():
     assert ">b<" in mathml
     assert ">kN/m³<" in mathml
     assert mathml.count('class="unit"') == 1
+
+
+def test_grouped_unit_power_folds_to_single_unit_text():
+    """组合单位整体幂次应折叠为单一单位节点。"""
+    mathml = _render_expression_mathml("(unit.kN / unit.meter) ** 2")
+
+    assert ">kN²/m²<" in mathml
+    assert mathml.count('class="unit"') == 1
+    assert "<msup>" not in mathml
+
+
+def test_non_unit_factor_with_grouped_unit_power_uses_single_unit_text():
+    """非单位因子和组合单位幂次共存时，单位仍应整体折叠。"""
+    mathml = _render_expression_mathml("a * (unit.kN / unit.meter) ** 2")
+
+    assert ">a<" in mathml
+    assert ">kN²/m²<" in mathml
+    assert mathml.count('class="unit"') == 1
+    assert "<msup>" not in mathml
+
+
+def test_dimensionless_unit_cancellation_returns_only_non_unit_part():
+    """单位完全抵消时仅保留非单位部分。"""
+    mathml = _render_expression_mathml("a * unit.meter / unit.meter")
+
+    assert ">a<" in mathml
+    assert 'class="unit"' not in mathml
+
+
+def test_parenthesized_unit_denominator_folds_to_single_unit_text():
+    """括号内多个分母单位应折叠为单一单位节点。"""
+    mathml = _render_expression_mathml("unit.kN / (unit.meter * unit.second)")
+
+    assert ">kN/m/s<" in mathml
+    assert mathml.count('class="unit"') == 1

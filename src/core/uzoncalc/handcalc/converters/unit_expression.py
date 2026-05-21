@@ -6,122 +6,180 @@ from dataclasses import dataclass
 
 from ...units import unit
 from .. import ir
-from ..unit_collector import (
-    UnitExpressionCollector,
-    get_const_number,
-    unit_powers_to_expr,
-)
-from .operator_rendering import UNARY_OPS
+from ..unit_collector import get_const_number, unit_powers_to_expr
 
 ExprConverter = Callable[[ast.AST], ir.MathNode]
 
 
 @dataclass(slots=True)
-class MixedUnitExpressionParts:
-    """单位混合表达式拆分结果。"""
+class UnitExpressionParts:
+    """单位表达式拆分结果。"""
 
     unit_powers: dict[str, float]
     numerator_nodes: list[ast.AST]
     denominator_nodes: list[ast.AST]
+    has_unit_factor: bool = False
 
 
 def try_fold_unit_expr_as_single_mu(node: ast.AST) -> ir.MathNode | None:
-    """
-    遍历乘除法表达式树，提取出其中的单位及其幂次，
-    构造一个单一的 ir.Mu 节点表示该单位表达式。
-    若没有符合的单位乘除法表达式，返回 None。
-    """
-    if not isinstance(node, ast.BinOp) or not isinstance(
-        node.op, (ast.Mult, ast.Div, ast.Pow)
-    ):
+    """将纯单位表达式折叠为单一单位节点。"""
+    parts = split_unit_expression(node)
+    if parts is None or parts.numerator_nodes or parts.denominator_nodes:
         return None
 
-    # 使用辅助类来管理状态
-    collector = UnitExpressionCollector()
-    if not collector.walk(node, +1) or not collector.unit_powers:
-        return None
-
-    # 构建单位节点（只包含单位部分，不包含系数）
-    units = unit.parse_units(unit_powers_to_expr(collector.unit_powers))
-    return ir.mu(str(units))
+    return build_unit_node(parts.unit_powers)
 
 
 def try_fold_mixed_unit_expr(
     node: ast.AST, *, expr_to_ir: ExprConverter
 ) -> ir.MathNode | None:
-    """将含非单位因子的单位表达式折叠为“数值部分 + 单一单位”。"""
-    parts = split_mixed_unit_expression(node)
+    """将单位表达式折叠为“非单位部分 + 单一单位”。"""
+    parts = split_unit_expression(node)
     if parts is None:
         return None
 
-    units = unit.parse_units(unit_powers_to_expr(parts.unit_powers))
-    unit_node = ir.mu(str(units))
+    unit_node = build_unit_node(parts.unit_powers)
     numeric_node = build_non_unit_node(parts, expr_to_ir=expr_to_ir)
+    if unit_node is None:
+        # 单位完全抵消时，只保留非单位部分；纯单位抵消显示为 1。
+        return numeric_node or ir.mn(1)
     if numeric_node is None:
         return unit_node
     return ir.mrow([numeric_node, ir.mo(""), unit_node])
 
 
-def split_mixed_unit_expression(node: ast.AST) -> MixedUnitExpressionParts | None:
-    """拆分乘除表达式中的单位因子和非单位因子。"""
-    if not isinstance(node, ast.BinOp) or not isinstance(node.op, (ast.Mult, ast.Div)):
+def split_unit_expression(node: ast.AST) -> UnitExpressionParts | None:
+    """拆分乘除幂表达式中的单位因子和非单位因子。"""
+    if not isinstance(node, ast.BinOp):
         return None
 
-    parts = MixedUnitExpressionParts(
+    parts = UnitExpressionParts(
         unit_powers={}, numerator_nodes=[], denominator_nodes=[]
     )
-    if not collect_mixed_unit_parts(node, +1, parts) or not parts.unit_powers:
+    if not collect_unit_expression_parts(node, +1.0, parts):
+        return None
+    if not parts.has_unit_factor:
         return None
     return parts
 
 
-def collect_mixed_unit_parts(
-    node: ast.AST, sign: int, parts: MixedUnitExpressionParts
+def collect_unit_expression_parts(
+    node: ast.AST, signed_power: float, parts: UnitExpressionParts
 ) -> bool:
-    """递归收集单位幂次，并按乘除方向保留非单位因子。"""
+    """递归收集单位幂次，并按分子分母方向保留非单位因子。"""
     if isinstance(node, ast.BinOp):
         if isinstance(node.op, ast.Mult):
-            return collect_mixed_unit_parts(
-                node.left, sign, parts
-            ) and collect_mixed_unit_parts(node.right, sign, parts)
+            return collect_unit_expression_parts(
+                node.left, signed_power, parts
+            ) and collect_unit_expression_parts(node.right, signed_power, parts)
         if isinstance(node.op, ast.Div):
-            return collect_mixed_unit_parts(
-                node.left, sign, parts
-            ) and collect_mixed_unit_parts(node.right, -sign, parts)
+            return collect_unit_expression_parts(
+                node.left, signed_power, parts
+            ) and collect_unit_expression_parts(node.right, -signed_power, parts)
+        if isinstance(node.op, ast.Pow):
+            folded_power = get_const_number(node.right)
+            if folded_power is not None:
+                return collect_powered_unit_parts(
+                    node.left, signed_power, folded_power, parts
+                )
 
-    if _is_unit_node(node):
-        unit_name, power = unit_node_to_power(node)
-        if unit_name is None or power is None:
-            return False
-        add_unit_power(parts.unit_powers, unit_name, float(sign) * power)
+    if _is_unit_attribute(node):
+        parts.has_unit_factor = True
+        add_unit_power(parts.unit_powers, node.attr, signed_power)
         return True
 
-    # 非单位因子按分子/分母方向保存，后续交给通用表达式渲染器。
-    target_nodes = parts.numerator_nodes if sign == 1 else parts.denominator_nodes
-    target_nodes.append(node)
+    # 非单位因子按方向保存，后续交给通用表达式渲染器处理。
+    append_non_unit_factor(parts, node, signed_power)
+    return True
+
+
+def collect_powered_unit_parts(
+    node: ast.AST,
+    signed_power: float,
+    folded_power: float,
+    parts: UnitExpressionParts,
+) -> bool:
+    """收集整体幂次作用下的单位表达式。"""
+    base_parts = UnitExpressionParts(
+        unit_powers={}, numerator_nodes=[], denominator_nodes=[]
+    )
+    if not collect_unit_expression_parts(node, +1.0, base_parts):
+        return False
+    if not base_parts.has_unit_factor:
+        append_non_unit_factor(
+            parts,
+            ast.BinOp(left=node, op=ast.Pow(), right=ast.Constant(value=folded_power)),
+            signed_power,
+        )
+        return True
+
+    parts.has_unit_factor = True
+    for unit_name, unit_power in base_parts.unit_powers.items():
+        add_unit_power(
+            parts.unit_powers,
+            unit_name,
+            signed_power * folded_power * unit_power,
+        )
+
+    # 整体幂次会同步作用到非单位分子分母因子。
+    for factor_node in base_parts.numerator_nodes:
+        append_non_unit_factor(parts, factor_node, signed_power * folded_power)
+    for factor_node in base_parts.denominator_nodes:
+        append_non_unit_factor(parts, factor_node, -signed_power * folded_power)
     return True
 
 
 def unit_node_to_power(node: ast.AST) -> tuple[str | None, float | None]:
     """读取 unit.xxx 或 unit.xxx**n 对应的单位名称和幂次。"""
-    if (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "unit"
-    ):
+    if _is_unit_attribute(node):
         return node.attr, 1.0
     if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
-        if not (
-            isinstance(node.left, ast.Attribute)
-            and isinstance(node.left.value, ast.Name)
-            and node.left.value.id == "unit"
-        ):
+        if not _is_unit_attribute(node.left):
             return None, None
         power = get_const_number(node.right)
         if power is None:
             return None, None
         return node.left.attr, float(power)
     return None, None
+
+
+def append_non_unit_factor(
+    parts: UnitExpressionParts, node: ast.AST, signed_power: float
+) -> None:
+    """按幂次方向追加非单位因子。"""
+    if abs(signed_power) < 1e-12:
+        return
+
+    target_nodes = (
+        parts.numerator_nodes if signed_power > 0 else parts.denominator_nodes
+    )
+    abs_power = abs(signed_power)
+    if abs(abs_power - 1.0) < 1e-12:
+        target_nodes.append(node)
+        return
+
+    # 非单位因子来自整体幂次时，构造等价的幂运算节点交给通用渲染器。
+    target_nodes.append(
+        ast.BinOp(left=node, op=ast.Pow(), right=ast.Constant(value=abs_power))
+    )
+
+
+def build_unit_node(unit_powers: dict[str, float]) -> ir.MathNode | None:
+    """根据单位幂次构造单一单位节点。"""
+    if not unit_powers:
+        return None
+
+    units = unit.parse_units(unit_powers_to_expr(unit_powers))
+    return ir.mu(str(units))
+
+
+def _is_unit_attribute(node: ast.AST) -> bool:
+    """检查是否为 unit.xxx 形式。"""
+    return (
+        isinstance(node, ast.Attribute)
+        and isinstance(node.value, ast.Name)
+        and node.value.id == "unit"
+    )
 
 
 def add_unit_power(unit_powers: dict[str, float], name: str, power: float) -> None:
@@ -134,7 +192,7 @@ def add_unit_power(unit_powers: dict[str, float], name: str, power: float) -> No
 
 
 def build_non_unit_node(
-    parts: MixedUnitExpressionParts, *, expr_to_ir: ExprConverter
+    parts: UnitExpressionParts, *, expr_to_ir: ExprConverter
 ) -> ir.MathNode | None:
     """根据拆分出的非单位分子分母构造 MathIR。"""
     numerator = build_factor_product(parts.numerator_nodes, expr_to_ir=expr_to_ir)
@@ -165,57 +223,36 @@ def build_factor_product(
 
 
 def extract_numeric_part(node: ast.AST) -> ir.MathNode | None:
-    """从单位混合表达式中提取纯数值部分。"""
-    if not isinstance(node, ast.BinOp):
+    """从单位混合表达式中提取非单位部分，保留兼容旧调用。"""
+    parts = split_unit_expression(node)
+    if parts is None:
         return None
-    return _extract(node)
+    return build_non_unit_node(parts, expr_to_ir=_simple_expr_to_ir)
 
 
-def _is_unit_node(node: ast.AST) -> bool:
-    """检查是否为单位相关节点。"""
-    if (
-        isinstance(node, ast.Attribute)
-        and isinstance(node.value, ast.Name)
-        and node.value.id == "unit"
-    ):
-        return True
-    if isinstance(node, ast.BinOp) and isinstance(node.op, ast.Pow):
-        return _is_unit_node(node.left)
-    return False
-
-
-def _extract(node: ast.AST) -> ir.MathNode | None:
-    """递归提取数值部分。"""
+def _simple_expr_to_ir(node: ast.AST) -> ir.MathNode:
+    """将基础非单位节点转换为 MathIR，供兼容提取函数使用。"""
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return ir.mn(node.value)
-
-    if isinstance(node, ast.UnaryOp):
-        # 处理带符号的数值（如 -15）
-        # 如果操作数是常量，直接应用符号到数值
-        if isinstance(node.operand, ast.Constant) and isinstance(
-            node.operand.value, (int, float)
-        ):
-            if isinstance(node.op, ast.USub):
-                return ir.mn(-node.operand.value)
-            if isinstance(node.op, ast.UAdd):
-                return ir.mn(node.operand.value)
-
-        # 对于更复杂的表达式，递归提取
-        operand = _extract(node.operand)
-        if operand is not None:
-            symbol = UNARY_OPS.get(type(node.op), "")
-            return ir.mrow([ir.mo(symbol), operand])
-        return None
-
-    if _is_unit_node(node):
-        return None
-
     if isinstance(node, ast.BinOp):
-        left, right = _extract(node.left), _extract(node.right)
-        if left and right:
-            if isinstance(node.op, ast.Mult):
-                return ir.mrow([left, ir.mo("·"), right])
+        left = _simple_expr_to_ir(node.left)
+        right = _simple_expr_to_ir(node.right)
+        if isinstance(node.op, ast.Mult):
+            return ir.mrow([left, ir.mo("·"), right])
+        if isinstance(node.op, ast.Div):
             return ir.mfrac(left, right)
-        return left or right
+        if isinstance(node.op, ast.Pow):
+            return ir.msup(left, right)
+    return ir.mtext(ast.unparse(node))
 
-    return None
+
+def split_mixed_unit_expression(node: ast.AST) -> UnitExpressionParts | None:
+    """兼容旧名称：拆分单位表达式中的单位因子和非单位因子。"""
+    return split_unit_expression(node)
+
+
+def collect_mixed_unit_parts(
+    node: ast.AST, sign: int, parts: UnitExpressionParts
+) -> bool:
+    """兼容旧名称：递归收集单位幂次和非单位因子。"""
+    return collect_unit_expression_parts(node, float(sign), parts)
