@@ -31,7 +31,8 @@ def render_call(
         return ir.mrow(
             [
                 obj,  # 对象，斜体
-                ir.mtext(f".{node.func.attr}"),  # 方法名，正体
+                ir.mo("."),  # 点号不是函数名，保持操作符样式
+                ir.mfunction_name(node.func.attr),  # 方法名使用专用颜色
                 ir.mo("("),
                 *arg_nodes,  # 参数，斜体
                 ir.mo(")"),
@@ -40,7 +41,9 @@ def render_call(
 
     # 普通函数调用: f(a, b)
     arg_nodes = build_call_arg_nodes(node, expr_to_ir=expr_to_ir)
-    return ir.mrow([ir.mtext(unparse(node.func)), ir.mo("("), *arg_nodes, ir.mo(")")])
+    return ir.mrow(
+        [ir.mfunction_name(unparse(node.func)), ir.mo("("), *arg_nodes, ir.mo(")")]
+    )
 
 
 def build_call_arg_nodes(

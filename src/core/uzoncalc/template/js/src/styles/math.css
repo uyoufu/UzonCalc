@@ -33,6 +33,11 @@ math .unit {
   font-style: normal;
 }
 
+math .function-name {
+  color: var(--uz-text-color-function);
+  font-style: normal;
+}
+
 math[display="inline"] {
   margin: 0 var(--uz-space-2xs);
 }

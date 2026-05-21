@@ -220,6 +220,13 @@ class MText(MathNode):
 
 
 @dataclass(frozen=True, slots=True)
+class MFunctionName(MText):
+    """函数名文本节点，用于在模板层设置专用颜色。"""
+
+    mathml_attrib: ClassVar[dict[str, str]] = {"class": "function-name"}
+
+
+@dataclass(frozen=True, slots=True)
 class MRow(MathNode):
     children: List[MathNode]
     tag: ClassVar[str] = "mrow"
@@ -235,6 +242,7 @@ _FACTORY_NAME_OVERRIDES.update(
     {
         MiArray: "mi_array",
         MRowArray: "mrow_array",
+        MFunctionName: "mfunction_name",
         MMath: "mmath",
     }
 )
@@ -369,6 +377,11 @@ def mo(symbol: str) -> Mo:
 
 def mtext(text: str) -> MText:
     return MText(text=text)
+
+
+def mfunction_name(text: str) -> MFunctionName:
+    """构造函数名文本节点，避免函数名颜色逻辑散落在渲染器中。"""
+    return MFunctionName(text=text)
 
 
 def mrow(children: List[MathNode]) -> MRow:
