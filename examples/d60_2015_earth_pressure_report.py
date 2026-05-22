@@ -164,13 +164,13 @@ async def buildEarthPressureReport():
             [
                 "土的重度",
                 "γ",
-                format_quantity(gammaSoil),
+                gammaSoil,
                 "按调查或试验确定，默认取填土常用值",
             ],
             ["内摩擦角", "φ", f"{format_number(phiDeg)}°", "土性参数"],
-            ["填土高度", "H", format_quantity(heightH), "静土压力与主动土压力计算高度"],
-            ["计算深度", "h", format_quantity(depthh), "静土压力强度计算点深度"],
-            ["计算宽度或长度", "B", format_quantity(widthB), "桥台宽度或挡土墙长度"],
+            ["填土高度", "H", heightH, "静土压力与主动土压力计算高度"],
+            ["计算深度", "h", depthh, "静土压力强度计算点深度"],
+            ["计算宽度或长度", "B", widthB, "桥台宽度或挡土墙长度"],
             ["墙背倾角", "α", f"{format_number(alphaDeg)}°", "俯墙背为正"],
             [
                 "填土坡角",
@@ -204,7 +204,7 @@ async def buildEarthPressureReport():
     )
 
     H2("2 静土压力")
-    "规范式 (4.2.3-1) 至 (4.2.3-3) 用于计算压实填土静土压力标准值。"
+    "规范式 (4.2.3-1) 至 (4.2.3-3) 用于计算压实填土静土压力标准值。 E_j"
 
     alias("xi", "ξ")
     alias("gammaSoil", "γ")
