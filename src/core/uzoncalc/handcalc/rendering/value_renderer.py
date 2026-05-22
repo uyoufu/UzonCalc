@@ -172,12 +172,15 @@ def get_float_precision() -> int:
     return max(0, ctx.options.float_precision)
 
 
-def format_number(value: float | int) -> str:
+def format_number(value: float | int, float_precision: int | None = None) -> str:
     """按当前上下文精度格式化数字，并移除多余尾零。"""
     if isinstance(value, int):
         return str(value)
 
-    display_precision = get_float_precision()
+    # 未显式传入精度时，沿用当前计算上下文配置。
+    display_precision = (
+        get_float_precision() if float_precision is None else max(0, float_precision)
+    )
 
     # 先做一次足够精细的浮点清理，再按当前显示精度四舍五入
     cleaned = clean_float(value, max(display_precision, FLOAT_PRECISION))

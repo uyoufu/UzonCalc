@@ -1,12 +1,24 @@
+from __future__ import annotations
+
 import base64
 from dataclasses import dataclass, field, replace
 import html
 import io
-from typing import Any, Iterable, List
-
-from matplotlib.figure import Figure
+from typing import Any, Iterable, List, Protocol
 
 from ..globals import get_current_instance
+
+
+class ISavefig(Protocol):
+    """
+    支持保存为图片的 Matplotlib 绘图对象协议。
+    """
+
+    def savefig(self, *args: Any, **kwargs: Any) -> Any:
+        """
+        保存当前绘图内容到目标缓冲区或文件。
+        """
+        ...
 
 
 @dataclass
@@ -394,7 +406,11 @@ def LaTex(content: str):
     laTex(content, persist=True)
 
 
-def plot(fig: Figure, width=None, persist: bool = False):
+def plot(fig: ISavefig, width=None, persist: bool = False):
+    """
+    将 Matplotlib 图形渲染为内嵌 PNG 图片。
+    """
+    # 通过内存缓冲区导出图片，避免生成临时文件。
     buf = io.BytesIO()
     fig.savefig(buf, format="png", bbox_inches="tight")
     buf.seek(0)
@@ -402,8 +418,12 @@ def plot(fig: Figure, width=None, persist: bool = False):
     return img(f"data:image/png;base64,{image_base64}", width=width, persist=persist)
 
 
-def Plot(fig: Figure | bytes, width=None):
-    if isinstance(fig, bytes):
+def Plot(fig: ISavefig | bytes | bytearray | memoryview, width=None):
+    """
+    将 Matplotlib 图形或 PNG 二进制内容追加到当前文档。
+    """
+    if isinstance(fig, (bytes, bytearray, memoryview)):
+        # 二进制内容直接编码为 data URL，避免误传给 Figure 渲染逻辑。
         image_base64 = base64.b64encode(fig).decode("ascii")
         Img(f"data:image/png;base64,{image_base64}", width=width)
         return

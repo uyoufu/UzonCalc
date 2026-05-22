@@ -63,33 +63,24 @@ async def sheet():
         ],
     )
 
-    # 先将输入转为计算变量，便于公式渲染和后续校验。
-    gammaInput = float(inputs.gamma)
+    hide()
+    # 输入同步完成类型转换和单位附加，便于公式渲染和后续校验。
+    gammaSoil = float(inputs.gamma) * unit.kN / unit.meter**3
     phiDeg = float(inputs.phiDeg)
-    heightInput = float(inputs.heightH)
-    depthInput = float(inputs.depth)
-    widthInput = float(inputs.widthB)
+    heightH = float(inputs.heightH) * unit.meter
+    depth = float(inputs.depth) * unit.meter
+    widthB = float(inputs.widthB) * unit.meter
     alphaDeg = float(inputs.alphaDeg)
     betaDeg = float(inputs.betaDeg)
     deltaDeg = phiDeg / 2
-    vehicleWheelWeightInput = float(inputs.vehicleWheelWeightPerMeter)
+    vehicleWheelWeight = float(inputs.vehicleWheelWeightPerMeter) * unit.kN / unit.meter
     columnCount = max(1, int(round(float(inputs.columnCount))))
-    columnSizeInput = float(inputs.columnSizeD)
-    columnSpacingInput = float(inputs.columnSpacingLi)
-    compactedDepthInput = float(inputs.compactedDepth)
-
-    gammaSoil = gammaInput * unit.kN / unit.meter**3
-    heightH = heightInput * unit.meter
-    depth = depthInput * unit.meter
-    widthB = widthInput * unit.meter
-    vehicleWheelWeight = vehicleWheelWeightInput * unit.kN / unit.meter
+    columnSizeD = float(inputs.columnSizeD) * unit.meter
+    columnSpacingLi = float(inputs.columnSpacingLi) * unit.meter
+    compactedDepth = float(inputs.compactedDepth) * unit.meter
     vehicleUnitLength = 1.0 * unit.meter
-    vehicleEquivalentHeight = (vehicleWheelWeight / vehicleUnitLength / gammaSoil).to(
-        unit.meter
-    )
-    columnSizeD = columnSizeInput * unit.meter
-    columnSpacingLi = columnSpacingInput * unit.meter
-    compactedDepth = compactedDepthInput * unit.meter
+    vehicleEquivalentHeight = vehicleWheelWeight / vehicleUnitLength / gammaSoil
+    show()
 
     Table(
         headers=["参数", "符号", "取值", "说明"],
@@ -97,7 +88,7 @@ async def sheet():
             [
                 "土的重度",
                 "γ",
-                f"{gammaSoil}",
+                gammaSoil,
                 "按调查或试验确定，默认取填土常用值",
             ],
             ["内摩擦角", "φ", phiDeg, "单位：°"],
@@ -115,7 +106,7 @@ async def sheet():
             ["汽车车轮总重", "q", vehicleWheelWeight, "横向单位宽度重量"],
             [
                 "等代土层厚度",
-                "h₀",
+                "h_0",
                 vehicleEquivalentHeight,
                 "按 q/(γ×1m) 计算",
             ],

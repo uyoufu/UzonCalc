@@ -66,6 +66,27 @@ def test_table_rows_accept_td_list_as_one_row():
     assert html.count("<tr") == 2
 
 
+def test_table_td_formats_float_precision():
+    """Td 浮点值应按当前上下文精度显示，避免暴露浮点误差。"""
+    html = table(["Value"], [Td(0.1 + 0.2), Td(3.1415926535)])
+
+    # 默认保留 3 位小数，并移除多余尾零。
+    assert "<td>0.3</td><td>3.142</td>" in html
+
+
+def test_table_td_formats_float_with_context_precision():
+    """Td 浮点值应遵循当前上下文的小数精度配置。"""
+    context = CalcContext()
+    context.options.float_precision = 2
+    token = _calc_instance.set(context)
+    try:
+        html = table(["Value"], [Td(3.1415926535)])
+    finally:
+        _calc_instance.reset(token)
+
+    assert "<td>3.14</td>" in html
+
+
 def test_table_rows_accept_tr_list_as_multiple_rows():
     """Tr 列表应被视为多行。"""
     html = table(
