@@ -8,54 +8,6 @@ from uzoncalc import *
 OUTPUT_HTML = Path(__file__).with_name("d60_2015_earth_pressure_report.html")
 
 
-def calculate_active_pressure_coefficient(
-    phiDeg: float,
-    alphaDeg: float,
-    betaDeg: float,
-    deltaDeg: float,
-) -> float:
-    """按 JTG D60-2015 式 4.2.3-5 计算主动土压力系数。"""
-    phiRad = math.radians(phiDeg)
-    alphaRad = math.radians(alphaDeg)
-    betaRad = math.radians(betaDeg)
-    deltaRad = math.radians(deltaDeg)
-
-    numerator = math.cos(phiRad - alphaRad) ** 2
-    radicalNumerator = math.sin(phiRad + deltaRad) * math.sin(phiRad - betaRad)
-    radicalDenominator = math.cos(alphaRad + deltaRad) * math.cos(alphaRad - betaRad)
-    radicalValue = radicalNumerator / radicalDenominator
-    if radicalValue < 0:
-        raise ValueError("主动土压力系数根号项为负，请检查 φ、α、β、δ 的取值。")
-
-    bracketValue = 1 + math.sqrt(radicalValue)
-    denominator = (
-        math.cos(alphaRad) ** 2 * math.cos(alphaRad + deltaRad) * bracketValue**2
-    )
-    if abs(denominator) < 1e-12:
-        raise ValueError("主动土压力系数分母接近 0，请检查墙背倾角和摩擦角。")
-    return numerator / denominator
-
-
-def calculate_failure_plane_tangent(
-    phiDeg: float,
-    alphaDeg: float,
-    deltaDeg: float,
-) -> float:
-    """按 JTG D60-2015 式 4.2.3-7 计算破裂面角正切值。"""
-    phiRad = math.radians(phiDeg)
-    alphaRad = math.radians(alphaDeg)
-    deltaRad = math.radians(deltaDeg)
-    omegaRad = alphaRad + deltaRad + phiRad
-
-    tanOmega = math.tan(omegaRad)
-    tanAlpha = math.tan(alphaRad)
-    cotPhi = 1 / math.tan(phiRad)
-    radicalValue = (cotPhi + tanOmega) * (tanOmega - tanAlpha)
-    if radicalValue < 0:
-        raise ValueError("破裂面角根号项为负，请检查 φ、α、δ 的取值。")
-    return -tanOmega + math.sqrt(radicalValue)
-
-
 def validate_positive_number(value: float, fieldName: str) -> float:
     """统一校验工程参数，避免生成无物理意义的计算书。"""
     if value <= 0:
@@ -70,33 +22,20 @@ def validate_nonnegative_number(value: float, fieldName: str) -> float:
     return value
 
 
-def format_quantity(value) -> str:
-    """将 pint 量值压缩为适合表格展示的字符串。"""
-    try:
-        compactValue = value.to_compact()
-    except Exception:
-        compactValue = value
-    return f"{compactValue:.3f}"
-
-
-def format_number(value: float) -> str:
-    """统一普通数值的小数位显示。"""
-    return f"{value:.3f}"
-
-
 @uzon_calc()
-async def buildEarthPressureReport():
+async def sheet():
     doc_title("JTG D60-2015 土压力计算书")
     page_size("A4")
     font_family("Arial")
 
     H1("JTG D60-2015 土压力计算书")
+
     "本计算书依据 OCR 规范文档第 4.2.3 条“土的重力及土侧压力”编写，覆盖静土压力、主动土压力、汽车荷载、柱式墩台土压力计算宽度和压实填土压力。"
     "所有输入均提供默认值；工程应用时应以勘察、试验和设计文件参数替换默认值。"
 
     toc("目录")
 
-    H2("1 计算输入")
+    H2("计算输入")
     inputs = await UI(
         "土压力计算参数",
         [
@@ -109,12 +48,11 @@ async def buildEarthPressureReport():
             ),
             Field("alphaDeg", "墙背与竖直面夹角 α (°)", FieldType.number, value=0.0),
             Field("betaDeg", "填土表面与水平面夹角 β (°)", FieldType.number, value=0.0),
-            Field("deltaDeg", "墙背与填土摩擦角 δ (°)", FieldType.number, value=15.0),
             Field(
-                "vehicleEquivalentHeight",
-                "汽车荷载等代土层厚度 h₀ (m)",
+                "vehicleWheelWeightPerMeter",
+                "汽车车轮总重 q (kN/m)",
                 FieldType.number,
-                value=0.6,
+                value=10.8,
             ),
             Field("columnCount", "柱数 n", FieldType.number, value=3),
             Field("columnSizeD", "柱直径或宽度 D (m)", FieldType.number, value=1.2),
@@ -133,10 +71,10 @@ async def buildEarthPressureReport():
     widthInput = validate_positive_number(float(inputs.widthB), "计算宽度或长度 B")
     alphaDeg = float(inputs.alphaDeg)
     betaDeg = float(inputs.betaDeg)
-    deltaDeg = float(inputs.deltaDeg)
-    vehicleHeightInput = validate_nonnegative_number(
-        float(inputs.vehicleEquivalentHeight),
-        "汽车荷载等代土层厚度 h₀",
+    deltaDeg = phiDeg / 2
+    vehicleWheelWeightInput = validate_nonnegative_number(
+        float(inputs.vehicleWheelWeightPerMeter),
+        "汽车车轮总重 q",
     )
     columnCount = max(1, int(round(float(inputs.columnCount))))
     columnSizeInput = validate_positive_number(
@@ -153,7 +91,11 @@ async def buildEarthPressureReport():
     heightH = heightInput * unit.meter
     depthh = depthInput * unit.meter
     widthB = widthInput * unit.meter
-    vehicleEquivalentHeight = vehicleHeightInput * unit.meter
+    vehicleWheelWeight = vehicleWheelWeightInput * unit.kN / unit.meter
+    vehicleUnitLength = 1.0 * unit.meter
+    vehicleEquivalentHeight = (vehicleWheelWeight / vehicleUnitLength / gammaSoil).to(
+        unit.meter
+    )
     columnSizeD = columnSizeInput * unit.meter
     columnSpacingLi = columnSpacingInput * unit.meter
     compactedDepth = compactedDepthInput * unit.meter
@@ -164,39 +106,40 @@ async def buildEarthPressureReport():
             [
                 "土的重度",
                 "γ",
-                gammaSoil,
+                f"{gammaSoil}",
                 "按调查或试验确定，默认取填土常用值",
             ],
-            ["内摩擦角", "φ", f"{format_number(phiDeg)}°", "土性参数"],
+            ["内摩擦角", "φ", phiDeg, "单位：°"],
             ["填土高度", "H", heightH, "静土压力与主动土压力计算高度"],
             ["计算深度", "h", depthh, "静土压力强度计算点深度"],
             ["计算宽度或长度", "B", widthB, "桥台宽度或挡土墙长度"],
-            ["墙背倾角", "α", f"{format_number(alphaDeg)}°", "俯墙背为正"],
+            ["墙背倾角", "α", alphaDeg, "单位：°，俯墙背为正"],
             [
                 "填土坡角",
                 "β",
-                f"{format_number(betaDeg)}°",
-                "台后或墙后主动土压力按正值",
+                betaDeg,
+                "单位：°，台后或墙后主动土压力按正值",
             ],
-            ["墙土摩擦角", "δ", f"{format_number(deltaDeg)}°", "默认按 φ/2 取值"],
+            ["墙土摩擦角", "δ", deltaDeg, "单位：°，按 δ=φ/2 计算"],
+            ["汽车车轮总重", "q", vehicleWheelWeight, "横向单位宽度重量"],
             [
                 "等代土层厚度",
                 "h₀",
-                format_quantity(vehicleEquivalentHeight),
-                "用于汽车荷载主动土压力",
+                vehicleEquivalentHeight,
+                "按 q/(γ×1m) 计算",
             ],
             ["柱数", "n", str(columnCount), "柱式墩台土压力计算宽度"],
             [
                 "柱直径或宽度",
                 "D",
-                format_quantity(columnSizeD),
+                columnSizeD,
                 "圆柱取直径，矩形柱取宽度",
             ],
-            ["柱间净距", "li", format_quantity(columnSpacingLi), "相邻柱间净距"],
+            ["柱间净距", "li", columnSpacingLi, "相邻柱间净距"],
             [
                 "压实填土深度",
                 "hq",
-                format_quantity(compactedDepth),
+                compactedDepth,
                 "压实填土压力强度计算深度",
             ],
         ],
@@ -204,7 +147,7 @@ async def buildEarthPressureReport():
     )
 
     H2("2 静土压力")
-    "规范式 (4.2.3-1) 至 (4.2.3-3) 用于计算压实填土静土压力标准值。 E_j"
+    "规范式 (4.2.3-1) 至 (4.2.3-3) 用于计算压实填土静土压力标准值。"
 
     alias("xi", "ξ")
     alias("gammaSoil", "γ")
@@ -221,13 +164,13 @@ async def buildEarthPressureReport():
     Table(
         headers=["项目", "结果", "规范式"],
         rows=[
-            ["静土压力系数 ξ", format_number(xi), "1 - sinφ"],
+            ["静土压力系数 ξ", xi, "1 - sinφ"],
             [
                 "深度 h 处静土压力 e_j",
-                format_quantity(staticDepthPressure),
+                staticDepthPressure,
                 "式 (4.2.3-1)",
             ],
-            ["单位宽度静土压力 E_j", format_quantity(staticEarthForce), "式 (4.2.3-3)"],
+            ["单位宽度静土压力 E_j", staticEarthForce, "式 (4.2.3-3)"],
         ],
         title="静土压力计算结果",
     )
@@ -240,20 +183,45 @@ async def buildEarthPressureReport():
     alias("activeEarthForce", "E")
     alias("activeForcePoint", "C")
 
-    mu = calculate_active_pressure_coefficient(phiDeg, alphaDeg, betaDeg, deltaDeg)
+    # 规范式直接在报告流程中展开，保证公式步骤随计算书输出。
+    phiRad = math.radians(phiDeg)
+    alphaRad = math.radians(alphaDeg)
+    betaRad = math.radians(betaDeg)
+    deltaRad = math.radians(deltaDeg)
+    activeCoefficientNumerator = math.cos(phiRad - alphaRad) ** 2
+    activeCoefficientRadicalNumerator = math.sin(phiRad + deltaRad) * math.sin(
+        phiRad - betaRad
+    )
+    activeCoefficientRadicalDenominator = math.cos(alphaRad + deltaRad) * math.cos(
+        alphaRad - betaRad
+    )
+    activeCoefficientRadical = (
+        activeCoefficientRadicalNumerator / activeCoefficientRadicalDenominator
+    )
+    if activeCoefficientRadical < 0:
+        raise ValueError("主动土压力系数根号项为负，请检查 φ、α、β、δ 的取值。")
+    activeCoefficientBracket = 1 + math.sqrt(activeCoefficientRadical)
+    activeCoefficientDenominator = (
+        math.cos(alphaRad) ** 2
+        * math.cos(alphaRad + deltaRad)
+        * activeCoefficientBracket**2
+    )
+    if abs(activeCoefficientDenominator) < 1e-12:
+        raise ValueError("主动土压力系数分母接近 0，请检查墙背倾角和摩擦角。")
+    mu = activeCoefficientNumerator / activeCoefficientDenominator
     activeEarthForce = widthB * mu * gammaSoil * heightH**2 / 2
     activeForcePoint = heightH / 3
 
     Table(
         headers=["项目", "结果", "规范式"],
         rows=[
-            ["主动土压力系数 μ", format_number(mu), "式 (4.2.3-5)"],
+            ["主动土压力系数 μ", mu, "式 (4.2.3-5)"],
             [
                 "无汽车荷载主动土压力 E",
-                format_quantity(activeEarthForce),
+                activeEarthForce,
                 "式 (4.2.3-4)",
             ],
-            ["无汽车荷载作用点 C", format_quantity(activeForcePoint), "C = H/3"],
+            ["无汽车荷载作用点 C", activeForcePoint, "C = H/3"],
         ],
         title="主动土压力计算结果",
     )
@@ -285,13 +253,18 @@ async def buildEarthPressureReport():
             headers=["项目", "结果", "规范式"],
             rows=[
                 [
+                    "等代土层厚度 h₀",
+                    f"{vehicleEquivalentHeight}",
+                    "h₀ = q/(γ×1m)",
+                ],
+                [
                     "汽车荷载主动土压力 E_q",
-                    format_quantity(vehicleActiveEarthForce),
+                    vehicleActiveEarthForce,
                     "式 (4.2.3-6)",
                 ],
                 [
                     "汽车荷载作用点 C_q",
-                    format_quantity(vehicleForcePoint),
+                    vehicleForcePoint,
                     "C = H/3 × (H+3h₀)/(H+2h₀)",
                 ],
             ],
@@ -305,11 +278,19 @@ async def buildEarthPressureReport():
 
     alias("tanTheta", "tanθ")
     if vehicleApplicable:
-        tanTheta = calculate_failure_plane_tangent(phiDeg, alphaDeg, deltaDeg)
+        # 破裂面角按式 (4.2.3-7) 展开计算，便于计算书记录中间步骤。
+        omegaRad = alphaRad + deltaRad + phiRad
+        tanOmega = math.tan(omegaRad)
+        tanAlpha = math.tan(alphaRad)
+        cotPhi = 1 / math.tan(phiRad)
+        failurePlaneRadical = (cotPhi + tanOmega) * (tanOmega - tanAlpha)
+        if failurePlaneRadical < 0:
+            raise ValueError("破裂面角根号项为负，请检查 φ、α、δ 的取值。")
+        tanTheta = -tanOmega + math.sqrt(failurePlaneRadical)
         Table(
             headers=["项目", "结果", "规范式"],
             rows=[
-                ["破裂面角正切值 tanθ", format_number(tanTheta), "式 (4.2.3-7)"],
+                ["破裂面角正切值 tanθ", tanTheta, "式 (4.2.3-7)"],
             ],
             title="破裂面角计算结果",
         )
@@ -346,7 +327,7 @@ async def buildEarthPressureReport():
             ["采用条件", columnCondition, "按柱间净距和柱径判断"],
             [
                 "每根柱土压力计算宽度 b",
-                format_quantity(columnPressureWidth),
+                columnPressureWidth,
                 columnFormula,
             ],
         ],
@@ -367,9 +348,9 @@ async def buildEarthPressureReport():
     Table(
         headers=["项目", "结果", "规范式"],
         rows=[
-            ["侧压系数 λ", format_number(lambdaCoeff), "式 (4.2.3-13)"],
-            ["竖向压力强度 q_v", format_quantity(verticalPressure), "式 (4.2.3-11)"],
-            ["水平压力强度 q_h", format_quantity(horizontalPressure), "式 (4.2.3-12)"],
+            ["侧压系数 λ", lambdaCoeff, "式 (4.2.3-13)"],
+            ["竖向压力强度 q_v", verticalPressure, "式 (4.2.3-11)"],
+            ["水平压力强度 q_h", horizontalPressure, "式 (4.2.3-12)"],
         ],
         title="压实填土压力强度计算结果",
     )
@@ -381,6 +362,6 @@ async def buildEarthPressureReport():
 
 
 if __name__ == "__main__":
-    ctx = run_sync(buildEarthPressureReport)
+    ctx = run_sync(sheet)
     ctx.save(str(OUTPUT_HTML))
     print(f"已生成计算书：{OUTPUT_HTML}")

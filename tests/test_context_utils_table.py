@@ -1,6 +1,7 @@
 from core.uzoncalc.context import CalcContext
 from core.uzoncalc.context_utils.table import Table, Td, Tr, table, td, th
 from core.uzoncalc.globals import _calc_instance
+from core.uzoncalc.units import unit
 
 
 def test_table_rows_accept_flat_values_as_one_row():
@@ -18,6 +19,14 @@ def test_table_rows_accept_nested_values_as_multiple_rows():
     assert html.count("<tbody><tr") == 1
     assert html.count("<tr") == 3
     assert "<td>B</td><td>2.5</td>" in html
+
+
+def test_table_rows_accept_unit_quantities_as_cell_values():
+    """带单位量值应作为普通单元格渲染。"""
+    html = table(["Name", "Value"], [["长度", 1.5 * unit.meter]])
+
+    assert "<td>长度</td>" in html
+    assert "<td>1.5 meter</td>" in html
 
 
 def test_table_rows_accept_td_list_as_one_row():
