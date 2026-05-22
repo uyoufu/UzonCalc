@@ -116,7 +116,7 @@ disable_substitution()       # 关闭代入（仅显示符号公式）
 
 ```python
 Table(
-    headers=[                           # 表头（支持多行、合并单元格）
+    headers=[                           # 表头支持多行、th 合并单元格
         [
             th("构件", rowspan=2),
             th("材料", rowspan=2),
@@ -124,10 +124,33 @@ Table(
         ],
         ["Ec", "Es"],
     ],
-    rows=[
+    rows=[                              # 二维列表表示多行
         ["盖梁", "C60", 36000, 34500],
+        ["墩柱", "C50", 34500, 32500],
     ],
     title="材料参数",
+)
+
+# Td 可设置单元格样式；Tr 可设置整行样式
+Table(
+    headers=["项目", "数值", "备注"],
+    rows=[
+        Tr(
+            [
+                Td("梁高", classes="font-bold"),
+                1.8 * unit.meter,       # 任意值会通过 str() 渲染
+                Td("控制参数", classes="text-red-600"),
+            ],
+            classes="bg-yellow-50",
+        ),
+        Tr(["混凝土等级", "C50", None]), # None 会显示为 "None"
+    ],
+)
+
+# 扁平 rows 表示单行；Td 列表也会作为单行处理
+Table(
+    headers=["名称", "值"],
+    rows=[Td("宽度", classes="font-bold"), 2.5 * unit.meter],
 )
 ```
 
