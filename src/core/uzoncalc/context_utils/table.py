@@ -7,7 +7,8 @@ if TYPE_CHECKING:
     from .elements import Props
 
 
-TableCellValue = str | float
+# 表格单元格支持任意值，渲染时统一通过 str() 转为显示文本。
+TableCellValue = Any
 TableHeaderRows = list[list[TableCellValue]] | list[TableCellValue]
 TableBodyRows = (
     list[list[TableCellValue]]
@@ -127,6 +128,7 @@ def tr(value: str, classes: str | None = None) -> str:
 
 def td(value: TableCellValue, classes: str | None = None) -> str:
     """渲染表格单元格 HTML。"""
+    # 任意单元格值交由 Td 统一转换，避免入口之间行为不一致。
     return Td(value=value, classes=classes).to_html()
 
 

@@ -1,17 +1,15 @@
 ---
 name: uzoncalc-writer
-description: 使用 uzoncalc 创建计算书，编写计算逻辑，渲染公式、表格、图表，保存 HTML 文档
+description: 使用 uzoncalc 以编写 python 代码的方式创建工程计算书，实现公式自动计算、自动排版、自动渲染 HTML 文档等功能
 ---
 
 # uzoncalc-writer skill
 
 ## 概述
 
-UzonCalc 是一个基于 Python 的工程计算书生成工具。用户在 `async def` 函数中编写计算逻辑，UzonCalc 自动捕获变量赋值、公式推导过程，并渲染为带目录、数学公式、表格、图表的 HTML 计算书。
+UzonCalc 是一个基于 Python 的工程计算书生成工具。通过在 `async def` 函数中编写计算逻辑，UzonCalc 能自动捕获变量赋值、公式推导过程，并渲染为带目录、数学公式、表格、图表的 HTML 计算书。
 
----
-
-## 最小模板
+## 最小模板示例
 
 ```python
 from uzoncalc import *
@@ -25,16 +23,12 @@ async def sheet():
 
     a = 10 * unit.meter
     b = 5 * unit.meter
-    c = a + b          # 自动渲染公式：c = a + b = 15 m
-
-    save()
+    c = a + b # 自动渲染公式：c = a + b = 15 m
 
 if __name__ == "__main__":
     ctx = run_sync(sheet)
     ctx.save("output.html")   # 也可在函数外保存
 ```
-
----
 
 ## 核心规则
 
@@ -46,8 +40,6 @@ if __name__ == "__main__":
 | 变量名用 camelCase   | `_` 被解析为下标（`H_2` → H₂），避免用下划线命名变量  |
 | 希腊字母自动转换     | `alpha`→α，`Beta`→Β，首字母大写得大写希腊字母         |
 
----
-
 ## 文档结构 API
 
 ```python
@@ -56,7 +48,7 @@ page_size("A4")            # 页面大小：A4、A3、Letter 等
 toc("目录")                # 在当前位置插入目录（自动编号）
 font_family("Arial")       # 设置字体
 
-H1("一级标题")             # H1~H6 对应六级标题
+H1("一级标题")             # H1~H6 对应六级标题，自动带有编号
 H2("二级标题")
 H3("三级标题")
 
@@ -65,8 +57,6 @@ Info("提示信息")           # 蓝色信息框
 Code("代码", "python")     # 代码块，支持语法高亮
 P("段落")                  # 显式段落（等价于裸字符串）
 ```
-
----
 
 ## 变量与公式
 
@@ -93,8 +83,6 @@ disable_fstring_equation()
 f"面积 = {(A := 3 * unit.meter**2)}"
 ```
 
----
-
 ## 单位
 
 ```python
@@ -108,8 +96,6 @@ v = l.to(unit.centimeter)    # 单位换算
 # 常用单位：meter/m、kilogram/kg、newton/N、MPa、kN、second/s、hour、kilometer/km 等
 # 完整列表见 pint 文档
 ```
-
----
 
 ## 控制渲染
 
@@ -125,8 +111,6 @@ endInline()                    # 结束内联
 enable_substitution()        # 开启变量值代入（默认开启）
 disable_substitution()       # 关闭代入（仅显示符号公式）
 ```
-
----
 
 ## 表格
 
@@ -146,8 +130,6 @@ Table(
     title="材料参数",
 )
 ```
-
----
 
 ## 图表
 
@@ -175,8 +157,6 @@ show()
 Plot(make_fig())
 ```
 
----
-
 ## UI 输入（交互模式）
 
 ```python
@@ -195,8 +175,6 @@ width = inputs.width * unit.meter
 
 `FieldType` 可选值：`text`、`number`、`selectOne`、`selectMany`、`checkbox`、`textarea`
 
----
-
 ## Excel 集成
 
 ```python
@@ -212,8 +190,6 @@ P(get_excel_table(
 ))
 ```
 
----
-
 ## 保存文档
 
 ```python
@@ -226,8 +202,6 @@ ctx.save("output/result.html")
 ```
 
 生成的 HTML 可用浏览器打印为 PDF，或用 pandoc 转为 Word。
-
----
 
 ## 运行方式
 
@@ -242,8 +216,6 @@ ctx2 = run_sync(sheet2)
 ctx1.save("out1.html")
 ctx2.save("out2.html")
 ```
-
----
 
 ## 注意事项
 

@@ -1,7 +1,27 @@
+from importlib import import_module
+from typing import Any, get_type_hints
+
 from core.uzoncalc.context import CalcContext
 from core.uzoncalc.context_utils.table import Table, Td, Tr, table, td, th
 from core.uzoncalc.globals import _calc_instance
 from core.uzoncalc.units import unit
+
+table_module = import_module("core.uzoncalc.context_utils.table")
+
+
+class DemoCellValue:
+    """测试用自定义表格值。"""
+
+    def __str__(self):
+        """返回可预测的单元格显示文本。"""
+        # 模拟项目中可能传入的业务对象。
+        return "custom-cell-value"
+
+
+def test_table_cell_value_type_accepts_any_value():
+    """表格单元格公开类型应支持任意值。"""
+    assert table_module.TableCellValue is Any
+    assert get_type_hints(Td)["value"] is Any
 
 
 def test_table_rows_accept_flat_values_as_one_row():
@@ -26,7 +46,16 @@ def test_table_rows_accept_unit_quantities_as_cell_values():
     html = table(["Name", "Value"], [["长度", 1.5 * unit.meter]])
 
     assert "<td>长度</td>" in html
-    assert "<td>1.5 meter</td>" in html
+    assert "<td>1.5 m</td>" in html
+
+
+def test_table_rows_accept_arbitrary_objects_as_cell_values():
+    """任意对象值应通过 str() 作为普通单元格渲染。"""
+    html = table(["Enabled", "Value", "Empty"], [[True, DemoCellValue(), None]])
+
+    assert "<td>True</td>" in html
+    assert "<td>custom-cell-value</td>" in html
+    assert "<td>None</td>" in html
 
 
 def test_table_rows_accept_td_list_as_one_row():
