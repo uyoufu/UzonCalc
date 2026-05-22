@@ -7,6 +7,7 @@ from typing import Any, Iterable, List
 from matplotlib.figure import Figure
 
 from ..globals import get_current_instance
+from .table import Table, Td, Tr, table, td, th, tr
 
 
 @dataclass
@@ -355,74 +356,6 @@ def Img(
     )
 
 
-def table(
-    headers: list[list[str | float]] | list[str | float],
-    rows: list[list[str | float]] | list[str | float],
-    classes: str | None = None,
-    *,
-    title: str | None = None,
-    props: Props | None = None,
-    persist: bool = False,
-):
-    children: list[str] = []
-    header_rows = _normalize_rows(headers)
-    body_rows = _normalize_rows(rows)
-
-    if title:
-        children.append(h("caption", children=title))
-
-    if header_rows:
-        thead_rows = []
-        for header_row in header_rows:
-            cells = "".join(_wrap_cell(cell, th, "th") for cell in header_row)
-            thead_rows.append(tr(cells))
-        children.append(h("thead", children="".join(thead_rows)))
-
-    if body_rows:
-        tbody_rows = []
-        for body_row in body_rows:
-            cells = "".join(_wrap_cell(cell, td, "td") for cell in body_row)
-            tbody_rows.append(tr(cells))
-        children.append(h("tbody", children="".join(tbody_rows)))
-
-    return h("table", children=children, classes=classes, props=props, persist=persist)
-
-
-def Table(
-    headers: list[list[str | float]] | list[str | float],
-    rows: list[list[str | float]] | list[str | float],
-    classes: str | None = None,
-    *,
-    title: str | None = None,
-    props: Props | None = None,
-):
-    table(
-        headers=headers,
-        rows=rows,
-        title=title,
-        classes=classes,
-        props=props,
-        persist=True,
-    )
-
-
-def th(value: str, classes: str | None = None, *, rowspan: int = 1, colspan: int = 1):
-    return h(
-        "th",
-        children=str(value),
-        classes=classes,
-        props=props(rowspan=rowspan, colspan=colspan),
-    )
-
-
-def tr(value: str, classes: str | None = None):
-    return h("tr", children=value, classes=classes)
-
-
-def td(value: str, classes: str | None = None):
-    return h("td", children=str(value), classes=classes)
-
-
 def input(content: str, persist: bool = False):
     return h("input", props=Props(custom={"value": content}), persist=persist)
 
@@ -513,23 +446,6 @@ def _children_to_html(children: str | List[str] | None) -> str:
     if isinstance(children, list):
         return "".join(str(child) for child in children)
     return str(children)
-
-
-def _normalize_rows(
-    values: list[list[str | float]] | list[str | float],
-) -> list[list[Any]]:
-    if not values:
-        return []
-    if isinstance(values[0], list):  # type: ignore[index]
-        return values  # type: ignore[return-value]
-    return [values]  # type: ignore[list-item]
-
-
-def _wrap_cell(value: Any, factory, tag: str) -> str:
-    text = str(value)
-    if text.startswith(f"<{tag}"):
-        return text
-    return factory(text)
 
 
 def _trim_empty_lines(lines: Iterable[str]) -> list[str]:

@@ -3,10 +3,6 @@ table {
   border-collapse: collapse;
   width: auto;
   margin: var(--uz-space-lg) auto;
-}
-
-table th,
-table td {
   text-align: center;
 }
 
@@ -15,7 +11,6 @@ td {
   font-size: 0.83rem;
   border: 1px solid var(--uz-border-color);
   padding: var(--uz-space-2xs) var(--uz-space-sm);
-  text-align: left;
 }
 
 th {
