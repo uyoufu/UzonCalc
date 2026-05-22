@@ -55,7 +55,7 @@ def test_power_exponent_uses_mathml_space_before_number():
 
     exponent_row = root.find(".//m:msup/m:mrow[2]", MATHML_NAMESPACE)
     assert exponent_row is not None
-    assert exponent_row.find("m:mspace", MATHML_NAMESPACE).attrib["width"] == "0.2em"
+    assert exponent_row.find("m:mspace", MATHML_NAMESPACE).attrib["width"] == "0.4em"
     assert exponent_row.find("m:mn", MATHML_NAMESPACE).text == "2"
 
 
@@ -68,6 +68,45 @@ def test_parenthesized_power_exponent_does_not_add_extra_space():
     assert exponent_row is not None
     assert exponent_row.find("m:mspace", MATHML_NAMESPACE) is None
     assert exponent_row.find("m:mn", MATHML_NAMESPACE).text == "2"
+
+
+def test_function_power_places_exponent_on_function_name():
+    """函数平方应把指数放到函数名右上角，而不是给整个调用加括号。"""
+    mathml = _render_expression_mathml("math.cos(alphaRad) ** 2")
+    root = ET.fromstring(mathml)
+
+    power_node = root.find(".//m:msup", MATHML_NAMESPACE)
+    assert power_node is not None
+    assert power_node.find("m:mrow[1]/m:mtext", MATHML_NAMESPACE).text == "cos"
+    assert power_node.find("m:mrow[2]/m:mn", MATHML_NAMESPACE).text == "2"
+    assert root.find(".//m:msup/m:mrow/m:mspace", MATHML_NAMESPACE) is None
+    assert "<mo>(</mo><mrow><msup>" not in mathml
+
+
+def test_plain_function_power_places_exponent_on_function_name():
+    """普通函数平方也应把指数放到函数名右上角。"""
+    mathml = _render_expression_mathml("f(x) ** 2")
+    root = ET.fromstring(mathml)
+
+    power_node = root.find(".//m:msup", MATHML_NAMESPACE)
+    assert power_node is not None
+    assert power_node.find("m:mrow[1]/m:mtext", MATHML_NAMESPACE).text == "f"
+    assert power_node.find("m:mrow[2]/m:mn", MATHML_NAMESPACE).text == "2"
+    assert "<mo>(</mo><mrow><msup>" not in mathml
+
+
+def test_method_power_places_exponent_on_method_name():
+    """方法平方应把指数放到方法名右上角，并保留对象访问结构。"""
+    mathml = _render_expression_mathml("section.resize(width) ** 2")
+    root = ET.fromstring(mathml)
+
+    power_node = root.find(".//m:msup", MATHML_NAMESPACE)
+    assert power_node is not None
+    assert ">section<" in mathml
+    assert ">.<" in mathml
+    assert power_node.find("m:mrow[1]/m:mtext", MATHML_NAMESPACE).text == "resize"
+    assert power_node.find("m:mrow[2]/m:mn", MATHML_NAMESPACE).text == "2"
+    assert "<mo>(</mo><mrow><mi" not in mathml
 
 
 def test_legacy_template_math_power_exponent_style_keeps_parity():

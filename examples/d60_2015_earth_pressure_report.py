@@ -237,7 +237,7 @@ async def sheet():
             rows=[
                 [
                     "等代土层厚度 h₀",
-                    f"{vehicleEquivalentHeight}",
+                    vehicleEquivalentHeight,
                     "h₀ = q/(γ×1m)",
                 ],
                 [

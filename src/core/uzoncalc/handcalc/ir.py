@@ -263,6 +263,10 @@ class MSup(MathNode):
     tag: ClassVar[str] = "msup"
 
     def to_mathml_element(self) -> ET.Element:
+        function_power_el = self._try_render_function_power()
+        if function_power_el is not None:
+            return function_power_el
+
         e = ET.Element(self.tag)
 
         base_needs_parentheses = self._needs_parentheses_for_power_base(self.base)
@@ -286,6 +290,45 @@ class MSup(MathNode):
         )
         exponent_row.insert(0, leading_space)
         return exponent_row
+
+    def _try_render_function_power(self) -> ET.Element | None:
+        """将函数调用平方渲染为函数名右上角幂标。"""
+        # 函数调用由 call_rendering 构造成 MRow，只有该结构适合移动幂标位置。
+        if not isinstance(self.base, MRow):
+            return None
+
+        function_name_index = self._find_powered_function_name_index(self.base.children)
+        if function_name_index is None:
+            return None
+
+        row = ET.Element(MRow.tag)
+        for idx, child in enumerate(self.base.children):
+            if idx == function_name_index:
+                row.append(self._render_function_name_power(child))
+                continue
+            row.append(child.to_mathml_element())
+        return row
+
+    def _render_function_name_power(self, function_name: MathNode) -> ET.Element:
+        """构造不带额外间距的函数名幂标节点。"""
+        power_el = ET.Element(self.tag)
+        power_el.append(_wrap_row(function_name))
+        power_el.append(_wrap_row(self.exponent))
+        return power_el
+
+    @staticmethod
+    def _find_powered_function_name_index(children: list[MathNode]) -> int | None:
+        """查找可承载幂标的函数名位置。"""
+        # 普通函数为 f(...)，方法函数为 obj.method(...)，二者都以函数名后接左括号为准。
+        if len(children) < 3 or not _is_operator_node(children[-1], ")"):
+            return None
+
+        for idx, child in enumerate(children[:-1]):
+            if isinstance(child, MFunctionName) and _is_operator_node(
+                children[idx + 1], "("
+            ):
+                return idx
+        return None
 
     @staticmethod
     def _needs_parentheses_for_power_base(node: MathNode) -> bool:
@@ -368,6 +411,12 @@ def _wrap_row(node: MathNode) -> ET.Element:
     w = ET.Element(MRow.tag)
     w.append(e)
     return w
+
+
+def _is_operator_node(node: MathNode, symbol: str) -> bool:
+    """判断节点是否为指定操作符。"""
+    # 操作符节点的文本在 MathML 输出阶段才落到元素 text，这里直接检查 IR 字段。
+    return isinstance(node, Mo) and node.symbol == symbol
 
 
 def mi(name: str) -> Mi:
