@@ -166,12 +166,10 @@ def _render_body_cell(value: TableCellValue | Td) -> str:
 
 def _format_td_cell_value(value: TableCellValue) -> str:
     """格式化 td 单元格显示文本。"""
-    if isinstance(value, float):
-        from ..handcalc.rendering.value_renderer import format_number
 
-        # 浮点数复用计算书精度规则，避免展示二进制浮点误差。
-        return format_number(value)
-    return str(value)
+    from ..handcalc.rendering.value_renderer import render_value_text
+
+    return render_value_text(value)
 
 
 def _wrap_header_cell(value: Any) -> str:
