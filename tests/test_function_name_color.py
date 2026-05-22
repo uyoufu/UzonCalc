@@ -24,7 +24,19 @@ def test_method_function_name_uses_function_name_class():
 
     assert 'class="function-name"' in mathml
     assert ">resize<" in mathml
+    assert ">section<" in mathml
     assert ">.resize<" not in mathml
+
+
+def test_math_module_function_hides_module_prefix():
+    """math 模块函数展示时应去掉模块前缀，仅保留函数名。"""
+    # 公式展示只转义 math. 前缀，不改变函数名本身的样式。
+    mathml = _render_expression_mathml("math.sin(a)")
+
+    assert 'class="function-name"' in mathml
+    assert ">sin<" in mathml
+    assert ">math<" not in mathml
+    assert "<mo>.</mo>" not in mathml
 
 
 def test_special_function_keeps_math_symbol_without_function_name_class():

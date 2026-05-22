@@ -11,9 +11,16 @@ import ast
 from typing import Callable, Optional, Sequence
 from . import ir
 
-
 # 特殊函数格式化器类型定义
 SpecialFunctionFormatter = Callable[[str, Sequence[ir.MathNode]], Optional[ir.MathNode]]
+
+
+def strip_math_module_prefix(func_name: str) -> str:
+    """去除 math 模块函数前缀，便于公式展示使用简短函数名。"""
+    # 仅处理标准 math 模块前缀，避免误改其它对象方法或模块别名。
+    if func_name.startswith("math."):
+        return func_name.removeprefix("math.")
+    return func_name
 
 
 class SpecialFunctionRegistry:
@@ -25,15 +32,19 @@ class SpecialFunctionRegistry:
 
     def _register_builtin_formatters(self) -> None:
         """注册内置的特殊函数格式化器"""
-        
+
         # abs 函数：转换为绝对值符号 |x|
-        def format_abs(func_name: str, args: Sequence[ir.MathNode]) -> Optional[ir.MathNode]:
+        def format_abs(
+            func_name: str, args: Sequence[ir.MathNode]
+        ) -> Optional[ir.MathNode]:
             if len(args) == 1:
                 return ir.mrow([ir.mo("|"), args[0], ir.mo("|")])
             return None
-        
+
         # sqrt 函数：转换为平方根符号 √x
-        def format_sqrt(func_name: str, args: Sequence[ir.MathNode]) -> Optional[ir.MathNode]:
+        def format_sqrt(
+            func_name: str, args: Sequence[ir.MathNode]
+        ) -> Optional[ir.MathNode]:
             if len(args) == 1:
                 return ir.msqrt(args[0])
             return None
@@ -46,7 +57,7 @@ class SpecialFunctionRegistry:
     def register(self, func_name: str, formatter: SpecialFunctionFormatter) -> None:
         """
         注册特殊函数格式化器
-        
+
         Args:
             func_name: 函数名称（如 "abs", "sqrt", "math.sqrt"）
             formatter: 格式化器函数，接收函数名和参数列表，返回格式化后的 IR 节点
@@ -56,20 +67,22 @@ class SpecialFunctionRegistry:
     def unregister(self, func_name: str) -> None:
         """
         取消注册特殊函数格式化器
-        
+
         Args:
             func_name: 函数名称
         """
         self._formatters.pop(func_name, None)
 
-    def format(self, func_name: str, args: Sequence[ir.MathNode]) -> Optional[ir.MathNode]:
+    def format(
+        self, func_name: str, args: Sequence[ir.MathNode]
+    ) -> Optional[ir.MathNode]:
         """
         尝试使用注册的格式化器格式化函数调用
-        
+
         Args:
             func_name: 函数名称
             args: 参数列表（已转换为 IR 节点）
-        
+
         Returns:
             格式化后的 IR 节点，如果没有匹配的格式化器则返回 None
         """
@@ -81,10 +94,10 @@ class SpecialFunctionRegistry:
     def is_special_function(self, func_name: str) -> bool:
         """
         检查函数名是否为已注册的特殊函数
-        
+
         Args:
             func_name: 函数名称
-        
+
         Returns:
             是否为特殊函数
         """
@@ -93,7 +106,7 @@ class SpecialFunctionRegistry:
     def list_registered_functions(self) -> list[str]:
         """
         列出所有已注册的特殊函数名称
-        
+
         Returns:
             特殊函数名称列表
         """
@@ -113,10 +126,12 @@ def get_special_function_registry() -> SpecialFunctionRegistry:
 
 
 # 便捷函数
-def register_special_function(func_name: str, formatter: SpecialFunctionFormatter) -> None:
+def register_special_function(
+    func_name: str, formatter: SpecialFunctionFormatter
+) -> None:
     """
     注册特殊函数格式化器（便捷函数）
-    
+
     Args:
         func_name: 函数名称
         formatter: 格式化器函数
@@ -124,14 +139,16 @@ def register_special_function(func_name: str, formatter: SpecialFunctionFormatte
     get_special_function_registry().register(func_name, formatter)
 
 
-def format_special_function(func_name: str, args: Sequence[ir.MathNode]) -> Optional[ir.MathNode]:
+def format_special_function(
+    func_name: str, args: Sequence[ir.MathNode]
+) -> Optional[ir.MathNode]:
     """
     尝试格式化特殊函数（便捷函数）
-    
+
     Args:
         func_name: 函数名称
         args: 参数列表（已转换为 IR 节点）
-    
+
     Returns:
         格式化后的 IR 节点，如果没有匹配的格式化器则返回 None
     """

@@ -4,7 +4,7 @@ import ast
 from typing import Callable
 
 from .. import ir
-from ..special_functions import format_special_function
+from ..special_functions import format_special_function, strip_math_module_prefix
 
 ExprConverter = Callable[[ast.AST], ir.MathNode]
 Unparser = Callable[[ast.AST], str]
@@ -20,9 +20,18 @@ def render_call(
     args = [expr_to_ir(a) for a in node.args]
 
     # 尝试使用特殊函数格式化器
-    special_formatted = format_special_function(unparse(node.func), args)
+    full_func_name = unparse(node.func)
+    special_formatted = format_special_function(full_func_name, args)
     if special_formatted is not None:
         return special_formatted
+
+    short_func_name = strip_math_module_prefix(full_func_name)
+    if short_func_name != full_func_name:
+        # math 模块函数展示时省略模块前缀，只保留数学函数名。
+        arg_nodes = build_call_arg_nodes(node, expr_to_ir=expr_to_ir)
+        return ir.mrow(
+            [ir.mfunction_name(short_func_name), ir.mo("("), *arg_nodes, ir.mo(")")]
+        )
 
     # 处理方法调用如 b_f.to(unit.meter)
     if isinstance(node.func, ast.Attribute):
