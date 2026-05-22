@@ -7,7 +7,6 @@ from typing import Any, Iterable, List
 from matplotlib.figure import Figure
 
 from ..globals import get_current_instance
-from .table import Table, Td, Tr, table, td, th, tr
 
 
 @dataclass

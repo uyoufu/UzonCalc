@@ -42,7 +42,7 @@ async def sheet():
             Field("gamma", "土的重度 γ (kN/m³)", FieldType.number, value=18.0),
             Field("phiDeg", "内摩擦角 φ (°)", FieldType.number, value=30.0),
             Field("heightH", "填土或计算土层高度 H (m)", FieldType.number, value=6.0),
-            Field("depthh", "静土压力计算深度 h (m)", FieldType.number, value=3.0),
+            Field("depth", "静土压力计算深度 h (m)", FieldType.number, value=3.0),
             Field(
                 "widthB", "桥台计算宽度或挡土墙长度 B (m)", FieldType.number, value=1.0
             ),
@@ -50,7 +50,7 @@ async def sheet():
             Field("betaDeg", "填土表面与水平面夹角 β (°)", FieldType.number, value=0.0),
             Field(
                 "vehicleWheelWeightPerMeter",
-                "汽车车轮总重 q (kN/m)",
+                "汽车车轮横向单位总重 q (kN/m)",
                 FieldType.number,
                 value=10.8,
             ),
@@ -64,32 +64,23 @@ async def sheet():
     )
 
     # 先将输入转为计算变量，便于公式渲染和后续校验。
-    gammaInput = validate_positive_number(float(inputs.gamma), "土的重度 γ")
-    phiDeg = validate_positive_number(float(inputs.phiDeg), "内摩擦角 φ")
-    heightInput = validate_positive_number(float(inputs.heightH), "填土高度 H")
-    depthInput = validate_nonnegative_number(float(inputs.depthh), "静土压力计算深度 h")
-    widthInput = validate_positive_number(float(inputs.widthB), "计算宽度或长度 B")
+    gammaInput = float(inputs.gamma)
+    phiDeg = float(inputs.phiDeg)
+    heightInput = float(inputs.heightH)
+    depthInput = float(inputs.depth)
+    widthInput = float(inputs.widthB)
     alphaDeg = float(inputs.alphaDeg)
     betaDeg = float(inputs.betaDeg)
     deltaDeg = phiDeg / 2
-    vehicleWheelWeightInput = validate_nonnegative_number(
-        float(inputs.vehicleWheelWeightPerMeter),
-        "汽车车轮总重 q",
-    )
+    vehicleWheelWeightInput = float(inputs.vehicleWheelWeightPerMeter)
     columnCount = max(1, int(round(float(inputs.columnCount))))
-    columnSizeInput = validate_positive_number(
-        float(inputs.columnSizeD), "柱直径或宽度 D"
-    )
-    columnSpacingInput = validate_nonnegative_number(
-        float(inputs.columnSpacingLi), "柱间净距 li"
-    )
-    compactedDepthInput = validate_nonnegative_number(
-        float(inputs.compactedDepth), "压实填土计算深度 hq"
-    )
+    columnSizeInput = float(inputs.columnSizeD)
+    columnSpacingInput = float(inputs.columnSpacingLi)
+    compactedDepthInput = float(inputs.compactedDepth)
 
     gammaSoil = gammaInput * unit.kN / unit.meter**3
     heightH = heightInput * unit.meter
-    depthh = depthInput * unit.meter
+    depth = depthInput * unit.meter
     widthB = widthInput * unit.meter
     vehicleWheelWeight = vehicleWheelWeightInput * unit.kN / unit.meter
     vehicleUnitLength = 1.0 * unit.meter
@@ -111,7 +102,7 @@ async def sheet():
             ],
             ["内摩擦角", "φ", phiDeg, "单位：°"],
             ["填土高度", "H", heightH, "静土压力与主动土压力计算高度"],
-            ["计算深度", "h", depthh, "静土压力强度计算点深度"],
+            ["计算深度", "h", depth, "静土压力强度计算点深度"],
             ["计算宽度或长度", "B", widthB, "桥台宽度或挡土墙长度"],
             ["墙背倾角", "α", alphaDeg, "单位：°，俯墙背为正"],
             [
@@ -151,14 +142,14 @@ async def sheet():
 
     alias("xi", "ξ")
     alias("gammaSoil", "γ")
-    alias("depthh", "h")
+    alias("depth", "h")
     alias("heightH", "H")
     alias("staticDepthPressure", "e_j")
     alias("staticEarthForce", "E_j")
 
     sinPhi = math.sin(math.radians(phiDeg))
     xi = 1 - sinPhi
-    staticDepthPressure = (xi * gammaSoil * depthh).to(unit.kPa)
+    staticDepthPressure = (xi * gammaSoil * depth).to(unit.kPa)
     staticEarthForce = xi * gammaSoil * heightH**2 / 2
 
     Table(
