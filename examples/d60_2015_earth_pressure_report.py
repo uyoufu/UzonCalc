@@ -128,7 +128,7 @@ async def sheet():
         title="输入参数",
     )
 
-    H2("2 静土压力")
+    H2("静土压力")
     "规范式 (4.2.3-1) 至 (4.2.3-3) 用于计算压实填土静土压力标准值。"
 
     alias("xi", "ξ")
@@ -157,7 +157,7 @@ async def sheet():
         title="静土压力计算结果",
     )
 
-    H2("3 主动土压力")
+    H2("主动土压力")
     "规范式 (4.2.3-4) 和 (4.2.3-5) 用于土层特性无变化且无汽车荷载时的主动土压力标准值。"
 
     alias("widthB", "B")
@@ -165,31 +165,32 @@ async def sheet():
     alias("activeEarthForce", "E")
     alias("activeForcePoint", "C")
 
+    alias("phiRad", "φ")
+    alias("alphaRad", "α")
+    alias("betaRad", "β")
+    alias("deltaRad", "δ")
+
     # 规范式直接在报告流程中展开，保证公式步骤随计算书输出。
     phiRad = math.radians(phiDeg)
     alphaRad = math.radians(alphaDeg)
     betaRad = math.radians(betaDeg)
     deltaRad = math.radians(deltaDeg)
+
     activeCoefficientNumerator = math.cos(phiRad - alphaRad) ** 2
-    activeCoefficientRadicalNumerator = math.sin(phiRad + deltaRad) * math.sin(
-        phiRad - betaRad
-    )
-    activeCoefficientRadicalDenominator = math.cos(alphaRad + deltaRad) * math.cos(
-        alphaRad - betaRad
-    )
-    activeCoefficientRadical = (
-        activeCoefficientRadicalNumerator / activeCoefficientRadicalDenominator
-    )
-    if activeCoefficientRadical < 0:
-        raise ValueError("主动土压力系数根号项为负，请检查 φ、α、β、δ 的取值。")
-    activeCoefficientBracket = 1 + math.sqrt(activeCoefficientRadical)
+
     activeCoefficientDenominator = (
-        math.cos(alphaRad) ** 2
+        (math.cos(alphaRad) ** 2)
         * math.cos(alphaRad + deltaRad)
-        * activeCoefficientBracket**2
+        * (
+            1
+            + math.sqrt(
+                math.sin(phiRad + deltaRad)
+                * math.sin(phiRad - betaRad)
+                / (math.cos(alphaRad + deltaRad) * math.cos(alphaRad - betaRad))
+            )
+        )
     )
-    if abs(activeCoefficientDenominator) < 1e-12:
-        raise ValueError("主动土压力系数分母接近 0，请检查墙背倾角和摩擦角。")
+
     mu = activeCoefficientNumerator / activeCoefficientDenominator
     activeEarthForce = widthB * mu * gammaSoil * heightH**2 / 2
     activeForcePoint = heightH / 3
@@ -208,7 +209,7 @@ async def sheet():
         title="主动土压力计算结果",
     )
 
-    H3("3.1 汽车荷载作用")
+    H3("汽车荷载作用")
     "规范式 (4.2.3-6) 仅适用于土层特性无变化、桥台或挡土墙后有汽车荷载且 β = 0° 的情况。"
 
     alias("vehicleActiveEarthForce", "E_q")
@@ -255,7 +256,7 @@ async def sheet():
     else:
         Info("当前 β 不为 0°，规范式 (4.2.3-6) 不适用，本节不计算汽车荷载主动土压力。")
 
-    H3("3.2 破裂面角")
+    H3("破裂面角")
     "当 β = 0° 时，破坏棱体破裂面与竖直线间夹角 θ 的正切值可按式 (4.2.3-7) 计算。"
 
     alias("tanTheta", "tanθ")
@@ -279,7 +280,7 @@ async def sheet():
     else:
         Info("当前 β 不为 0°，式 (4.2.3-7) 的适用条件不满足，本节不计算破裂面角。")
 
-    H2("4 柱式墩台土压力计算宽度")
+    H2("柱式墩台土压力计算宽度")
     "承受土侧压力的柱式墩台，作用在柱上的土压力计算宽度按柱间净距与柱直径或宽度的关系选取规范式。"
 
     alias("columnSizeD", "D")
@@ -316,7 +317,7 @@ async def sheet():
         title="柱式墩台土压力计算宽度",
     )
 
-    H2("5 压实填土压力强度")
+    H2("压实填土压力强度")
     "规范式 (4.2.3-11) 至 (4.2.3-13) 用于计算压实填土重力的竖向和水平压力强度标准值。"
 
     alias("lambdaCoeff", "λ")
@@ -337,7 +338,7 @@ async def sheet():
         title="压实填土压力强度计算结果",
     )
 
-    H2("6 适用条件与说明")
+    H2("适用条件与说明")
     "土的重度和内摩擦角应根据调查或试验确定；无实际资料时可按规范推荐表或相关地基基础规范采用。"
     "土层特性有变化或受水位影响时，宜分层计算土的侧压力。"
     "本报告只计算土压力标准值和相关几何参数，不包含抗滑、抗倾覆、地基承载力或作用组合验算。"
