@@ -41,6 +41,12 @@
     "uzoncalc",
     "xlwings"
   ],
+  "search.exclude": {
+    "**/node_modules": true,
+    "**/bower_components": true,
+    "**/*.code-search": true,
+    "**/public": true
+  },
   "python.testing.pytestArgs": ["core"],
   "python.testing.unittestEnabled": false,
   "python.testing.pytestEnabled": true,

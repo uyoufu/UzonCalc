@@ -8,6 +8,7 @@ import {
 import { notifyError, notifySuccess } from 'src/utils/dialog'
 import { tCalcReportPageViewer } from 'src/i18n/helpers'
 import { isCalcReportExecutingKey } from '../keys'
+import { adaptCalcExecutionResult } from '../utils/calcExecutionResultAdapter'
 
 export function useCalcExecutor(
   reportOidRef: Ref<string, null>,
@@ -72,8 +73,8 @@ export function useCalcExecutor(
       return
     }
 
-    // 保存结果
-    executeResult.value = result
+    // 保存前适配后端传入的字段可见性配置
+    executeResult.value = adaptCalcExecutionResult(result)
 
     isExecuting.value = false
     if (result.isCompleted) {
@@ -97,7 +98,7 @@ export function useCalcExecutor(
     try {
       const defaults = getInputValues()
       const response = await resumeCalcExecution(executeResult.value.executionId, defaults)
-      const result = response.data
+      const result = adaptCalcExecutionResult(response.data)
 
       // 合并结果
       const existUIs = executeResult.value.windows || []

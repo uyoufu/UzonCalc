@@ -21,13 +21,15 @@ class FieldType:
 
 @dataclass(slots=True)
 class Field:
+    """定义前端输入字段"""
+
     name: str
     label: str
     type: str = FieldType.text
     placeholder: str | None = None
     value: str | int | float | bool | None = None
     options: list[str] | None = None
-    vif: str | None = None
+    visible: str | None = None  # 前端执行的 JS 可见性函数字符串
 
 
 # 请求变量输入的数据结构
