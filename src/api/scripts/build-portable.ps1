@@ -11,16 +11,75 @@ param(
     [string]$PythonCacheRoot
 )
 
+Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Resolve-FullPath {
+    param([string]$Path)
+
+    return [System.IO.Path]::GetFullPath($Path)
+}
+
+function Assert-PathIsInside {
+    param(
+        [string]$Path,
+        [string]$ParentPath,
+        [string]$Description
+    )
+
+    $fullPath = Resolve-FullPath $Path
+    $fullParentPath = (Resolve-FullPath $ParentPath).TrimEnd('\', '/')
+
+    if (-not $fullPath.StartsWith($fullParentPath + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "$Description 必须位于 $fullParentPath 内: $fullPath"
+    }
+}
+
+function Assert-PathsAreSeparate {
+    param(
+        [string]$FirstPath,
+        [string]$SecondPath,
+        [string]$Description
+    )
+
+    $first = (Resolve-FullPath $FirstPath).TrimEnd('\', '/')
+    $second = (Resolve-FullPath $SecondPath).TrimEnd('\', '/')
+
+    if ($first.Equals($second, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $first.StartsWith($second + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase) -or
+        $second.StartsWith($first + [System.IO.Path]::DirectorySeparatorChar, [System.StringComparison]::OrdinalIgnoreCase)) {
+        throw "$Description 不能互相包含: $first <-> $second"
+    }
+}
+
+function Test-InvalidOutputName {
+    param([string]$Name)
+
+    return [string]::IsNullOrWhiteSpace($Name) -or
+        [System.IO.Path]::IsPathRooted($Name) -or
+        $Name.IndexOfAny([System.IO.Path]::GetInvalidFileNameChars()) -ge 0 -or
+        $Name.Contains('\') -or
+        $Name.Contains('/') -or
+        $Name -eq "." -or
+        $Name -eq ".."
+}
+
 # 路径配置
-$SCRIPT_DIR = Split-Path -Parent $MyInvocation.MyCommand.Path
-$PROJECT_ROOT = Split-Path -Parent $SCRIPT_DIR
-$DIST_DIR = Join-Path $PROJECT_ROOT "dist"
-$OUTPUT_DIR = Join-Path $DIST_DIR $OutputName
+$SCRIPT_DIR = Resolve-FullPath (Split-Path -Parent $MyInvocation.MyCommand.Path)
+$PROJECT_ROOT = Resolve-FullPath (Split-Path -Parent $SCRIPT_DIR)
+$DIST_DIR = Resolve-FullPath (Join-Path $PROJECT_ROOT "dist")
 $EMBEDDED_PYTHON_RELATIVE_DIR = "dist\python-embedded"
-$EMBEDDED_PYTHON_SOURCE_DIR = Join-Path $PROJECT_ROOT $EMBEDDED_PYTHON_RELATIVE_DIR
-$EMBEDDED_PYTHON_OUTPUT_DIR = Join-Path $OUTPUT_DIR $EMBEDDED_PYTHON_RELATIVE_DIR
+$EMBEDDED_PYTHON_SOURCE_DIR = Resolve-FullPath (Join-Path $PROJECT_ROOT $EMBEDDED_PYTHON_RELATIVE_DIR)
+
+if (Test-InvalidOutputName -Name $OutputName) {
+    throw "OutputName 只能是 dist 下的单级目录名: $OutputName"
+}
+
+$OUTPUT_DIR = Resolve-FullPath (Join-Path $DIST_DIR $OutputName)
+$EMBEDDED_PYTHON_OUTPUT_DIR = Resolve-FullPath (Join-Path $OUTPUT_DIR $EMBEDDED_PYTHON_RELATIVE_DIR)
+
+Assert-PathIsInside -Path $OUTPUT_DIR -ParentPath $DIST_DIR -Description "输出目录"
+Assert-PathsAreSeparate -FirstPath $OUTPUT_DIR -SecondPath $EMBEDDED_PYTHON_SOURCE_DIR -Description "输出目录和嵌入式 Python 源目录"
 
 function Write-Info {
     param([string]$message)
@@ -41,7 +100,7 @@ function Write-Step {
 Write-Step "步骤 1: 设置嵌入式 Python 环境"
 
 $setupScript = Join-Path $SCRIPT_DIR "setup-embedded-python.ps1"
-if (Test-Path $setupScript) {
+if (Test-Path -LiteralPath $setupScript) {
     $setupArgs = @{
         PythonVersion = $PythonVersion
         TargetDir = $EMBEDDED_PYTHON_RELATIVE_DIR
@@ -64,9 +123,9 @@ else {
 
 Write-Step "步骤 2: 创建输出目录"
 
-if (Test-Path $OUTPUT_DIR) {
+if (Test-Path -LiteralPath $OUTPUT_DIR) {
     Write-Info "清理旧的输出目录..."
-    Remove-Item -Recurse -Force $OUTPUT_DIR
+    Remove-Item -LiteralPath $OUTPUT_DIR -Recurse -Force
 }
 
 New-Item -ItemType Directory -Path $OUTPUT_DIR | Out-Null
@@ -89,16 +148,16 @@ $itemsToCopy = @(
 
 foreach ($item in $itemsToCopy) {
     $sourcePath = Join-Path $PROJECT_ROOT $item
-    if (Test-Path $sourcePath) {
+    if (Test-Path -LiteralPath $sourcePath) {
         Write-Info "复制: $item"
         
-        if (Test-Path $sourcePath -PathType Container) {
+        if (Test-Path -LiteralPath $sourcePath -PathType Container) {
             # 目录
-            Copy-Item -Path $sourcePath -Destination $OUTPUT_DIR -Recurse -Force
+            Copy-Item -LiteralPath $sourcePath -Destination $OUTPUT_DIR -Recurse -Force
         }
         else {
             # 文件
-            Copy-Item -Path $sourcePath -Destination $OUTPUT_DIR -Force
+            Copy-Item -LiteralPath $sourcePath -Destination $OUTPUT_DIR -Force
         }
     }
     else {
@@ -106,14 +165,14 @@ foreach ($item in $itemsToCopy) {
     }
 }
 
-if (Test-Path $EMBEDDED_PYTHON_SOURCE_DIR) {
+if (Test-Path -LiteralPath $EMBEDDED_PYTHON_SOURCE_DIR) {
     $embeddedPythonOutputParent = Split-Path -Parent $EMBEDDED_PYTHON_OUTPUT_DIR
-    if (-not (Test-Path $embeddedPythonOutputParent)) {
+    if (-not (Test-Path -LiteralPath $embeddedPythonOutputParent)) {
         New-Item -ItemType Directory -Path $embeddedPythonOutputParent -Force | Out-Null
     }
 
     Write-Info "复制: $EMBEDDED_PYTHON_RELATIVE_DIR"
-    Copy-Item -Path $EMBEDDED_PYTHON_SOURCE_DIR -Destination $embeddedPythonOutputParent -Recurse -Force
+    Copy-Item -LiteralPath $EMBEDDED_PYTHON_SOURCE_DIR -Destination $embeddedPythonOutputParent -Recurse -Force
 }
 else {
     Write-Host "  跳过（不存在）: $EMBEDDED_PYTHON_RELATIVE_DIR" -ForegroundColor Yellow
@@ -124,7 +183,7 @@ else {
 # ============================================
 
 $portableConfigDir = Join-Path $OUTPUT_DIR "config"
-if (Test-Path $portableConfigDir) {
+if (Test-Path -LiteralPath $portableConfigDir) {
     Write-Info "设置便携包运行环境: prod"
 
     $portableEnvPath = Join-Path $portableConfigDir ".env"
@@ -132,9 +191,9 @@ if (Test-Path $portableConfigDir) {
     [System.IO.File]::WriteAllText($portableEnvPath, "prod", $utf8NoBom)
 
     $portableDevConfig = Join-Path $portableConfigDir "app.dev.ini"
-    if (Test-Path $portableDevConfig) {
+    if (Test-Path -LiteralPath $portableDevConfig) {
         Write-Info "移除开发环境配置: config\app.dev.ini"
-        Remove-Item -Path $portableDevConfig -Force
+        Remove-Item -LiteralPath $portableDevConfig -Force
     }
 }
 else {
@@ -150,7 +209,7 @@ $portableDataDirs = @(
 
 foreach ($dataDir in $portableDataDirs) {
     $portableDataDir = Join-Path $OUTPUT_DIR $dataDir
-    if (-not (Test-Path $portableDataDir)) {
+    if (-not (Test-Path -LiteralPath $portableDataDir)) {
         New-Item -ItemType Directory -Path $portableDataDir -Force | Out-Null
     }
 }
@@ -263,7 +322,7 @@ if (`$exitCode -ne 0) {
 pause
 "@
 
-$startPs1 | Out-File -FilePath (Join-Path $OUTPUT_DIR "start.ps1") -Encoding UTF8
+$startPs1 | Out-File -LiteralPath (Join-Path $OUTPUT_DIR "start.ps1") -Encoding UTF8
 
 # ============================================
 # 步骤 5: 创建说明文档
@@ -349,7 +408,7 @@ UzonCalc-Portable/
 日期: $(Get-Date -Format "yyyy-MM-dd")
 "@
 
-$readme | Out-File -FilePath (Join-Path $OUTPUT_DIR "README.txt") -Encoding UTF8
+$readme | Out-File -LiteralPath (Join-Path $OUTPUT_DIR "README.txt") -Encoding UTF8
 
 # ============================================
 # 步骤 6: 清理不必要的文件
@@ -369,7 +428,7 @@ $excludePatterns = @(
 
 foreach ($pattern in $excludePatterns) {
     Write-Info "清理: $pattern"
-    Get-ChildItem -Path $OUTPUT_DIR -Filter $pattern -Recurse -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
+    Get-ChildItem -LiteralPath $OUTPUT_DIR -Filter $pattern -Recurse -Force | Remove-Item -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 # ============================================
@@ -378,7 +437,7 @@ foreach ($pattern in $excludePatterns) {
 
 Write-Step "打包完成"
 
-$size = (Get-ChildItem -Path $OUTPUT_DIR -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
+$size = (Get-ChildItem -LiteralPath $OUTPUT_DIR -Recurse | Measure-Object -Property Length -Sum).Sum / 1MB
 
 Write-Info "输出目录: $OUTPUT_DIR"
 Write-Info "总大小: $([Math]::Round($size, 2)) MB"

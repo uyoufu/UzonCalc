@@ -4,14 +4,15 @@
 
 .DESCRIPTION
     Builds the Tauri desktop executable and the API portable package, then
-    combines both outputs into publish\uzoncalc-win-x64-<rust-version>.
+    combines both outputs into dist\uzoncalc-win-x64-<app-version>.
 #>
 
 [CmdletBinding()]
 param(
     [string]$OutputDir,
     [string]$ApiOutputName = "UzonCalc-Portable",
-    [string]$PythonVersion = "3.11.9"
+    [string]$PythonVersion = "3.11.9",
+    [string]$PythonCacheRoot
 )
 
 Set-StrictMode -Version Latest
@@ -47,7 +48,7 @@ function Resolve-OutputPath {
     )
 
     if ([string]::IsNullOrWhiteSpace($Path)) {
-        return (Join-RepoPath $Root "publish\uzoncalc-win-x64-$Version")
+        return (Join-RepoPath $Root "dist\uzoncalc-win-x64-$Version")
     }
 
     if ([System.IO.Path]::IsPathRooted($Path)) {
@@ -159,6 +160,9 @@ $repoRoot = [System.IO.Path]::GetFullPath($repoRoot)
 # 目录重构后，桌面端与 API 均位于 src 目录下。
 $webDir = Join-RepoPath $repoRoot "src\web"
 $tauriDir = Join-RepoPath $repoRoot "src\web\src-tauri"
+$nodeModulesDir = Join-RepoPath $webDir "node_modules"
+$iconIcoPath = Join-RepoPath $tauriDir "icons\icon.ico"
+$iconSourcePath = Join-RepoPath $webDir "public\icons\favicon.svg"
 $apiDir = Join-RepoPath $repoRoot "src\api"
 $apiBuildScript = Join-RepoPath $repoRoot "src\api\scripts\build-portable.ps1"
 $apiPortableDir = Join-RepoPath $apiDir "dist\$ApiOutputName"
@@ -166,20 +170,60 @@ $releaseDir = Join-RepoPath $tauriDir "target\release"
 $releaseConfig = Join-Path $releaseDir "config.toml"
 $sourceConfig = Join-RepoPath $tauriDir "config.toml"
 $cargoManifest = Join-RepoPath $tauriDir "Cargo.toml"
-$rustVersion = Get-CargoPackageVersion $cargoManifest
-$resolvedOutputDir = Resolve-OutputPath $repoRoot $OutputDir $rustVersion
+$appVersion = Get-CargoPackageVersion $cargoManifest
+$resolvedOutputDir = Resolve-OutputPath $repoRoot $OutputDir $appVersion
 
 Assert-IsInsidePath $resolvedOutputDir $repoRoot
 Assert-PathExists $webDir "Web 目录"
 Assert-PathExists $tauriDir "Tauri 目录"
 Assert-PathExists $apiBuildScript "API 构建脚本"
 
-Write-Step "构建 Tauri 桌面端"
+Write-Step "准备 Tauri 桌面端"
 Write-Info "Web 目录: $webDir"
 
 if (-not (Get-Command cargo -ErrorAction SilentlyContinue)) {
     throw "未找到 cargo，请先安装 Rust 工具链。"
 }
+
+if (-not (Test-Path -LiteralPath $nodeModulesDir)) {
+    if (-not (Get-Command bun -ErrorAction SilentlyContinue)) {
+        throw "未找到 bun，请先安装 Bun。"
+    }
+
+    Write-Info "未找到 node_modules，开始安装 Web 依赖。"
+    Push-Location $webDir
+    try {
+        Invoke-ExternalCommand "Web 依赖安装失败" {
+            bun install
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+else {
+    Write-Info "已找到 node_modules，跳过 Web 依赖安装。"
+}
+
+if (-not (Test-Path -LiteralPath $iconIcoPath)) {
+    Assert-PathExists $iconSourcePath "Tauri 图标源文件"
+
+    Write-Info "未找到 icon.ico，开始生成 Tauri 图标。"
+    Push-Location $tauriDir
+    try {
+        Invoke-ExternalCommand "Tauri 图标生成失败" {
+            cargo tauri icon ..\public\icons\favicon.svg
+        }
+    }
+    finally {
+        Pop-Location
+    }
+}
+else {
+    Write-Info "已找到 icon.ico，跳过 Tauri 图标生成。"
+}
+
+Write-Step "构建 Tauri 桌面端"
 
 Push-Location $webDir
 try {
@@ -197,13 +241,22 @@ $desktopExe = Get-LatestReleaseExe $releaseDir $tauriBuildStartedAt
 Write-Step "构建 API 便携包"
 Write-Info "API 构建脚本: $apiBuildScript"
 
+$apiBuildArgs = @{
+    OutputName = $ApiOutputName
+    PythonVersion = $PythonVersion
+}
+
+if (-not [string]::IsNullOrWhiteSpace($PythonCacheRoot)) {
+    $apiBuildArgs.PythonCacheRoot = $PythonCacheRoot
+}
+
 Invoke-ExternalCommand "API 便携包构建失败" {
-    & $apiBuildScript -OutputName $ApiOutputName -PythonVersion $PythonVersion
+    & $apiBuildScript @apiBuildArgs
 }
 
 Assert-PathExists $apiPortableDir "API 便携包输出目录"
 
-Write-Step "汇总发布文件"
+Write-Step "汇总整包文件"
 Write-Info "输出目录: $resolvedOutputDir"
 
 if (Test-Path -LiteralPath $resolvedOutputDir) {
@@ -231,5 +284,5 @@ Copy-DirectoryContents $apiPortableDir $resolvedOutputDir
 $totalSize = (Get-ChildItem -LiteralPath $resolvedOutputDir -Recurse -Force | Measure-Object -Property Length -Sum).Sum / 1MB
 
 Write-Step "构建完成"
-Write-Info "发布目录: $resolvedOutputDir"
+Write-Info "整包目录: $resolvedOutputDir"
 Write-Info "总大小: $([Math]::Round($totalSize, 2)) MB"
