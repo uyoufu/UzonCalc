@@ -30,6 +30,7 @@ class Field:
     value: str | int | float | bool | None = None
     options: list[str] | None = None
     visible: str | None = None  # 前端执行的 JS 可见性函数字符串
+    onChanged: str | None = None  # 前端执行的 JS 值变更函数字符串
 
 
 # 请求变量输入的数据结构

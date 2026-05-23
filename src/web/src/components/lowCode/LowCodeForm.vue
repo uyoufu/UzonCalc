@@ -373,12 +373,40 @@ async function onEnterKeyPress(event: KeyboardEvent) {
 // #endregion
 
 // #region 进行值同步
-watch(fieldsModel, () => {
+const previousFieldsModel = ref({ ...fieldsModel.value })
+
+async function notifyFieldValueChanged() {
+  // 使用快照获取旧值，避免 deep watch 中 oldValue 与 newValue 共用引用
+  const oldFieldsModel = previousFieldsModel.value
+  for (const field of fields.value) {
+    const fieldName = field.name
+    const newValue = fieldsModel.value[fieldName]
+    const oldValue = oldFieldsModel[fieldName]
+
+    if (Object.is(newValue, oldValue)) {
+      continue
+    }
+
+    if (typeof field.onChanged === 'function') {
+      await field.onChanged(newValue, oldValue, fieldsModel.value, fields.value)
+    }
+  }
+
+  // 回调可能联动修改其它字段，这里记录最终表单值作为下一次比较基准
+  previousFieldsModel.value = { ...fieldsModel.value }
+}
+
+function syncFieldValueToDefinition() {
+  // 将表单模型同步回字段定义，便于外层执行器收集默认值
   if (!props.syncValue) return
-  // 更新 fields 中的 value
   for (const field of fields.value) {
     field.value = fieldsModel.value[field.name]
   }
+}
+
+watch(fieldsModel, async () => {
+  await notifyFieldValueChanged()
+  syncFieldValueToDefinition()
 }, { deep: true })
 // #endregion
 </script>
