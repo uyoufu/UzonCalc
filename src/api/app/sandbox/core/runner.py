@@ -3,9 +3,9 @@ import uuid
 from typing import Any, Callable, Optional, Dict, cast, Awaitable
 
 # Adjust import based on workspace structure 'uzoncalc' package availability
-from core.uzoncalc.context import CalcContext
-from core.uzoncalc import run
-from core.uzoncalc import UIPayloads
+from uzoncalc.context import CalcContext
+from uzoncalc import run
+from uzoncalc import UIPayloads
 from .dynamic_import import DynamicImportSession
 from .errors import SandboxCancelledError
 from .timeout_control import GlobalTimeout, build_timeout_error
