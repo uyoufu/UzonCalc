@@ -5,22 +5,6 @@ from pathlib import Path
 
 from uzoncalc import *
 
-OUTPUT_HTML = Path(__file__).with_name("d60_2015_earth_pressure_report.html")
-
-
-def validate_positive_number(value: float, fieldName: str) -> float:
-    """统一校验工程参数，避免生成无物理意义的计算书。"""
-    if value <= 0:
-        raise ValueError(f"{fieldName} 应大于 0。")
-    return value
-
-
-def validate_nonnegative_number(value: float, fieldName: str) -> float:
-    """统一校验允许取 0 的工程参数。"""
-    if value < 0:
-        raise ValueError(f"{fieldName} 不应小于 0。")
-    return value
-
 
 @uzon_calc()
 async def sheet():
@@ -64,20 +48,21 @@ async def sheet():
     )
 
     hide()
+    # 添加单位
     # 输入同步完成类型转换和单位附加，便于公式渲染和后续校验。
-    gammaSoil = float(inputs.gamma) * unit.kN / unit.meter**3
-    phiDeg = float(inputs.phiDeg)
-    heightH = float(inputs.heightH) * unit.meter
-    depth = float(inputs.depth) * unit.meter
-    widthB = float(inputs.widthB) * unit.meter
-    alphaDeg = float(inputs.alphaDeg)
-    betaDeg = float(inputs.betaDeg)
+    gammaSoil = inputs.gamma * unit.kN / unit.meter**3
+    phiDeg = inputs.phiDeg
+    heightH = inputs.heightH * unit.meter
+    depth = inputs.depth * unit.meter
+    widthB = inputs.widthB * unit.meter
+    alphaDeg = inputs.alphaDeg
+    betaDeg = inputs.betaDeg
     deltaDeg = phiDeg / 2
-    vehicleWheelWeight = float(inputs.vehicleWheelWeightPerMeter) * unit.kN / unit.meter
-    columnCount = max(1, int(round(float(inputs.columnCount))))
-    columnSizeD = float(inputs.columnSizeD) * unit.meter
-    columnSpacingLi = float(inputs.columnSpacingLi) * unit.meter
-    compactedDepth = float(inputs.compactedDepth) * unit.meter
+    vehicleWheelWeight = inputs.vehicleWheelWeightPerMeter * unit.kN / unit.meter
+    columnCount = max(1, int(inputs.columnCount))
+    columnSizeD = inputs.columnSizeD * unit.meter
+    columnSpacingLi = inputs.columnSpacingLi * unit.meter
+    compactedDepth = inputs.compactedDepth * unit.meter
     vehicleUnitLength = 1.0 * unit.meter
     vehicleEquivalentHeight = vehicleWheelWeight / vehicleUnitLength / gammaSoil
     show()
@@ -346,5 +331,6 @@ async def sheet():
 
 if __name__ == "__main__":
     ctx = run_sync(sheet)
-    ctx.save(str(OUTPUT_HTML))
-    print(f"已生成计算书：{OUTPUT_HTML}")
+    html_path = Path(__file__).with_name("d60_2015_earth_pressure_report.html")
+    ctx.save(str(html_path))
+    print(f"已生成计算书：{html_path}")
