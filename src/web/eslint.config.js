@@ -1,4 +1,3 @@
-import js from '@eslint/js'
 import globals from 'globals'
 import pluginVue from 'eslint-plugin-vue'
 import pluginQuasar from '@quasar/app-vite/eslint'
@@ -39,7 +38,6 @@ export default defineConfigWithVueTs(
   },
 
   pluginQuasar.configs.recommended(),
-  js.configs.recommended,
 
   /**
    * https://eslint.vuejs.org
