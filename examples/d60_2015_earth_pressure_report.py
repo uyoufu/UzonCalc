@@ -23,12 +23,17 @@ async def sheet():
     inputs = await UI(
         "土压力计算参数",
         [
+            Field("isColumn", "柱式墩台", FieldType.boolean, value=False),
             Field("gamma", "土的重度 γ (kN/m³)", FieldType.number, value=18.0),
             Field("phiDeg", "内摩擦角 φ (°)", FieldType.number, value=30.0),
             Field("heightH", "填土或计算土层高度 H (m)", FieldType.number, value=6.0),
             Field("depth", "静土压力计算深度 h (m)", FieldType.number, value=3.0),
             Field(
-                "widthB", "桥台计算宽度或挡土墙长度 B (m)", FieldType.number, value=1.0
+                "widthB",
+                "桥台计算宽度或挡土墙长度 B (m)",
+                FieldType.number,
+                value=1.0,
+                visible="(values)=>values.isColumn === false",
             ),
             Field("alphaDeg", "墙背与竖直面夹角 α (°)", FieldType.number, value=0.0),
             Field("betaDeg", "填土表面与水平面夹角 β (°)", FieldType.number, value=0.0),
@@ -38,9 +43,27 @@ async def sheet():
                 FieldType.number,
                 value=10.8,
             ),
-            Field("columnCount", "柱数 n", FieldType.number, value=3),
-            Field("columnSizeD", "柱直径或宽度 D (m)", FieldType.number, value=1.2),
-            Field("columnSpacingLi", "柱间净距 li (m)", FieldType.number, value=1.5),
+            Field(
+                "columnCount",
+                "柱数 n",
+                FieldType.number,
+                value=3,
+                visible="(values)=>values.isColumn === true",
+            ),
+            Field(
+                "columnSizeD",
+                "柱直径或宽度 D (m)",
+                FieldType.number,
+                value=1.2,
+                visible="(values)=>values.isColumn === true",
+            ),
+            Field(
+                "columnSpacingLi",
+                "柱间净距 li (m)",
+                FieldType.number,
+                value=1.5,
+                visible="(values)=>values.isColumn === true",
+            ),
             Field(
                 "compactedDepth", "压实填土计算深度 hq (m)", FieldType.number, value=3.0
             ),

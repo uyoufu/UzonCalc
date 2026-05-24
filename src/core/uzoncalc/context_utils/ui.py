@@ -15,7 +15,7 @@ class FieldType:
     number = "number"
     selectOne = "selectOne"
     selectMany = "selectMany"
-    checkbox = "checkbox"
+    boolean = "boolean"
     textarea = "textarea"
 
 

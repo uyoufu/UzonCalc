@@ -22,8 +22,8 @@ async def sheet():
     inputs1 = await UI(
         "输入数据",
         fields=[
-            Field(name="field1", label="字段 1", type=FieldType.number, default=10),
-            Field(name="field2", label="字段 2", type=FieldType.number, default=20),
+            Field(name="field1", label="字段 1", type=FieldType.number, value=10),
+            Field(name="field2", label="字段 2", type=FieldType.number, value=20),
         ],
     )
 
@@ -41,8 +41,8 @@ async def sheet():
             Field(
                 name="confirm",
                 label=f"结果是 {result}，是否继续？",
-                type=FieldType.checkbox,
-                default=True,
+                type=FieldType.boolean,
+                value=True,
             ),
         ],
     )
