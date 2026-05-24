@@ -90,51 +90,101 @@ async def sheet():
     vehicleEquivalentHeight = vehicleWheelWeight / vehicleUnitLength / gammaSoil
     show()
 
+    hide()
+    rows = [
+        [
+            "土的重度",
+            "γ",
+            gammaSoil,
+            "按调查或试验确定，默认取填土常用值",
+        ],
+        ["内摩擦角", "φ", phiDeg, "单位：°"],
+        ["填土高度", "H", heightH, "静土压力与主动土压力计算高度"],
+        ["计算深度", "h", depth, "静土压力强度计算点深度"],
+        ["墙背倾角", "α", alphaDeg, "单位：°，俯墙背为正"],
+        [
+            "填土坡角",
+            "β",
+            betaDeg,
+            "单位：°，台后或墙后主动土压力按正值",
+        ],
+        ["墙土摩擦角", "δ", deltaDeg, "单位：°，按 δ=φ/2 计算"],
+        ["汽车车轮总重", "q", vehicleWheelWeight, "横向单位宽度重量"],
+        [
+            "等代土层厚度",
+            "h_0",
+            vehicleEquivalentHeight,
+            "按 q/(γ×1m) 计算",
+        ],
+    ]
+    if inputs.isColumn:
+        rows.extend(
+            [
+                ["柱数", "n", str(columnCount), "柱式墩台土压力计算宽度"],
+                [
+                    "柱直径或宽度",
+                    "D",
+                    columnSizeD,
+                    "圆柱取直径，矩形柱取宽度",
+                ],
+                ["柱间净距", "li", columnSpacingLi, "相邻柱间净距"],
+                [
+                    "压实填土深度",
+                    "hq",
+                    compactedDepth,
+                    "压实填土压力强度计算深度",
+                ],
+            ]
+        )
+    else:
+        rows.append(["计算宽度或长度", "B", widthB, "桥台宽度或挡土墙长度"])
+    show()
+
     Table(
         headers=["参数", "符号", "取值", "说明"],
-        rows=[
-            [
-                "土的重度",
-                "γ",
-                gammaSoil,
-                "按调查或试验确定，默认取填土常用值",
-            ],
-            ["内摩擦角", "φ", phiDeg, "单位：°"],
-            ["填土高度", "H", heightH, "静土压力与主动土压力计算高度"],
-            ["计算深度", "h", depth, "静土压力强度计算点深度"],
-            ["计算宽度或长度", "B", widthB, "桥台宽度或挡土墙长度"],
-            ["墙背倾角", "α", alphaDeg, "单位：°，俯墙背为正"],
-            [
-                "填土坡角",
-                "β",
-                betaDeg,
-                "单位：°，台后或墙后主动土压力按正值",
-            ],
-            ["墙土摩擦角", "δ", deltaDeg, "单位：°，按 δ=φ/2 计算"],
-            ["汽车车轮总重", "q", vehicleWheelWeight, "横向单位宽度重量"],
-            [
-                "等代土层厚度",
-                "h_0",
-                vehicleEquivalentHeight,
-                "按 q/(γ×1m) 计算",
-            ],
-            ["柱数", "n", str(columnCount), "柱式墩台土压力计算宽度"],
-            [
-                "柱直径或宽度",
-                "D",
-                columnSizeD,
-                "圆柱取直径，矩形柱取宽度",
-            ],
-            ["柱间净距", "li", columnSpacingLi, "相邻柱间净距"],
-            [
-                "压实填土深度",
-                "hq",
-                compactedDepth,
-                "压实填土压力强度计算深度",
-            ],
-        ],
+        rows=rows,
         title="输入参数",
     )
+
+    if inputs.isColumn:
+        # 说明是柱式墩台，需要通过柱数、柱直径、柱间净距计算宽度
+        # 当数据不满足时，提示输出错误并返回
+
+        "承受土侧压力的柱式墩台，作用在柱上的土压力计算宽度按柱间净距与柱直径或宽度的关系选取规范式。"
+
+        alias("columnSizeD", "D")
+        alias("columnSpacingLi", "l_i")
+        alias("columnPressureWidth", "b")
+
+        if columnSpacingLi <= columnSizeD:
+            columnPressureWidth = (
+                columnCount * columnSizeD + (columnCount - 1) * columnSpacingLi
+            ) / columnCount
+            columnFormula = "式 (4.2.3-8)"
+            columnCondition = "li ≤ D"
+        elif columnSizeD <= 1.0 * unit.meter:
+            columnPressureWidth = columnSizeD * (2 * columnCount - 1) / columnCount
+            columnFormula = "式 (4.2.3-9)"
+            columnCondition = "li > D 且 D ≤ 1.0m"
+        else:
+            columnPressureWidth = (
+                columnCount * (columnSizeD + 1.0 * unit.meter) - 1.0 * unit.meter
+            ) / columnCount
+            columnFormula = "式 (4.2.3-10)"
+            columnCondition = "li > D 且 D > 1.0m"
+
+        Table(
+            headers=["项目", "结果", "说明"],
+            rows=[
+                ["采用条件", columnCondition, "按柱间净距和柱径判断"],
+                [
+                    "每根柱土压力计算宽度 b",
+                    columnPressureWidth,
+                    columnFormula,
+                ],
+            ],
+            title="柱式墩台土压力计算宽度",
+        )
 
     H2("静土压力")
     "规范式 (4.2.3-1) 至 (4.2.3-3) 用于计算压实填土静土压力标准值。"
@@ -217,58 +267,64 @@ async def sheet():
         title="主动土压力计算结果",
     )
 
-    H3("汽车荷载作用")
-    "规范式 (4.2.3-6) 仅适用于土层特性无变化、桥台或挡土墙后有汽车荷载且 β = 0° 的情况。"
-
-    alias("vehicleActiveEarthForce", "E_q")
-    alias("vehicleForcePoint", "C_q")
-    alias("vehicleEquivalentHeight", "h_0")
-
+    hide()
     vehicleApplicable = abs(betaDeg) < 1e-9
-    if vehicleApplicable:
-        vehicleActiveEarthForce = (
-            widthB
-            * mu
-            * gammaSoil
-            * heightH
-            * (heightH + 2 * vehicleEquivalentHeight)
-            / 2
-        )
-        vehicleForcePoint = (
-            heightH
-            / 3
-            * (heightH + 3 * vehicleEquivalentHeight)
-            / (heightH + 2 * vehicleEquivalentHeight)
-        )
-        Table(
-            headers=["项目", "结果", "规范式"],
-            rows=[
-                [
-                    "等代土层厚度 h₀",
-                    vehicleEquivalentHeight,
-                    "h₀ = q/(γ×1m)",
-                ],
-                [
-                    "汽车荷载主动土压力 E_q",
-                    vehicleActiveEarthForce,
-                    "式 (4.2.3-6)",
-                ],
-                [
-                    "汽车荷载作用点 C_q",
-                    vehicleForcePoint,
-                    "C = H/3 × (H+3h₀)/(H+2h₀)",
-                ],
-            ],
-            title="汽车荷载主动土压力计算结果",
-        )
-    else:
-        Info("当前 β 不为 0°，规范式 (4.2.3-6) 不适用，本节不计算汽车荷载主动土压力。")
+    show()
 
-    H3("破裂面角")
-    "当 β = 0° 时，破坏棱体破裂面与竖直线间夹角 θ 的正切值可按式 (4.2.3-7) 计算。"
+    if inputs.vehicleWheelWeightPerMeter > 0:
+        H3("汽车荷载作用")
+        "规范式 (4.2.3-6) 仅适用于土层特性无变化、桥台或挡土墙后有汽车荷载且 β = 0° 的情况。"
+
+        alias("vehicleActiveEarthForce", "E_q")
+        alias("vehicleForcePoint", "C_q")
+        alias("vehicleEquivalentHeight", "h_0")
+
+        if vehicleApplicable:
+            vehicleActiveEarthForce = (
+                widthB
+                * mu
+                * gammaSoil
+                * heightH
+                * (heightH + 2 * vehicleEquivalentHeight)
+                / 2
+            )
+            vehicleForcePoint = (
+                heightH
+                / 3
+                * (heightH + 3 * vehicleEquivalentHeight)
+                / (heightH + 2 * vehicleEquivalentHeight)
+            )
+            Table(
+                headers=["项目", "结果", "规范式"],
+                rows=[
+                    [
+                        "等代土层厚度 h₀",
+                        vehicleEquivalentHeight,
+                        "h₀ = q/(γ×1m)",
+                    ],
+                    [
+                        "汽车荷载主动土压力 E_q",
+                        vehicleActiveEarthForce,
+                        "式 (4.2.3-6)",
+                    ],
+                    [
+                        "汽车荷载作用点 C_q",
+                        vehicleForcePoint,
+                        "C = H/3 × (H+3h₀)/(H+2h₀)",
+                    ],
+                ],
+                title="汽车荷载主动土压力计算结果",
+            )
+        else:
+            Info(
+                "当前 β 不为 0°，规范式 (4.2.3-6) 不适用，本节不计算汽车荷载主动土压力。"
+            )
 
     alias("tanTheta", "tanθ")
     if vehicleApplicable:
+        H3("破裂面角")
+        "当 β = 0° 时，破坏棱体破裂面与竖直线间夹角 θ 的正切值可按式 (4.2.3-7) 计算。"
+
         # 破裂面角按式 (4.2.3-7) 展开计算，便于计算书记录中间步骤。
         omegaRad = alphaRad + deltaRad + phiRad
         tanOmega = math.tan(omegaRad)
@@ -287,43 +343,6 @@ async def sheet():
         )
     else:
         Info("当前 β 不为 0°，式 (4.2.3-7) 的适用条件不满足，本节不计算破裂面角。")
-
-    H2("柱式墩台土压力计算宽度")
-    "承受土侧压力的柱式墩台，作用在柱上的土压力计算宽度按柱间净距与柱直径或宽度的关系选取规范式。"
-
-    alias("columnSizeD", "D")
-    alias("columnSpacingLi", "l_i")
-    alias("columnPressureWidth", "b")
-
-    if columnSpacingLi <= columnSizeD:
-        columnPressureWidth = (
-            columnCount * columnSizeD + (columnCount - 1) * columnSpacingLi
-        ) / columnCount
-        columnFormula = "式 (4.2.3-8)"
-        columnCondition = "li ≤ D"
-    elif columnSizeD <= 1.0 * unit.meter:
-        columnPressureWidth = columnSizeD * (2 * columnCount - 1) / columnCount
-        columnFormula = "式 (4.2.3-9)"
-        columnCondition = "li > D 且 D ≤ 1.0m"
-    else:
-        columnPressureWidth = (
-            columnCount * (columnSizeD + 1.0 * unit.meter) - 1.0 * unit.meter
-        ) / columnCount
-        columnFormula = "式 (4.2.3-10)"
-        columnCondition = "li > D 且 D > 1.0m"
-
-    Table(
-        headers=["项目", "结果", "说明"],
-        rows=[
-            ["采用条件", columnCondition, "按柱间净距和柱径判断"],
-            [
-                "每根柱土压力计算宽度 b",
-                columnPressureWidth,
-                columnFormula,
-            ],
-        ],
-        title="柱式墩台土压力计算宽度",
-    )
 
     H2("压实填土压力强度")
     "规范式 (4.2.3-11) 至 (4.2.3-13) 用于计算压实填土重力的竖向和水平压力强度标准值。"
