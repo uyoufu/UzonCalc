@@ -32,13 +32,14 @@ if __name__ == "__main__":
 
 ## 核心规则
 
-| 规则                 | 说明                                                  |
-| -------------------- | ----------------------------------------------------- |
-| 函数必须 `async def` | `@uzon_calc()` 仅支持异步函数                         |
-| 字符串字面量即段落   | 函数体内裸字符串 `"文本"` / `"""多行"""` 作为段落输出 |
-| 变量赋值自动渲染     | `x = expr` 被捕获并渲染为数学公式 `x = expr = 值`     |
-| 变量名用 camelCase   | `_` 被解析为下标（`H_2` → H₂），避免用下划线命名变量  |
-| 希腊字母自动转换     | `alpha`→α，`Beta`→Β，首字母大写得大写希腊字母         |
+| 规则                           | 说明                                                  |
+| ------------------------------ | ----------------------------------------------------- |
+| 函数必须 `async def`           | `@uzon_calc()` 仅支持异步函数                         |
+| 字符串字面量即段落             | 函数体内裸字符串 `"文本"` / `"""多行"""` 作为段落输出 |
+| 变量赋值自动渲染               | `x = expr` 被捕获并渲染为数学公式 `x = expr = 值`     |
+| 变量名用 camelCase             | `_` 被解析为下标（`H_2` → H₂），避免用下划线命名变量  |
+| 希腊字母自动转换               | `alpha`→α，`Beta`→Β，首字母大写得大写希腊字母         |
+| 纯函数调用不会插桩输出调用过程 | 如 `f(x)` 不会渲染为 `f(x)`，而是直接调用             |
 
 ## 可用规则文档
 
@@ -92,23 +93,23 @@ Div(
 
 常用 HTML 元素如下：
 
-| 函数                     | 说明                                                    |
-| ------------------------ | ------------------------------------------------------- |
-| `h(tag, children, ...)`   | 通用 HTML 构造器，`children` 支持字符串或字符串列表     |
-| `h1`~`h6` / `H1`~`H6`    | 标题元素，小写返回字符串，大写直接渲染                  |
-| `title` / `Title`        | 文档大标题，默认居中、加粗、大字号                      |
-| `subtitle` / `Subtitle`  | 文档副标题，默认居中、加粗                              |
-| `p` / `P`                | 段落                                                    |
-| `div` / `Div`            | 块级容器                                                |
-| `span` / `Span`          | 行内容器                                                |
-| `row` / `Row`            | 行容器，默认渲染为 `div`，可通过 `tag` 指定标签         |
-| `br` / `Br`              | 换行，自闭合元素                                        |
-| `img` / `Img`            | 图片，支持 `alt`、`width`、`height`                     |
-| `input` / `Input`        | 输入元素，当前主要用于生成带 `value` 的 HTML 输入标签   |
-| `code` / `Code`          | 代码块，`language` 会生成 `language-python` 等高亮类名   |
-| `info` / `Info`          | 蓝色提示框                                              |
-| `laTex` / `LaTex`        | 原始 LaTeX 内容标签                                     |
-| `plot` / `Plot`          | Matplotlib 图像或 PNG 二进制内容转为内嵌 base64 图片    |
+| 函数                    | 说明                                                   |
+| ----------------------- | ------------------------------------------------------ |
+| `h(tag, children, ...)` | 通用 HTML 构造器，`children` 支持字符串或字符串列表    |
+| `h1`~`h6` / `H1`~`H6`   | 标题元素，小写返回字符串，大写直接渲染                 |
+| `title` / `Title`       | 文档大标题，默认居中、加粗、大字号                     |
+| `subtitle` / `Subtitle` | 文档副标题，默认居中、加粗                             |
+| `p` / `P`               | 段落                                                   |
+| `div` / `Div`           | 块级容器                                               |
+| `span` / `Span`         | 行内容器                                               |
+| `row` / `Row`           | 行容器，默认渲染为 `div`，可通过 `tag` 指定标签        |
+| `br` / `Br`             | 换行，自闭合元素                                       |
+| `img` / `Img`           | 图片，支持 `alt`、`width`、`height`                    |
+| `input` / `Input`       | 输入元素，当前主要用于生成带 `value` 的 HTML 输入标签  |
+| `code` / `Code`         | 代码块，`language` 会生成 `language-python` 等高亮类名 |
+| `info` / `Info`         | 蓝色提示框                                             |
+| `laTex` / `LaTex`       | 原始 LaTeX 内容标签                                    |
+| `plot` / `Plot`         | Matplotlib 图像或 PNG 二进制内容转为内嵌 base64 图片   |
 
 属性与样式使用 `classes` 和 `props()`：
 
@@ -278,6 +279,13 @@ Table(
 
 ### 图表
 
+生成图表的过程不需要显示过程，若图表复杂，在单独的函数中定义。
+静态图首先使用 svg 方式，交互式图表使用 echarts 方式。
+
+**echarts 图表**
+
+通过 echarts 生成交互式图表， 在使用中，若对 echarts 中的参数不确定，读取 https://echarts.apache.org/zh/option.html 读取文档
+
 ```python
 # ECharts 交互式图表（推荐）
 from uzoncalc.extension.echarts import use_echarts, EChart, Javascript
@@ -288,9 +296,20 @@ EChart({
     "series": [{"type": "bar", "data": [120, 200, 150]}],
 })
 
-# ECharts GL 3D 图表
+# use_gl=True 时，渲染 ECharts GL 3D 图表
 EChart({...}, use_gl=True)
 
+```
+
+**svg 图表**
+
+对于静态图表，建议使用 svg 方式，以保持图表的清晰度和可打印性。
+
+**Matplotlib 图表**
+
+也可以使用 Matplotlib 生成静态图表
+
+```python
 # Matplotlib 静态图（适合打印）
 import matplotlib.pyplot as plt
 hide()
