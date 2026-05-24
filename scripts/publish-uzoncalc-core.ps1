@@ -3,14 +3,11 @@
     Build the project and upload distributions to PyPI or TestPyPI.
 
 .DESCRIPTION
-    Installs build/twine (unless skipped), runs `python -m build` for src/core to produce
-    sdist and wheel, removes old distributions, then uploads the current build.
+    Runs `python -m build` for src/core via uv to produce sdist and wheel, removes
+    old distributions, then uploads the current build via twine.
 
 .PARAMETER UseTestPyPI
     If present, upload to TestPyPI instead of the default PyPI endpoint.
-
-.PARAMETER SkipInstall
-    If present, skip installing/upgrading `build` and `twine`.
 
 .EXAMPLE
     .\build-and-upload.ps1
@@ -21,19 +18,20 @@
 
 [CmdletBinding()]
 param(
-  [switch]$UseTestPyPI,
-  [switch]$SkipInstall
+  [switch]$UseTestPyPI
 )
 
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 
 function Write-ErrAndExit($msg, $code = 1) {
+  # 输出错误信息并使用指定退出码终止脚本。
   Write-Host $msg -ForegroundColor Red
   exit $code
 }
 
 function Get-DistributionFiles {
+  # 获取当前构建目录中的可发布文件，避免上传旧产物。
   $patterns = @("*.egg", "*.tar.gz", "*.whl")
   $files = foreach ($pattern in $patterns) {
     Get-ChildItem -Path (Join-Path $buildRoot "dist") -Filter $pattern -File -ErrorAction SilentlyContinue
@@ -43,6 +41,7 @@ function Get-DistributionFiles {
 }
 
 function Clear-BuildArtifacts {
+  # 清理构建缓存，确保本次发布只使用当前源码生成的产物。
   $paths = @(
     (Join-Path $buildRoot "dist"),
     (Join-Path $buildRoot "build"),
@@ -61,6 +60,7 @@ function Clear-BuildArtifacts {
 }
 
 function Test-ArchiveContains {
+  # 使用 uv 提供的 Python 标准库检查归档内容，避免依赖当前 venv 的 pip。
   param(
     [Parameter(Mandatory = $true)]
     [string]$ArchivePath,
@@ -95,13 +95,14 @@ if missing:
     sys.exit(1)
 "@
 
-  python -c $pythonCode $ArchivePath @RequiredEntries
+  uv run --no-project python -c $pythonCode $ArchivePath @RequiredEntries
   if ($LASTEXITCODE -ne 0) {
     Write-ErrAndExit "Distribution content validation failed for $ArchivePath." $LASTEXITCODE
   }
 }
 
 function Test-DistributionFiles {
+  # 校验 wheel 和 sdist 的关键入口文件，降低空包或漏资源上传风险。
   param(
     [Parameter(Mandatory = $true)]
     [object[]]$DistributionFiles
@@ -149,24 +150,18 @@ $buildRoot = Join-Path $projectRoot "src/core"
 Write-Host "Project root: $projectRoot"
 Write-Host "Build root:   $buildRoot"
 
-# Ensure python is available
-if (-not (Get-Command python -ErrorAction SilentlyContinue)) {
-  Write-ErrAndExit "Python is not found in PATH. Please install Python and retry."
+# 确保发布流程可通过 uv 临时运行构建和上传工具。
+if (-not (Get-Command uv -ErrorAction SilentlyContinue)) {
+  Write-ErrAndExit "uv is not found in PATH. Please install uv and retry."
 }
 
 Push-Location $buildRoot
 try {
-  if (-not $SkipInstall) {
-    Write-Host "Ensuring pip, build and twine are installed/updated..."
-    python -m pip install --upgrade pip > $null
-    python -m pip install --upgrade build twine
-  }
-
   # 每次发布前清理构建缓存，避免旧的空包或错误产物被上传。
   Clear-BuildArtifacts
 
   Write-Host "Running build (sdist + wheel) in $buildRoot..."
-  python -m build
+  uv run --no-project --with build python -m build
   if ($LASTEXITCODE -ne 0) { Write-ErrAndExit "Build failed (exit code $LASTEXITCODE)." $LASTEXITCODE }
 
   $distFilesAfterBuild = Get-DistributionFiles
@@ -187,11 +182,11 @@ try {
 
   if ($UseTestPyPI) {
     Write-Host "Uploading to TestPyPI (https://test.pypi.org/legacy/)..."
-    python -m twine upload --repository-url https://test.pypi.org/legacy/ --verbose $builtDistributionPaths
+    uv run --no-project --with twine python -m twine upload --repository-url https://test.pypi.org/legacy/ --verbose $builtDistributionPaths
   }
   else {
     Write-Host "Uploading to PyPI (default repository, use --repository or .pypirc to change)..."
-    python -m twine upload --verbose $builtDistributionPaths
+    uv run --no-project --with twine python -m twine upload --verbose $builtDistributionPaths
   }
 
   if ($LASTEXITCODE -ne 0) {
