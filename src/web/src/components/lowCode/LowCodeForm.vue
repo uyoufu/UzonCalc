@@ -422,7 +422,7 @@ watch(fieldsModel, async () => {
   min-width: 80px;
   max-width: 100%;
 
-  zoom: 0.8;
+  zoom: 0.9;
 
   @media screen and (max-width: 600px) {
     min-width: 100%;
