@@ -53,6 +53,8 @@ def test_power_shell_scripts_reference_current_core_layout():
     assert 'Join-Path $projectRoot "src/core/uzoncalc/template/js/dist/template.js"' in upload_script
     assert "bun run build" in upload_script
     assert 'Join-Path $REPO_ROOT "src/core"' in setup_script
+    assert '& $pythonExe -m pip @Arguments --no-warn-script-location' in setup_script
+    assert "& $pipExe" not in setup_script
 
     assert "src/uzoncalc" not in publish_script
     assert "src/uzoncalc" not in upload_script
