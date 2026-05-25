@@ -1,8 +1,17 @@
 /* UzonCalc template print styles */
 @media print {
+  html,
+  body,
+  .content,
+  .content * {
+    /* 桌面 WebView 打印时显式保留模板颜色和背景。 */
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+
   body {
     margin: 0;
-    color: var(--uz-text-color-print);
+    /* color: var(--uz-text-color); */
   }
 
   math mi[mathvariant="italic"],
