@@ -2,19 +2,18 @@
 
 ## 目录介绍
 
-- uzoncalc: 计算引擎核心
-- ui： 用户界面
+- src
+  - core/uzoncalc: 计算引擎核心
   - api: 界面的后端 api
   - web: 界面的前端
-  - desktop-maui: 使用 MAUI 框架的桌面应用
+    - src-tauri: Tauri 应用，用于将 web 目录下的文件打包到桌面应用中
 
 ## Agents
 
 在开发某些模块时，提前读取对应目录下的 AGENTS.md 文件，了解开发规范, 其中包含 AGENTS.md 文件的目录如下：
 
-| 项目/目录    | Agent                  |
-| ------------ | ---------------------- |
-| uzoncalc     | uzoncalc/AGENTS.md     |
-| ui/api       | ui/api/AGENTS.md       |
-| ui/web       | ui/web/AGENTS.md       |
-| ui/desktop-maui | ui/desktop-maui/AGENTS.md |
+| 项目/目录         | Agent                       |
+| ----------------- | --------------------------- |
+| src/core/uzoncalc | src/core/uzoncalc/AGENTS.md |
+| src/api           | src/api/AGENTS.md           |
+| src/web           | src/web/AGENTS.md           |
