@@ -7,6 +7,8 @@ from sqlalchemy.orm import Mapped, mapped_column
 class CalcReportArchive(BaseModel):
     """
     用于记录用户计算报告的历史输入参数
+    每个报告在任意位置的操作历史记录，只与 reportId 相关
+    每次运行后，自动更新
     """
 
     __tablename__ = "calc_report_archive"
