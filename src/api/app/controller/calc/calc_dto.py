@@ -89,17 +89,23 @@ class CalcExecutionReqDTO(BaseDTO):
     reportOid: str
     isSilent: bool = False
     defaults: Optional[dict[str, dict[str, Any]]] = None
+    # 上一次已渲染的 HTML 路径，用于判断是否可进行正文增量更新
+    lastHtmlPath: Optional[str] = None
 
 
 class CalcFileReqDTO(BaseDTO):
     filePath: str
     isSilent: Optional[bool] = False
     defaults: Optional[dict[str, dict[str, Any]]] = None
+    # 上一次已渲染的 HTML 路径，用于判断是否可进行正文增量更新
+    lastHtmlPath: Optional[str] = None
 
 
 # 恢复计算执行请求 DTO
 class CalcResumeReqDTO(BaseDTO):
     defaults: Optional[dict[str, dict[str, Any]]] = None
+    # 上一次已渲染的 HTML 路径，用于判断是否可进行正文增量更新
+    lastHtmlPath: Optional[str] = None
 
 
 # 保存计算报告请求 DTO
