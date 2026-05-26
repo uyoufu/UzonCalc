@@ -141,7 +141,7 @@ def render_html_template(content: str, options: ContextOptions) -> str:
         "CUSTOM_STYLES": custom_styles,
         "CUSTOM_HEADS": custom_heads,
         "PAGE_MARGIN": options.page_info.margin,
-        "CONTENT": content,
+        "CALC_CONTENT": content,
     }
 
     html_output = template

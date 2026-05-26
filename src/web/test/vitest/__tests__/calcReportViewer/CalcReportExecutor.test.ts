@@ -29,4 +29,16 @@ describe('CalcReportExecutor 复用结构', () => {
     expect(source).not.toContain('CalcInputForm')
     expect(source).not.toContain('<iframe')
   })
+
+  it('执行器通过 postMessage 增量更新 iframe 正文', () => {
+    const source = readVueSource(executorPath)
+
+    expect(source).toContain('ref="reportIframeRef"')
+    expect(source).toContain('postMessage')
+    expect(source).toContain('uzoncalc:update-content')
+    expect(source).toContain('iframeSrc')
+    expect(source).toContain('contentHtml')
+    expect(source).not.toContain('baseUrl')
+    expect(source).not.toContain('buildPatchBaseUrl')
+  })
 })

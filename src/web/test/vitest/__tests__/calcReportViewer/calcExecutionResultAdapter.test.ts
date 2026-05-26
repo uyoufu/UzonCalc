@@ -9,6 +9,7 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
       isCompleted: false,
       windows: [
         {
@@ -43,6 +44,7 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
       isCompleted: false,
       windows: [
         {
@@ -70,6 +72,7 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
       isCompleted: false,
       windows: [
         {
@@ -96,6 +99,7 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
       isCompleted: false,
       windows: [
         {
@@ -128,6 +132,7 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
       isCompleted: false,
       windows: [
         {
@@ -154,6 +159,7 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
       isCompleted: false,
       windows: [
         {

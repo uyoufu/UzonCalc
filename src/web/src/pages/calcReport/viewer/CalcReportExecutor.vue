@@ -5,19 +5,19 @@
       <template #before>
         <CalcInputForm ref="calcInputFormRef" v-model="fullHtmlUrl" v-model:hashUis="hashUis"
           :report-oid="reportOid" :file-path="filePath" :is-silent="isSilent" :instance-info="instanceInfo"
-          :disable-header="disableHeader" :disable-buttons="disableButtons">
+          :disable-header="disableHeader" :disable-buttons="disableButtons" @html-content-patch="onHtmlContentPatch">
         </CalcInputForm>
       </template>
 
       <template #after>
         <div class="full-height overflow-hidden">
-          <div v-if="!fullHtmlUrl" class="full-height text-grey-6 column justify-center">
+          <div v-if="!iframeSrc" class="full-height text-grey-6 column justify-center">
             <div class="text-center">
               <q-icon name="article" size="xl" />
               <div>{{ tCalcReportPageViewer('pleaseStartExecution') }}</div>
             </div>
           </div>
-          <iframe v-else :src="fullHtmlUrl" class="full-height full-width" frameborder="0"></iframe>
+          <iframe v-else ref="reportIframeRef" :src="iframeSrc" class="full-height full-width" frameborder="0"></iframe>
         </div>
       </template>
     </q-splitter>
@@ -95,11 +95,14 @@ const props = defineProps({
 })
 
 const fullHtmlUrl = ref('')
+const iframeSrc = ref('')
 const hashUis = ref(false)
 const splitterModel = ref(props.autoCollapseInputUis ? 0 : 30)
 const splitterLimits: Ref<[number, number] | undefined> = ref(props.autoCollapseInputUis ? [0, 0] : undefined)
 const lastSplitterValue = ref(30)
 const calcInputFormRef: Ref<typeof CalcInputForm | null> = ref(null)
+const reportIframeRef = ref<HTMLIFrameElement | null>(null)
+const patchedFullHtmlUrl = ref('')
 
 watch(hashUis, (newValue) => {
   if (!props.autoCollapseInputUis) return
@@ -114,6 +117,34 @@ watch(hashUis, (newValue) => {
     splitterLimits.value = [0, 0]
   }
 })
+
+watch(fullHtmlUrl, (newValue) => {
+  if (!newValue) {
+    iframeSrc.value = ''
+    patchedFullHtmlUrl.value = ''
+    return
+  }
+
+  // 已通过 postMessage 更新的结果不再切换 iframe src，避免预览区闪白
+  if (newValue === patchedFullHtmlUrl.value) return
+
+  iframeSrc.value = newValue
+})
+
+// 接收正文补丁时复用 iframe，只在无法发送消息时退回完整地址刷新
+function onHtmlContentPatch(payload: { contentHtml: string; fullHtmlUrl: string }) {
+  const iframeWindow = reportIframeRef.value?.contentWindow
+  if (!iframeWindow) {
+    iframeSrc.value = payload.fullHtmlUrl
+    return
+  }
+
+  patchedFullHtmlUrl.value = payload.fullHtmlUrl
+  iframeWindow.postMessage({
+    type: 'uzoncalc:update-content',
+    contentHtml: payload.contentHtml
+  }, '*')
+}
 
 // 向外暴露执行入口，供编辑器工具栏触发预览执行
 function onStartExecution() {

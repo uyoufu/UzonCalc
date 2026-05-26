@@ -33,6 +33,19 @@ router = APIRouter(
 )
 
 
+def finalize_execution_result_html(
+    result: ExecutionResult, last_html_path: Optional[str], relative_path: str
+) -> None:
+    """整理执行结果 HTML 字段，返回路径并清空原始内容"""
+    content_patch = html_cacher.build_content_patch_from_paths(
+        last_html_path,
+        relative_path,
+    )
+    result.htmlContentPatch = content_patch
+    result.htmlPath = relative_path
+    result.html = ""
+
+
 @router.post("/start")
 async def start_calc_execution(
     data: CalcExecutionReqDTO,
@@ -53,7 +66,7 @@ async def start_calc_execution(
 
     # 对结果进行缓存
     relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    result.html = relative_path
+    finalize_execution_result_html(result, data.lastHtmlPath, relative_path)
 
     return ok(result)
 
@@ -73,7 +86,7 @@ async def resume_calc_execution(
 
     # 对结果进行缓存
     relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    result.html = relative_path
+    finalize_execution_result_html(result, data.lastHtmlPath, relative_path)
 
     return ok(result)
 
@@ -102,6 +115,6 @@ async def start_file_calc_execution(
 
     # 对结果进行缓存
     relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    result.html = relative_path
+    finalize_execution_result_html(result, data.lastHtmlPath, relative_path)
 
     return ok(result)

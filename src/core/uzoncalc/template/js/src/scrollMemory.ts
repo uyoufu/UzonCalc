@@ -2,6 +2,7 @@ const STORAGE_PREFIX = "uzoncalc:scroll:";
 const BOTTOM_THRESHOLD_PX = 8;
 const SAVE_THROTTLE_MS = 150;
 const FOLLOW_UP_RESTORE_DELAY_MS = 120;
+let isScrollMemorySetup = false;
 
 type ScrollState = {
   scrollTop: number;
@@ -89,6 +90,11 @@ function restoreScrollPosition(): void {
 }
 
 export function setupScrollMemory(): void {
+  if (isScrollMemorySetup) {
+    return;
+  }
+  isScrollMemorySetup = true;
+
   let saveTimer: number | null = null;
 
   const scheduleSave = (): void => {

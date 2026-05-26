@@ -82,6 +82,10 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits<{
+  htmlContentPatch: [payload: { contentHtml: string; fullHtmlUrl: string }]
+}>()
+
 // #region 报告信息
 const { isSilent } = toRefs(props)
 const currentReportOid = ref<string>(props.reportOid || '')
@@ -110,6 +114,7 @@ onMounted(async () => {
 const executeResult = ref<ExecutionResult>({
   executionId: '',
   html: '',
+  htmlPath: '',
   windows: [],
   isCompleted: false
 })
@@ -120,7 +125,8 @@ function applyInstanceInfo(instanceInfo: ICalcReportInstanceInfo) {
   calcReportNameRef.value = instanceInfo.name
   executeResult.value = {
     executionId: '',
-    html: instanceInfo.resultPath || '',
+    html: '',
+    htmlPath: instanceInfo.resultPath || '',
     windows: [],
     isCompleted: true
   }
@@ -135,6 +141,7 @@ import { useConfig } from 'src/config/index'
 const config = useConfig()
 const userInfoStore = useUserInfoStore()
 const { username: userId } = storeToRefs(userInfoStore)
+const lastPatchedHtmlPath = ref('')
 
 function buildFullHtmlUrl(htmlPath: string) {
   if (!htmlPath) return ''
@@ -148,8 +155,20 @@ function buildFullHtmlUrl(htmlPath: string) {
 }
 
 // 更新结果 HTML 地址
-watch([() => executeResult.value.html, currentReportOid, currentFilePath, userId, currentInstance], () => {
-  fullHtmlUrl.value = buildFullHtmlUrl(executeResult.value.html)
+watch([() => executeResult.value.htmlPath, currentReportOid, currentFilePath, userId, currentInstance], () => {
+  const nextFullHtmlUrl = buildFullHtmlUrl(executeResult.value.htmlPath)
+  const contentPatch = executeResult.value.htmlContentPatch
+
+  // 补丁只在当前 HTML 结果首次出现时发送，避免用户信息变化导致重复更新 iframe
+  if (contentPatch && executeResult.value.htmlPath && lastPatchedHtmlPath.value !== executeResult.value.htmlPath) {
+    lastPatchedHtmlPath.value = executeResult.value.htmlPath
+    emit('htmlContentPatch', {
+      contentHtml: contentPatch,
+      fullHtmlUrl: nextFullHtmlUrl
+    })
+  }
+
+  fullHtmlUrl.value = nextFullHtmlUrl
 }, { immediate: true })
 // 最终显示的 UI
 const inputUIs = computed<ICalcWindow[]>(() => {
@@ -176,7 +195,7 @@ const {
 const router = useRouter()
 const hasUnsavedCompletedResult = ref(false)
 const canSaveInstance = computed(() => {
-  return hasUnsavedCompletedResult.value && executeResult.value.isCompleted && !!executeResult.value.html && !!currentReportOid.value
+  return hasUnsavedCompletedResult.value && executeResult.value.isCompleted && !!executeResult.value.htmlPath && !!currentReportOid.value
 })
 
 function getCurrentDefaults() {
@@ -186,7 +205,8 @@ function getCurrentDefaults() {
 }
 
 function markSaveableIfCompleted(result?: ExecutionResult) {
-  if ((result || executeResult.value).isCompleted && executeResult.value.html) {
+  const targetResult = result || executeResult.value
+  if (targetResult.isCompleted && targetResult.htmlPath) {
     hasUnsavedCompletedResult.value = true
   }
 }
@@ -250,7 +270,7 @@ function buildSaveInstanceFields(categories: ICategoryInfo[]): ILowCodeField[] {
 }
 
 async function onSaveCalcReportInstance() {
-  if (!executeResult.value.html || !executeResult.value.isCompleted) {
+  if (!executeResult.value.htmlPath || !executeResult.value.isCompleted) {
     notifyError(tCalcReportPageViewer('resultNotReady'))
     return
   }
@@ -282,7 +302,7 @@ async function onSaveCalcReportInstance() {
     categoryId: categoryId as number,
     reportOid: currentReportOid.value,
     defaults: getCurrentDefaults(),
-    resultPath: executeResult.value.html
+    resultPath: executeResult.value.htmlPath
   }
 
   const response = currentInstance.value
@@ -291,7 +311,7 @@ async function onSaveCalcReportInstance() {
 
   currentInstance.value = response.data
   calcReportNameRef.value = response.data.name
-  executeResult.value.html = response.data.resultPath || executeResult.value.html
+  executeResult.value.htmlPath = response.data.resultPath || executeResult.value.htmlPath
   hasUnsavedCompletedResult.value = false
 
   await router.replace({

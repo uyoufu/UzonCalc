@@ -19,6 +19,7 @@ export function useLocalFileSelector(
         executeResult.value = {
           executionId: '',
           html: '',
+          htmlPath: '',
           windows: [],
           isCompleted: false
         }

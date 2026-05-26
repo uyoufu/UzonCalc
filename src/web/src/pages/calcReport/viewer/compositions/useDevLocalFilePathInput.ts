@@ -6,6 +6,7 @@ function createEmptyExecutionResult(): ExecutionResult {
   return {
     executionId: '',
     html: '',
+    htmlPath: '',
     windows: [],
     isCompleted: false
   }
