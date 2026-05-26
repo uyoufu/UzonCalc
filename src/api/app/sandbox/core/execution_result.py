@@ -3,6 +3,8 @@ from typing import List, Dict, Any
 
 
 class ExecutionResult(BaseModel):
+    # 执行 ID
+    # 每次执行都会生成唯一标识符
     executionId: str
     html: str
     isCompleted: bool = False

@@ -190,7 +190,7 @@ async def start_execution(
         user_id, calc_report.name, calc_category.name
     )
 
-    # 读取一次的历史输入
+    # 读取上一次的历史输入
     last_archive = await db_session.scalar(
         select(CalcReportArchive).where(
             CalcReportArchive.userId == user_id,

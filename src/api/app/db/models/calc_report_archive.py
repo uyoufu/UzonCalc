@@ -14,7 +14,7 @@ class CalcReportArchive(BaseModel):
     userId: Mapped[int] = mapped_column(nullable=False, index=True)
     # 状态： 0-删除，1-正常
     status: Mapped[int] = mapped_column(nullable=False, default=1)
-    # 归档状态： 0-临时的，用于记录用户在这个 reportId 下的上一次历史记录，1-已归档
+    # 归档状态： 0-临时的，用于记录用户在这个 reportId 下的上一次历史记录，1-实例化后的归档
     type: Mapped[int] = mapped_column(nullable=False, default=1)
     # 报告 id, 非必须, 默认为 0
     reportId: Mapped[int] = mapped_column(default=0)
