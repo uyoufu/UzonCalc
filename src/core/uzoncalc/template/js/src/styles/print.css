@@ -18,6 +18,7 @@
   math mi:not([mathvariant]) {
     font-family: inherit !important;
     font-style: italic !important;
+    color: var(--uz-text-color-print);
   }
 
   math .function-name,
