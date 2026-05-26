@@ -8,15 +8,18 @@ describe("printStyles", () => {
     expect(printStyles).toContain("-webkit-print-color-adjust: exact");
   });
 
-  test("打印时不强制覆盖正文颜色为黑色", () => {
-    const bodyPrintRule = printStyles.match(/body\s*\{[^}]*\}/)?.[0] ?? "";
-
-    expect(bodyPrintRule).not.toContain("color: var(--uz-text-color-print)");
+  test("打印时统一强制内容文本颜色", () => {
+    expect(printStyles).toContain(".content *");
+    expect(printStyles).toContain(".content *::before");
+    expect(printStyles).toContain(".content *::after");
+    expect(printStyles).toContain(".content *::marker");
+    expect(printStyles).toContain(
+      "color: var(--uz-text-color-print) !important",
+    );
   });
 
-  test("打印时函数名和单位显示为黑色", () => {
-    expect(printStyles).toContain("math .function-name");
-    expect(printStyles).toContain("math .unit");
-    expect(printStyles).toContain("color: var(--uz-text-color-print)");
+  test("打印时不维护局部文本颜色补丁", () => {
+    expect(printStyles).not.toContain("math .function-name");
+    expect(printStyles).not.toContain("math .unit");
   });
 });

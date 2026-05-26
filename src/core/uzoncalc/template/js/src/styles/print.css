@@ -11,20 +11,22 @@
 
   body {
     margin: 0;
-    color: var(--uz-text-color-print);
+  }
+
+  body,
+  .content,
+  .content *,
+  .content *::before,
+  .content *::after,
+  .content *::marker {
+    /* 打印时统一强制文本色，覆盖链接、代码和公式等局部颜色。 */
+    color: var(--uz-text-color-print) !important;
   }
 
   math mi[mathvariant="italic"],
   math mi:not([mathvariant]) {
     font-family: inherit !important;
     font-style: italic !important;
-    color: var(--uz-text-color-print);
-  }
-
-  math .function-name,
-  math .unit {
-    /* 打印时函数名和单位使用黑色，避免彩色输出偏灰。 */
-    color: var(--uz-text-color-print);
   }
 
   .content {
