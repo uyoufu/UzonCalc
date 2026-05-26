@@ -9,6 +9,14 @@ describe("printStyles", () => {
   });
 
   test("打印时不强制覆盖正文颜色为黑色", () => {
-    expect(printStyles).not.toContain("color: var(--uz-text-color-print)");
+    const bodyPrintRule = printStyles.match(/body\s*\{[^}]*\}/)?.[0] ?? "";
+
+    expect(bodyPrintRule).not.toContain("color: var(--uz-text-color-print)");
+  });
+
+  test("打印时函数名和单位显示为黑色", () => {
+    expect(printStyles).toContain("math .function-name");
+    expect(printStyles).toContain("math .unit");
+    expect(printStyles).toContain("color: var(--uz-text-color-print)");
   });
 });

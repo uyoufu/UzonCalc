@@ -11,13 +11,19 @@
 
   body {
     margin: 0;
-    /* color: var(--uz-text-color); */
+    color: var(--uz-text-color-print);
   }
 
   math mi[mathvariant="italic"],
   math mi:not([mathvariant]) {
     font-family: inherit !important;
     font-style: italic !important;
+  }
+
+  math .function-name,
+  math .unit {
+    /* 打印时函数名和单位使用黑色，避免彩色输出偏灰。 */
+    color: var(--uz-text-color-print);
   }
 
   .content {
