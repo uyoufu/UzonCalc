@@ -1,9 +1,11 @@
 <template>
-  <div class="full-height column card-like">
-    <q-splitter v-model="splitterModel" class="full-height col no-wrap">
+  <div :class="wrapperClass || undefined">
+    <q-splitter v-model="splitterModel" :limits="splitterLimits" class="full-height col no-wrap"
+      :horizontal="isVerticalLayout">
       <template #before>
-        <CalcInputForm v-model="fullHtmlUrl" :report-oid="reportOid" :file-path="filePath" :is-silent="isSilent"
-          :instance-info="instanceInfo">
+        <CalcInputForm ref="calcInputFormRef" v-model="fullHtmlUrl" v-model:hashUis="hashUis"
+          :report-oid="reportOid" :file-path="filePath" :is-silent="isSilent" :instance-info="instanceInfo"
+          :disable-header="disableHeader" :disable-buttons="disableButtons">
         </CalcInputForm>
       </template>
 
@@ -28,7 +30,7 @@ import CalcInputForm from './components/CalcInputForm.vue'
 import type { ICalcReportInstanceInfo } from 'src/api/calcReportInstance'
 import type { PropType } from 'vue'
 
-defineProps({
+const props = defineProps({
   // 报告的 oid
   reportOid: {
     type: String,
@@ -54,12 +56,73 @@ defineProps({
     type: Object as PropType<ICalcReportInstanceInfo | null>,
     required: false,
     default: null
+  },
+
+  // 是否使用竖向排版
+  isVerticalLayout: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+
+  // 是否跟随输入 UI 自动折叠参数区
+  autoCollapseInputUis: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+
+  // 是否禁用表单头部显示
+  disableHeader: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+
+  // 是否禁用表单底部按钮
+  disableButtons: {
+    type: Boolean,
+    required: false,
+    default: false
+  },
+
+  // 外层样式类
+  wrapperClass: {
+    type: String,
+    required: false,
+    default: 'full-height column card-like'
   }
 })
 
-const splitterModel = ref(30)
-
 const fullHtmlUrl = ref('')
+const hashUis = ref(false)
+const splitterModel = ref(props.autoCollapseInputUis ? 0 : 30)
+const splitterLimits: Ref<[number, number] | undefined> = ref(props.autoCollapseInputUis ? [0, 0] : undefined)
+const lastSplitterValue = ref(30)
+const calcInputFormRef: Ref<typeof CalcInputForm | null> = ref(null)
+
+watch(hashUis, (newValue) => {
+  if (!props.autoCollapseInputUis) return
+
+  if (newValue) {
+    splitterModel.value = lastSplitterValue.value
+    splitterLimits.value = [20, 80]
+  }
+  else {
+    lastSplitterValue.value = splitterModel.value
+    splitterModel.value = 0
+    splitterLimits.value = [0, 0]
+  }
+})
+
+// 向外暴露执行入口，供编辑器工具栏触发预览执行
+function onStartExecution() {
+  return calcInputFormRef.value?.onStartExecution()
+}
+
+defineExpose({
+  onStartExecution
+})
 </script>
 
 <style lang="scss" scoped></style>
