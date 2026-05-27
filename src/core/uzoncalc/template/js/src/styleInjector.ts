@@ -2,10 +2,6 @@ import { templateStyles } from "./styles";
 
 const STYLE_ATTRIBUTE = "data-uzoncalc-template";
 
-function findInsertionAnchor(headElement: HTMLHeadElement): Element | null {
-  return headElement.querySelector("style");
-}
-
 export function ensureTemplateStyles(): void {
   const headElement = document.head;
   if (!headElement) {
@@ -20,11 +16,6 @@ export function ensureTemplateStyles(): void {
   styleElement.setAttribute(STYLE_ATTRIBUTE, "true");
   styleElement.textContent = templateStyles;
 
-  const anchorElement = findInsertionAnchor(headElement);
-  if (anchorElement) {
-    headElement.insertBefore(styleElement, anchorElement);
-    return;
-  }
-
+  // 模板主题样式需要晚于 Tailwind reset，确保基础元素样式最终生效。
   headElement.appendChild(styleElement);
 }
