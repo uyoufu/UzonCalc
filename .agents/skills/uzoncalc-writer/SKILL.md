@@ -282,6 +282,17 @@ Table(
 生成图表的过程不需要显示过程，若图表复杂，在单独的函数中定义。
 静态图首先使用 svg 方式，交互式图表使用 echarts 方式。
 
+**配色**
+
+进行图表配色时，优先选择以下配色方案：
+
+- primary: #7367f0;
+- secondary: #42b883;
+- dark-page: #e0e0e0;
+- positive: #42b883;
+- negative: #ff7a7a;
+- info: #65a0bb;
+
 **echarts 图表**
 
 通过 echarts 生成交互式图表， 在使用中，若对 echarts 中的参数不确定，读取 https://echarts.apache.org/zh/option.html 读取文档
@@ -301,9 +312,26 @@ EChart({...}, use_gl=True)
 
 ```
 
-**svg 图表**
+**svg**
 
-对于静态图表，建议使用 svg 方式，以保持图表的清晰度和可打印性。
+对于一般图示，建议使用 svg.py, 示例如下:
+
+```python
+import svg
+canvas = svg.SVG(
+    width=60,
+    height=60,
+    elements=[
+        svg.Circle(
+            cx=30, cy=30, r=20,
+            stroke="red",
+            fill="white",
+            stroke_width=5,
+        ),
+    ],
+)
+P(canvas)
+```
 
 **Matplotlib 图表**
 
