@@ -7,6 +7,12 @@ export interface ICalcWindow {
   fields: ILowCodeField[]
 }
 
+export enum HtmlUpdateType {
+  None = 0,
+  Full = 1,
+  Partial = 2
+}
+
 /**
  * 执行结果接口
  */
@@ -16,6 +22,7 @@ export interface ExecutionResult {
   htmlPath: string
   isCompleted: boolean
   windows: Array<ICalcWindow>
+  updateType: HtmlUpdateType
   htmlContentPatch?: string | null
 }
 

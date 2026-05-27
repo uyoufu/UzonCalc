@@ -3,9 +3,9 @@
     <q-splitter v-model="splitterModel" :limits="splitterLimits" class="full-height col no-wrap"
       :horizontal="isVerticalLayout">
       <template #before>
-        <CalcInputForm ref="calcInputFormRef" v-model="fullHtmlUrl" v-model:hashUis="hashUis"
-          :report-oid="reportOid" :file-path="filePath" :is-silent="isSilent" :instance-info="instanceInfo"
-          :disable-header="disableHeader" :disable-buttons="disableButtons" @html-content-patch="onHtmlContentPatch">
+        <CalcInputForm ref="calcInputFormRef" v-model="fullHtmlUrl" v-model:hashUis="hashUis" :report-oid="reportOid"
+          :file-path="filePath" :is-silent="isSilent" :instance-info="instanceInfo" :disable-header="disableHeader"
+          :disable-buttons="disableButtons" @report-result-changed="onReportResultChanged">
         </CalcInputForm>
       </template>
 
@@ -27,8 +27,15 @@
 <script lang="ts" setup>
 import { tCalcReportPageViewer } from 'src/i18n/helpers'
 import CalcInputForm from './components/CalcInputForm.vue'
+import { HtmlUpdateType } from 'src/api/calcExecution'
 import type { ICalcReportInstanceInfo } from 'src/api/calcReportInstance'
 import type { PropType } from 'vue'
+
+interface ReportResultChangedPayload {
+  updateType: HtmlUpdateType
+  contentHtml?: string | null
+  fullHtmlUrl: string
+}
 
 const props = defineProps({
   // 报告的 oid
@@ -102,7 +109,6 @@ const splitterLimits: Ref<[number, number] | undefined> = ref(props.autoCollapse
 const lastSplitterValue = ref(30)
 const calcInputFormRef: Ref<typeof CalcInputForm | null> = ref(null)
 const reportIframeRef = ref<HTMLIFrameElement | null>(null)
-const patchedFullHtmlUrl = ref('')
 
 watch(hashUis, (newValue) => {
   if (!props.autoCollapseInputUis) return
@@ -118,28 +124,26 @@ watch(hashUis, (newValue) => {
   }
 })
 
-watch(fullHtmlUrl, (newValue) => {
-  if (!newValue) {
+// 接收执行结果变化事件，统一控制 iframe 的刷新方式
+function onReportResultChanged(payload: ReportResultChangedPayload) {
+  if (!payload.fullHtmlUrl) {
     iframeSrc.value = ''
-    patchedFullHtmlUrl.value = ''
     return
   }
 
-  // 已通过 postMessage 更新的结果不再切换 iframe src，避免预览区闪白
-  if (newValue === patchedFullHtmlUrl.value) return
+  if (payload.updateType === HtmlUpdateType.None) return
 
-  iframeSrc.value = newValue
-})
-
-// 接收正文补丁时复用 iframe，只在无法发送消息时退回完整地址刷新
-function onHtmlContentPatch(payload: { contentHtml: string; fullHtmlUrl: string }) {
-  const iframeWindow = reportIframeRef.value?.contentWindow
-  if (!iframeWindow) {
+  if (payload.updateType === HtmlUpdateType.Full) {
     iframeSrc.value = payload.fullHtmlUrl
     return
   }
 
-  patchedFullHtmlUrl.value = payload.fullHtmlUrl
+  const iframeWindow = reportIframeRef.value?.contentWindow
+  if (payload.updateType !== HtmlUpdateType.Partial || payload.contentHtml == null || !iframeWindow) {
+    iframeSrc.value = payload.fullHtmlUrl
+    return
+  }
+
   iframeWindow.postMessage({
     type: 'uzoncalc:update-content',
     contentHtml: payload.contentHtml

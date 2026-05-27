@@ -2,6 +2,10 @@ import datetime
 from typing import Any, Optional
 
 from app.controller.dto_base import BaseDTO, PaginationDTO
+from app.sandbox.core.execution_result import ExecutionResult
+from app.service.html_cache.html_cacher import (
+    HtmlUpdateType,
+)
 
 
 class CategoryInfoReqDTO(BaseDTO):
@@ -106,6 +110,17 @@ class CalcResumeReqDTO(BaseDTO):
     defaults: Optional[dict[str, dict[str, Any]]] = None
     # 上一次已渲染的 HTML 路径，用于判断是否可进行正文增量更新
     lastHtmlPath: Optional[str] = None
+
+
+class ExecutionResultResDTO(ExecutionResult):
+    """计算执行结果响应 DTO"""
+
+    # 缓存后的 HTML 相对路径
+    htmlPath: str = ""
+    # 前端 iframe 更新类型：0 无变化，1 全量变化，2 局部变化
+    updateType: HtmlUpdateType = HtmlUpdateType.Full
+    # HTML 正文增量补丁，存在时前端可复用当前 iframe
+    htmlContentPatch: Optional[str] = None
 
 
 # 保存计算报告请求 DTO

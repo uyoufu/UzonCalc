@@ -32,12 +32,18 @@ describe('CalcReportExecutor 复用结构', () => {
 
   it('执行器通过 postMessage 增量更新 iframe 正文', () => {
     const source = readVueSource(executorPath)
+    const inputFormSource = readVueSource(resolve(projectRoot, 'src/pages/calcReport/viewer/components/CalcInputForm.vue'))
 
     expect(source).toContain('ref="reportIframeRef"')
+    expect(source).toContain('@report-result-changed')
     expect(source).toContain('postMessage')
     expect(source).toContain('uzoncalc:update-content')
     expect(source).toContain('iframeSrc')
+    expect(source).toContain('updateType')
     expect(source).toContain('contentHtml')
+    expect(source).not.toContain('@html-content-patch')
+    expect(inputFormSource).toContain('reportResultChanged')
+    expect(inputFormSource).toContain('updateType')
     expect(source).not.toContain('baseUrl')
     expect(source).not.toContain('buildPatchBaseUrl')
   })

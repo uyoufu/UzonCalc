@@ -11,6 +11,8 @@ HTML 结果缓存服务
 import hashlib
 import re
 import base64
+from enum import IntEnum
+from pydantic import BaseModel
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -22,6 +24,23 @@ from config import logger
 
 CONTENT_START_MARK = "<!--CONTENT_START_MARK-->"
 CONTENT_END_MARK = "<!--CONTENT_END_MARK-->"
+
+
+class HtmlUpdateType(IntEnum):
+    """HTML iframe 更新类型"""
+
+    NoneUpdate = 0
+    Full = 1
+    Partial = 2
+
+
+class HtmlContentPatchResult(BaseModel):
+    """HTML 内容更新状态结果"""
+
+    # 前端 iframe 更新类型：0 无变化，1 全量变化，2 局部变化
+    updateType: HtmlUpdateType = HtmlUpdateType.Full
+    # 仅局部变化时携带标记之间的新正文
+    contentHtml: Optional[str] = None
 
 
 class HtmlCacher:
@@ -98,37 +117,43 @@ class HtmlCacher:
 
     def build_content_patch(
         self, new_html: str, last_html_path: str | None
-    ) -> Optional[str]:
+    ) -> HtmlContentPatchResult:
         """
         生成 iframe 正文增量补丁
 
-        仅当旧 HTML 与新 HTML 在正文标记之外完全一致时返回补丁。
+        根据旧 HTML 与新 HTML 的差异返回 iframe 更新状态。
         """
         old_html = self._read_public_html(last_html_path)
         if old_html is None:
-            return None
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
+
+        if old_html == new_html:
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.NoneUpdate)
 
         old_parts = self._split_marked_content(old_html)
         new_parts = self._split_marked_content(new_html)
         if not old_parts or not new_parts:
-            return None
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
 
         old_before, _, old_after = old_parts
         new_before, new_content, new_after = new_parts
         if old_before != new_before or old_after != new_after:
-            return None
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
 
-        return new_content
+        return HtmlContentPatchResult(
+            updateType=HtmlUpdateType.Partial,
+            contentHtml=new_content,
+        )
 
     def build_content_patch_from_paths(
         self,
         last_html_path: str | None,
         new_html_path: str,
-    ) -> Optional[str]:
+    ) -> HtmlContentPatchResult:
         """从两个缓存 HTML 路径生成正文增量补丁"""
         new_html = self._read_public_html(new_html_path)
         if new_html is None:
-            return None
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
 
         return self.build_content_patch(new_html, last_html_path)
 

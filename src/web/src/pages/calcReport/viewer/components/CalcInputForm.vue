@@ -17,6 +17,7 @@ import { sha256 } from 'src/utils/encrypt'
 import { notifyError, notifySuccess } from 'src/utils/dialog'
 import { useRouter } from 'vue-router'
 import {
+  HtmlUpdateType,
   type ExecutionResult,
   type ICalcWindow
 } from 'src/api/calcExecution'
@@ -83,7 +84,7 @@ const props = defineProps({
 })
 
 const emit = defineEmits<{
-  htmlContentPatch: [payload: { contentHtml: string; fullHtmlUrl: string }]
+  reportResultChanged: [payload: { updateType: HtmlUpdateType; contentHtml?: string | null; fullHtmlUrl: string }]
 }>()
 
 // #region 报告信息
@@ -115,6 +116,7 @@ const executeResult = ref<ExecutionResult>({
   executionId: '',
   html: '',
   htmlPath: '',
+  updateType: HtmlUpdateType.Full,
   windows: [],
   isCompleted: false
 })
@@ -127,6 +129,7 @@ function applyInstanceInfo(instanceInfo: ICalcReportInstanceInfo) {
     executionId: '',
     html: '',
     htmlPath: instanceInfo.resultPath || '',
+    updateType: HtmlUpdateType.Full,
     windows: [],
     isCompleted: true
   }
@@ -141,7 +144,7 @@ import { useConfig } from 'src/config/index'
 const config = useConfig()
 const userInfoStore = useUserInfoStore()
 const { username: userId } = storeToRefs(userInfoStore)
-const lastPatchedHtmlPath = ref('')
+const lastReportedResultKey = ref('')
 
 function buildFullHtmlUrl(htmlPath: string) {
   if (!htmlPath) return ''
@@ -157,18 +160,36 @@ function buildFullHtmlUrl(htmlPath: string) {
 // 更新结果 HTML 地址
 watch([() => executeResult.value.htmlPath, currentReportOid, currentFilePath, userId, currentInstance], () => {
   const nextFullHtmlUrl = buildFullHtmlUrl(executeResult.value.htmlPath)
-  const contentPatch = executeResult.value.htmlContentPatch
+  fullHtmlUrl.value = nextFullHtmlUrl
 
-  // 补丁只在当前 HTML 结果首次出现时发送，避免用户信息变化导致重复更新 iframe
-  if (contentPatch && executeResult.value.htmlPath && lastPatchedHtmlPath.value !== executeResult.value.htmlPath) {
-    lastPatchedHtmlPath.value = executeResult.value.htmlPath
-    emit('htmlContentPatch', {
-      contentHtml: contentPatch,
-      fullHtmlUrl: nextFullHtmlUrl
+  if (!executeResult.value.htmlPath) {
+    if (lastReportedResultKey.value === 'empty-result') return
+
+    // 空结果也通过事件通知父组件清理 iframe
+    lastReportedResultKey.value = 'empty-result'
+    emit('reportResultChanged', {
+      updateType: HtmlUpdateType.Full,
+      fullHtmlUrl: ''
     })
+    return
   }
 
-  fullHtmlUrl.value = nextFullHtmlUrl
+  const contentPatch = executeResult.value.htmlContentPatch
+  const resultKey = [
+    executeResult.value.htmlPath,
+    executeResult.value.updateType,
+    contentPatch || '',
+    nextFullHtmlUrl
+  ].join('|')
+  if (lastReportedResultKey.value === resultKey) return
+
+  // iframe 更新统一由结果变更事件驱动，v-model 只保留最新地址
+  lastReportedResultKey.value = resultKey
+  emit('reportResultChanged', {
+    updateType: executeResult.value.updateType,
+    contentHtml: contentPatch,
+    fullHtmlUrl: nextFullHtmlUrl
+  })
 }, { immediate: true })
 // 最终显示的 UI
 const inputUIs = computed<ICalcWindow[]>(() => {

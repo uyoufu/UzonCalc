@@ -1,6 +1,6 @@
 import { type Ref } from 'vue'
 import { selectLocalFile } from 'src/api/desktop'
-import type { ExecutionResult } from 'src/api/calcExecution'
+import { HtmlUpdateType, type ExecutionResult } from 'src/api/calcExecution'
 
 export function useLocalFileSelector(
   reportOid: Ref<string | null>,
@@ -20,6 +20,7 @@ export function useLocalFileSelector(
           executionId: '',
           html: '',
           htmlPath: '',
+          updateType: HtmlUpdateType.Full,
           windows: [],
           isCompleted: false
         }
