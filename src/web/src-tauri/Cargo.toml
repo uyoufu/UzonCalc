@@ -1,6 +1,6 @@
 [package]
 name = "UzonCalc"
-version = "1.1.0"
+version = "1.2.0"
 description = "UzonCalc 是一款 AI 友好的工程计算软件"
 authors = ["uyoufu"]
 license = "MIT"
