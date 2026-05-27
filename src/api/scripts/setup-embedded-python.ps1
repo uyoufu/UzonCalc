@@ -22,7 +22,6 @@ $REPO_ROOT = Split-Path -Parent $UI_ROOT
 $CORE_PROJECT_ROOT = Join-Path $REPO_ROOT "src/core"
 $EMBED_DIR = Join-Path $PROJECT_ROOT $TargetDir
 $pythonExe = Join-Path $EMBED_DIR "python.exe"
-$pipExe = Join-Path $EMBED_DIR "Scripts\pip.exe"
 
 if ([string]::IsNullOrWhiteSpace($CacheRoot)) {
     $CacheRoot = Join-Path $REPO_ROOT ".cache\desktop-maui\python"
@@ -80,12 +79,12 @@ function Assert-LastCommandSucceeded {
 function Invoke-PipInstall {
     param([string[]]$Arguments)
 
-    if (Test-Path $pipExe) {
-        & $pipExe @Arguments --no-warn-script-location
-    }
-    else {
-        & $pythonExe -m pip @Arguments --no-warn-script-location
-    }
+    & $pythonExe -m pip @Arguments --no-warn-script-location
+}
+
+function Test-PipAvailable {
+    & $pythonExe -m pip --version | Out-Null
+    return $LASTEXITCODE -eq 0
 }
 
 # ============================================
@@ -106,7 +105,7 @@ if (Test-Path -LiteralPath $requirementsFile) {
     $requirementsHash = (Get-FileHash -LiteralPath $requirementsFile -Algorithm SHA256).Hash.ToLowerInvariant()
 }
 
-$cacheKey = "v1-$PythonVersion-$arch-$requirementsHash"
+$cacheKey = "v2-$PythonVersion-$arch-$requirementsHash"
 $cacheDir = Join-Path $CacheRoot $cacheKey
 $cachePythonExe = Join-Path $cacheDir "python.exe"
 
@@ -217,8 +216,8 @@ if ($pthFile) {
 
 Write-Info "检查 pip..."
 
-if (Test-Path $pipExe) {
-    Write-Info "pip 已存在，跳过 pip 安装"
+if (Test-PipAvailable) {
+    Write-Info "pip 模块可用，跳过 pip 安装"
 }
 else {
     Write-Info "安装 pip..."
@@ -231,6 +230,10 @@ else {
         $pythonExe = Join-Path $EMBED_DIR "python.exe"
         & $pythonExe $getPipFile --no-warn-script-location
         Assert-LastCommandSucceeded -Message "pip 安装命令执行失败。"
+
+        if (-not (Test-PipAvailable)) {
+            throw "pip 安装后仍无法通过 python -m pip 运行。"
+        }
         
         Remove-Item $getPipFile
         Write-Info "pip 安装成功"
@@ -262,7 +265,6 @@ if (-not (Test-Path $sitePackages)) {
 Write-Info "安装项目依赖..."
 
 $pythonExe = Join-Path $EMBED_DIR "python.exe"
-$pipExe = Join-Path $EMBED_DIR "Scripts\pip.exe"
 $requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
 
 if (Test-Path $requirementsFile) {
