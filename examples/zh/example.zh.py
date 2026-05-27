@@ -1,10 +1,5 @@
 from numpy import sqrt
 from pathlib import Path
-import sys
-
-# 使用 pip 包时, 不需要该行；仅在从 core 目录运行该脚本时需要
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
 from uzoncalc import *
 from uzoncalc.extension.excel import get_excel_table
 from uzoncalc.extension.echarts import use_echarts, EChart, Javascript
@@ -12,7 +7,7 @@ import numpy as np
 
 
 @uzon_calc()
-async def sheet2():
+async def sheet():
     # 定义 UI
 
     # 设置 title: 打印 pdf 时, 将在页眉左侧显示
@@ -719,16 +714,14 @@ function (x, y) {
                     "equation": {
                         "x": {"step": 0.05},
                         "y": {"step": 0.05},
-                        "z": Javascript(
-                            """
+                        "z": Javascript("""
 function (x, y) {
   if (Math.abs(x) < 0.1 && Math.abs(y) < 0.1) {
     return '-';
   }
   return Math.sin(x * Math.PI) * Math.sin(y * Math.PI);
 }
-"""
-                        ),
+"""),
                     },
                 }
             ],
@@ -1016,11 +1009,6 @@ ctx.save("../output/example.zh.html")
 
     "现在很完美了, 赶紧用起来吧！"
 
-if __name__ == "__main__":
-    import time
 
-    t0 = time.perf_counter()
-    ctx = run_sync(sheet2)
-    ctx.save("../output/example.zh.html")
-    t1 = time.perf_counter()
-    print(f"Execution time: {t1 - t0} seconds")
+if __name__ == "__main__":
+    view(sheet)

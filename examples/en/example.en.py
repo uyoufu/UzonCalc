@@ -1,26 +1,14 @@
 from numpy import sqrt
 from pathlib import Path
-import sys
 
-# When installing via pip, this line is not needed; 
-# only needed when running this script from the core directory
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from core.uzoncalc import *
-from core.uzoncalc.extension.excel import get_excel_table
-from core.uzoncalc.extension.echarts import use_echarts, EChart, Javascript
+from uzoncalc import *
+from uzoncalc.extension.excel import get_excel_table
+from uzoncalc.extension.echarts import use_echarts, EChart, Javascript
 import numpy as np
 
 
 @uzon_calc()
-async def sheet1():
-    "This is the second calculation sheet example."
-
-    "You can create multiple calculation sheet scripts in the same project, each generating different calculation sheet documents."
-
-
-@uzon_calc()
-async def sheet2():
+async def sheet():
     # Define UI
 
     # Set title: Will be displayed on the left side of the header when printing to PDF
@@ -722,16 +710,14 @@ function (x, y) {
                     "equation": {
                         "x": {"step": 0.05},
                         "y": {"step": 0.05},
-                        "z": Javascript(
-                            """
+                        "z": Javascript("""
 function (x, y) {
   if (Math.abs(x) < 0.1 && Math.abs(y) < 0.1) {
     return '-';
   }
   return Math.sin(x * Math.PI) * Math.sin(y * Math.PI);
 }
-"""
-                        ),
+"""),
                     },
                 }
             ],
@@ -1017,10 +1003,4 @@ ctx.save("../output/example.en.html")
 
 
 if __name__ == "__main__":
-    import time
-
-    t0 = time.perf_counter()
-    ctx = run_sync(sheet2)
-    ctx.save("../output/example.en.html")
-    t1 = time.perf_counter()
-    print(f"Execution time: {t1 - t0} seconds")
+    view(sheet)

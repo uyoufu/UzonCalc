@@ -1,12 +1,6 @@
 from dataclasses import dataclass
-from pathlib import Path
 import math
-import sys
-
-# 使用 pip 包时不需要该行；从仓库目录直接运行示例时用于定位本地包。
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from core.uzoncalc import *  # noqa: E402,F403
+from uzoncalc import *
 
 
 @dataclass(frozen=True, slots=True)
@@ -380,4 +374,4 @@ async def sheet():
 
 
 if __name__ == "__main__":
-    run_sync(sheet)
+    view(sheet)

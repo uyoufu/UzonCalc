@@ -212,7 +212,7 @@ ast_print.ast
 output/
 logs/
 publish
-ai-examples/
+dev_examples/
 
 .fake
 .superpowers/

@@ -1,8 +1,5 @@
 from __future__ import annotations
-
 import math
-from pathlib import Path
-
 from uzoncalc import *
 
 
@@ -531,6 +528,3 @@ async def sheet():
 
 if __name__ == "__main__":
     view(sheet)
-    # html_path = Path(__file__).with_name("d60_2015_earth_pressure_report.html")
-    # ctx.save(str(html_path))
-    # print(f"已生成计算书：{html_path}")

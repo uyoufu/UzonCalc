@@ -1,12 +1,5 @@
-from pathlib import Path
-import sys
-import numpy as np
-
-# When using pip packages, this line is not needed; only needed when running this script from the core directory
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from core.uzoncalc import *
-from core.uzoncalc.extension.echarts import EChart
+from uzoncalc import *
+from uzoncalc.extension.echarts import EChart
 
 
 @uzon_calc()
@@ -329,8 +322,6 @@ async def sheet():
     This method is applicable to all section shapes composed of rectangles.
     """
 
-    save("../output/T_section_moment_of_inertia_en.html")
-
 
 if __name__ == "__main__":
-    ctx = run_sync(sheet)
+    view(sheet)

@@ -30,5 +30,4 @@ async def sheet():
 
 
 if __name__ == "__main__":
-    ctx = run_sync(sheet)
-    print(ctx.html_content)
+    view(sheet)

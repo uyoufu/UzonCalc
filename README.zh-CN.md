@@ -2,25 +2,31 @@
 
 # UzonCalc
 
-**用 Python 写工程计算书 — 专注计算，告别排版**
+**面向 AI 的计算报告编写软件 - 企业级品质、原生AI友好、自动计算、自动排版**
 
 [English](README.md) · 中文
 
 </div>
 
-UzonCalc 是一个基于 Python 的工程计算书工具。你只需编写计算逻辑，UzonCalc 自动代入变量值、生成数学公式、排版目录与表格，输出精美的 HTML 计算书文档。
+UzonCalc 是一款面向 AI 的计算报告编写软件。目标是让 AI 通过 UzonCalc 帮助工程师快速生成和修改计算报告，做到一次编写，一生复用。
+
+使用 UzonCalc，你只需专注计算逻辑，框架将自动代入变量、生成计算过程、渲染数学公式、自动排版，为您输出专业的计算报告文档。
+
+UzonCalc 计算报告采用原生 Python 语法编写，没有任何独有约定，轻松入门，快速上手。
+
+结合 AI，UzonCalc 将助你效率腾飞。
 
 ---
 
 ## ✨ 特性
 
-- 🐍 **纯 Python 编写** — 无需学习新语法，所有操作都是函数调用
-- 🤖 **AI 友好** — 自带 SKILL，AI 帮你快速生成计算书初稿
-- 📐 **自动公式渲染** — 变量自动代入值、计算过程自动展示，支持希腊字母与下标
-- 📏 **单位计算** — 基于 pint，自动进行单位换算与量纲检查
-- 📊 **图表支持** — 内置 ECharts 交互式图表和 Matplotlib 静态图表
-- 📋 **表格 & Excel** — 支持复杂表格（合并单元格）及调用 Excel 计算模型
-- 📄 **多格式输出** — 直接输出 HTML，可通过浏览器打印为 PDF，或通过 pandoc 转换为 Word
+- 🤖 **AI 友好** — 自带 SKILL，AI 可以帮你快速生成和修改计算报告
+- 🐍 **原生 Python** — 采用原生 Python 语法，轻松入门，快速上手，功能强大，一切皆有可能
+- 📐 **公式自动渲染** — 变量自动代入值、计算过程自动展示
+- 📏 **单位计算** — 自动进行单位换算与量纲检查，计算中无需关注单位变化
+- 📊 **图表支持** — 可使用 ECharts、svg 和 Matplotlib 绘制丰富图表
+- 📋 **Excel 复用** — 支持自动调用 Excel 进行计算并摘录结果
+- 📄 **多格式输出** — 采用标准的 Mathml 格式, 支持转换为 PDF、Word
 
 ---
 
@@ -36,23 +42,55 @@ pip install uzoncalc
 
 ## 🚀 快速开始
 
-**1. 创建计算书脚本**
+### Windows
+
+1. **软件下载**
+
+   从 [Releases · uyoufu/UzonCalc](https://github.com/uyoufu/UzonCalc/releases) 下载 `win-x64` 版本，解压后，双击 `UzonCalc.exe` 启动。 
+
+2. 复制以下代码到新建编辑框内
+
+   ``` python
+   from uzoncalc import *
+   
+   @uzon_calc()
+   async def sheet():
+       doc_title("example")
+   
+       "Hello, UzonCalc!"
+   
+       w = 10*unit.m
+       l = 5*unit.m
+       A = w * l
+   ```
+
+3. 单击执行按钮运行
+
+   ![image-20260527133234259](https://oss.uzoncloud.com:2234/public/files/images/image-20260527133234259.png)
+
+### CLI
+
+若使用 CLI 的方式，可以按下面的步骤操作：
+
+**1. 创建计算报告脚本**
 
 ```python
 # example.py
+
 from uzoncalc import *
 
 @uzon_calc()
 async def sheet():
-    doc_title("uzoncalc example")
+    doc_title("example")
 
     "Hello, UzonCalc!"
 
-    save()
-
+    w = 10*unit.m
+    l = 5*unit.m
+    A = w * l
 
 if __name__ == "__main__":
-    run_sync(sheet)
+    view(sheet)
 ```
 
 **2. 运行**
@@ -61,130 +99,28 @@ if __name__ == "__main__":
 python example.py
 ```
 
-将在当前目录生成 `example.html`，用浏览器打开即可查看计算书。
+将会出现：`Serving document at: http://127.0.0.1:32180/` 字样，单击通过浏览器打开即可查看效果。
 
----
+## 🌐 在线示例
 
-## 🖥 效果预览
-
-![image-20260329002252229](https://oss.uzoncloud.com:2234/public/files/images/image-20260329002252229.png)
-
-## 📖 更多示例
-
-### 带单位的工程计算
-
-```python
-from uzoncalc import *
-
-@uzon_calc()
-async def sheet():
-    doc_title("截面应力计算")
-
-    H2("截面应力计算")
-
-    "截面宽度："
-    b = 300 * unit.millimeter
-    alias("b", "截面宽度 b")
-
-    "截面高度："
-    h = 500 * unit.millimeter
-    alias("h", "截面高度 h")
-
-    "轴向力："
-    N = 100 * unit.kilonewton
-    alias("N", "轴向力 N")
-
-    "截面面积："
-    A = b * h
-    alias("A", "截面面积 A")
-
-    "截面应力："
-    sigma = N / A
-    alias("sigma", "截面应力 σ")
-
-    save()
-```
-
-UzonCalc 会自动渲染为：
-
-![image-20260329001904932](https://oss.uzoncloud.com:2234/public/files/images/image-20260329001904932.png)
-
-### T 形截面惯性矩计算
-
-```python
-from uzoncalc import *
-
-@uzon_calc()
-async def sheet():
-    doc_title("T 形截面惯性矩计算")
-    page_size("A4")
-
-    H1("T 形截面惯性矩计算")
-
-    H2("截面基本参数")
-
-    "翼缘宽度："
-    b_f = 300 * unit.millimeter
-    alias("b_f", "翼缘宽度 b_f")
-
-    "翼缘厚度："
-    h_f = 50 * unit.millimeter
-    alias("h_f", "翼缘厚度 h_f")
-
-    "腹板宽度："
-    b_w = 100 * unit.millimeter
-    alias("b_w", "腹板宽度 b_w")
-
-    "腹板高度："
-    h_w = 200 * unit.millimeter
-    alias("h_w", "腹板高度 h_w")
-
-    H2("面积计算")
-
-    "翼缘面积："
-    A_f = b_f * h_f
-
-    "腹板面积："
-    A_w = b_w * h_w
-
-    "总面积："
-    A_total = A_f + A_w
-
-    H2("惯性矩计算（平行轴定理）")
-
-    "翼缘自身惯性矩："
-    I_f_self = b_f * h_f**3 / 12
-
-    "腹板自身惯性矩："
-    I_w_self = b_w * h_w**3 / 12
-
-    # ... 更多计算逻辑
-
-    save("../output/T_section.html")
-```
-
-> 完整源码：[T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py)
-
----
-
-## 🌐 在线 Demo
-
-| 文档 | 源码 | 在线预览 |
-|------|------|----------|
-| 使用说明 | [example.zh.py](examples/example.zh.py) | [查看文档](https://calc.uzoncloud.com/examples/example.zh.html) |
+| 文档           | 源码                                                                      | 在线预览                                                                |
+| -------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 使用说明       | [example.zh.py](examples/example.zh.py)                                   | [查看文档](https://calc.uzoncloud.com/examples/example.zh.html)         |
 | T 形截面惯性矩 | [T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py) | [查看文档](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
 
 ---
 
-## 📄 输出格式
+## 📄 输出
 
-| 格式 | 方式 |
-|------|------|
-| HTML | `save()` 直接生成 |
-| PDF | 浏览器打开 HTML 后打印 |
+| 格式 | 方式                               |
+| ---- | ---------------------------------- |
+| HTML | 使用 `save()` 函数生成             |
+| PDF  | 浏览器打开 HTML 后打印             |
 | Word | `pandoc input.html -o output.docx` |
 
----
+## 联系方式
+
+李有福：uyoufu@uzoncloud.com
 
 ## 📜 许可证
 
