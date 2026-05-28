@@ -43,7 +43,9 @@ def page_size(size: str):
 def head(tag: str, attrs: dict[str, str]):
     """
     添加自定义 HTML 头部内容
-    :param content: HTML 内容字符串，可以包含 <style>、<link>、<script> 等标签
+    内部会自动去重，确保相同内容只添加一次。
+    :param tag: 标签名称，如 'meta', 'link', 'style' 等
+    :param attrs: 属性字典，键值对形式
     """
     ctx = get_current_instance()
 

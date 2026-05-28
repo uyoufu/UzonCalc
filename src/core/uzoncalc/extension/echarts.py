@@ -74,6 +74,7 @@ def echart(
             f"Object of type {type(value).__name__} is not JSON serializable"
         )
 
+    # options_json 是字符串，里面有 js 代码应不再包含引号
     options_json = json.dumps(options, default=encode_default)
 
     # 替换占位符为原始 JavaScript 代码
@@ -107,12 +108,6 @@ def echart(
 
                 chart.setOption({options_json});
 
-                window.addEventListener('resize', function () {{
-                    if (chart) {{
-                        chart.resize();
-                    }}
-                }});
-
                 if (typeof ResizeObserver !== 'undefined' && !resizeObserver) {{
                     resizeObserver = new ResizeObserver(function () {{
                         if (chart) {{
@@ -123,11 +118,7 @@ def echart(
                 }}
             }}
 
-            if (document.readyState === 'loading') {{
-                document.addEventListener('DOMContentLoaded', initChartWhenReady);
-            }} else {{
-                initChartWhenReady();
-            }}
+            initChartWhenReady();
         }})();
     </script>
 </div>
