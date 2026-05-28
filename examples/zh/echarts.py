@@ -6,7 +6,7 @@ from uzoncalc.extension.echarts import EChart, Javascript
 async def sheet():
     H1("echarts 图表示例")
 
-    H2("ECharts 示例")
+    H2("ECharts 2D 示例")
 
     "可以使用 echarts 库创建丰富的交互式图表, 更多内容请参考官方文档和示例: https://echarts.apache.org/examples/zh/index.html#chart-type-line"
 
@@ -85,6 +85,76 @@ async def sheet():
                 },
             ],
         }
+    )
+
+    H2("ECharts Two Value-Axes in Polar")
+
+    from math import sin, cos, pi as PI
+
+    hide()
+    data = []
+    for i in range(360):
+        t = (i / 180) * PI
+        r = sin(2 * t) * cos(2 * t)
+        data.append([r, i])
+    show()
+
+    EChart(
+        {
+            "title": {"text": "Two Value-Axes in Polar"},
+            "legend": {"data": ["line"]},
+            "polar": {"center": ["50%", "54%"]},
+            "tooltip": {"trigger": "axis", "axisPointer": {"type": "cross"}},
+            "angleAxis": {"type": "value", "startAngle": 0},
+            "radiusAxis": {"min": 0},
+            "series": [
+                {
+                    "coordinateSystem": "polar",
+                    "name": "line",
+                    "type": "line",
+                    "showSymbol": False,
+                    "data": data,
+                }
+            ],
+            "animationDuration": 2000,
+        }
+    )
+
+    H2("ECharts 3D地球 示例")
+
+    "参考：https://echarts.apache.org/examples/zh/editor.html?c=globe-layers&gl=1"
+
+    hide()
+    ROOT_PATH = "https://oss.uzoncloud.com:2234/public/files/images"
+    show()
+
+    EChart(
+        {
+            "backgroundColor": "#000",
+            "globe": {
+                "baseTexture": ROOT_PATH + "/earth.jpg",
+                "heightTexture": ROOT_PATH + "/bathymetry_bw_composite_4k.jpg",
+                "displacementScale": 0.1,
+                "shading": "lambert",
+                "environment": ROOT_PATH + "/starfield.jpg",
+                "light": {"ambient": {"intensity": 0.1}, "main": {"intensity": 1.5}},
+                "layers": [
+                    {
+                        "type": "blend",
+                        "blendTo": "emission",
+                        "texture": ROOT_PATH + "/night.jpg",
+                    },
+                    {
+                        "type": "overlay",
+                        "texture": ROOT_PATH + "/clouds.png",
+                        "shading": "lambert",
+                        "distance": 5,
+                    },
+                ],
+            },
+            "series": [],
+        },
+        use_gl=True,
     )
 
     H2("ECharts 3D 示例")
