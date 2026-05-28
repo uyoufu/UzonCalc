@@ -1,7 +1,7 @@
 from uuid import uuid4
 
 from ..context_utils.doc import head
-from ..context_utils.elements import Div
+from ..globals import get_current_instance
 import itertools
 import json
 
@@ -85,7 +85,7 @@ def echart(
     container_id = f"echart-container-{uuid4().hex[:8]}"
 
     return f"""
-<div id="{container_id}" style="width: {width}; height: {height};">
+<figure id="{container_id}" style="width: {width}; height: {height};" class="break-inside-avoid">
     <script>
         (function() {{
             const dom = document.getElementById("{container_id}");
@@ -121,7 +121,7 @@ def echart(
             initChartWhenReady();
         }})();
     </script>
-</div>
+</figure>
 """
 
 
@@ -142,4 +142,5 @@ def EChart(
     Returns:
         包含 ECharts 图表的 HTML 字符串
     """
-    Div(echart(options, width, height, use_gl=use_gl))
+    current_instance = get_current_instance()
+    current_instance.append_content(echart(options, width, height, use_gl=use_gl))

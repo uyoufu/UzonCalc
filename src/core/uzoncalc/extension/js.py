@@ -1,4 +1,4 @@
-from ..context_utils.elements import Div, Props
+from ..context_utils.elements import Props, h
 
 
 def js(js_code: str):
@@ -20,8 +20,9 @@ def Js(
     classes: str | None = None,
     *,
     props: Props | None = None,
+    tag: str = "figure",
 ):
     """
-    wrap JS code in a script tag inside a div element
+    wrap JS code in a script tag inside a figure element
     """
-    return Div(js(js_code), classes=classes, props=props)
+    h(tag, js(js_code), classes=classes, props=props, persist=True)

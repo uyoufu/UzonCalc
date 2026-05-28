@@ -5,9 +5,11 @@ from uzoncalc.extension.js import Js, js
 
 @uzon_calc()
 async def sheet():
-    H1("echarts 图表示例")
+    H1("图表示例")
 
-    H2("ECharts 2D 示例")
+    toc("目录")
+
+    H2("2D 示例")
 
     "可以使用 echarts 库创建丰富的交互式图表, 更多内容请参考官方文档和示例: https://echarts.apache.org/examples/zh/index.html#chart-type-line"
 
@@ -191,6 +193,7 @@ option = {
 
 option && myChart.setOption(option);
 """,
+        "break-inside-avoid",
         props=Props(
             id="echarts-container-100",
             style={
@@ -233,7 +236,7 @@ option && myChart.setOption(option);
         }
     )
 
-    H2("ECharts 3D地球 示例")
+    H2("3D地球 示例")
 
     "参考：https://echarts.apache.org/examples/zh/editor.html?c=globe-layers&gl=1"
 
@@ -270,7 +273,7 @@ option && myChart.setOption(option);
         use_gl=True,
     )
 
-    H2("ECharts 3D 示例")
+    H2("3D Mesh 示例")
 
     "可以使用 ECharts GL 创建 3D 图表。可以使用鼠标旋转、缩放图表以查看不同的角度和细节。"
 
