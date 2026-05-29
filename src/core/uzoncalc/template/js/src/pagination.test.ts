@@ -24,6 +24,7 @@ class FakeElement {
   offsetHeight: number;
   textContent = "";
   parentElement: FakeElement | null = null;
+  children: FakeElement[] = [];
   classList: FakeClassList;
   readonly styleMap: StyleMap;
   private readonly attributes = new Map<string, string>();
@@ -44,6 +45,12 @@ class FakeElement {
     this.styleMap = options.styleMap ?? {};
   }
 
+  /** 建立父子关系，用于模拟 closest 和嵌套分页元素。 */
+  appendChild(child: FakeElement): void {
+    child.parentElement = this;
+    this.children.push(child);
+  }
+
   /** 模拟元素属性读取，供分页逻辑读取页面配置。 */
   getAttribute(name: string): string | null {
     return this.attributes.get(name) ?? null;
@@ -56,13 +63,9 @@ class FakeElement {
 
   /** 模拟 closest 查询，只实现测试所需的目录判断。 */
   closest(selector: string): FakeElement | null {
-    if (selector !== "#toc") {
-      return null;
-    }
-
     let current: FakeElement | null = this;
     while (current) {
-      if (current.id === "toc") {
+      if (selector.startsWith("#") && current.id === selector.slice(1)) {
         return current;
       }
       current = current.parentElement;
@@ -335,5 +338,102 @@ describe("calculatePageNumbers", () => {
     calculatePageNumbers();
 
     expect(tocPage.textContent).toBe("3");
+  });
+
+  test("Tailwind break-inside-avoid 跨页时后续标题页码计入空白", () => {
+    const content = createContentElement();
+    const avoidBlock = new FakeElement({
+      tagName: "figure",
+      offsetTop: 900,
+      offsetHeight: 400,
+      classNames: ["break-inside-avoid"],
+    });
+    const heading = new FakeElement({
+      tagName: "h2",
+      id: "section-1",
+      offsetTop: 2200,
+      offsetHeight: 30,
+    });
+    const tocPage = createTocPageElement();
+    installFakeDocument([content, avoidBlock, heading], {
+      "section-1": tocPage,
+    });
+
+    calculatePageNumbers();
+
+    expect(tocPage.textContent).toBe("3");
+  });
+
+  test("计算目录页码时识别 CSS break-inside avoid", () => {
+    const content = createContentElement();
+    const avoidBlock = new FakeElement({
+      tagName: "figure",
+      offsetTop: 900,
+      offsetHeight: 400,
+      styleMap: {
+        breakInside: "avoid",
+      },
+    });
+    const heading = new FakeElement({
+      tagName: "h2",
+      id: "section-1",
+      offsetTop: 2200,
+      offsetHeight: 30,
+    });
+    const tocPage = createTocPageElement();
+    installFakeDocument([content, avoidBlock, heading], {
+      "section-1": tocPage,
+    });
+
+    calculatePageNumbers();
+
+    expect(tocPage.textContent).toBe("3");
+  });
+
+  test("标题跟随正文换页时标题页码按打印页计算", () => {
+    const content = createContentElement();
+    const heading = new FakeElement({
+      tagName: "h2",
+      id: "section-1",
+      offsetTop: 1080,
+      offsetHeight: 30,
+    });
+    const paragraph = new FakeElement({
+      tagName: "p",
+      offsetTop: 1120,
+      offsetHeight: 120,
+    });
+    const tocPage = createTocPageElement();
+    installFakeDocument([content, heading, paragraph], {
+      "section-1": tocPage,
+    });
+
+    calculatePageNumbers();
+
+    expect(tocPage.textContent).toBe("2");
+  });
+
+  test("超出单页高度的 avoid 块不额外制造空白页", () => {
+    const content = createContentElement();
+    const avoidBlock = new FakeElement({
+      tagName: "figure",
+      offsetTop: 100,
+      offsetHeight: 1300,
+      classNames: ["break-inside-avoid"],
+    });
+    const heading = new FakeElement({
+      tagName: "h2",
+      id: "section-1",
+      offsetTop: 1420,
+      offsetHeight: 30,
+    });
+    const tocPage = createTocPageElement();
+    installFakeDocument([content, avoidBlock, heading], {
+      "section-1": tocPage,
+    });
+
+    calculatePageNumbers();
+
+    expect(tocPage.textContent).toBe("2");
   });
 });

@@ -1,5 +1,22 @@
 import { calculatePageNumbers } from "./pagination";
 
+let is_print_refresh_registered = false;
+
+/** 延迟刷新目录页码，等待图表和样式完成布局。 */
+function schedulePageNumberRefresh(): void {
+  window.setTimeout(calculatePageNumbers, 100);
+}
+
+/** 打印前重新计算页码，确保目录匹配最终打印布局。 */
+function ensurePrintPageNumberRefresh(): void {
+  if (is_print_refresh_registered) {
+    return;
+  }
+
+  window.addEventListener("beforeprint", calculatePageNumbers);
+  is_print_refresh_registered = true;
+}
+
 function createSectionNumber(counters: number[], level: number): string {
   const values: number[] = [];
 
@@ -73,5 +90,6 @@ export function generateToc(): void {
   toc_html += "</div>";
   toc_container.innerHTML = toc_html;
 
-  window.setTimeout(calculatePageNumbers, 100);
+  schedulePageNumberRefresh();
+  ensurePrintPageNumberRefresh();
 }
