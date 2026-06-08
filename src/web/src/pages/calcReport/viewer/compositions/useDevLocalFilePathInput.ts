@@ -1,11 +1,13 @@
 import { type Ref } from 'vue'
-import type { ExecutionResult } from 'src/api/calcExecution'
+import { HtmlUpdateType, type ExecutionResult } from 'src/api/calcExecution'
 import { useCalcReportViewerStore } from 'src/stores/calcReportViewer'
 
 function createEmptyExecutionResult(): ExecutionResult {
   return {
     executionId: '',
     html: '',
+    htmlPath: '',
+    updateType: HtmlUpdateType.Full,
     windows: [],
     isCompleted: false
   }

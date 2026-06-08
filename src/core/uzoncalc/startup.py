@@ -158,3 +158,22 @@ def run_sync(
     """
     # 强制设置为 sync 模式，静默执行
     return asyncio.run(run(func, *args, defaults=defaults, is_silent=True, **kwargs))
+
+
+def view(
+    func: Callable,
+    *args,
+    defaults: Optional[dict] = None,
+    preferred_port: int = 0,
+    **kwargs,
+) -> None:
+    from .http_server import DEFAULT_SERVER_PORT, serve_static_html
+    from .template.utils import render_html_template
+
+    """执行计算函数并启动无文件监听的本地 HTML 预览服务。"""
+    # 先按静默模式执行计算函数，再渲染完整 HTML
+    ctx = run_sync(func, *args, defaults=defaults, **kwargs)
+    html_output = render_html_template(ctx.html_content(), ctx.options)
+
+    # 预览服务会自动从首选端口开始查找可用端口
+    serve_static_html(html_output, preferred_port or DEFAULT_SERVER_PORT)

@@ -17,6 +17,7 @@ import { sha256 } from 'src/utils/encrypt'
 import { notifyError, notifySuccess } from 'src/utils/dialog'
 import { useRouter } from 'vue-router'
 import {
+  HtmlUpdateType,
   type ExecutionResult,
   type ICalcWindow
 } from 'src/api/calcExecution'
@@ -82,6 +83,10 @@ const props = defineProps({
   }
 })
 
+const emit = defineEmits<{
+  reportResultChanged: [payload: { updateType: HtmlUpdateType; contentHtml?: string | null; fullHtmlUrl: string }]
+}>()
+
 // #region 报告信息
 const { isSilent } = toRefs(props)
 const currentReportOid = ref<string>(props.reportOid || '')
@@ -110,6 +115,8 @@ onMounted(async () => {
 const executeResult = ref<ExecutionResult>({
   executionId: '',
   html: '',
+  htmlPath: '',
+  updateType: HtmlUpdateType.Full,
   windows: [],
   isCompleted: false
 })
@@ -120,7 +127,9 @@ function applyInstanceInfo(instanceInfo: ICalcReportInstanceInfo) {
   calcReportNameRef.value = instanceInfo.name
   executeResult.value = {
     executionId: '',
-    html: instanceInfo.resultPath || '',
+    html: '',
+    htmlPath: instanceInfo.resultPath || '',
+    updateType: HtmlUpdateType.Full,
     windows: [],
     isCompleted: true
   }
@@ -135,6 +144,7 @@ import { useConfig } from 'src/config/index'
 const config = useConfig()
 const userInfoStore = useUserInfoStore()
 const { username: userId } = storeToRefs(userInfoStore)
+const lastReportedResultKey = ref('')
 
 function buildFullHtmlUrl(htmlPath: string) {
   if (!htmlPath) return ''
@@ -148,8 +158,38 @@ function buildFullHtmlUrl(htmlPath: string) {
 }
 
 // 更新结果 HTML 地址
-watch([() => executeResult.value.html, currentReportOid, currentFilePath, userId, currentInstance], () => {
-  fullHtmlUrl.value = buildFullHtmlUrl(executeResult.value.html)
+watch([() => executeResult.value.htmlPath, currentReportOid, currentFilePath, userId, currentInstance], () => {
+  const nextFullHtmlUrl = buildFullHtmlUrl(executeResult.value.htmlPath)
+  fullHtmlUrl.value = nextFullHtmlUrl
+
+  if (!executeResult.value.htmlPath) {
+    if (lastReportedResultKey.value === 'empty-result') return
+
+    // 空结果也通过事件通知父组件清理 iframe
+    lastReportedResultKey.value = 'empty-result'
+    emit('reportResultChanged', {
+      updateType: HtmlUpdateType.Full,
+      fullHtmlUrl: ''
+    })
+    return
+  }
+
+  const contentPatch = executeResult.value.htmlContentPatch
+  const resultKey = [
+    executeResult.value.htmlPath,
+    executeResult.value.updateType,
+    contentPatch || '',
+    nextFullHtmlUrl
+  ].join('|')
+  if (lastReportedResultKey.value === resultKey) return
+
+  // iframe 更新统一由结果变更事件驱动，v-model 只保留最新地址
+  lastReportedResultKey.value = resultKey
+  emit('reportResultChanged', {
+    updateType: executeResult.value.updateType,
+    contentHtml: contentPatch,
+    fullHtmlUrl: nextFullHtmlUrl
+  })
 }, { immediate: true })
 // 最终显示的 UI
 const inputUIs = computed<ICalcWindow[]>(() => {
@@ -176,7 +216,7 @@ const {
 const router = useRouter()
 const hasUnsavedCompletedResult = ref(false)
 const canSaveInstance = computed(() => {
-  return hasUnsavedCompletedResult.value && executeResult.value.isCompleted && !!executeResult.value.html && !!currentReportOid.value
+  return hasUnsavedCompletedResult.value && executeResult.value.isCompleted && !!executeResult.value.htmlPath && !!currentReportOid.value
 })
 
 function getCurrentDefaults() {
@@ -186,7 +226,8 @@ function getCurrentDefaults() {
 }
 
 function markSaveableIfCompleted(result?: ExecutionResult) {
-  if ((result || executeResult.value).isCompleted && executeResult.value.html) {
+  const targetResult = result || executeResult.value
+  if (targetResult.isCompleted && targetResult.htmlPath) {
     hasUnsavedCompletedResult.value = true
   }
 }
@@ -250,7 +291,7 @@ function buildSaveInstanceFields(categories: ICategoryInfo[]): ILowCodeField[] {
 }
 
 async function onSaveCalcReportInstance() {
-  if (!executeResult.value.html || !executeResult.value.isCompleted) {
+  if (!executeResult.value.htmlPath || !executeResult.value.isCompleted) {
     notifyError(tCalcReportPageViewer('resultNotReady'))
     return
   }
@@ -282,7 +323,7 @@ async function onSaveCalcReportInstance() {
     categoryId: categoryId as number,
     reportOid: currentReportOid.value,
     defaults: getCurrentDefaults(),
-    resultPath: executeResult.value.html
+    resultPath: executeResult.value.htmlPath
   }
 
   const response = currentInstance.value
@@ -291,7 +332,7 @@ async function onSaveCalcReportInstance() {
 
   currentInstance.value = response.data
   calcReportNameRef.value = response.data.name
-  executeResult.value.html = response.data.resultPath || executeResult.value.html
+  executeResult.value.htmlPath = response.data.resultPath || executeResult.value.htmlPath
   hasUnsavedCompletedResult.value = false
 
   await router.replace({

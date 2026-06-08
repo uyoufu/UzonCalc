@@ -11,7 +11,16 @@
 
   body {
     margin: 0;
-    /* color: var(--uz-text-color); */
+  }
+
+  body,
+  .content,
+  .content *,
+  .content *::before,
+  .content *::after,
+  .content *::marker {
+    /* 打印时统一强制文本色，覆盖链接、代码和公式等局部颜色。 */
+    color: var(--uz-text-color-print) !important;
   }
 
   math mi[mathvariant="italic"],

@@ -11,6 +11,8 @@ HTML 结果缓存服务
 import hashlib
 import re
 import base64
+from enum import IntEnum
+from pydantic import BaseModel
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from typing import Optional
@@ -19,6 +21,26 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.sandbox.core.execution_result import ExecutionResult
 from app.service.tmp_file.tmp_file_service import create_tmp_file
 from config import logger
+
+CONTENT_START_MARK = "<!--CONTENT_START_MARK-->"
+CONTENT_END_MARK = "<!--CONTENT_END_MARK-->"
+
+
+class HtmlUpdateType(IntEnum):
+    """HTML iframe 更新类型"""
+
+    NoneUpdate = 0
+    Full = 1
+    Partial = 2
+
+
+class HtmlContentPatchResult(BaseModel):
+    """HTML 内容更新状态结果"""
+
+    # 前端 iframe 更新类型：0 无变化，1 全量变化，2 局部变化
+    updateType: HtmlUpdateType = HtmlUpdateType.Full
+    # 仅局部变化时携带标记之间的新正文
+    contentHtml: Optional[str] = None
 
 
 class HtmlCacher:
@@ -43,6 +65,97 @@ class HtmlCacher:
     def _compute_hash(self, content: str) -> str:
         """计算内容的 SHA256 哈希值"""
         return hashlib.sha256(content.encode("utf-8")).hexdigest()
+
+    def _resolve_public_html_path(self, html_path: str | None) -> Optional[Path]:
+        """将前端传入的公开 HTML 相对路径解析为安全的本地文件路径"""
+        if not html_path:
+            return None
+
+        relative_path = Path(html_path)
+        if relative_path.is_absolute() or ".." in relative_path.parts:
+            return None
+
+        if relative_path.parts and relative_path.parts[0] == "public":
+            relative_path = Path(*relative_path.parts[1:])
+
+        target_path = (self.public_dir / relative_path).resolve()
+        public_dir = self.public_dir.resolve()
+        try:
+            target_path.relative_to(public_dir)
+        except ValueError:
+            return None
+
+        if not target_path.is_file():
+            return None
+
+        return target_path
+
+    def _read_public_html(self, html_path: str | None) -> Optional[str]:
+        """读取公开缓存 HTML，失败时返回空以便调用方降级"""
+        target_path = self._resolve_public_html_path(html_path)
+        if not target_path:
+            return None
+
+        try:
+            return target_path.read_text(encoding="utf-8")
+        except OSError as e:
+            logger.warning(f"读取缓存 HTML 失败: {e}")
+            return None
+
+    def _split_marked_content(self, html: str) -> Optional[tuple[str, str, str]]:
+        """按正文标记拆分 HTML，返回正文前、正文、正文后"""
+        start_index = html.find(CONTENT_START_MARK)
+        end_index = html.find(CONTENT_END_MARK)
+        if start_index < 0 or end_index < 0 or end_index < start_index:
+            return None
+
+        content_start = start_index + len(CONTENT_START_MARK)
+        before_content = html[:content_start]
+        content_html = html[content_start:end_index]
+        after_content = html[end_index:]
+        return before_content, content_html, after_content
+
+    def build_content_patch(
+        self, new_html: str, last_html_path: str | None
+    ) -> HtmlContentPatchResult:
+        """
+        生成 iframe 正文增量补丁
+
+        根据旧 HTML 与新 HTML 的差异返回 iframe 更新状态。
+        """
+        old_html = self._read_public_html(last_html_path)
+        if old_html is None:
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
+
+        if old_html == new_html:
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.NoneUpdate)
+
+        old_parts = self._split_marked_content(old_html)
+        new_parts = self._split_marked_content(new_html)
+        if not old_parts or not new_parts:
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
+
+        old_before, _, old_after = old_parts
+        new_before, new_content, new_after = new_parts
+        if old_before != new_before or old_after != new_after:
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
+
+        return HtmlContentPatchResult(
+            updateType=HtmlUpdateType.Partial,
+            contentHtml=new_content,
+        )
+
+    def build_content_patch_from_paths(
+        self,
+        last_html_path: str | None,
+        new_html_path: str,
+    ) -> HtmlContentPatchResult:
+        """从两个缓存 HTML 路径生成正文增量补丁"""
+        new_html = self._read_public_html(new_html_path)
+        if new_html is None:
+            return HtmlContentPatchResult(updateType=HtmlUpdateType.Full)
+
+        return self.build_content_patch(new_html, last_html_path)
 
     def _extract_and_replace_base64_images(self, html: str, images_dir: Path) -> str:
         """

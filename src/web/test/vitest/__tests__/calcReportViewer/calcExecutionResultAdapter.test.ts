@@ -9,6 +9,8 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
+      updateType: 1,
       isCompleted: false,
       windows: [
         {
@@ -43,6 +45,8 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
+      updateType: 1,
       isCompleted: false,
       windows: [
         {
@@ -70,6 +74,8 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
+      updateType: 1,
       isCompleted: false,
       windows: [
         {
@@ -96,6 +102,8 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
+      updateType: 1,
       isCompleted: false,
       windows: [
         {
@@ -105,7 +113,8 @@ describe('adaptCalcExecutionResult', () => {
               name: 'amount',
               label: '金额',
               type: LowCodeFieldType.number,
-              onChanged: '(value, oldValue, allValues, allFields) => { allValues.total = value + oldValue + allFields.length }'
+              onChanged:
+                '(value, oldValue, allValues, allFields) => { allValues.total = value + oldValue + allFields.length }'
             }
           ]
         }
@@ -128,6 +137,8 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
+      updateType: 1,
       isCompleted: false,
       windows: [
         {
@@ -154,6 +165,8 @@ describe('adaptCalcExecutionResult', () => {
     const result: ExecutionResult = {
       executionId: 'execution-id',
       html: '',
+      htmlPath: '',
+      updateType: 1,
       isCompleted: false,
       windows: [
         {
@@ -186,7 +199,10 @@ describe('adaptCalcExecutionResult', () => {
 
   it('handles field runtime function building without external function name', () => {
     const adapterSource = readFileSync(
-      new URL('../../../../src/pages/calcReport/viewer/utils/calcExecutionResultAdapter.ts', import.meta.url),
+      new URL(
+        '../../../../src/pages/calcReport/viewer/utils/calcExecutionResultAdapter.ts',
+        import.meta.url
+      ),
       'utf-8'
     )
 
@@ -194,3 +210,4 @@ describe('adaptCalcExecutionResult', () => {
     expect(adapterSource).not.toContain('buildFieldRuntimeFunction(field,')
   })
 })
+

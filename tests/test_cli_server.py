@@ -9,6 +9,11 @@ from urllib.request import urlopen
 sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/core"))
 
 from uzoncalc import cli, startup
+from uzoncalc.http_server import (
+    HtmlPreviewState,
+    create_html_server,
+)
+from uzoncalc.http_server.watcher import watch_script_file_once
 
 
 def _read_preview_html(selected_port: int) -> str:
@@ -25,8 +30,8 @@ def test_create_html_server_uses_next_port_when_preferred_port_is_busy():
     busy_port = busy_socket.getsockname()[1]
 
     try:
-        server, selected_port = cli._create_html_server(
-            cli.HtmlPreviewState("<html>ok</html>"), preferred_port=busy_port
+        server, selected_port = create_html_server(
+            HtmlPreviewState("<html>ok</html>"), preferred_port=busy_port
         )
     finally:
         busy_socket.close()
@@ -39,8 +44,8 @@ def test_create_html_server_uses_next_port_when_preferred_port_is_busy():
 
 def test_html_server_returns_generated_html_at_root():
     """根路径应返回生成后的 HTML 文档。"""
-    preview_state = cli.HtmlPreviewState("<html><body>计算结果</body></html>")
-    server, selected_port = cli._create_html_server(preview_state, preferred_port=0)
+    preview_state = HtmlPreviewState("<html><body>计算结果</body></html>")
+    server, selected_port = create_html_server(preview_state, preferred_port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
@@ -57,8 +62,8 @@ def test_html_server_returns_generated_html_at_root():
 
 def test_html_server_returns_latest_preview_state():
     """预览状态更新后，HTTP 服务应返回最新 HTML。"""
-    preview_state = cli.HtmlPreviewState("<html>旧内容</html>")
-    server, selected_port = cli._create_html_server(preview_state, preferred_port=0)
+    preview_state = HtmlPreviewState("<html>旧内容</html>")
+    server, selected_port = create_html_server(preview_state, preferred_port=0)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
 
@@ -76,8 +81,8 @@ def test_html_server_returns_latest_preview_state():
 
 def test_html_server_returns_404_for_unknown_path():
     """未知路径应返回 404，避免误当作静态目录服务。"""
-    server, selected_port = cli._create_html_server(
-        cli.HtmlPreviewState("<html>ok</html>"), preferred_port=0
+    server, selected_port = create_html_server(
+        HtmlPreviewState("<html>ok</html>"), preferred_port=0
     )
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -99,7 +104,7 @@ def test_watch_script_file_updates_preview_state(tmp_path, monkeypatch):
     """脚本文件变动后，应重新渲染并更新预览状态。"""
     script_path = tmp_path / "calc_script.py"
     script_path.write_text("version = 1", encoding="utf-8")
-    preview_state = cli.HtmlPreviewState("<html>旧内容</html>")
+    preview_state = HtmlPreviewState("<html>旧内容</html>")
     rendered_html_values = iter(["<html>新内容</html>"])
 
     def fake_render_script_html(script_path_arg):
@@ -107,12 +112,11 @@ def test_watch_script_file_updates_preview_state(tmp_path, monkeypatch):
         assert script_path_arg == str(script_path)
         return next(rendered_html_values)
 
-    monkeypatch.setattr(cli, "_render_script_html", fake_render_script_html)
-
-    cli._watch_script_file_once(
+    watch_script_file_once(
         str(script_path),
         preview_state,
         last_mtime=script_path.stat().st_mtime - 1,
+        render_script_html=fake_render_script_html,
     )
 
     assert preview_state.get_html() == "<html>新内容</html>"
@@ -167,3 +171,109 @@ def test_server_render_script_html_does_not_save_file(tmp_path, monkeypatch):
 
     assert html_output == "<html><body>计算结果</body></html>"
     assert not output_path.exists()
+
+
+def test_static_html_server_does_not_start_file_watcher(monkeypatch):
+    """静态预览服务应只启动 HTTP 服务，不创建文件监听线程。"""
+    served_ports = []
+
+    class FakeServer:
+        """模拟阻塞式 HTTP 服务，避免测试长期占用线程。"""
+
+        server_address = ("127.0.0.1", 34567)
+
+        def serve_forever(self):
+            """模拟用户中断服务。"""
+            served_ports.append(self.server_address[1])
+            raise KeyboardInterrupt
+
+        def server_close(self):
+            """记录服务已正常关闭。"""
+            served_ports.append("closed")
+
+    def fake_create_html_server(preview_state, preferred_port):
+        """验证静态服务复用统一的 HTML 状态和端口探测入口。"""
+        assert preview_state.get_html() == "<html>静态内容</html>"
+        assert preferred_port == 0
+        return FakeServer(), FakeServer.server_address[1]
+
+    def fail_watch_script_file(*args, **kwargs):
+        """静态服务不应启动文件监听。"""
+        raise AssertionError("static server should not watch files")
+
+    monkeypatch.setattr(
+        "uzoncalc.http_server.server.create_html_server",
+        fake_create_html_server,
+    )
+    monkeypatch.setattr(
+        "uzoncalc.http_server.watcher.watch_script_file",
+        fail_watch_script_file,
+    )
+
+    startup.serve_static_html("<html>静态内容</html>", preferred_port=0)
+
+    assert served_ports == [34567, "closed"]
+
+
+def test_startup_view_runs_function_and_serves_rendered_html(monkeypatch):
+    """view() 应执行计算函数、渲染 HTML，并启动无监听预览服务。"""
+    calls = []
+
+    class FakeContext:
+        """模拟计算上下文。"""
+
+    def fake_calc(arg_value, named_value=None):
+        """模拟用户传入的计算入口。"""
+
+    def fake_run_sync(func, *args, defaults=None, **kwargs):
+        """验证 view() 透传计算函数参数。"""
+        calls.append(("run", func, args, defaults, kwargs))
+        return FakeContext()
+
+    def fake_render_ctx_html(ctx):
+        """验证 view() 使用本地 HTML 渲染逻辑。"""
+        assert isinstance(ctx, FakeContext)
+        calls.append(("render",))
+        return "<html>预览内容</html>"
+
+    def fake_serve_static_html(html_output, preferred_port):
+        """验证 view() 启动无监听服务。"""
+        calls.append(("serve", html_output, preferred_port))
+
+    monkeypatch.setattr(startup, "run_sync", fake_run_sync)
+    monkeypatch.setattr(startup, "_render_ctx_html", fake_render_ctx_html)
+    monkeypatch.setattr(startup, "serve_static_html", fake_serve_static_html)
+
+    startup.view(
+        fake_calc,
+        "参数",
+        defaults={"默认": {"值": 1}},
+        preferred_port=0,
+        named_value="命名参数",
+    )
+
+    assert calls == [
+        (
+            "run",
+            fake_calc,
+            ("参数",),
+            {"默认": {"值": 1}},
+            {"named_value": "命名参数"},
+        ),
+        ("render",),
+        ("serve", "<html>预览内容</html>", 0),
+    ]
+
+
+def test_package_exports_view():
+    """包顶层应导出 view()，便于用户脚本直接导入。"""
+    import uzoncalc
+
+    assert uzoncalc.view is startup.view
+
+
+def test_startup_does_not_import_cli_module():
+    """startup.py 不应依赖 cli.py，避免核心入口反向加载 CLI。"""
+    startup_source = Path(startup.__file__).read_text("utf-8")
+
+    assert "from .cli import" not in startup_source

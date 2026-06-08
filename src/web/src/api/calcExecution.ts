@@ -7,14 +7,23 @@ export interface ICalcWindow {
   fields: ILowCodeField[]
 }
 
+export enum HtmlUpdateType {
+  None = 0,
+  Full = 1,
+  Partial = 2
+}
+
 /**
  * 执行结果接口
  */
 export interface ExecutionResult {
   executionId: string
   html: string
+  htmlPath: string
   isCompleted: boolean
   windows: Array<ICalcWindow>
+  updateType: HtmlUpdateType
+  htmlContentPatch?: string | null
 }
 
 /**
@@ -25,6 +34,7 @@ export function startCalcExecution(data: {
   reportOid: string
   isSilent: boolean
   defaults?: Record<string, Record<string, any>>
+  lastHtmlPath?: string
 }) {
   return httpClient.post<ExecutionResult>('/calc/execution/start', {
     data
@@ -36,10 +46,15 @@ export function startCalcExecution(data: {
  * @param connectionId 连接ID
  * @param defaults 用户输入的默认值
  */
-export function resumeCalcExecution(connectionId: string, defaults?: Record<string, Record<string, any>>) {
+export function resumeCalcExecution(
+  connectionId: string,
+  defaults?: Record<string, Record<string, any>>,
+  lastHtmlPath?: string
+) {
   return httpClient.post<ExecutionResult>(`/calc/execution/resume/${connectionId}`, {
     data: {
-      defaults: defaults || {}
+      defaults: defaults || {},
+      lastHtmlPath
     }
   })
 }
@@ -49,11 +64,16 @@ export function resumeCalcExecution(connectionId: string, defaults?: Record<stri
  * @param filePath 文件路径
  * @param defaults 用户输入的默认值
  */
-export function startFileExecution(filePath: string, defaults?: Record<string, Record<string, any>>) {
+export function startFileExecution(
+  filePath: string,
+  defaults?: Record<string, Record<string, any>>,
+  lastHtmlPath?: string
+) {
   return httpClient.post<ExecutionResult>('/calc/execution/file', {
     data: {
       filePath,
-      defaults
+      defaults,
+      lastHtmlPath
     }
   })
 }

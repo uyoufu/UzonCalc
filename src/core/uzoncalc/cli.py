@@ -7,40 +7,15 @@ UzonCalc CLI 入口
 """
 
 import argparse
-import errno
-from http import HTTPStatus
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import importlib.util
 import inspect
 import os
 import sys
-import threading
-import traceback
+
+from .http_server import DEFAULT_SERVER_PORT, serve_reloadable_html
 
 # 环境变量名：设置后 doc.save() 将变为空操作
 _CLI_MODE_ENV = "UZONCALC_CLI_MODE"
-_DEFAULT_SERVER_PORT = 32180
-_SERVER_HOST = "127.0.0.1"
-_WATCH_POLL_INTERVAL_SECONDS = 1.0
-
-
-class HtmlPreviewState:
-    """保存预览服务当前 HTML，供监听线程和 HTTP 线程共享。"""
-
-    def __init__(self, html_output: str):
-        """初始化当前 HTML 内容和线程锁。"""
-        self._html_output = html_output
-        self._lock = threading.Lock()
-
-    def get_html(self) -> str:
-        """读取当前 HTML 内容。"""
-        with self._lock:
-            return self._html_output
-
-    def update_html(self, html_output: str):
-        """更新当前 HTML 内容。"""
-        with self._lock:
-            self._html_output = html_output
 
 
 def _load_module_from_path(script_path: str):
@@ -155,118 +130,19 @@ def _render_and_save_script_html(script_path: str, output_path: str | None) -> s
     return html_output
 
 
-def _create_html_handler(preview_state: HtmlPreviewState):
-    """创建只返回当前计算结果的 HTTP 处理器"""
-
-    class CalcHtmlRequestHandler(BaseHTTPRequestHandler):
-        def do_GET(self):
-            # 仅开放预览入口，避免误作为静态文件服务使用
-            if self.path not in ("/", "/index.html"):
-                self.send_error(HTTPStatus.NOT_FOUND)
-                return
-
-            # 每次请求读取最新内容，支持脚本变动后的热更新
-            html_bytes = preview_state.get_html().encode("utf-8")
-            self.send_response(HTTPStatus.OK)
-            self.send_header("Content-Type", "text/html; charset=utf-8")
-            self.send_header("Content-Length", str(len(html_bytes)))
-            self.end_headers()
-            self.wfile.write(html_bytes)
-
-        def log_message(self, format, *args):
-            # 保持 CLI 输出简洁，只展示服务地址和错误信息
-            return
-
-    return CalcHtmlRequestHandler
-
-
-def _create_html_server(
-    preview_state: HtmlPreviewState, preferred_port: int = _DEFAULT_SERVER_PORT
-) -> tuple[ThreadingHTTPServer, int]:
-    """从首选端口开始创建本地 HTML 预览服务"""
-    handler = _create_html_handler(preview_state)
-    current_port = preferred_port
-
-    while True:
-        try:
-            server = ThreadingHTTPServer((_SERVER_HOST, current_port), handler)
-            selected_port = server.server_address[1]
-            return server, selected_port
-        except OSError as exc:
-            if current_port == 0 or exc.errno != errno.EADDRINUSE:
-                raise
-            current_port += 1
-
-
-def _watch_script_file_once(
-    script_path: str,
-    preview_state: HtmlPreviewState,
-    last_mtime: float,
-) -> float:
-    """检查一次脚本文件变动，必要时重新渲染 HTML。"""
-    try:
-        current_mtime = os.path.getmtime(script_path)
-    except OSError as e:
-        print(f"Error: 监听脚本失败: {e}", file=sys.stderr)
-        return last_mtime
-
-    if current_mtime <= last_mtime:
-        return last_mtime
-
-    try:
-        html_output = _render_script_html(script_path)
-    except Exception:
-        # 渲染失败时保留上一版可用内容，便于用户修正脚本后继续预览
-        traceback.print_exc()
-        return current_mtime
-
-    preview_state.update_html(html_output)
-    print("Document reloaded.")
-    return current_mtime
-
-
-def _watch_script_file(
-    script_path: str,
-    preview_state: HtmlPreviewState,
-    stop_event: threading.Event,
-):
-    """轮询脚本文件变动，直到服务停止。"""
-    try:
-        last_mtime = os.path.getmtime(script_path)
-    except OSError:
-        last_mtime = 0
-
-    while not stop_event.wait(_WATCH_POLL_INTERVAL_SECONDS):
-        last_mtime = _watch_script_file_once(
-            script_path, preview_state, last_mtime
-        )
-
-
 def _serve_html(
     html_output: str,
     script_path: str,
-    preferred_port: int = _DEFAULT_SERVER_PORT,
+    preferred_port: int = DEFAULT_SERVER_PORT,
 ):
-    """启动本地 HTTP 服务和文件监听，并阻塞直到用户中断"""
-    preview_state = HtmlPreviewState(html_output)
-    server, selected_port = _create_html_server(preview_state, preferred_port)
-    stop_event = threading.Event()
-    watch_thread = threading.Thread(
-        target=_watch_script_file,
-        args=(script_path, preview_state, stop_event),
-        daemon=True,
+    """启动带文件监听的本地 HTTP 预览服务。"""
+    # CLI 只负责提供脚本渲染回调，服务生命周期交给 http_server 模块
+    serve_reloadable_html(
+        html_output,
+        script_path,
+        render_script_html=_render_script_html,
+        preferred_port=preferred_port,
     )
-    watch_thread.start()
-    print(f"Serving document at: http://{_SERVER_HOST}:{selected_port}/")
-
-    try:
-        server.serve_forever()
-    except KeyboardInterrupt:
-        print("\nServer stopped.")
-    finally:
-        stop_event.set()
-        watch_thread.join(timeout=3)
-        server.server_close()
 
 
 def main():
@@ -287,7 +163,7 @@ def main():
     parser.add_argument(
         "--server",
         action="store_true",
-        help=f"启动本地 HTTP 预览服务（默认端口 {_DEFAULT_SERVER_PORT}，占用时自动递增）",
+        help=f"启动本地 HTTP 预览服务（默认端口 {DEFAULT_SERVER_PORT}，占用时自动递增）",
     )
     args = parser.parse_args()
 

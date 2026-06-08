@@ -50,6 +50,7 @@ export function useCalcExecutor(
     let result: ExecutionResult
     try {
       if (!defaults) defaults = getInputValues()
+      const lastHtmlPath = executeResult.value.htmlPath || undefined
 
       // 判断是通过 reportId 还是文件路径执行
       if (reportOidRef.value) {
@@ -57,11 +58,12 @@ export function useCalcExecutor(
         const response = await startCalcExecution({
           reportOid: reportOidRef.value,
           isSilent: isSilentRef.value,
-          defaults: defaults
+          defaults: defaults,
+          lastHtmlPath
         })
         result = response.data
       } else if (filePathRef.value) {
-        const response = await startFileExecution(filePathRef.value, defaults)
+        const response = await startFileExecution(filePathRef.value, defaults, lastHtmlPath)
         result = response.data
       } else {
         notifyError(tCalcReportPageViewer('missingReportOidOrPath'))
@@ -97,7 +99,8 @@ export function useCalcExecutor(
 
     try {
       const defaults = getInputValues()
-      const response = await resumeCalcExecution(executeResult.value.executionId, defaults)
+      const lastHtmlPath = executeResult.value.htmlPath || undefined
+      const response = await resumeCalcExecution(executeResult.value.executionId, defaults, lastHtmlPath)
       const result = adaptCalcExecutionResult(response.data)
 
       // 合并结果

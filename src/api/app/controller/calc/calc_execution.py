@@ -12,6 +12,7 @@ from app.controller.calc.calc_dto import (
     CalcExecutionReqDTO,
     CalcFileReqDTO,
     CalcResumeReqDTO,
+    ExecutionResultResDTO,
 )
 from app.controller.depends import get_session, get_token_payload
 from app.i18n import _
@@ -33,12 +34,29 @@ router = APIRouter(
 )
 
 
+def finalize_execution_result_html(
+    result: ExecutionResult, last_html_path: Optional[str], relative_path: str
+) -> ExecutionResultResDTO:
+    """整理执行结果 HTML 字段，转换为前端响应 DTO"""
+    patch_result = html_cacher.build_content_patch_from_paths(
+        last_html_path,
+        relative_path,
+    )
+
+    res = ExecutionResultResDTO.model_validate(result)
+    res.html = ""
+    res.htmlPath = relative_path
+    res.updateType = patch_result.updateType
+    res.htmlContentPatch = patch_result.contentHtml
+    return res
+
+
 @router.post("/start")
 async def start_calc_execution(
     data: CalcExecutionReqDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     db_session: AsyncSession = Depends(get_session),
-) -> ResponseResult[ExecutionResult]:
+) -> ResponseResult[ExecutionResultResDTO]:
     """
     开始调用计算执行
     """
@@ -53,9 +71,11 @@ async def start_calc_execution(
 
     # 对结果进行缓存
     relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    result.html = relative_path
+    response_dto = finalize_execution_result_html(
+        result, data.lastHtmlPath, relative_path
+    )
 
-    return ok(result)
+    return ok(response_dto)
 
 
 @router.post("/resume/{connectionId}")
@@ -64,7 +84,7 @@ async def resume_calc_execution(
     data: CalcResumeReqDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     db_session: AsyncSession = Depends(get_session),
-) -> ResponseResult[ExecutionResult]:
+) -> ResponseResult[ExecutionResultResDTO]:
     """
     恢复调用计算执行
     """
@@ -73,9 +93,11 @@ async def resume_calc_execution(
 
     # 对结果进行缓存
     relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    result.html = relative_path
+    response_dto = finalize_execution_result_html(
+        result, data.lastHtmlPath, relative_path
+    )
 
-    return ok(result)
+    return ok(response_dto)
 
 
 @router.post("/file")
@@ -83,7 +105,7 @@ async def start_file_calc_execution(
     data: CalcFileReqDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     db_session: AsyncSession = Depends(get_session),
-) -> ResponseResult[ExecutionResult]:
+) -> ResponseResult[ExecutionResultResDTO]:
     """
     启动文件执行（调试用）
     """
@@ -102,6 +124,8 @@ async def start_file_calc_execution(
 
     # 对结果进行缓存
     relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    result.html = relative_path
+    response_dto = finalize_execution_result_html(
+        result, data.lastHtmlPath, relative_path
+    )
 
-    return ok(result)
+    return ok(response_dto)
