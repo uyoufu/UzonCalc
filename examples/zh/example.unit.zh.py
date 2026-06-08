@@ -1,4 +1,4 @@
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 @uzon_calc()
@@ -17,16 +17,12 @@ async def sheet():
 
     "轴向力："
     N = 100 * unit.kilonewton
-    alias("N", "轴向力 N")
 
     "截面面积："
     A = b * h
-    alias("A", "截面面积 A")
 
     "截面应力："
     sigma = N / A
-
-    save("../output/example_unit.html")
 
 
 if __name__ == "__main__":

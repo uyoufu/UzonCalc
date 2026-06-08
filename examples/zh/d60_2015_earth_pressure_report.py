@@ -1,4 +1,3 @@
-from __future__ import annotations
 import math
 from uzoncalc import *
 
@@ -10,7 +9,7 @@ async def sheet():
 
     H1("JTG D60-2015 土压力计算")
 
-    "本计算书依据 OCR 规范文档第 4.2.3 条“土的重力及土侧压力”编写，覆盖静土压力、主动土压力、汽车荷载、柱式墩台土压力计算宽度和压实填土压力。"
+    "本计算书依据 《JTG D60-2015 公路桥涵通用设计规范》 第 4.2.3 条 “土的重力及土侧压力” 编写，覆盖静土压力、主动土压力、汽车荷载、柱式墩台土压力计算宽度和压实填土压力。"
     "所有输入均提供默认值；工程应用时应以勘察、试验和设计文件参数替换默认值。"
 
     toc("目录")
@@ -67,7 +66,7 @@ async def sheet():
     )
 
     hide()
-    # 添加单位
+    # 对输入值添加单位
     # 输入同步完成类型转换和单位附加，便于公式渲染和后续校验。
     gamma = inputs.gamma * unit.kN / unit.meter**3
     phi = inputs.phiDeg
