@@ -7,10 +7,17 @@ const OUTLINE_PANEL_ID = "uz-outline-preview";
 const OUTLINE_TOGGLE_ID = "uz-outline-toggle";
 const ACTIVE_LINK_CLASS = "uz-outline-link-active";
 const COLLAPSED_PANEL_CLASS = "uz-outline-collapsed";
-const ACTIVE_OFFSET_PX = 140;
+const ACTIVE_OFFSET_PX = 24;
 const WIDE_SCREEN_MIN_WIDTH_PX = 1024;
+const EXPANDED_ICON = "×";
+const COLLAPSED_ICON = "☰";
 
 let removePreviousScrollListener: (() => void) | null = null;
+
+type ClickLockedHeading = {
+  headingId: string;
+  scrollY: number;
+};
 
 /** 移除旧大纲 DOM，支持正文热更新后重新生成。 */
 function removeExistingOutlinePreview(): void {
@@ -23,9 +30,24 @@ function removeExistingOutlinePreview(): void {
   }
 }
 
-/** 判断当前页面是否通过 toc() 启用了大纲。 */
-function hasTocMarker(): boolean {
-  return Boolean(document.getElementById("toc"));
+/** 获取当前页面的目录标记节点。 */
+function getTocMarker(): HTMLElement | null {
+  return document.getElementById("toc");
+}
+
+/** 读取 toc() 传入的大纲标题，缺失时不显示标题区域。 */
+function resolveOutlineTitle(tocMarker: HTMLElement): string {
+  return tocMarker.getAttribute("data-toc-title")?.trim() ?? "";
+}
+
+/** 同步按钮图标和辅助说明。 */
+function updateToggleButtonState(
+  button: HTMLButtonElement,
+  isExpanded: boolean,
+): void {
+  button.setAttribute("aria-expanded", String(isExpanded));
+  button.setAttribute("aria-label", isExpanded ? "关闭大纲" : "展开大纲");
+  button.textContent = isExpanded ? EXPANDED_ICON : COLLAPSED_ICON;
 }
 
 /** 创建大纲开关按钮。 */
@@ -35,14 +57,15 @@ function createOutlineToggleButton(isExpanded: boolean): HTMLButtonElement {
   button.type = "button";
   button.classList.add("uz-outline-toggle");
   button.setAttribute("aria-controls", OUTLINE_PANEL_ID);
-  button.setAttribute("aria-expanded", String(isExpanded));
-  button.setAttribute("aria-label", "切换大纲预览");
-  button.textContent = "☰";
+  updateToggleButtonState(button, isExpanded);
   return button;
 }
 
 /** 创建单个大纲链接。 */
-function createOutlineLink(item: DocumentHeadingItem): HTMLAnchorElement {
+function createOutlineLink(
+  item: DocumentHeadingItem,
+  handleActivateHeading: (headingId: string) => void,
+): HTMLAnchorElement {
   const link = document.createElement("a");
   link.classList.add("uz-outline-link", `uz-outline-level-${item.indentLevel}`);
   link.href = `#${item.heading.id}`;
@@ -51,7 +74,9 @@ function createOutlineLink(item: DocumentHeadingItem): HTMLAnchorElement {
 
   link.addEventListener("click", (event) => {
     event.preventDefault();
-    item.heading.scrollIntoView({ behavior: "smooth", block: "start" });
+    // 先滚到浏览器可达位置，再锁定当前项避免被滚动计算覆盖。
+    item.heading.scrollIntoView({ behavior: "instant", block: "start" });
+    handleActivateHeading(item.heading.id);
   });
 
   return link;
@@ -60,7 +85,9 @@ function createOutlineLink(item: DocumentHeadingItem): HTMLAnchorElement {
 /** 创建右侧大纲面板。 */
 function createOutlinePanel(
   items: DocumentHeadingItem[],
+  titleText: string,
   isExpanded: boolean,
+  handleActivateHeading: (headingId: string) => void,
 ): HTMLElement {
   const panel = document.createElement("aside");
   panel.id = OUTLINE_PANEL_ID;
@@ -71,14 +98,18 @@ function createOutlinePanel(
     panel.classList.add(COLLAPSED_PANEL_CLASS);
   }
 
-  const title = document.createElement("div");
-  title.classList.add("uz-outline-title");
-  title.textContent = "大纲";
-  panel.appendChild(title);
+  if (titleText) {
+    const title = document.createElement("div");
+    title.classList.add("uz-outline-title");
+    title.textContent = titleText;
+    panel.appendChild(title);
+  }
 
   const nav = document.createElement("nav");
   nav.classList.add("uz-outline-nav");
-  items.forEach((item) => nav.appendChild(createOutlineLink(item)));
+  items.forEach((item) =>
+    nav.appendChild(createOutlineLink(item, handleActivateHeading)),
+  );
   panel.appendChild(nav);
 
   return panel;
@@ -88,9 +119,12 @@ function createOutlinePanel(
 function resolveActiveHeadingId(items: DocumentHeadingItem[]): string {
   const activeTop = window.scrollY + ACTIVE_OFFSET_PX;
   let activeItem = items[0];
+  let minDistance = Number.POSITIVE_INFINITY;
 
   for (const item of items) {
-    if (item.heading.offsetTop <= activeTop) {
+    const distance = Math.abs(item.heading.offsetTop - activeTop);
+    if (distance < minDistance) {
+      minDistance = distance;
       activeItem = item;
     }
   }
@@ -99,8 +133,11 @@ function resolveActiveHeadingId(items: DocumentHeadingItem[]): string {
 }
 
 /** 刷新大纲链接的当前高亮状态。 */
-function updateActiveOutlineLink(items: DocumentHeadingItem[]): void {
-  const activeHeadingId = resolveActiveHeadingId(items);
+function updateActiveOutlineLink(
+  items: DocumentHeadingItem[],
+  forceHeadingId?: string,
+): void {
+  const activeHeadingId = forceHeadingId ?? resolveActiveHeadingId(items);
   document
     .querySelectorAll<HTMLAnchorElement>(".uz-outline-link")
     .forEach((link) => {
@@ -118,14 +155,15 @@ function setOutlineExpanded(
   isExpanded: boolean,
 ): void {
   panel.classList.toggle(COLLAPSED_PANEL_CLASS, !isExpanded);
-  toggleButton.setAttribute("aria-expanded", String(isExpanded));
+  updateToggleButtonState(toggleButton, isExpanded);
 }
 
 /** 初始化右侧大纲预览，正文热更新后可重复调用。 */
 export function setupOutlinePreview(): void {
   removeExistingOutlinePreview();
 
-  if (!hasTocMarker()) {
+  const tocMarker = getTocMarker();
+  if (!tocMarker) {
     return;
   }
 
@@ -136,14 +174,34 @@ export function setupOutlinePreview(): void {
 
   const isExpanded = window.innerWidth >= WIDE_SCREEN_MIN_WIDTH_PX;
   const toggleButton = createOutlineToggleButton(isExpanded);
-  const panel = createOutlinePanel(items, isExpanded);
+  let clickLockedHeading: ClickLockedHeading | null = null;
+  const activateHeading = (headingId: string): void => {
+    clickLockedHeading = { headingId, scrollY: window.scrollY };
+    updateActiveOutlineLink(items, headingId);
+  };
+  const panel = createOutlinePanel(
+    items,
+    resolveOutlineTitle(tocMarker),
+    isExpanded,
+    activateHeading,
+  );
 
   toggleButton.addEventListener("click", () => {
     const nextExpanded = toggleButton.getAttribute("aria-expanded") !== "true";
     setOutlineExpanded(panel, toggleButton, nextExpanded);
   });
 
-  const refreshActiveLink = (): void => updateActiveOutlineLink(items);
+  const refreshActiveLink = (): void => {
+    if (clickLockedHeading) {
+      if (window.scrollY === clickLockedHeading.scrollY) {
+        updateActiveOutlineLink(items, clickLockedHeading.headingId);
+        return;
+      }
+      clickLockedHeading = null;
+    }
+
+    updateActiveOutlineLink(items);
+  };
   window.addEventListener("scroll", refreshActiveLink, { passive: true });
   removePreviousScrollListener = () => {
     window.removeEventListener?.("scroll", refreshActiveLink);

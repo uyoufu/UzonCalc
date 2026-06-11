@@ -1,4 +1,5 @@
 import hashlib
+import html
 import json
 import os
 from typing import Any
@@ -135,10 +136,11 @@ def toc(title: str = "Table of Contents"):
     :param title: 目录标题
     """
     ctx = get_current_instance()
+    safe_title = html.escape(title, quote=True)
     # 在当前位置插入目录占位符，JavaScript 会自动填充内容
     toc_html = f"""
-<div id='toc' style='page-break-before:always;page-break-after:always;'>
-    <div class='text-center text-2xl font-semibold'>{title}</div>
+<div id="toc" data-toc-title="{safe_title}" style="page-break-before:always;page-break-after:always;">
+    <div class="text-center text-2xl font-semibold">{safe_title}</div>
     <div id='toc-container'></div>
 </div>
 """

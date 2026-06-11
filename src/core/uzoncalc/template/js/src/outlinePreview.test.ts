@@ -44,6 +44,9 @@ class FakeElement {
   readonly listeners: ListenerMap = {};
   parentElement: FakeElement | null = null;
   offsetTop = 0;
+  scrollHeight = 0;
+  scrollIntoViewScrollY: number | null = null;
+  scrollIntoViewOptions: unknown = null;
   private readonly attributes = new Map<string, string>();
 
   readonly tagName: string;
@@ -96,8 +99,12 @@ class FakeElement {
     }
   }
 
-  /** 模拟滚动跳转接口。 */
-  scrollIntoView(): void {
+  /** 模拟滚动跳转接口，并记录调用参数。 */
+  scrollIntoView(options?: unknown): void {
+    this.scrollIntoViewOptions = options ?? null;
+    if (this.scrollIntoViewScrollY !== null) {
+      (window as unknown as { scrollY: number }).scrollY = this.scrollIntoViewScrollY;
+    }
     this.setAttribute("data-scrolled", "true");
   }
 
@@ -159,6 +166,11 @@ class FakeDocument {
         element.classList.contains("uz-outline-link"),
       );
     }
+    if (selector === ".uz-outline-title") {
+      return elements.filter((element) =>
+        element.classList.contains("uz-outline-title"),
+      );
+    }
     if (selector.startsWith("#")) {
       return elements.filter((element) => element.id === selector.slice(1));
     }
@@ -190,6 +202,7 @@ function installFakeDom(elements: FakeElement[]): FakeDocument {
   (globalThis as { window: unknown }).window = {
     scrollY: 0,
     innerWidth: 1280,
+    innerHeight: 600,
     addEventListener(type: string, listener: (event?: unknown) => void): void {
       listeners[type] = [...(listeners[type] ?? []), listener];
     },
@@ -220,6 +233,7 @@ describe("setupOutlinePreview", () => {
   test("存在 toc 和标题时生成可切换的大纲", () => {
     const toc = new FakeElement("div");
     toc.id = "toc";
+    toc.setAttribute("data-toc-title", "计算目录");
     const firstHeading = createHeading("h2", "总则", 100);
     const secondHeading = createHeading("h3", "材料", 320);
     const fakeDocument = installFakeDom([toc, firstHeading, secondHeading]);
@@ -228,17 +242,34 @@ describe("setupOutlinePreview", () => {
 
     const panel = fakeDocument.getElementById("uz-outline-preview");
     const toggle = fakeDocument.getElementById("uz-outline-toggle");
+    const title = fakeDocument.querySelector(".uz-outline-title");
     const links = fakeDocument.querySelectorAll(".uz-outline-link");
 
     expect(panel).not.toBeNull();
     expect(toggle).not.toBeNull();
+    expect(title?.textContent).toBe("计算目录");
     expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(toggle?.getAttribute("aria-label")).toBe("关闭大纲");
+    expect(toggle?.textContent).toBe("×");
     expect(links.map((link) => link.textContent)).toEqual(["1 总则", "1.1 材料"]);
 
     toggle?.dispatchEvent("click");
 
     expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle?.getAttribute("aria-label")).toBe("展开大纲");
+    expect(toggle?.textContent).toBe("☰");
     expect(panel?.classList.contains("uz-outline-collapsed")).toBe(true);
+  });
+
+  test("toc 标题缺失时不生成大纲标题区域", () => {
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const firstHeading = createHeading("h2", "总则", 100);
+    const fakeDocument = installFakeDom([toc, firstHeading]);
+
+    setupOutlinePreview();
+
+    expect(fakeDocument.querySelector(".uz-outline-title")).toBeNull();
   });
 
   test("点击大纲项跳转标题并在滚动时高亮当前标题", () => {
@@ -254,6 +285,10 @@ describe("setupOutlinePreview", () => {
     links[1]?.dispatchEvent("click");
 
     expect(secondHeading.getAttribute("data-scrolled")).toBe("true");
+    expect(secondHeading.scrollIntoViewOptions).toEqual({
+      behavior: "instant",
+      block: "start",
+    });
 
     const fakeWindow = window as unknown as {
       scrollY: number;
@@ -264,5 +299,97 @@ describe("setupOutlinePreview", () => {
 
     expect(links[0]?.classList.contains("uz-outline-link-active")).toBe(false);
     expect(links[1]?.classList.contains("uz-outline-link-active")).toBe(true);
+  });
+
+  test("点击底部无法贴顶的标题时保持点击项高亮", () => {
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const firstHeading = createHeading("h2", "总则", 100);
+    const secondHeading = createHeading("h2", "底部标题", 1100);
+    const fakeDocument = installFakeDom([toc, firstHeading, secondHeading]);
+
+    setupOutlinePreview();
+
+    const links = fakeDocument.querySelectorAll(".uz-outline-link");
+    links[1]?.dispatchEvent("click");
+
+    const fakeWindow = window as unknown as {
+      scrollY: number;
+      dispatchEvent(type: string): void;
+    };
+    fakeWindow.scrollY = 760;
+    fakeWindow.dispatchEvent("scroll");
+
+    expect(links[0]?.classList.contains("uz-outline-link-active")).toBe(false);
+    expect(links[1]?.classList.contains("uz-outline-link-active")).toBe(true);
+  });
+
+  test("点击最底部标题时不被视口顶部标题覆盖高亮", () => {
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const topHeading = createHeading("h2", "顶部可见标题", 760);
+    const bottomHeading = createHeading("h2", "最底部标题", 1600);
+    bottomHeading.scrollIntoViewScrollY = 800;
+    const fakeDocument = installFakeDom([toc, topHeading, bottomHeading]);
+
+    setupOutlinePreview();
+
+    const links = fakeDocument.querySelectorAll(".uz-outline-link");
+    links[1]?.dispatchEvent("click");
+
+    const fakeWindow = window as unknown as {
+      dispatchEvent(type: string): void;
+    };
+    fakeWindow.dispatchEvent("scroll");
+
+    expect(links[0]?.classList.contains("uz-outline-link-active")).toBe(false);
+    expect(links[1]?.classList.contains("uz-outline-link-active")).toBe(true);
+  });
+
+  test("点击高亮锁定后用户继续滚动则恢复按位置高亮", () => {
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const topHeading = createHeading("h2", "顶部可见标题", 760);
+    const bottomHeading = createHeading("h2", "最底部标题", 1600);
+    bottomHeading.scrollIntoViewScrollY = 800;
+    const fakeDocument = installFakeDom([toc, topHeading, bottomHeading]);
+
+    setupOutlinePreview();
+
+    const links = fakeDocument.querySelectorAll(".uz-outline-link");
+    links[1]?.dispatchEvent("click");
+
+    const fakeWindow = window as unknown as {
+      scrollY: number;
+      dispatchEvent(type: string): void;
+    };
+    fakeWindow.scrollY = 801;
+    fakeWindow.dispatchEvent("scroll");
+
+    expect(links[0]?.classList.contains("uz-outline-link-active")).toBe(true);
+    expect(links[1]?.classList.contains("uz-outline-link-active")).toBe(false);
+  });
+
+  test("点击 h2 时不被近距离 h3 抢占高亮", () => {
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const firstHeading = createHeading("h2", "计算", 500);
+    const childHeading = createHeading("h3", "参数", 560);
+    const fakeDocument = installFakeDom([toc, firstHeading, childHeading]);
+
+    setupOutlinePreview();
+
+    const links = fakeDocument.querySelectorAll(".uz-outline-link");
+    links[0]?.dispatchEvent("click");
+
+    const fakeWindow = window as unknown as {
+      scrollY: number;
+      dispatchEvent(type: string): void;
+    };
+    fakeWindow.scrollY = 500;
+    fakeWindow.dispatchEvent("scroll");
+
+    expect(links[0]?.classList.contains("uz-outline-link-active")).toBe(true);
+    expect(links[1]?.classList.contains("uz-outline-link-active")).toBe(false);
   });
 });

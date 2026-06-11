@@ -1,9 +1,9 @@
 /* UzonCalc template outline preview styles */
 .uz-outline-toggle {
-  /* 固定在打印按钮下方，用于控制右侧大纲显示状态。 */
+  /* 与打印按钮同行固定，便于快速展开或关闭右侧大纲。 */
   position: fixed;
-  top: calc(var(--uz-space-md) + 3rem);
-  right: var(--uz-space-md);
+  top: var(--uz-space-md);
+  right: calc(var(--uz-space-md) + 2rem);
   z-index: 1001;
   width: 1.5rem;
   height: 1.5rem;
@@ -31,7 +31,7 @@
 .uz-outline-preview {
   /* 右侧固定大纲不占用正文打印布局。 */
   position: fixed;
-  top: 5.8rem;
+  top: 2.5rem;
   right: var(--uz-space-md);
   z-index: 1000;
   width: min(18rem, calc(100vw - 2rem));
@@ -107,7 +107,7 @@
 
 @media (max-width: 1023px) {
   .uz-outline-preview {
-    top: 4.8rem;
+    top: 2.5rem;
     left: var(--uz-space-md);
     right: var(--uz-space-md);
     width: auto;
