@@ -20,20 +20,72 @@ class FakeResourceElement {
   }
 }
 
+class FakeScriptElement {
+  textContent = "";
+  replacedWith: FakeScriptElement | null = null;
+  private readonly scriptAttributes: Record<string, string>;
+
+  constructor(attributes: Record<string, string> = {}) {
+    this.scriptAttributes = { ...attributes };
+  }
+
+  /** 读取属性列表，模拟浏览器脚本元素的 attributes 接口。 */
+  get attributes(): Array<{ name: string; value: string }> {
+    return Object.entries(this.scriptAttributes).map(([name, value]) => ({
+      name,
+      value,
+    }));
+  }
+
+  /** 写入脚本属性，用于验证新脚本保留原属性。 */
+  setAttribute(name: string, value: string): void {
+    this.scriptAttributes[name] = value;
+  }
+
+  /** 读取脚本属性，便于断言外部脚本配置未丢失。 */
+  getAttribute(name: string): string | null {
+    return this.scriptAttributes[name] ?? null;
+  }
+
+  /** 替换脚本节点，模拟浏览器执行新插入脚本的关键动作。 */
+  replaceWith(element: FakeScriptElement): void {
+    this.replacedWith = element;
+  }
+}
+
 class FakeContentElement {
   private contentHtml = "";
   readonly resources: FakeResourceElement[] = [];
+  readonly scripts: FakeScriptElement[] = [];
 
   /** 写入正文 HTML，并解析测试关心的 src/href 属性。 */
   set innerHTML(value: string) {
     this.contentHtml = value;
     this.resources.length = 0;
+    this.scripts.length = 0;
 
     const resourcePattern = /\s(src|href)="([^"]+)"/g;
     let match = resourcePattern.exec(value);
     while (match) {
       this.resources.push(new FakeResourceElement({ [match[1] ?? ""]: match[2] ?? "" }));
       match = resourcePattern.exec(value);
+    }
+
+    const scriptPattern = /<script([^>]*)>([\s\S]*?)<\/script>/g;
+    let scriptMatch = scriptPattern.exec(value);
+    while (scriptMatch) {
+      const attributes: Record<string, string> = {};
+      const attributePattern = /\s([a-zA-Z:-]+)="([^"]*)"/g;
+      let attributeMatch = attributePattern.exec(scriptMatch[1] ?? "");
+      while (attributeMatch) {
+        attributes[attributeMatch[1] ?? ""] = attributeMatch[2] ?? "";
+        attributeMatch = attributePattern.exec(scriptMatch[1] ?? "");
+      }
+
+      const scriptElement = new FakeScriptElement(attributes);
+      scriptElement.textContent = scriptMatch[2] ?? "";
+      this.scripts.push(scriptElement);
+      scriptMatch = scriptPattern.exec(value);
     }
   }
 
@@ -42,17 +94,35 @@ class FakeContentElement {
   }
 
   /** 查询正文内的资源元素。 */
-  querySelectorAll(selector: string): FakeResourceElement[] {
-    return selector === "[src], [href]" ? this.resources : [];
+  querySelectorAll(selector: string): Array<FakeResourceElement | FakeScriptElement> {
+    if (selector === "[src], [href]") {
+      return this.resources;
+    }
+    if (selector === "script") {
+      return this.scripts;
+    }
+    return [];
   }
 }
 
 class FakeDocument {
   readonly contentElement = new FakeContentElement();
+  readonly createdScripts: FakeScriptElement[] = [];
 
   /** 查询正文容器。 */
   querySelector(selector: string): FakeContentElement | null {
     return selector === ".content" ? this.contentElement : null;
+  }
+
+  /** 创建脚本节点，用于模拟重新插入脚本触发执行。 */
+  createElement(tagName: string): FakeScriptElement {
+    if (tagName !== "script") {
+      throw new Error(`Unexpected tag: ${tagName}`);
+    }
+
+    const scriptElement = new FakeScriptElement();
+    this.createdScripts.push(scriptElement);
+    return scriptElement;
   }
 }
 
@@ -96,5 +166,35 @@ describe("applyContentPatchMessage", () => {
 
     expect(applied).toBe(false);
     expect(fakeDocument.contentElement.innerHTML).toBe("");
+  });
+
+  test("正文补丁中的内联脚本会被重新插入以触发执行", () => {
+    const fakeDocument = installFakeDocument();
+
+    const applied = applyContentPatchMessage({
+      type: "uzoncalc:update-content",
+      contentHtml: "<figure><script>window.echartReady = true;</script></figure>",
+    });
+
+    const oldScript = fakeDocument.contentElement.scripts[0];
+    const newScript = fakeDocument.createdScripts[0];
+    expect(applied).toBe(true);
+    expect(oldScript?.replacedWith).toBe(newScript);
+    expect(newScript?.textContent).toBe("window.echartReady = true;");
+  });
+
+  test("重新插入脚本时保留原脚本属性", () => {
+    const fakeDocument = installFakeDocument();
+
+    applyContentPatchMessage({
+      type: "uzoncalc:update-content",
+      contentHtml:
+        '<script type="module" src="charts.js" data-chart-id="main"></script>',
+    });
+
+    const newScript = fakeDocument.createdScripts[0];
+    expect(newScript?.getAttribute("type")).toBe("module");
+    expect(newScript?.getAttribute("src")).toBe("charts.js");
+    expect(newScript?.getAttribute("data-chart-id")).toBe("main");
   });
 });
