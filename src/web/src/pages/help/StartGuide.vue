@@ -1,5 +1,5 @@
 <template>
-  <iframe class="uzon-calc-help" src="https://calc.uzoncloud.com/example.zh.html">
+  <iframe class="uzoncalc-help" src="https://calc.uzoncloud.com/example.zh.html">
   </iframe>
 </template>
 
@@ -8,7 +8,7 @@
 </script>
 
 <style lang="scss" scoped>
-.uzon-calc-help {
+.uzoncalc-help {
   width: 100%;
   height: 100%;
   border: none;

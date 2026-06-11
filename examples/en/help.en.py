@@ -933,7 +933,7 @@ Table(
         """
 P(
     get_excel_table(
-        excel_path="examples/calculation.xlsx",
+        excel_path="examples/data/calculation.xlsx",
         values={
             "Sheet2!A3": 6,
             "Sheet2!B3": 10,
@@ -948,7 +948,7 @@ P(
 
     P(
         get_excel_table(
-            excel_path="examples/calculation.xlsx",
+            excel_path="examples/data/calculation.xlsx",
             values={
                 "Sheet2!A3": 6,
                 "Sheet2!B3": 10,

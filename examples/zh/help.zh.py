@@ -56,31 +56,76 @@ async def sheet():
 
     H2("安装使用")
 
-    "你可以通过 pip 安装 UzonCalc："
-    Code("pip install uzoncalc", "bash")
+    H3("Windows")
 
-    "安装完成后, 复制以下模板保存为 example.py："
+    "1. 软件下载"
+
+    "从 [Releases · uyoufu/UzonCalc](https://github.com/uyoufu/UzonCalc/releases) 下载 `win-x64` 版本，解压后，双击 `UzonCalc.exe` 启动。 "
+
+    "2. 复制以下代码到新建编辑框内"
+
     Code(
         """
 from uzoncalc import *
-
-@uzon_calc()
-async def sheet():
-    doc_title("uzoncalc example")
-
-    "Hello, UzonCalc!"
-
-    save()
-
-
-if __name__ == "__main__":
-    run_sync(sheet)
+   
+   @uzon_calc()
+   async def sheet():
+       doc_title("example")
+   
+       "Hello, UzonCalc!"
+   
+       w = 10*unit.m
+       l = 5*unit.m
+       A = w * l
 """,
         "python",
     )
 
-    "然后运行该脚本即可生成计算书文档："
-    Code("python example.py", "bash")
+    "3. 单击执行按钮运行"
+
+    Img(
+        "https://oss.uzoncloud.com:2234/public/files/images/image-20260527133234259.png",
+        alt="UzonCalc 运行结果",
+    )
+
+    H3("CLI")
+
+    "若使用 CLI 的方式，可以按下面的步骤操作："
+
+    "1. 创建计算报告脚本"
+
+    Code(
+        """
+# example.py
+
+from uzoncalc import *
+
+@uzon_calc()
+async def sheet():
+    doc_title("example")
+
+    "Hello, UzonCalc!"
+
+    w = 10*unit.m
+    l = 5*unit.m
+    A = w * l
+
+if __name__ == "__main__":
+    view(sheet)
+""",
+        "python",
+    )
+
+    "2. 运行"
+
+    Code(
+        """
+python example.py
+""",
+        "python",
+    )
+
+    "将会出现：`Serving document at: http://127.0.0.1:32180/` 字样，单击通过浏览器打开即可查看效果。"
 
     H2("Python 基础语法")
 
@@ -934,7 +979,7 @@ Table(
         """
 P(
     get_excel_table(
-        excel_path="examples/calculation.xlsx",
+        excel_path="examples/data/calculation.xlsx",
         values={
             "Sheet2!A3": 6,
             "Sheet2!B3": 10,
@@ -949,7 +994,7 @@ P(
 
     P(
         get_excel_table(
-            excel_path="examples/calculation.xlsx",
+            excel_path="examples/data/calculation.xlsx",
             values={
                 "Sheet2!A3": 6,
                 "Sheet2!B3": 10,

@@ -1,4 +1,4 @@
-# UZon Mail (uzon-calc)
+# UZon Mail (uzoncalc)
 
 A app for sending emails
 
@@ -35,9 +35,9 @@ See [Configuring quasar.config.js](https://v2.quasar.dev/quasar-cli-vite/quasar-
 cd ui-src
 docker compose up -d
 # 第一次需要安装依赖
-docker exec -it uzon-calc-dev bun install && bun run dev
+docker exec -it uzoncalc-dev bun install && bun run dev
 # 第二次启动
-docker exec -it uzon-calc-dev bun run dev
+docker exec -it uzoncalc-dev bun run dev
 ```
 
 

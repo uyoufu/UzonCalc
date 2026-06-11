@@ -228,7 +228,7 @@ async def sheet():
 
     P(
         get_excel_table(
-            excel_path="examples/calculation.xlsx",
+            excel_path="examples/data/calculation.xlsx",
             values={
                 "A3": 6,
                 "B3": 10,

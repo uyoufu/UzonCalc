@@ -6,7 +6,7 @@
       <div
         class="longin-main q-ma-md q-pa-lg column justify-center items-center border-radius-8 animated fadeInDown hover-card card-like"
         @keyup.enter="onUserLogin">
-        <div class="self-center q-mb-lg text-h5 text-secondary welcome-to-uzon-calc">{{ systemConfig.loginWelcome }}
+        <div class="self-center q-mb-lg text-h5 text-secondary welcome-to-uzoncalc">{{ systemConfig.loginWelcome }}
         </div>
 
         <q-input outlined class="full-width q-mb-md" standout v-model="username" :label="tLoginPage('userName')">
@@ -195,7 +195,7 @@ onUnmounted(() => {
     min-width: min(400px, 90%);
   }
 
-  .welcome-to-uzon-calc {
+  .welcome-to-uzoncalc {
     background: -webkit-linear-gradient(315deg, #42d392 25%, #857bf0);
     background-clip: text;
     -webkit-background-clip: text;

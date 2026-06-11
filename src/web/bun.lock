@@ -3,7 +3,7 @@
   "configVersion": 1,
   "workspaces": {
     "": {
-      "name": "uzon-calc",
+      "name": "uzoncalc",
       "dependencies": {
         "@microsoft/signalr": "^8.0.7",
         "@quasar/extras": "^1.17.0",

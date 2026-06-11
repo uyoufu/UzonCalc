@@ -1,10 +1,10 @@
 services:
-  uzon-calc-dev:
-    container_name: uzon-calc-dev
+  uzoncalc-dev:
+    container_name: uzoncalc-dev
     image: node:20.11.0
     volumes:
-      - ./:/app/uzon-calc
-    working_dir: /app/uzon-calc
+      - ./:/app/uzoncalc
+    working_dir: /app/uzoncalc
     ports:
       - 9000:9000
     init: true

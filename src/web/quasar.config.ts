@@ -270,7 +270,7 @@ export default defineConfig((ctx) => {
 
       builder: {
         // https://www.electron.build/configuration/configuration
-        appId: 'uzon-calc'
+        appId: 'uzoncalc'
       }
     },
 
