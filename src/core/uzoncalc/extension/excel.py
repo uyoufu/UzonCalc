@@ -16,7 +16,7 @@ def get_excel_table(
     Args:
         excel_path: Excel 文件路径
         values: 要更新的值，字典格式 {'A1': value1, 'Sheet1!B2': value2}
-        screenshot_range: 要截取的范围，支持 'A1:E10' 或 'Sheet1!A1:E10' 格式
+        range: 要截取的范围，支持 'A1:E10' 或 'Sheet1!A1:E10' 格式
 
     Returns:
         HTML table 字符串
@@ -41,6 +41,10 @@ def get_excel_table(
 
     # 使用 xlwings 更新值并计算公式
     if values:
+        # Linux 等无 Excel 引擎环境中，xlwings 无法创建 App。
+        if xw.engines.active is None:
+            return "No Excel/xlwings engine available. Please install Excel/xlwings and try again."
+
         app = xw.App(visible=False)
         try:
             wb = app.books.open(excel_path)
