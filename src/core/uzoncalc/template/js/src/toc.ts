@@ -1,4 +1,5 @@
 import { calculatePageNumbers } from "./pagination";
+import { collectDocumentHeadings } from "./headingCollector";
 
 let is_print_refresh_registered = false;
 
@@ -17,39 +18,29 @@ function ensurePrintPageNumberRefresh(): void {
   is_print_refresh_registered = true;
 }
 
-function createSectionNumber(counters: number[], level: number): string {
-  const values: number[] = [];
-
-  for (let index = 0; index <= level; index += 1) {
-    const value = counters[index] ?? 0;
-    if (value > 0) {
-      values.push(value);
-    }
-  }
-
-  return values.join(".");
-}
-
-function updateCounters(counters: number[], level: number): void {
-  counters[level] = (counters[level] ?? 0) + 1;
-
-  for (let index = level + 1; index < counters.length; index += 1) {
-    counters[index] = 0;
-  }
+/** 转义目录文本，避免标题内容被当作 HTML 解析。 */
+function escapeHtmlText(value: string): string {
+  return value
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
 }
 
 function renderTocItem(
-  heading: HTMLHeadingElement,
+  heading_id: string,
+  heading_text: string,
   indent: number,
   section_number: string,
 ): string {
   return `
     <div class="toc-item" style="margin-left: ${indent}rem;">
-      <a href="#${heading.id}" class="toc-link">
+      <a href="#${heading_id}" class="toc-link">
         <span class="toc-number">${section_number}</span>
-        <span class="toc-text">${heading.textContent ?? ""}</span>
+        <span class="toc-text">${escapeHtmlText(heading_text)}</span>
         <span class="toc-dots"></span>
-        <span class="toc-page" data-heading-id="${heading.id}">-</span>
+        <span class="toc-page" data-heading-id="${heading_id}">-</span>
       </a>
     </div>`;
 }
@@ -60,30 +51,15 @@ export function generateToc(): void {
     return;
   }
 
-  const headings =
-    document.querySelectorAll<HTMLHeadingElement>("h2, h3, h4, h5, h6");
-  const counters = [0, 0, 0, 0, 0];
+  const headings = collectDocumentHeadings();
   let toc_html = '<div class="toc-list">';
 
-  headings.forEach((heading, index) => {
-    if (heading.closest("#toc")) {
-      return;
-    }
-
-    if (!heading.id) {
-      heading.id = `heading-${index}`;
-    }
-
-    const level = Number.parseInt(heading.tagName.substring(1), 10) - 2;
-    if (level < 0 || level >= counters.length) {
-      return;
-    }
-
-    updateCounters(counters, level);
+  headings.forEach((heading) => {
     toc_html += renderTocItem(
-      heading,
-      level,
-      createSectionNumber(counters, level),
+      heading.heading.id,
+      heading.text,
+      heading.indentLevel,
+      heading.sectionNumber,
     );
   });
 

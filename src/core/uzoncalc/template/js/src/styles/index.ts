@@ -9,6 +9,7 @@ import printStyles from "./print.css" with { type: "text" };
 import tableStyles from "./table.css" with { type: "text" };
 import tocStyles from "./toc.css" with { type: "text" };
 import headStyles from "./head.css" with { type: "text" };
+import outlineStyles from "./outline.css" with { type: "text" };
 
 export const templateStyles = [
   variablesStyles,
@@ -19,6 +20,7 @@ export const templateStyles = [
   codeStyles,
   tableStyles,
   tocStyles,
+  outlineStyles,
   printBtnStyles,
   printStyles,
   headStyles,

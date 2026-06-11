@@ -5,9 +5,10 @@
   top: var(--uz-space-md);
   right: var(--uz-space-md);
   z-index: 1000;
+  height: 1.5rem;
+  width: 1.5rem;
   border: 1px solid var(--uz-border-color-muted);
   border-radius: var(--uz-radius-md);
-  padding: var(--uz-space-sm) var(--uz-space-sm);
   color: var(--uz-text-color-strong);
   background-color: var(--uz-bg-color);
   box-shadow: var(--uz-shadow-medium);
