@@ -30,6 +30,7 @@
     "openpyxl",
     "orelse",
     "pandoc",
+    "pyrs",
     "pytest",
     "redoc",
     "retcode",

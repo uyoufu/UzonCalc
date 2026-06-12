@@ -4,9 +4,11 @@ import base64
 from dataclasses import dataclass, field, replace
 import html
 import io
+import re
 from typing import Any, Iterable, List, Protocol
 
 from ..globals import get_current_instance
+from .markdown import get_markdown
 
 
 class ISavefig(Protocol):
@@ -375,15 +377,15 @@ def Input(content: str):
     input(content, persist=True)
 
 
-def code(content: str, language: str | None = None):
+def code(content: str, language: str | None = None, persist: bool = False):
     lines = _trim_empty_lines(content.split("\n"))
     lang_class = f"language-{language}" if language else ""
     code_html = h("code", children="\n".join(lines), classes=lang_class)
-    return h("pre", children=code_html, classes="my-2")
+    return h("pre", children=code_html, classes="my-2", persist=persist)
 
 
 def Code(content: str, language: str | None = None):
-    get_current_instance().append_content(code(content, language=language))
+    code(content, language=language, persist=True)
 
 
 def info(content: str, persist: bool = False):
@@ -396,6 +398,25 @@ def info(content: str, persist: bool = False):
 
 def Info(content: str):
     info(content, persist=True)
+
+
+def markdown(content: str, persist: bool = False):
+    """
+    render markdown content
+    :param content: markdown content
+    :param trim: whether to trim start and end of content
+    :return: html content
+    """
+    md = get_markdown()
+
+    # 移除 content 开头的空行（含仅空白字符的行）
+    trimmed_content = re.sub(r"\A[\t ]*(?:\r?\n)+", "", content)
+    markdown_html = md.render(trimmed_content)
+    return p(markdown_html, persist=persist)
+
+
+def Markdown(content: str):
+    markdown(content, persist=True)
 
 
 def laTex(content: str, persist: bool = False):

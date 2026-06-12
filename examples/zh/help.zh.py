@@ -34,27 +34,16 @@ async def sheet():
 
     "功能特色"
 
-    """
-- 🤖 **AI 友好** — 自带 SKILL，AI 可以帮你快速生成和修改计算报告
-- 🐍 **原生 Python** — 采用原生 Python 语法，轻松入门，快速上手，功能强大，一切皆有可能
-- 📐 **公式自动渲染** — 变量自动代入值、计算过程自动展示
-- 📌 **自动排版** — 自动根据计算结果排版，无需手动调整
-- 📏 **单位计算** — 自动进行单位换算与量纲检查，计算中无需关注单位变化
+    Markdown("""
+- 🤖 **AI 友好** — 自带 SKILL, 计算过程就是 Python 代码，便于 AI 生成、审查和修改
+- 🐍 **原生 Python** — 采用原生 Python 语法，上手简单，扩展性强
+- 📐 **公式自动渲染** — 变量自动代入值，公式自动计算，计算过程自动展示
+- 📌 **自动排版** — 章节号、图号自动生成，自适应排版
+- 📏 **单位计算** — 可带单位计算，自动进行单位换算与量纲检查，无需关心单位一致性问题
 - 📊 **图表支持** — 可使用 ECharts、svg 和 Matplotlib 绘制各式各样图表
 - 📋 **Excel 复用** — 支持自动调用 Excel 进行计算并摘录结果
-- 📄 **多格式输出** — 采用标准的 Mathml 格式, 支持转换为 PDF、Word
-    """
-
-    "1. 使用 python 语言编写计算书, 语法简单易学"
-    "2. AI 友好, 自带 SKILL, 可以帮助你快速编写计算书"
-    "3. 所有的操作均为函数, 易于理解和使用"
-    "4. 自动代入变量值计算结果, 减少手动计算错误"
-    "5. 只需专注于内容和计算逻辑, 其它脏活 UzonCalc 会自动帮你搞定"
-    "6. 支持单位计算, 自动进行单位换算和检查"
-    "7. 支持调用 Excel 计算表格, 实现计算模型复用"
-    "8. 兼容 MathML, 可转换为 PDF、Word 等多种格式"
-    "9. 高度可定制化, 支持自定义样式和模板"
-    "10. 开源免费, 基于 MIT 许可证发布"
+- 📄 **多格式输出** — 采用标准的 Mathml 格式, 支持转换为 PDF、Word 等文档
+    """)
 
     Br()
 
@@ -69,11 +58,13 @@ async def sheet():
     H2("安装使用")
 
     # MARK: Windows
-    H3("Windows")
+    H3("Windows 安装")
 
     "1. 软件下载"
 
-    "从 [Releases · uyoufu/UzonCalc](https://github.com/uyoufu/UzonCalc/releases) 下载 `win-x64` 版本，解压后，双击 `UzonCalc.exe` 启动。 "
+    Markdown(
+        "从 [Releases · uyoufu/UzonCalc](https://github.com/uyoufu/UzonCalc/releases) 下载 `win-x64` 版本，解压后，双击 `UzonCalc.exe` 启动。 "
+    )
 
     "2. 复制以下代码到新建编辑框内"
 
@@ -81,15 +72,15 @@ async def sheet():
         """
 from uzoncalc import *
    
-   @uzon_calc()
-   async def sheet():
-       doc_title("example")
+@uzon_calc()
+async def sheet():
+    doc_title("example")
    
-       "Hello, UzonCalc!"
+    "Hello, UzonCalc!"
    
-       w = 10*unit.m
-       l = 5*unit.m
-       A = w * l
+    w = 10*unit.m
+    l = 5*unit.m
+    A = w * l
 """,
         "python",
     )
@@ -102,7 +93,7 @@ from uzoncalc import *
     )
 
     # MARK: CLI
-    H3("CLI")
+    H3("CLI 安装")
 
     "若使用 CLI 的方式，可以按下面的步骤操作："
 
@@ -142,31 +133,26 @@ python example.py
     "将会出现：`Serving document at: http://127.0.0.1:32180/` 字样，单击通过浏览器打开即可查看效果。"
 
     # MARK: Python 基础语法
-    H2("Python 基础语法")
+    H2("基础语法")
+
+    "UzonCalc 基于 python 实现，没有引入额外的定义，因此，编写计算即为使用 python 编写代码。"
 
     "若你之前没有接触过 Python 编程语言, 下面是一些基础语法介绍, 帮助你快速上手。"
 
-    '1. 字符串: 使用单引号 \' 或双引号 " 或 三引号 """ 包围文本表示字符串'
-    "2. 数字: 可以直接使用整数和浮点数, 例如 42 或 3.14"
-    "3. 布尔值: 使用 True 和 False 表示布尔值, 例如 isValid = True"
-    "4. 列表: 使用方括号 [] 创建列表, 例如 myList = [1, 2, 3, 4, 5]"
-    "5. = 号: 用于赋值操作, 例如 a = 5 将数字 5 赋值给变量 a"
-    "6. +, -, *, /, ** 运算符: 用于基本的数学运算, 例如 + 用于加法, - 用于减法, * 用于乘法, / 用于除法, ** 用于幂运算"
-    "7. >, <, >=, <=, ==, != 比较运算符: 用于比较两个值的大小或相等性, 例如 a > b 判断 a 是否大于 b, a == b 判断 a 是否等于 b"
-    "8. 变量名可以包含字母、数字和下划线, 但不能以数字开头。在 UzonCalc 中, 推荐使用 camelCase 命名法, 例如 myVariableName。因为 _ 下划线会被用作下标符号"
-    "9. 缩进: Python 使用缩进来表示代码块的层级关系, 通常使用 4 个空格进行缩进"
-    "10. 注释: 以 # 开头的内容为注释。注释不会被执行, 仅用于解释代码"
-
-    """
-    11. 函数定义: 使用 def 关键字定义函数, 例如 def myFunction(param1, param2): 
-    用于定义一个名为 myFunction 的函数, 接受两个参数 param1 和 param2。
-    通过 myFunction(5, 10) 调用该函数, 并传入参数值 5 和 10。   
-    """
-
-    """
-    12. 模块导入: 使用 import 语句导入模块, 例如 from numpy import sqrt 导入 sqrt 函数, 
-    通过 sqrt(16) 调用该模块中的 sqrt 函数计算平方根。
-    """
+    Markdown("""
+1. 文本: 使用单引号 ' 或双引号 " 或 三引号 \"\"\" 包围的字符串表达文本内容
+2. 数字: 可以直接使用整数和浮点数, 例如 `42` 或 `3.14`
+3. 布尔值: 使用 `True` 和 `False` 表示布尔值, 例如 `isValid = True`
+4. 列表: 使用方括号 [] 创建列表, 例如 `myList = [1, 2, 3, 4, 5]`
+5. `=` 号: 用于赋值操作, 例如 `a = 5` 将数字 5 赋值给变量 a
+6. `+, -, *, /, **` 运算符: 用于基本的数学运算, 例如 + 用于加法, - 用于减法, * 用于乘法, / 用于除法, ** 用于幂运算
+7. `>, <, >=, <=, ==, !=` 比较运算符: 用于比较两个值的大小或相等性, 例如 `a > b` 判断 a 是否大于 b, `a == b` 判断 a 是否等于 b
+8. 变量名可以包含字母、数字和下划线, 但不能以数字开头。在 UzonCalc 中, 推荐使用 camelCase 命名法, 例如 `myVariableName`。因为 _ 下划线会被用作下标符号        
+9. 缩进: Python 使用缩进来表示代码块的层级关系, 通常使用 4 个空格进行缩进
+10. 注释: 以 # 开头的内容为注释。注释不会被执行, 仅用于解释代码
+11. 函数定义: 使用 def 关键字定义函数, 例如 `def myFunction(param1, param2):` 用于定义一个名为 `myFunction` 的函数, 接受两个参数 param1 和 param2。通过 `myFunction(5, 10)` 调用该函数, 并传入参数值 5 和 10。      
+12. 模块导入: 使用 import 语句导入模块, 例如 `from numpy import sqrt` 导入 sqrt 函数, 通过 `sqrt(16)` 调用该模块中的 sqrt 函数计算平方根。
+""")
 
     "目前, 你只需要了解这些基础语法, 就可以开始使用 UzonCalc 进行计算书编写了。建议在使用过程中逐步学习更多 Python 语法和功能, 以便更好地使用 UzonCalc。"
 
@@ -681,55 +667,35 @@ EChart(options)
 
     Code(
         """
-EChart(
+hide()
+    ROOT_PATH = "https://oss.uzoncloud.com:2234/public/files/images"
+    show()
+
+    EChart(
         {
-            "tooltip": {},
-            "backgroundColor": "#fff",
-            "visualMap": {
-                "show": False,
-                "dimension": 2,
-                "min": -1,
-                "max": 1,
-                "inRange": {
-                    "color": [
-                        "#313695",
-                        "#4575b4",
-                        "#74add1",
-                        "#abd9e9",
-                        "#e0f3f8",
-                        "#ffffbf",
-                        "#fee090",
-                        "#fdae61",
-                        "#f46d43",
-                        "#d73027",
-                        "#a50026",
-                    ]
-                },
-            },
-            "xAxis3D": {"type": "value"},
-            "yAxis3D": {"type": "value"},
-            "zAxis3D": {"type": "value"},
-            "grid3D": {"viewControl": {}},
-            "series": [
-                {
-                    "type": "surface",
-                    "wireframe": {},
-                    "equation": {
-                        "x": {"step": 0.05},
-                        "y": {"step": 0.05},
-                        "z": Javascript(
-                            \"\"\"
-function (x, y) {
-  if (Math.abs(x) < 0.1 && Math.abs(y) < 0.1) {
-    return '-';
-  }
-  return Math.sin(x * Math.PI) * Math.sin(y * Math.PI);
-}
-\"\"\"
-                        ),
+            "backgroundColor": "#000",
+            "globe": {
+                "baseTexture": ROOT_PATH + "/earth.jpg",
+                "heightTexture": ROOT_PATH + "/bathymetry_bw_composite_4k.jpg",
+                "displacementScale": 0.1,
+                "shading": "lambert",
+                "environment": ROOT_PATH + "/starfield.jpg",
+                "light": {"ambient": {"intensity": 0.1}, "main": {"intensity": 1.5}},
+                "layers": [
+                    {
+                        "type": "blend",
+                        "blendTo": "emission",
+                        "texture": ROOT_PATH + "/night.jpg",
                     },
-                }
-            ],
+                    {
+                        "type": "overlay",
+                        "texture": ROOT_PATH + "/clouds.png",
+                        "shading": "lambert",
+                        "distance": 5,
+                    },
+                ],
+            },
+            "series": [],
         },
         use_gl=True,
     )
@@ -737,51 +703,36 @@ function (x, y) {
         "python",
     )
 
-    # 参数参考：https://echarts.apache.org/examples/zh/editor.html?c=simple-surface&gl=1
+    # 参考：https://echarts.apache.org/examples/zh/editor.html?c=globe-layers&gl=1
+    hide()
+    ROOT_PATH = "https://oss.uzoncloud.com:2234/public/files/images"
+    show()
+
     EChart(
         {
-            "tooltip": {},
-            "backgroundColor": "#fff",
-            "visualMap": {
-                "show": False,
-                "dimension": 2,
-                "min": -1,
-                "max": 1,
-                "inRange": {
-                    "color": [
-                        "#4575b4",
-                        "#74add1",
-                        "#abd9e9",
-                        "#e0f3f8",
-                        "#ffffbf",
-                        "#fee090",
-                        "#fdae61",
-                        "#f46d43",
-                    ]
-                },
-            },
-            "xAxis3D": {"type": "value"},
-            "yAxis3D": {"type": "value"},
-            "zAxis3D": {"type": "value"},
-            "grid3D": {"viewControl": {}},
-            "series": [
-                {
-                    "type": "surface",
-                    "wireframe": {},
-                    "equation": {
-                        "x": {"step": 0.05},
-                        "y": {"step": 0.05},
-                        "z": Javascript("""
-function (x, y) {
-  if (Math.abs(x) < 0.1 && Math.abs(y) < 0.1) {
-    return '-';
-  }
-  return Math.sin(x * Math.PI) * Math.sin(y * Math.PI);
-}
-"""),
+            "backgroundColor": "#000",
+            "globe": {
+                "baseTexture": ROOT_PATH + "/earth.jpg",
+                "heightTexture": ROOT_PATH + "/bathymetry_bw_composite_4k.jpg",
+                "displacementScale": 0.1,
+                "shading": "lambert",
+                "environment": ROOT_PATH + "/starfield.jpg",
+                "light": {"ambient": {"intensity": 0.1}, "main": {"intensity": 1.5}},
+                "layers": [
+                    {
+                        "type": "blend",
+                        "blendTo": "emission",
+                        "texture": ROOT_PATH + "/night.jpg",
                     },
-                }
-            ],
+                    {
+                        "type": "overlay",
+                        "texture": ROOT_PATH + "/clouds.png",
+                        "shading": "lambert",
+                        "distance": 5,
+                    },
+                ],
+            },
+            "series": [],
         },
         use_gl=True,
     )
