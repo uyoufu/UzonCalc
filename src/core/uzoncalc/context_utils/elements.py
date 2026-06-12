@@ -412,7 +412,8 @@ def markdown(content: str, persist: bool = False):
     # 移除 content 开头的空行（含仅空白字符的行）
     trimmed_content = re.sub(r"\A[\t ]*(?:\r?\n)+", "", content)
     markdown_html = md.render(trimmed_content)
-    return p(markdown_html, persist=persist)
+    # 不能直接使用 p 标签，因为 p 标签中无法包含列表等元素
+    return div(markdown_html, persist=persist)
 
 
 def Markdown(content: str):

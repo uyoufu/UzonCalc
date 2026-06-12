@@ -1,6 +1,7 @@
 import variablesStyles from "./variables.css" with { type: "text" };
 import themeStyles from "./theme.css" with { type: "text" };
 import baseStyles from "./base.css" with { type: "text" };
+import olStyles from "./ol.css" with { type: "text" };
 import codeStyles from "./code.css" with { type: "text" };
 import interactiveStyles from "./interactive.css" with { type: "text" };
 import mathStyles from "./math.css" with { type: "text" };
@@ -15,6 +16,7 @@ export const templateStyles = [
   variablesStyles,
   themeStyles,
   baseStyles,
+  olStyles,
   mathStyles,
   interactiveStyles,
   codeStyles,
