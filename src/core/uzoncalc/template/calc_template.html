@@ -13,8 +13,8 @@
         CUSTOM_STYLES
     </style>
     <style>
-        body {
-            font-family: BODY_FONT_FAMILY;
+        :root {
+            --uz-font-body-option: BODY_FONT_FAMILY;
         }
 
         /*正文内容：显示与打印分开*/
@@ -41,13 +41,13 @@
             @top-left {
                 content: "PAGE_TITLE";
                 font-size: 10pt;
-                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
+                font-family: var(--uz-font-page);
             }
 
             @bottom-center {
                 content: "—— " counter(page) " ——";
                 font-size: 10pt;
-                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
+                font-family: var(--uz-font-page);
             }
         }
     </style>

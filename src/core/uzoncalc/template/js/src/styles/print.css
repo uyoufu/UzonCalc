@@ -25,7 +25,7 @@
 
   math mi[mathvariant="italic"],
   math mi:not([mathvariant]) {
-    font-family: inherit !important;
+    font-family: var(--uz-font-body) !important;
     font-style: italic !important;
   }
 

@@ -22,4 +22,10 @@ describe("printStyles", () => {
     expect(printStyles).not.toContain("math .function-name");
     expect(printStyles).not.toContain("math .unit");
   });
+
+  test("打印时公式斜体使用正文变量字体", () => {
+    expect(printStyles).toContain(
+      "font-family: var(--uz-font-body) !important",
+    );
+  });
 });

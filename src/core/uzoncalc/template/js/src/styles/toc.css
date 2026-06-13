@@ -60,7 +60,7 @@
 }
 
 .toc-page[data-page-placeholder="true"] {
-  font-family: inherit;
+  font-family: var(--uz-font-body);
   background-color: var(--uz-bg-color-placeholder);
   padding: 0 0.25em;
   border-radius: 2px;
