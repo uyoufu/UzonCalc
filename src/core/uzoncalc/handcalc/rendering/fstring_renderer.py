@@ -6,7 +6,12 @@ from typing import Any, Mapping, Protocol
 from ...context import CalcContext
 from .. import ir
 from .equation_renderer import build_equation_parts, style_array_vars
-from .value_renderer import format_runtime_value, is_array_value, render_value_fragment
+from .value_renderer import (
+    format_runtime_value,
+    is_array_value,
+    render_html_fragment,
+    render_value_fragment,
+)
 
 
 class FStringSegmentLike(Protocol):
@@ -43,6 +48,10 @@ def _render_math(
 ) -> str:
     runtime_value = locals_map.get(segment.value_var) if segment.value_var else None
     runtime_value = format_runtime_value(runtime_value, segment.format_spec)
+
+    html_fragment = render_html_fragment(runtime_value)
+    if html_fragment is not None:
+        return html_fragment
 
     # 如果 enable_fstring_equation 为 False，只显示值
     if not ctx.options.enable_fstring_equation:

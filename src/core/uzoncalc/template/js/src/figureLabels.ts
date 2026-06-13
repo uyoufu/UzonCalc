@@ -16,6 +16,11 @@ interface LabelMetadata {
   sourceId: string;
 }
 
+const LABEL_SCROLL_OPTIONS: ScrollIntoViewOptions = {
+  behavior: "smooth",
+  block: "start",
+};
+
 function isLabelKind(value: string | undefined): value is LabelKind {
   return value === LabelKind.Figure || value === LabelKind.Table;
 }
@@ -43,6 +48,40 @@ function buildLabelText(prefix: string, sectionNumber: string, order: number): s
   return `${prefix} ${sectionNumber}.${order}`;
 }
 
+function resolveLabelTargetElement(sourceElement: HTMLSpanElement): HTMLElement {
+  return sourceElement.closest<HTMLElement>("figure, table") ?? sourceElement;
+}
+
+function scrollToLabelTarget(targetElement: HTMLElement): void {
+  targetElement.scrollIntoView(LABEL_SCROLL_OPTIONS);
+}
+
+function configureReferenceInteraction(
+  referenceElement: HTMLSpanElement,
+  targetElement: HTMLElement,
+): void {
+  referenceElement.setAttribute("role", "link");
+  referenceElement.tabIndex = 0;
+  referenceElement.onclick = (event) => {
+    event.preventDefault();
+    scrollToLabelTarget(targetElement);
+  };
+  referenceElement.onkeydown = (event) => {
+    if (event.key !== "Enter" && event.key !== " ") {
+      return;
+    }
+    event.preventDefault();
+    scrollToLabelTarget(targetElement);
+  };
+}
+
+function clearReferenceInteraction(referenceElement: HTMLSpanElement): void {
+  referenceElement.removeAttribute("role");
+  referenceElement.tabIndex = -1;
+  referenceElement.onclick = null;
+  referenceElement.onkeydown = null;
+}
+
 export function applyFigureLabels(): void {
   const headings = collectDocumentHeadings();
   const h2SectionNumberByElement = new Map<Element, string>();
@@ -56,6 +95,7 @@ export function applyFigureLabels(): void {
     "h2, span[data-uzoncalc-label-source]",
   );
   const labelTextById = new Map<string, string>();
+  const labelTargetById = new Map<string, HTMLElement>();
   const countersBySection = new Map<string, LabelCounterState>();
   let currentSectionNumber = "";
 
@@ -87,6 +127,7 @@ export function applyFigureLabels(): void {
       counterState[metadata.kind],
     );
     labelTextById.set(metadata.sourceId, labelText);
+    labelTargetById.set(metadata.sourceId, resolveLabelTargetElement(sourceElement));
     sourceElement.textContent = labelText;
   });
 
@@ -95,6 +136,13 @@ export function applyFigureLabels(): void {
   );
   referenceElements.forEach((referenceElement) => {
     const referenceId = referenceElement.dataset.uzoncalcLabelRef;
-    referenceElement.textContent = referenceId ? (labelTextById.get(referenceId) ?? "") : "";
+    const labelText = referenceId ? (labelTextById.get(referenceId) ?? "") : "";
+    const targetElement = referenceId ? labelTargetById.get(referenceId) : undefined;
+    referenceElement.textContent = labelText;
+    if (targetElement && labelText) {
+      configureReferenceInteraction(referenceElement, targetElement);
+      return;
+    }
+    clearReferenceInteraction(referenceElement);
   });
 }

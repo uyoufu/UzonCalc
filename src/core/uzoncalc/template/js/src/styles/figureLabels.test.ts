@@ -10,5 +10,10 @@ describe("figure label styles", () => {
     expect(templateStyles).toContain(".uzoncalc-label-caption-figure");
     expect(templateStyles).toContain("font-size: 0.83rem");
     expect(templateStyles).toContain("font-weight: 400");
+    expect(templateStyles).toContain("span[data-uzoncalc-label-ref]");
+    expect(templateStyles).toContain("cursor: pointer");
+    expect(templateStyles).toContain("span[data-uzoncalc-label-ref]:hover");
+    expect(templateStyles).toContain("span[data-uzoncalc-label-ref]:focus-visible");
+    expect(templateStyles).toContain("text-decoration: underline");
   });
 });

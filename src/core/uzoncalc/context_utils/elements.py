@@ -1,117 +1,14 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass, field, replace
-from enum import StrEnum
-import html
+from dataclasses import replace
 import io
 import re
-from typing import Any, Iterable, List, Protocol
+from typing import Any, Iterable, List
 
 from ..globals import get_current_instance
+from .element_models import AutoLabel, HtmlFragment, ISavefig, LabelKind, Props
 from .markdown import get_markdown
-
-
-class LabelKind(StrEnum):
-    """自动编号标签类型。"""
-
-    FIGURE = "figure"
-    TABLE = "table"
-
-
-class ISavefig(Protocol):
-    """
-    支持保存为图片的 Matplotlib 绘图对象协议。
-    """
-
-    def savefig(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        保存当前绘图内容到目标缓冲区或文件。
-        """
-        ...
-
-
-@dataclass
-class Props:
-    """
-    HTML element properties class.
-
-    Supports standard HTML attributes and custom attributes.
-
-    Example:
-        Props(id="my-id", classes="foo bar", styles={"color": "red"})
-        Props(id="my-id", data_value="123")
-    """
-
-    class_str: str | None = None
-    style: dict[str, str] | None = None
-    id: str | None = None
-    custom: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, str]:
-        """
-        Convert Props to a dictionary of HTML attributes.
-
-        :return: Dictionary mapping attribute names to their string values.
-        """
-        attrs: dict[str, str] = {}
-
-        # Handle id
-        if self.id:
-            attrs["id"] = self.id
-
-        # Handle classes
-        if self.class_str:
-            attrs["class"] = self.class_str
-
-        # Handle styles
-        if self.style:
-            attrs["style"] = "; ".join(f"{k}: {v}" for k, v in self.style.items())
-
-        # Handle custom attributes
-        for key, value in self.custom.items():
-            if value is not None:
-                # Convert underscores to hyphens for HTML attributes
-                # e.g. data_value -> data-value
-                attrs[key.replace("_", "-")] = str(value)
-        return attrs
-
-
-@dataclass(frozen=True)
-class AutoLabel:
-    """自动编号标签信息，同时承载本体标记与正文引用占位符。"""
-
-    kind: LabelKind
-    label_id: str
-    prefix: str
-
-    def reference_html(self) -> str:
-        """渲染正文引用占位符。"""
-        return h("span", props=self.reference_props())
-
-    def source_html(self) -> str:
-        """渲染图表本体的编号源占位符。"""
-        return h(
-            "span",
-            classes=f"uzoncalc-label-source uzoncalc-label-source-{self.kind.value}",
-            props=self.source_props(),
-        )
-
-    def reference_props(self) -> "Props":
-        """生成正文引用占位符属性。"""
-        return props(
-            data_uzoncalc_label_ref=self.label_id,
-            data_uzoncalc_label_kind=self.kind.value,
-            data_uzoncalc_label_prefix=self.prefix,
-        )
-
-    def source_props(self) -> "Props":
-        """生成图表本体编号源占位符属性。"""
-        return props(
-            data_uzoncalc_label_source=self.label_id,
-            data_uzoncalc_label_kind=self.kind.value,
-            data_uzoncalc_label_prefix=self.prefix,
-        )
 
 
 def create_auto_label(kind: LabelKind) -> AutoLabel:
@@ -556,13 +453,7 @@ def _extend_props(element_props: Props | None, attrs: dict[str, Any]) -> Props:
 def _props_to_html(element_props: Props | None) -> str:
     if element_props is None:
         return ""
-    attrs = element_props.to_dict()
-    if not attrs:
-        return ""
-    attr_text = " ".join(
-        f'{key}="{html.escape(value, quote=True)}"' for key, value in attrs.items()
-    )
-    return f" {attr_text}"
+    return element_props.to_html_attrs()
 
 
 def _children_to_html(children: str | List[str] | None) -> str:

@@ -43,6 +43,22 @@ def enable_equation():
 # endregion
 
 
+# region enable/disable f-string equation rendering
+def enable_fstring_equation():
+    """启用 f-string 表达式的方程渲染。"""
+    ctx = get_current_instance()
+    ctx.options.enable_fstring_equation = True
+
+
+def disable_fstring_equation():
+    """禁用 f-string 表达式的方程渲染，仅显示表达式值。"""
+    ctx = get_current_instance()
+    ctx.options.enable_fstring_equation = False
+
+
+# endregion
+
+
 # region enable/disable variable substitution in equations
 def enable_substitution():
     """

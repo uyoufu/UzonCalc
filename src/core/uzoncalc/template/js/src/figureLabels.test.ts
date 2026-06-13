@@ -6,19 +6,65 @@ class FakeElement {
   innerHTML = "";
   textContent = "";
   previousElementSibling: FakeElement | null = null;
+  tabIndex = -1;
+  onclick: ((event: FakeInteractionEvent) => void) | null = null;
+  onkeydown: ((event: FakeKeyboardEvent) => void) | null = null;
+  scrollIntoViewOptions: unknown = null;
+  scrollIntoViewCount = 0;
+  private readonly attributes = new Map<string, string>();
+  private readonly closestTarget: FakeElement | null;
 
   constructor(
     readonly tagName: string,
     readonly dataset: Record<string, string> = {},
-    options: { textContent?: string; previousElementSibling?: FakeElement | null } = {},
+    options: {
+      textContent?: string;
+      previousElementSibling?: FakeElement | null;
+      closestTarget?: FakeElement | null;
+    } = {},
   ) {
     this.tagName = tagName.toUpperCase();
     this.textContent = options.textContent ?? "";
     this.previousElementSibling = options.previousElementSibling ?? null;
+    this.closestTarget = options.closestTarget ?? null;
   }
 
-  closest(): null {
+  setAttribute(name: string, value: string): void {
+    this.attributes.set(name, value);
+  }
+
+  removeAttribute(name: string): void {
+    this.attributes.delete(name);
+  }
+
+  getAttribute(name: string): string | null {
+    return this.attributes.get(name) ?? null;
+  }
+
+  closest(selector: string): FakeElement | null {
+    if (selector === "figure, table") {
+      return this.closestTarget;
+    }
     return null;
+  }
+
+  scrollIntoView(options?: unknown): void {
+    this.scrollIntoViewOptions = options ?? null;
+    this.scrollIntoViewCount += 1;
+  }
+}
+
+class FakeInteractionEvent {
+  defaultPrevented = false;
+
+  preventDefault(): void {
+    this.defaultPrevented = true;
+  }
+}
+
+class FakeKeyboardEvent extends FakeInteractionEvent {
+  constructor(readonly key: string) {
+    super();
   }
 }
 
@@ -193,5 +239,80 @@ describe("applyFigureLabels", () => {
     expect(firstRef.textContent).toBe("Figure 1");
     expect(secondRef.textContent).toBe("Figure 1");
     expect(missingRef.textContent).toBe("");
+  });
+
+  test("引用点击后跳转到对应图表或表格容器", () => {
+    const h2 = new FakeElement("h2", {}, { textContent: "第一章" });
+    const tableTarget = new FakeElement("table");
+    const tableSource = new FakeElement(
+      "span",
+      {
+        uzoncalcLabelSource: "table-1",
+        uzoncalcLabelKind: "table",
+        uzoncalcLabelPrefix: "表",
+      },
+      { previousElementSibling: h2, closestTarget: tableTarget },
+    );
+    const tableRef = new FakeElement("span", {
+      uzoncalcLabelRef: "table-1",
+      uzoncalcLabelKind: "table",
+      uzoncalcLabelPrefix: "表",
+    });
+
+    installFakeDocument({
+      headings: [h2],
+      labelSources: [tableSource],
+      labelRefs: [tableRef],
+      orderedElements: [h2, tableSource],
+    });
+
+    applyFigureLabels();
+    const event = new FakeInteractionEvent();
+    tableRef.onclick?.(event);
+
+    expect(tableRef.textContent).toBe("表 1.1");
+    expect(tableRef.getAttribute("role")).toBe("link");
+    expect(tableRef.tabIndex).toBe(0);
+    expect(event.defaultPrevented).toBeTrue();
+    expect(tableTarget.scrollIntoViewOptions).toEqual({
+      behavior: "smooth",
+      block: "start",
+    });
+  });
+
+  test("引用支持键盘触发且重复刷新不会重复绑定", () => {
+    const figureTarget = new FakeElement("figure");
+    const figureSource = new FakeElement(
+      "span",
+      {
+        uzoncalcLabelSource: "figure-1",
+        uzoncalcLabelKind: "figure",
+        uzoncalcLabelPrefix: "图",
+      },
+      { closestTarget: figureTarget },
+    );
+    const figureRef = new FakeElement("span", {
+      uzoncalcLabelRef: "figure-1",
+      uzoncalcLabelKind: "figure",
+      uzoncalcLabelPrefix: "图",
+    });
+
+    installFakeDocument({
+      headings: [],
+      labelSources: [figureSource],
+      labelRefs: [figureRef],
+    });
+
+    applyFigureLabels();
+    applyFigureLabels();
+    const ignoredEvent = new FakeKeyboardEvent("Escape");
+    const enterEvent = new FakeKeyboardEvent("Enter");
+
+    figureRef.onkeydown?.(ignoredEvent);
+    figureRef.onkeydown?.(enterEvent);
+
+    expect(ignoredEvent.defaultPrevented).toBeFalse();
+    expect(enterEvent.defaultPrevented).toBeTrue();
+    expect(figureTarget.scrollIntoViewCount).toBe(1);
   });
 });

@@ -1,5 +1,11 @@
 from core.uzoncalc.context import CalcContext
-from core.uzoncalc.context_utils.elements import Img, LabelKind, Plot, create_auto_label
+from core.uzoncalc.context_utils.elements import (
+    HtmlFragment,
+    Img,
+    LabelKind,
+    Plot,
+    create_auto_label,
+)
 from core.uzoncalc.context_utils.options import figure_prefix
 from core.uzoncalc.extension.echarts import EChart
 from core.uzoncalc.globals import _calc_instance
@@ -25,6 +31,9 @@ def test_img_returns_reference_placeholder_and_persists_label_source():
         placeholder
         == '<span data-uzoncalc-label-ref="figure-1" data-uzoncalc-label-kind="figure" data-uzoncalc-label-prefix="图"></span>'
     )
+    assert isinstance(placeholder, str)
+    assert isinstance(placeholder, HtmlFragment)
+    assert placeholder.__html__() == str(placeholder)
     assert 'data-uzoncalc-label-source="figure-1"' in context.contents[-1]
     assert 'data-uzoncalc-label-prefix="图"' in context.contents[-1]
     assert 'class="uzoncalc-figure-wrapper"' in context.contents[-1]
@@ -103,4 +112,6 @@ def test_create_auto_label_accepts_label_kind_enum():
 
     assert label.kind is LabelKind.FIGURE
     assert label.label_id == "figure-1"
-    assert 'data-uzoncalc-label-kind="figure"' in label.reference_html()
+    reference_html = label.reference_html()
+    assert isinstance(reference_html, HtmlFragment)
+    assert 'data-uzoncalc-label-kind="figure"' in reference_html

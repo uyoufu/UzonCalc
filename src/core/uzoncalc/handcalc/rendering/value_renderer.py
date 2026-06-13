@@ -8,6 +8,7 @@ import numpy as np
 import pint
 
 from ...globals import get_current_instance
+from ...context_utils.element_models import HtmlFragment
 from .. import ir
 
 FLOAT_PRECISION = 12  # 浮点数清理精度（消除浮点误差）
@@ -115,11 +116,25 @@ def render_value_fragment(value: Any) -> str:
     """Render a runtime value for f-string mixed HTML output."""
     if value is None:
         return ""
+    html_fragment = render_html_fragment(value)
+    if html_fragment is not None:
+        return html_fragment
     if isinstance(value, ir.MathNode):
         return value.to_mathml_xml()
     if isinstance(value, (FormattedQuantity, pint.Quantity)):
         return value_to_ir(value).to_mathml_xml()
     return render_value_text(value)
+
+
+def render_html_fragment(value: Any) -> str | None:
+    """若值是可信 HTML 片段则返回原始 HTML，否则返回 None。"""
+    if isinstance(value, HtmlFragment):
+        return value.__html__()
+    html_method = getattr(value, "__html__", None)
+    if callable(html_method):
+        return str(html_method())
+    return None
+
 
 def format_runtime_value(value: Any, format_spec: str) -> Any:
     """Apply an f-string format spec without choosing the final output format."""

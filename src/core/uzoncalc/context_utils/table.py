@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .elements import AutoLabel, Props
+    from .element_models import AutoLabel, Props
 
 
 # 表格单元格支持任意值，渲染时统一通过 str() 转为显示文本。

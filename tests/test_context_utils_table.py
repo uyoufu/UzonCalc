@@ -2,6 +2,7 @@ from importlib import import_module
 from typing import Any, get_type_hints
 
 from core.uzoncalc.context import CalcContext
+from core.uzoncalc.context_utils.elements import HtmlFragment
 from core.uzoncalc.context_utils.table import Table, Td, Tr, table, td, th
 from core.uzoncalc.globals import _calc_instance
 from core.uzoncalc.units import unit
@@ -174,6 +175,9 @@ def test_table_returns_reference_placeholder_and_persists_label_source():
         placeholder
         == '<span data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></span>'
     )
+    assert isinstance(placeholder, str)
+    assert isinstance(placeholder, HtmlFragment)
+    assert placeholder.__html__() == str(placeholder)
     assert 'data-uzoncalc-label-source="table-1"' in context.contents[-1]
     assert 'data-uzoncalc-label-prefix="表"' in context.contents[-1]
     assert 'class="uzoncalc-label-caption uzoncalc-label-caption-table"' in context.contents[-1]

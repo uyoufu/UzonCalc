@@ -29,3 +29,13 @@
 .uzoncalc-label-source {
   margin-right: var(--uz-space-xs);
 }
+
+span[data-uzoncalc-label-ref] {
+  cursor: pointer;
+  color: var(--uz-link-color);
+}
+
+span[data-uzoncalc-label-ref]:hover,
+span[data-uzoncalc-label-ref]:focus-visible {
+  text-decoration: underline;
+}
