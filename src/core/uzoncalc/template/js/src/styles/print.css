@@ -43,7 +43,6 @@
     page-break-after: avoid;
   }
 
-  pre,
   blockquote,
   .plot-container {
     page-break-inside: avoid;

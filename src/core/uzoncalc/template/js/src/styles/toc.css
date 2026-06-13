@@ -25,7 +25,7 @@
 }
 
 .toc-number {
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
   padding-right: var(--uz-space-xs);
   background: var(--uz-bg-color);

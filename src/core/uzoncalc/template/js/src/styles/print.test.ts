@@ -28,4 +28,9 @@ describe("printStyles", () => {
       "font-family: var(--uz-font-body) !important",
     );
   });
+
+  test("打印时允许代码块跨页显示", () => {
+    expect(printStyles).not.toMatch(/pre,\s*blockquote,\s*\.plot-container/);
+    expect(printStyles).toContain("blockquote,\n  .plot-container");
+  });
 });
