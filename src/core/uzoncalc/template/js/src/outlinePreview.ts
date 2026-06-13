@@ -11,6 +11,7 @@ const ACTIVE_OFFSET_PX = 24;
 const WIDE_SCREEN_MIN_WIDTH_PX = 1024;
 const EXPANDED_ICON = "×";
 const COLLAPSED_ICON = "☰";
+const OUTLINE_EXPANDED_STORAGE_KEY = "uzoncalc:outline-expanded";
 
 let removePreviousScrollListener: (() => void) | null = null;
 
@@ -59,6 +60,40 @@ function createOutlineToggleButton(isExpanded: boolean): HTMLButtonElement {
   button.setAttribute("aria-controls", OUTLINE_PANEL_ID);
   updateToggleButtonState(button, isExpanded);
   return button;
+}
+
+/** 读取用户保存的大纲展开偏好，缺失或不可用时返回 null。 */
+function readSavedOutlineExpanded(): boolean | null {
+  try {
+    const savedValue = window.localStorage?.getItem(OUTLINE_EXPANDED_STORAGE_KEY);
+    if (savedValue === "true") {
+      return true;
+    }
+    if (savedValue === "false") {
+      return false;
+    }
+  } catch {
+    return null;
+  }
+
+  return null;
+}
+
+/** 保存用户的大纲展开偏好，存储不可用时不影响当前页面交互。 */
+function saveOutlineExpanded(isExpanded: boolean): void {
+  try {
+    window.localStorage?.setItem(
+      OUTLINE_EXPANDED_STORAGE_KEY,
+      String(isExpanded),
+    );
+  } catch {
+    // 浏览器禁用本地存储时仍允许大纲在当前页面正常切换。
+  }
+}
+
+/** 解析大纲初始状态，优先使用用户保存的偏好。 */
+function resolveInitialOutlineExpanded(): boolean {
+  return readSavedOutlineExpanded() ?? window.innerWidth >= WIDE_SCREEN_MIN_WIDTH_PX;
 }
 
 /** 创建单个大纲链接。 */
@@ -172,7 +207,7 @@ export function setupOutlinePreview(): void {
     return;
   }
 
-  const isExpanded = window.innerWidth >= WIDE_SCREEN_MIN_WIDTH_PX;
+  const isExpanded = resolveInitialOutlineExpanded();
   const toggleButton = createOutlineToggleButton(isExpanded);
   let clickLockedHeading: ClickLockedHeading | null = null;
   const activateHeading = (headingId: string): void => {
@@ -189,6 +224,7 @@ export function setupOutlinePreview(): void {
   toggleButton.addEventListener("click", () => {
     const nextExpanded = toggleButton.getAttribute("aria-expanded") !== "true";
     setOutlineExpanded(panel, toggleButton, nextExpanded);
+    saveOutlineExpanded(nextExpanded);
   });
 
   const refreshActiveLink = (): void => {

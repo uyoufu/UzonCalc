@@ -188,6 +188,20 @@ class FakeDocument {
   }
 }
 
+class FakeStorage {
+  private readonly values = new Map<string, string>();
+
+  /** 读取持久化值，模拟 localStorage.getItem。 */
+  getItem(key: string): string | null {
+    return this.values.get(key) ?? null;
+  }
+
+  /** 写入持久化值，模拟 localStorage.setItem。 */
+  setItem(key: string, value: string): void {
+    this.values.set(key, value);
+  }
+}
+
 function createHeading(tagName: string, text: string, offsetTop: number): FakeElement {
   const heading = new FakeElement(tagName);
   heading.textContent = text;
@@ -195,14 +209,18 @@ function createHeading(tagName: string, text: string, offsetTop: number): FakeEl
   return heading;
 }
 
-function installFakeDom(elements: FakeElement[]): FakeDocument {
+function installFakeDom(
+  elements: FakeElement[],
+  options: { innerWidth?: number; localStorage?: unknown } = {},
+): FakeDocument {
   const fakeDocument = new FakeDocument(elements);
   const listeners: ListenerMap = {};
   (globalThis as { document: unknown }).document = fakeDocument;
   (globalThis as { window: unknown }).window = {
     scrollY: 0,
-    innerWidth: 1280,
+    innerWidth: options.innerWidth ?? 1280,
     innerHeight: 600,
+    localStorage: options.localStorage ?? new FakeStorage(),
     addEventListener(type: string, listener: (event?: unknown) => void): void {
       listeners[type] = [...(listeners[type] ?? []), listener];
     },
@@ -270,6 +288,72 @@ describe("setupOutlinePreview", () => {
     setupOutlinePreview();
 
     expect(fakeDocument.querySelector(".uz-outline-title")).toBeNull();
+  });
+
+  test("重建大纲时保留用户收起状态", () => {
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const heading = createHeading("h2", "总则", 100);
+    const fakeDocument = installFakeDom([toc, heading]);
+
+    setupOutlinePreview();
+
+    fakeDocument.getElementById("uz-outline-toggle")?.dispatchEvent("click");
+    setupOutlinePreview();
+
+    const panel = fakeDocument.getElementById("uz-outline-preview");
+    const toggle = fakeDocument.getElementById("uz-outline-toggle");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(panel?.classList.contains("uz-outline-collapsed")).toBe(true);
+  });
+
+  test("刷新后从 localStorage 恢复大纲展开状态", () => {
+    const storage = new FakeStorage();
+    storage.setItem("uzoncalc:outline-expanded", "true");
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const heading = createHeading("h2", "总则", 100);
+    const fakeDocument = installFakeDom([toc, heading], {
+      innerWidth: 640,
+      localStorage: storage,
+    });
+
+    setupOutlinePreview();
+
+    const panel = fakeDocument.getElementById("uz-outline-preview");
+    const toggle = fakeDocument.getElementById("uz-outline-toggle");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(panel?.classList.contains("uz-outline-collapsed")).toBe(false);
+  });
+
+  test("localStorage 不可用时按屏幕宽度回退且仍可切换", () => {
+    const toc = new FakeElement("div");
+    toc.id = "toc";
+    const heading = createHeading("h2", "总则", 100);
+    const failingStorage = {
+      getItem(): string {
+        throw new Error("storage disabled");
+      },
+      setItem(): void {
+        throw new Error("storage disabled");
+      },
+    };
+    const fakeDocument = installFakeDom([toc, heading], {
+      innerWidth: 640,
+      localStorage: failingStorage,
+    });
+
+    setupOutlinePreview();
+
+    const panel = fakeDocument.getElementById("uz-outline-preview");
+    const toggle = fakeDocument.getElementById("uz-outline-toggle");
+    expect(toggle?.getAttribute("aria-expanded")).toBe("false");
+    expect(panel?.classList.contains("uz-outline-collapsed")).toBe(true);
+
+    toggle?.dispatchEvent("click");
+
+    expect(toggle?.getAttribute("aria-expanded")).toBe("true");
+    expect(panel?.classList.contains("uz-outline-collapsed")).toBe(false);
   });
 
   test("点击大纲项跳转标题并在滚动时高亮当前标题", () => {
