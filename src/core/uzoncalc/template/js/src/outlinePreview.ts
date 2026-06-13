@@ -91,7 +91,7 @@ function createOutlinePanel(
 ): HTMLElement {
   const panel = document.createElement("aside");
   panel.id = OUTLINE_PANEL_ID;
-  panel.classList.add("uz-outline-preview");
+  panel.classList.add("uz-outline-preview", "hover-scroll");
   panel.setAttribute("aria-label", "大纲预览");
 
   if (!isExpanded) {
