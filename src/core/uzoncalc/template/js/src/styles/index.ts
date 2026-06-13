@@ -5,6 +5,7 @@ import olStyles from "./ol.css" with { type: "text" };
 import codeStyles from "./code.css" with { type: "text" };
 import interactiveStyles from "./interactive.css" with { type: "text" };
 import mathStyles from "./math.css" with { type: "text" };
+import floatingButtonStyles from "./floatingButton.css" with { type: "text" };
 import printBtnStyles from "./printBtn.css" with { type: "text" };
 import printStyles from "./print.css" with { type: "text" };
 import tableStyles from "./table.css" with { type: "text" };
@@ -23,6 +24,7 @@ export const templateStyles = [
   codeStyles,
   tableStyles,
   tocStyles,
+  floatingButtonStyles,
   outlineStyles,
   printBtnStyles,
   printStyles,

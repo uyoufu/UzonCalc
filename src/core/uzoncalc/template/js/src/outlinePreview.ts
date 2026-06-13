@@ -8,7 +8,7 @@ const OUTLINE_TOGGLE_ID = "uz-outline-toggle";
 const ACTIVE_LINK_CLASS = "uz-outline-link-active";
 const COLLAPSED_PANEL_CLASS = "uz-outline-collapsed";
 const ACTIVE_OFFSET_PX = 24;
-const WIDE_SCREEN_MIN_WIDTH_PX = 1024;
+const WIDE_SCREEN_MIN_WIDTH_PX = 641;
 const EXPANDED_ICON = "×";
 const COLLAPSED_ICON = "☰";
 const OUTLINE_EXPANDED_STORAGE_KEY = "uzoncalc:outline-expanded";
@@ -65,7 +65,9 @@ function createOutlineToggleButton(isExpanded: boolean): HTMLButtonElement {
 /** 读取用户保存的大纲展开偏好，缺失或不可用时返回 null。 */
 function readSavedOutlineExpanded(): boolean | null {
   try {
-    const savedValue = window.localStorage?.getItem(OUTLINE_EXPANDED_STORAGE_KEY);
+    const savedValue = window.localStorage?.getItem(
+      OUTLINE_EXPANDED_STORAGE_KEY,
+    );
     if (savedValue === "true") {
       return true;
     }
@@ -93,7 +95,9 @@ function saveOutlineExpanded(isExpanded: boolean): void {
 
 /** 解析大纲初始状态，优先使用用户保存的偏好。 */
 function resolveInitialOutlineExpanded(): boolean {
-  return readSavedOutlineExpanded() ?? window.innerWidth >= WIDE_SCREEN_MIN_WIDTH_PX;
+  return (
+    readSavedOutlineExpanded() ?? window.innerWidth >= WIDE_SCREEN_MIN_WIDTH_PX
+  );
 }
 
 /** 创建单个大纲链接。 */
