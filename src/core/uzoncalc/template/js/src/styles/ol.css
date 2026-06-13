@@ -2,8 +2,8 @@
 ol,
 ul {
   margin: var(--uz-space-lg) 0;
-  padding-left: 2em;
-  list-style-position: outside;
+  text-indent: 2em;
+  list-style-position: inside;
 }
 
 ol {
