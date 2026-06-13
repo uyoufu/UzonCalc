@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .elements import Props
+    from .elements import AutoLabel, Props
 
 
 # 表格单元格支持任意值，渲染时统一通过 str() 转为显示文本。
@@ -54,6 +54,7 @@ def table(
     title: str | None = None,
     props: Props | None = None,
     persist: bool = False,
+    label: AutoLabel | None = None,
 ) -> str:
     """渲染表格 HTML，rows 会统一转换为 Tr/Td 模型处理。"""
     from .elements import h
@@ -62,8 +63,19 @@ def table(
     header_rows = _normalize_header_rows(headers)
     body_rows = _normalize_body_rows(rows)
 
-    if title:
-        children.append(h("caption", children=title))
+    if title or label is not None:
+        caption_children: list[str] = []
+        if label is not None:
+            caption_children.append(label.source_html())
+        if title:
+            caption_children.append(title)
+        children.append(
+            h(
+                "caption",
+                children=caption_children,
+                classes="uzoncalc-label-caption uzoncalc-label-caption-table",
+            )
+        )
 
     if header_rows:
         thead_rows = []
@@ -86,8 +98,11 @@ def Table(
     *,
     title: str | None = None,
     props: Props | None = None,
-) -> None:
+) -> str:
     """渲染并记录表格 HTML。"""
+    from .elements import LabelKind, create_auto_label
+
+    label = create_auto_label(LabelKind.TABLE)
     table(
         headers=headers,
         rows=rows,
@@ -95,7 +110,9 @@ def Table(
         classes=classes,
         props=props,
         persist=True,
+        label=label,
     )
+    return label.reference_html()
 
 
 def th(

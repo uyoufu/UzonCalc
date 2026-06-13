@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass, field, replace
+from enum import StrEnum
 import html
 import io
 import re
@@ -9,6 +10,13 @@ from typing import Any, Iterable, List, Protocol
 
 from ..globals import get_current_instance
 from .markdown import get_markdown
+
+
+class LabelKind(StrEnum):
+    """自动编号标签类型。"""
+
+    FIGURE = "figure"
+    TABLE = "table"
 
 
 class ISavefig(Protocol):
@@ -67,6 +75,56 @@ class Props:
                 # e.g. data_value -> data-value
                 attrs[key.replace("_", "-")] = str(value)
         return attrs
+
+
+@dataclass(frozen=True)
+class AutoLabel:
+    """自动编号标签信息，同时承载本体标记与正文引用占位符。"""
+
+    kind: LabelKind
+    label_id: str
+    prefix: str
+
+    def reference_html(self) -> str:
+        """渲染正文引用占位符。"""
+        return h("span", props=self.reference_props())
+
+    def source_html(self) -> str:
+        """渲染图表本体的编号源占位符。"""
+        return h(
+            "span",
+            classes=f"uzoncalc-label-source uzoncalc-label-source-{self.kind.value}",
+            props=self.source_props(),
+        )
+
+    def reference_props(self) -> "Props":
+        """生成正文引用占位符属性。"""
+        return props(
+            data_uzoncalc_label_ref=self.label_id,
+            data_uzoncalc_label_kind=self.kind.value,
+            data_uzoncalc_label_prefix=self.prefix,
+        )
+
+    def source_props(self) -> "Props":
+        """生成图表本体编号源占位符属性。"""
+        return props(
+            data_uzoncalc_label_source=self.label_id,
+            data_uzoncalc_label_kind=self.kind.value,
+            data_uzoncalc_label_prefix=self.prefix,
+        )
+
+
+def create_auto_label(kind: LabelKind) -> AutoLabel:
+    """按当前上下文配置创建自动编号标签。"""
+    ctx = get_current_instance()
+    serial_number = ctx.get_serial_number()
+    prefix_settings = ctx.options.prefix_settings
+    prefix = (
+        prefix_settings.figure_prefix
+        if kind is LabelKind.FIGURE
+        else prefix_settings.table_prefix
+    )
+    return AutoLabel(kind=kind, label_id=f"{kind.value}-{serial_number}", prefix=prefix)
 
 
 def props(**kwargs) -> Props:
@@ -358,15 +416,28 @@ def Img(
     height: str | int | None = None,
     props: Props | None = None,
 ):
-    img(
-        src,
-        classes=classes,
-        alt=alt,
-        width=width,
-        height=height,
-        props=props,
+    label = create_auto_label(LabelKind.FIGURE)
+    caption_children = [label.source_html()]
+    if alt:
+        caption_children.append(alt)
+    img_props = _extend_props(
+        props, {"src": src, "alt": alt, "width": width, "height": height}
+    )
+    image_html = h("img", classes=classes, props=img_props, is_self_closing=True)
+    h(
+        "figure",
+        [
+            div(image_html, classes="uzoncalc-figure-body"),
+            h(
+                "figcaption",
+                caption_children,
+                classes="uzoncalc-label-caption uzoncalc-label-caption-figure",
+            ),
+        ],
+        classes="uzoncalc-figure-wrapper",
         persist=True,
     )
+    return label.reference_html()
 
 
 def input(content: str, persist: bool = False):
@@ -432,24 +503,37 @@ def plot(fig: ISavefig, width=None, persist: bool = False):
     """
     将 Matplotlib 图形渲染为内嵌 PNG 图片。
     """
-    # 通过内存缓冲区导出图片，避免生成临时文件。
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight")
-    buf.seek(0)
-    image_base64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    image_base64 = base64.b64encode(_save_plot_to_bytes(fig)).decode("ascii")
     return img(f"data:image/png;base64,{image_base64}", width=width, persist=persist)
 
 
-def Plot(fig: ISavefig | bytes | bytearray | memoryview, width=None):
+def Plot(
+    fig: ISavefig | bytes | bytearray | memoryview,
+    *,
+    width=None,
+    figure_caption: str = "",
+):
     """
     将 Matplotlib 图形或 PNG 二进制内容追加到当前文档。
     """
     if isinstance(fig, (bytes, bytearray, memoryview)):
         # 二进制内容直接编码为 data URL，避免误传给 Figure 渲染逻辑。
         image_base64 = base64.b64encode(fig).decode("ascii")
-        Img(f"data:image/png;base64,{image_base64}", width=width)
-        return
-    plot(fig, width=width, persist=True)
+        return Img(f"data:image/png;base64,{image_base64}", width=width)
+    image_base64 = base64.b64encode(_save_plot_to_bytes(fig)).decode("ascii")
+    return Img(
+        f"data:image/png;base64,{image_base64}",
+        width=width,
+        alt=figure_caption,
+    )
+
+
+def _save_plot_to_bytes(fig: ISavefig) -> bytes:
+    """将 Matplotlib 图形保存为 PNG 二进制内容。"""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    buf.seek(0)
+    return buf.getvalue()
 
 
 def _merge_classes(element_props: Props | None, classes: str | None) -> Props | None:

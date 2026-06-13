@@ -16,6 +16,9 @@ class CalcContext:
         is_silent: bool = True,
         ctx_hook_created: Optional[Callable[["CalcContext"], Any]] = None,
     ):
+        # 序列号，每次获取时增加 1
+        self.serial_number = 0
+
         self.name = name or "calc_ctx" + hex(id(self))
         self.file_path = file_path
 
@@ -137,3 +140,8 @@ class CalcContext:
         """退出上下文，关闭数据库连接等"""
         if self.json_db is not None:
             self.json_db.save()
+
+    def get_serial_number(self) -> int:
+        """获取当前上下文的序列号"""
+        self.serial_number += 1
+        return self.serial_number

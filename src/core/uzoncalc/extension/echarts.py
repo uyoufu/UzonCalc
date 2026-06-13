@@ -1,6 +1,7 @@
 from uuid import uuid4
 
 from ..context_utils.doc import head
+from ..context_utils.elements import LabelKind, create_auto_label, h
 from ..globals import get_current_instance
 import itertools
 import json
@@ -130,7 +131,8 @@ def EChart(
     width: str = "100%",
     height: str = "400px",
     use_gl: bool = False,
-):
+    figure_caption: str = "",
+) -> str:
     """
     生成 ECharts 图表的 HTML 代码，作为新版本的接口
 
@@ -140,7 +142,22 @@ def EChart(
         height: 图表高度，默认为 "400px"
 
     Returns:
-        包含 ECharts 图表的 HTML 字符串
+        返回图表的引用 HTML 字符串
     """
+    label = create_auto_label(LabelKind.FIGURE)
     current_instance = get_current_instance()
-    current_instance.append_content(echart(options, width, height, use_gl=use_gl))
+    current_instance.append_content(
+        h(
+            "figure",
+            [
+                echart(options, width, height, use_gl=use_gl),
+                h(
+                    "figcaption",
+                    [label.source_html(), figure_caption],
+                    classes="uzoncalc-label-caption uzoncalc-label-caption-figure",
+                ),
+            ],
+            classes="uzoncalc-figure-wrapper",
+        )
+    )
+    return label.reference_html()

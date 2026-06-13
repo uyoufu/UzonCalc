@@ -107,3 +107,25 @@ def decimal(float_precision: int):
 
 
 # endregion
+
+
+# region figure/table prefix
+def figure_prefix(prefix: str = "Figure"):
+    """
+    set figure prefix
+    :param prefix: figure prefix, default is "Figure"
+    """
+    ctx = get_current_instance()
+    ctx.options.prefix_settings.figure_prefix = prefix
+
+
+def table_prefix(prefix: str = "Table"):
+    """
+    set table prefix
+    :param prefix: table prefix, default is "Table"
+    """
+    ctx = get_current_instance()
+    ctx.options.prefix_settings.table_prefix = prefix
+
+
+# endregion

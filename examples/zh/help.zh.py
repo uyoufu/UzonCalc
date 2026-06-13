@@ -912,7 +912,7 @@ Table(
         "python",
     )
 
-    Table(
+    table_name = Table(
         [
             [
                 th("Component", rowspan=3),
@@ -935,6 +935,8 @@ Table(
         ],
         title="示例表格",
     )
+
+    f"Table() 函数返回表格的引用，你可以直接在后续中使用，例如：上表的引用为 {table_name}"
 
     H2("调用 Excel 既有计算表格")
 

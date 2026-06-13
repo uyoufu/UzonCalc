@@ -1,0 +1,31 @@
+/* UzonCalc figure and table label styles */
+.uzoncalc-figure-wrapper {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  margin: var(--uz-space-lg) auto;
+}
+
+.uzoncalc-figure-body {
+  display: flex;
+  justify-content: center;
+  margin: 0;
+}
+
+.uzoncalc-label-caption {
+  text-align: center;
+}
+
+.uzoncalc-label-caption-table {
+  font-weight: 700;
+}
+
+.uzoncalc-label-caption-figure {
+  font-size: 0.83rem;
+  font-weight: 400;
+}
+
+.uzoncalc-label-source {
+  margin-right: var(--uz-space-xs);
+}

@@ -80,6 +80,12 @@ class PageInfo:
 
 
 @dataclass
+class PrefixSettings:
+    figure_prefix: str = "图"
+    table_prefix: str = "表"
+
+
+@dataclass
 class ContextOptions:
     # 是否启用调试模式，记录更多步骤信息
     enable_debug: bool = False
@@ -131,3 +137,6 @@ class ContextOptions:
     # 自定义样式字典，格式为 {选择器: {属性: 值}}
     # 例如: {"body": {"font_size": "14px", "line_height": "1.8"}}
     styles: dict[str, dict] = field(default_factory=dict)
+
+    # Figure/Table prefix
+    prefix_settings: PrefixSettings = field(default_factory=PrefixSettings)
