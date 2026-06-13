@@ -76,4 +76,16 @@ describe("generateToc", () => {
     expect(fakeDocument.tocContainer.innerHTML).toContain("A &lt; B &amp; C");
     expect(fakeDocument.tocContainer.innerHTML).not.toContain("A < B & C");
   });
+
+  test("目录页码初始渲染为空白占位", () => {
+    const fakeDocument = installFakeDom([
+      new FakeElement({ tagName: "h2", textContent: "章节" }),
+    ]);
+
+    generateToc();
+
+    expect(fakeDocument.tocContainer.innerHTML).toContain(
+      'class="toc-page" data-heading-id="heading-0" data-page-placeholder="true">&nbsp;</span>',
+    );
+  });
 });

@@ -1,8 +1,4 @@
 /* UzonCalc template base layout styles */
-body {
-  font-family: var(--uz-font-body);
-}
-
 .content {
   max-width: var(--uz-page-max-width);
   margin: 0 auto;

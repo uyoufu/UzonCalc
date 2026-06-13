@@ -1,5 +1,6 @@
 /* UzonCalc template theme styles */
 body {
+  font-family: var(--uz-font-body);
   margin: var(--uz-page-margin);
   line-height: var(--uz-line-height-body);
   color: var(--uz-text-color);

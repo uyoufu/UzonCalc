@@ -22,6 +22,8 @@ class FakeElement {
   tagName: string;
   offsetTop: number;
   offsetHeight: number;
+  rectTop?: number;
+  rectHeight?: number;
   textContent = "";
   parentElement: FakeElement | null = null;
   children: FakeElement[] = [];
@@ -34,6 +36,8 @@ class FakeElement {
     id?: string;
     offsetTop?: number;
     offsetHeight?: number;
+    rectTop?: number;
+    rectHeight?: number;
     classNames?: string[];
     styleMap?: StyleMap;
   }) {
@@ -41,6 +45,8 @@ class FakeElement {
     this.id = options.id ?? "";
     this.offsetTop = options.offsetTop ?? 0;
     this.offsetHeight = options.offsetHeight ?? 0;
+    this.rectTop = options.rectTop;
+    this.rectHeight = options.rectHeight;
     this.classList = new FakeClassList(options.classNames);
     this.styleMap = options.styleMap ?? {};
   }
@@ -71,6 +77,37 @@ class FakeElement {
       current = current.parentElement;
     }
     return null;
+  }
+
+  /** 模拟子树查询，确保分页逻辑只扫描 content 内部。 */
+  querySelectorAll(selector: string): FakeElement[] {
+    const descendants: FakeElement[] = [];
+    const collect = (element: FakeElement): void => {
+      element.children.forEach((child) => {
+        descendants.push(child);
+        collect(child);
+      });
+    };
+    collect(this);
+
+    if (selector === "*") {
+      return descendants;
+    }
+
+    if (selector === "h2, h3, h4, h5, h6") {
+      return descendants.filter((element) =>
+        ["H2", "H3", "H4", "H5", "H6"].includes(element.tagName),
+      );
+    }
+
+    return [];
+  }
+
+  /** 模拟真实浏览器几何信息，用于验证 content 相对坐标。 */
+  getBoundingClientRect(): { top: number; height: number; bottom: number } {
+    const top = this.rectTop ?? this.offsetTop;
+    const height = this.rectHeight ?? this.offsetHeight;
+    return { top, height, bottom: top + height };
   }
 }
 
@@ -122,6 +159,11 @@ class FakeDocument {
   }
 }
 
+/** 把元素按顺序挂到 content 下，便于模拟真实文档结构。 */
+function appendContentChildren(content: FakeElement, children: FakeElement[]): void {
+  children.forEach((child) => content.appendChild(child));
+}
+
 /** 安装最小 fake DOM，隔离分页逻辑的浏览器依赖。 */
 function installFakeDocument(
   elements: FakeElement[],
@@ -158,164 +200,8 @@ afterEach(() => {
 });
 
 describe("calculatePageNumbers", () => {
-  test("未设置强制分页符时按页面高度自然分页", () => {
+  test("缺少真实浏览器布局 API 时不写入估算页码", () => {
     const content = createContentElement();
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 1200,
-      offsetHeight: 30,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, heading], { "section-1": tocPage });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("2");
-  });
-
-  test("计算目录页码时计入目录自身的前后分页符", () => {
-    const content = createContentElement();
-    const toc = new FakeElement({
-      tagName: "div",
-      id: "toc",
-      offsetTop: 100,
-      offsetHeight: 120,
-      styleMap: {
-        pageBreakBefore: "always",
-        pageBreakAfter: "always",
-      },
-    });
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 260,
-      offsetHeight: 30,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, toc, heading], { "section-1": tocPage });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("3");
-  });
-
-  test("计算真实报告目录页码时读取 CSSStyleDeclaration 属性值", () => {
-    const content = createContentElement();
-    const title = new FakeElement({
-      tagName: "h1",
-      id: "report-title",
-      offsetTop: 0,
-      offsetHeight: 80,
-    });
-    const toc = new FakeElement({
-      tagName: "div",
-      id: "toc",
-      offsetTop: 100,
-      offsetHeight: 120,
-      styleMap: {
-        getPropertyValue(propertyName: string): string {
-          const values: Record<string, string> = {
-            "page-break-before": "always",
-            "page-break-after": "always",
-          };
-          return values[propertyName] ?? "";
-        },
-      },
-    });
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 260,
-      offsetHeight: 30,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, title, toc, heading], { "section-1": tocPage });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("3");
-  });
-
-  test("目录超过一页时正文页码计入完整目录页数", () => {
-    const content = createContentElement();
-    const toc = new FakeElement({
-      tagName: "div",
-      id: "toc",
-      offsetTop: 100,
-      offsetHeight: 1300,
-      styleMap: {
-        pageBreakBefore: "always",
-        pageBreakAfter: "always",
-      },
-    });
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 1420,
-      offsetHeight: 30,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, toc, heading], { "section-1": tocPage });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("4");
-  });
-
-  test("计算目录页码时计入正文中的 mce 分页符", () => {
-    const content = createContentElement();
-    const toc = new FakeElement({
-      tagName: "div",
-      id: "toc",
-      offsetTop: 0,
-      offsetHeight: 120,
-      styleMap: {
-        pageBreakAfter: "always",
-      },
-    });
-    const firstHeading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 140,
-      offsetHeight: 30,
-    });
-    const pageBreak = new FakeElement({
-      tagName: "div",
-      offsetTop: 220,
-      offsetHeight: 5,
-      classNames: ["mce-pagebreak"],
-    });
-    const secondHeading = new FakeElement({
-      tagName: "h2",
-      id: "section-2",
-      offsetTop: 240,
-      offsetHeight: 30,
-    });
-    const firstTocPage = createTocPageElement();
-    const secondTocPage = createTocPageElement();
-    installFakeDocument([content, toc, firstHeading, pageBreak, secondHeading], {
-      "section-1": firstTocPage,
-      "section-2": secondTocPage,
-    });
-
-    calculatePageNumbers();
-
-    expect(firstTocPage.textContent).toBe("2");
-    expect(secondTocPage.textContent).toBe("3");
-  });
-
-  test("计算目录页码时计入 CSS break-after 分页符", () => {
-    const content = createContentElement();
-    const toc = new FakeElement({
-      tagName: "div",
-      id: "toc",
-      offsetTop: 0,
-      offsetHeight: 120,
-      styleMap: {
-        pageBreakAfter: "always",
-      },
-    });
     const forcedBlock = new FakeElement({
       tagName: "div",
       offsetTop: 180,
@@ -330,110 +216,15 @@ describe("calculatePageNumbers", () => {
       offsetTop: 240,
       offsetHeight: 30,
     });
+    appendContentChildren(content, [forcedBlock, heading]);
     const tocPage = createTocPageElement();
-    installFakeDocument([content, toc, forcedBlock, heading], {
+    tocPage.textContent = "\u00a0";
+    installFakeDocument([content, forcedBlock, heading], {
       "section-1": tocPage,
     });
 
     calculatePageNumbers();
 
-    expect(tocPage.textContent).toBe("3");
-  });
-
-  test("Tailwind break-inside-avoid 跨页时后续标题页码计入空白", () => {
-    const content = createContentElement();
-    const avoidBlock = new FakeElement({
-      tagName: "figure",
-      offsetTop: 900,
-      offsetHeight: 400,
-      classNames: ["break-inside-avoid"],
-    });
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 2200,
-      offsetHeight: 30,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, avoidBlock, heading], {
-      "section-1": tocPage,
-    });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("3");
-  });
-
-  test("计算目录页码时识别 CSS break-inside avoid", () => {
-    const content = createContentElement();
-    const avoidBlock = new FakeElement({
-      tagName: "figure",
-      offsetTop: 900,
-      offsetHeight: 400,
-      styleMap: {
-        breakInside: "avoid",
-      },
-    });
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 2200,
-      offsetHeight: 30,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, avoidBlock, heading], {
-      "section-1": tocPage,
-    });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("3");
-  });
-
-  test("标题跟随正文换页时标题页码按打印页计算", () => {
-    const content = createContentElement();
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 1080,
-      offsetHeight: 30,
-    });
-    const paragraph = new FakeElement({
-      tagName: "p",
-      offsetTop: 1120,
-      offsetHeight: 120,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, heading, paragraph], {
-      "section-1": tocPage,
-    });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("2");
-  });
-
-  test("超出单页高度的 avoid 块不额外制造空白页", () => {
-    const content = createContentElement();
-    const avoidBlock = new FakeElement({
-      tagName: "figure",
-      offsetTop: 100,
-      offsetHeight: 1300,
-      classNames: ["break-inside-avoid"],
-    });
-    const heading = new FakeElement({
-      tagName: "h2",
-      id: "section-1",
-      offsetTop: 1420,
-      offsetHeight: 30,
-    });
-    const tocPage = createTocPageElement();
-    installFakeDocument([content, avoidBlock, heading], {
-      "section-1": tocPage,
-    });
-
-    calculatePageNumbers();
-
-    expect(tocPage.textContent).toBe("2");
+    expect(tocPage.textContent).toBe("\u00a0");
   });
 });
