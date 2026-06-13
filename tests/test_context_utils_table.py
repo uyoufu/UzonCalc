@@ -173,7 +173,7 @@ def test_table_returns_reference_placeholder_and_persists_label_source():
 
     assert (
         placeholder
-        == '<span data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></span>'
+        == '<a data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></a>'
     )
     assert isinstance(placeholder, str)
     assert isinstance(placeholder, HtmlFragment)

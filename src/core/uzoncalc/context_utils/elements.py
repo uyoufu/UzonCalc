@@ -314,7 +314,7 @@ def Img(
     props: Props | None = None,
 ):
     label = create_auto_label(LabelKind.FIGURE)
-    caption_children = [label.source_html()]
+    caption_children: list[str] = [str(label.source_html())]
     if alt:
         caption_children.append(alt)
     img_props = _extend_props(

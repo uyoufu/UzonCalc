@@ -29,7 +29,7 @@ def test_img_returns_reference_placeholder_and_persists_label_source():
 
     assert (
         placeholder
-        == '<span data-uzoncalc-label-ref="figure-1" data-uzoncalc-label-kind="figure" data-uzoncalc-label-prefix="图"></span>'
+        == '<a data-uzoncalc-label-ref="figure-1" data-uzoncalc-label-kind="figure" data-uzoncalc-label-prefix="图"></a>'
     )
     assert isinstance(placeholder, str)
     assert isinstance(placeholder, HtmlFragment)
@@ -114,4 +114,6 @@ def test_create_auto_label_accepts_label_kind_enum():
     assert label.label_id == "figure-1"
     reference_html = label.reference_html()
     assert isinstance(reference_html, HtmlFragment)
+    assert reference_html.startswith("<a ")
+    assert reference_html.endswith("</a>")
     assert 'data-uzoncalc-label-kind="figure"' in reference_html

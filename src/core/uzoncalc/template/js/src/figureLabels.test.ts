@@ -80,13 +80,13 @@ class FakeDocument {
     if (selector === "h2, h3, h4, h5, h6") {
       return this.headings;
     }
-    if (selector === "h2, span[data-uzoncalc-label-source]") {
+    if (selector === "h2, a[data-uzoncalc-label-source]") {
       return this.orderedElements;
     }
-    if (selector === "span[data-uzoncalc-label-source]") {
+    if (selector === "a[data-uzoncalc-label-source]") {
       return this.labelSources;
     }
-    if (selector === "span[data-uzoncalc-label-ref]") {
+    if (selector === "a[data-uzoncalc-label-ref]") {
       return this.labelRefs;
     }
     return [];
@@ -116,7 +116,7 @@ describe("applyFigureLabels", () => {
     const h2 = new FakeElement("h2", {}, { textContent: "第一章" });
     const h3 = new FakeElement("h3", {}, { textContent: "小节", previousElementSibling: h2 });
     const figureSource = new FakeElement(
-      "span",
+      "a",
       {
         uzoncalcLabelSource: "figure-1",
         uzoncalcLabelKind: "figure",
@@ -125,7 +125,7 @@ describe("applyFigureLabels", () => {
       { previousElementSibling: h3 },
     );
     const tableSource = new FakeElement(
-      "span",
+      "a",
       {
         uzoncalcLabelSource: "table-2",
         uzoncalcLabelKind: "table",
@@ -133,12 +133,12 @@ describe("applyFigureLabels", () => {
       },
       { previousElementSibling: figureSource },
     );
-    const figureRef = new FakeElement("span", {
+    const figureRef = new FakeElement("a", {
       uzoncalcLabelRef: "figure-1",
       uzoncalcLabelKind: "figure",
       uzoncalcLabelPrefix: "图",
     });
-    const tableRef = new FakeElement("span", {
+    const tableRef = new FakeElement("a", {
       uzoncalcLabelRef: "table-2",
       uzoncalcLabelKind: "table",
       uzoncalcLabelPrefix: "表",
@@ -163,7 +163,7 @@ describe("applyFigureLabels", () => {
     const firstH2 = new FakeElement("h2", {}, { textContent: "第一章" });
     const firstH3 = new FakeElement("h3", {}, { textContent: "第一节", previousElementSibling: firstH2 });
     const firstFigure = new FakeElement(
-      "span",
+      "a",
       {
         uzoncalcLabelSource: "figure-1",
         uzoncalcLabelKind: "figure",
@@ -172,7 +172,7 @@ describe("applyFigureLabels", () => {
       { previousElementSibling: firstH3 },
     );
     const secondFigure = new FakeElement(
-      "span",
+      "a",
       {
         uzoncalcLabelSource: "figure-2",
         uzoncalcLabelKind: "figure",
@@ -182,7 +182,7 @@ describe("applyFigureLabels", () => {
     );
     const secondH2 = new FakeElement("h2", {}, { textContent: "第二章", previousElementSibling: secondFigure });
     const secondChapterFigure = new FakeElement(
-      "span",
+      "a",
       {
         uzoncalcLabelSource: "figure-3",
         uzoncalcLabelKind: "figure",
@@ -206,22 +206,22 @@ describe("applyFigureLabels", () => {
   });
 
   test("同一图号可在正文重复引用，且无章节时退化为全局编号", () => {
-    const figureSource = new FakeElement("span", {
+    const figureSource = new FakeElement("a", {
       uzoncalcLabelSource: "figure-1",
       uzoncalcLabelKind: "figure",
       uzoncalcLabelPrefix: "Figure",
     });
-    const firstRef = new FakeElement("span", {
+    const firstRef = new FakeElement("a", {
       uzoncalcLabelRef: "figure-1",
       uzoncalcLabelKind: "figure",
       uzoncalcLabelPrefix: "Figure",
     });
-    const secondRef = new FakeElement("span", {
+    const secondRef = new FakeElement("a", {
       uzoncalcLabelRef: "figure-1",
       uzoncalcLabelKind: "figure",
       uzoncalcLabelPrefix: "Figure",
     });
-    const missingRef = new FakeElement("span", {
+    const missingRef = new FakeElement("a", {
       uzoncalcLabelRef: "figure-404",
       uzoncalcLabelKind: "figure",
       uzoncalcLabelPrefix: "Figure",
@@ -245,7 +245,7 @@ describe("applyFigureLabels", () => {
     const h2 = new FakeElement("h2", {}, { textContent: "第一章" });
     const tableTarget = new FakeElement("table");
     const tableSource = new FakeElement(
-      "span",
+      "a",
       {
         uzoncalcLabelSource: "table-1",
         uzoncalcLabelKind: "table",
@@ -253,7 +253,7 @@ describe("applyFigureLabels", () => {
       },
       { previousElementSibling: h2, closestTarget: tableTarget },
     );
-    const tableRef = new FakeElement("span", {
+    const tableRef = new FakeElement("a", {
       uzoncalcLabelRef: "table-1",
       uzoncalcLabelKind: "table",
       uzoncalcLabelPrefix: "表",
@@ -283,7 +283,7 @@ describe("applyFigureLabels", () => {
   test("引用支持键盘触发且重复刷新不会重复绑定", () => {
     const figureTarget = new FakeElement("figure");
     const figureSource = new FakeElement(
-      "span",
+      "a",
       {
         uzoncalcLabelSource: "figure-1",
         uzoncalcLabelKind: "figure",
@@ -291,7 +291,7 @@ describe("applyFigureLabels", () => {
       },
       { closestTarget: figureTarget },
     );
-    const figureRef = new FakeElement("span", {
+    const figureRef = new FakeElement("a", {
       uzoncalcLabelRef: "figure-1",
       uzoncalcLabelKind: "figure",
       uzoncalcLabelPrefix: "图",

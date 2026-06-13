@@ -82,7 +82,7 @@ def test_f_string_renders_table_reference_as_html_fragment():
 
     assert "A &lt; B 的引用为 " in content
     assert (
-        '<span data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></span>'
+        '<a data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></a>'
         in content
     )
     assert " &gt; C" in content
@@ -103,7 +103,7 @@ def test_f_string_equation_mode_keeps_table_reference_as_html_fragment():
 
     assert "见 " in content
     assert (
-        '<span data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></span>'
+        '<a data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></a>'
         in content
     )
     assert "<math" not in content

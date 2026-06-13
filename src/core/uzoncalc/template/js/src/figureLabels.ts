@@ -29,7 +29,7 @@ function createCounterState(): LabelCounterState {
   return { figure: 0, table: 0 };
 }
 
-function resolveSourceMetadata(element: HTMLSpanElement): LabelMetadata | null {
+function resolveSourceMetadata(element: HTMLAnchorElement): LabelMetadata | null {
   const sourceId = element.dataset.uzoncalcLabelSource;
   const kind = element.dataset.uzoncalcLabelKind;
   const prefix = element.dataset.uzoncalcLabelPrefix;
@@ -48,7 +48,7 @@ function buildLabelText(prefix: string, sectionNumber: string, order: number): s
   return `${prefix} ${sectionNumber}.${order}`;
 }
 
-function resolveLabelTargetElement(sourceElement: HTMLSpanElement): HTMLElement {
+function resolveLabelTargetElement(sourceElement: HTMLAnchorElement): HTMLElement {
   return sourceElement.closest<HTMLElement>("figure, table") ?? sourceElement;
 }
 
@@ -57,7 +57,7 @@ function scrollToLabelTarget(targetElement: HTMLElement): void {
 }
 
 function configureReferenceInteraction(
-  referenceElement: HTMLSpanElement,
+  referenceElement: HTMLAnchorElement,
   targetElement: HTMLElement,
 ): void {
   referenceElement.setAttribute("role", "link");
@@ -75,7 +75,7 @@ function configureReferenceInteraction(
   };
 }
 
-function clearReferenceInteraction(referenceElement: HTMLSpanElement): void {
+function clearReferenceInteraction(referenceElement: HTMLAnchorElement): void {
   referenceElement.removeAttribute("role");
   referenceElement.tabIndex = -1;
   referenceElement.onclick = null;
@@ -92,7 +92,7 @@ export function applyFigureLabels(): void {
   });
 
   const orderedElements = document.querySelectorAll<HTMLElement>(
-    "h2, span[data-uzoncalc-label-source]",
+    "h2, a[data-uzoncalc-label-source]",
   );
   const labelTextById = new Map<string, string>();
   const labelTargetById = new Map<string, HTMLElement>();
@@ -110,7 +110,7 @@ export function applyFigureLabels(): void {
       return;
     }
 
-    const sourceElement = element as HTMLSpanElement;
+    const sourceElement = element as HTMLAnchorElement;
     const metadata = resolveSourceMetadata(sourceElement);
     if (!metadata) {
       return;
@@ -131,8 +131,8 @@ export function applyFigureLabels(): void {
     sourceElement.textContent = labelText;
   });
 
-  const referenceElements = document.querySelectorAll<HTMLSpanElement>(
-    "span[data-uzoncalc-label-ref]",
+  const referenceElements = document.querySelectorAll<HTMLAnchorElement>(
+    "a[data-uzoncalc-label-ref]",
   );
   referenceElements.forEach((referenceElement) => {
     const referenceId = referenceElement.dataset.uzoncalcLabelRef;

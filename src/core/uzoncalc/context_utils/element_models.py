@@ -102,7 +102,7 @@ class AutoLabel:
 
     def reference_html(self) -> HtmlFragment:
         """渲染正文引用占位符。"""
-        return _span_html(self.reference_props())
+        return _anchor_html(self.reference_props())
 
     def source_html(self) -> HtmlFragment:
         """渲染图表本体的编号源占位符。"""
@@ -110,7 +110,7 @@ class AutoLabel:
             self.source_props(),
             class_str=f"uzoncalc-label-source uzoncalc-label-source-{self.kind.value}",
         )
-        return _span_html(source_props)
+        return _anchor_html(source_props)
 
     def reference_props(self) -> Props:
         """生成正文引用占位符属性。"""
@@ -133,6 +133,6 @@ class AutoLabel:
         )
 
 
-def _span_html(element_props: Props) -> HtmlFragment:
-    """渲染无内容 span，并保留可信 HTML 类型。"""
-    return HtmlFragment(f"<span{element_props.to_html_attrs()}></span>")
+def _anchor_html(element_props: Props) -> HtmlFragment:
+    """渲染自动编号锚点，并保留可信 HTML 类型。"""
+    return HtmlFragment(f"<a{element_props.to_html_attrs()}></a>")
