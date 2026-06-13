@@ -419,7 +419,7 @@ defineExpose({
 
     <q-separator v-if="!disableHeader" />
 
-    <q-list class="col hover-scroll" separator>
+    <q-list class="col hover-scroll column" separator>
       <template v-if="hashUis">
         <q-expansion-item dense v-for="ui in inputUIs" :key="ui.title" :label="ui.title" default-opened
           header-class="text-primary">
@@ -427,12 +427,12 @@ defineExpose({
         </q-expansion-item>
       </template>
 
-      <div v-if="inputUIs.length === 0" class="full-height text-grey-6 column items-center justify-center">
+      <div v-if="inputUIs.length === 0" class=" col text-grey-6 column items-center justify-center">
         <q-icon name="keyboard" size="xl" />
         <div>{{ tCalcReportPageViewer('uiDisplayArea') }}</div>
       </div>
 
-      <div v-if="!disableButtons" class="row justify-end q-mr-md q-gutter-sm q-mt-xs">
+      <div v-if="!disableButtons" class="row justify-end q-mr-md q-gutter-sm q-mt-xs q-mb-md">
         <q-btn v-if="canRestartExecution" dense icon="replay" color="negative" size="sm" round
           @click="onRestartExecutionAndSaveable" :loading="isExecuting">
           <AsyncTooltip :tooltip="tCalcReportPageViewer('restart')" />
