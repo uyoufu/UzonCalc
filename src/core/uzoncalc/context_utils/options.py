@@ -25,6 +25,24 @@ def hide():
 # endregion
 
 
+# disable/enable equation rendering
+def disable_equation():
+    """
+    disable equation rendering
+    """
+    pass
+
+
+def enable_equation():
+    """
+    enable equation rendering
+    """
+    pass
+
+
+# endregion
+
+
 # region enable/disable variable substitution in equations
 def enable_substitution():
     """
@@ -40,26 +58,6 @@ def disable_substitution():
     """
     ctx = get_current_instance()
     ctx.options.enable_substitution = False
-
-
-# endregion
-
-
-# region fstring equation
-def enable_fstring_equation():
-    """
-    enable fstring equation rendering
-    """
-    ctx = get_current_instance()
-    ctx.options.enable_fstring_equation = True
-
-
-def disable_fstring_equation():
-    """
-    disable fstring equation rendering
-    """
-    ctx = get_current_instance()
-    ctx.options.enable_fstring_equation = False
 
 
 # endregion

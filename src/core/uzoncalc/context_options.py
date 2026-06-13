@@ -113,6 +113,8 @@ class ContextOptions:
     # 逻辑在两个地方实现
     # 1. 在 AST 解析时，遇到 hide() 时，将不会继续解析
     # 2. CalcContext.append_content 方法中进行检查
+    # hide() 由于是在 AST 解析时调用，在条件语句中中的 hide() 不论是否为 True，都会生效
+    # 因此，建议仅在根上下文调用 hide()
     skip_content: bool = False
 
     # 别名映射

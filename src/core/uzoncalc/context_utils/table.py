@@ -99,7 +99,10 @@ def Table(
     title: str | None = None,
     props: Props | None = None,
 ) -> str:
-    """渲染并记录表格 HTML。"""
+    """
+    渲染并记录表格 HTML。
+    该函数不会渲染方程，因为已经在 CallFilterRegistry 中注册了忽略 Table 函数。
+    """
     from .elements import LabelKind, create_auto_label
 
     label = create_auto_label(LabelKind.TABLE)

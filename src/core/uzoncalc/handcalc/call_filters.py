@@ -10,7 +10,6 @@ from __future__ import annotations
 import ast
 from typing import Callable, Optional, Set
 
-
 # 函数调用过滤器类型定义
 # 返回 True 表示应该隐藏该函数调用
 CallFilterFunction = Callable[[ast.Call], bool]
@@ -33,8 +32,11 @@ class CallFilterRegistry:
         self.register_simple("UI")
 
         # 可以添加更多内置过滤器
-        # self.register_simple("hide")
-        # self.register_simple("show")
+        self.register_simple("hide")
+        self.register_simple("show")
+        self.register_simple("Table")
+        self.register_simple("Echarts")
+        self.register_simple("Img")
 
     def register_simple(self, func_name: str) -> None:
         """
