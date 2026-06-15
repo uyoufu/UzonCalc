@@ -1,21 +1,21 @@
-import { templateStyles } from "./styles";
+import { templateStyles } from './styles'
 
-const STYLE_ATTRIBUTE = "data-uzoncalc-template";
+const STYLE_ATTRIBUTE = 'data-uzoncalc-template'
 
 export function ensureTemplateStyles(): void {
-  const headElement = document.head;
+  const headElement = document.head
   if (!headElement) {
-    return;
+    return
   }
 
   if (headElement.querySelector(`style[${STYLE_ATTRIBUTE}]`)) {
-    return;
+    return
   }
 
-  const styleElement = document.createElement("style");
-  styleElement.setAttribute(STYLE_ATTRIBUTE, "true");
-  styleElement.textContent = templateStyles;
+  const styleElement = document.createElement('style')
+  styleElement.setAttribute(STYLE_ATTRIBUTE, 'true')
+  styleElement.textContent = templateStyles
 
   // 模板主题样式需要晚于 Tailwind reset，确保基础元素样式最终生效。
-  headElement.appendChild(styleElement);
+  headElement.appendChild(styleElement)
 }

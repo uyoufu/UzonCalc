@@ -23,7 +23,7 @@ math .array-var {
   color: var(--uz-text-color-math);
 }
 
-math mi[mathvariant="bold"] {
+math mi[mathvariant='bold'] {
   font-family: var(--uz-font-math-zh);
   font-weight: 700;
 }
@@ -38,11 +38,11 @@ math .function-name {
   font-style: normal;
 }
 
-math[display="inline"] {
+math[display='inline'] {
   margin: 0 var(--uz-space-2xs);
 }
 
-math[display="block"] {
+math[display='block'] {
   margin: var(--uz-space-lg) 0;
 }
 

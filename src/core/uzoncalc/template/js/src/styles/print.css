@@ -23,7 +23,7 @@
     color: var(--uz-text-color-print) !important;
   }
 
-  math mi[mathvariant="italic"],
+  math mi[mathvariant='italic'],
   math mi:not([mathvariant]) {
     font-family: var(--uz-font-body) !important;
     font-style: italic !important;

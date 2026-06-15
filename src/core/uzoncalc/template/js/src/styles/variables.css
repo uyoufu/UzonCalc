@@ -47,16 +47,14 @@
 
   --uz-font-body: var(
     --uz-font-body-option,
-    "Segoe UI",
+    'Segoe UI',
     Tahoma,
     Geneva,
     Verdana,
     sans-serif,
-    "Microsoft YaHei" ;
+    'Microsoft YaHei' ;
   );
-  --uz-font-page:
-    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
-  --uz-font-mono: "Consolas", "Monaco", "Courier New", monospace;
-  --uz-font-math-zh:
-    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
+  --uz-font-page: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft YaHei';
+  --uz-font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  --uz-font-math-zh: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft YaHei';
 }
