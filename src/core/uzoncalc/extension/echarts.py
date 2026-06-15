@@ -131,7 +131,7 @@ def EChart(
     width: str = "100%",
     height: str = "400px",
     use_gl: bool = False,
-    figure_caption: str = "",
+    caption: str = "",
 ) -> str:
     """
     生成 ECharts 图表的 HTML 代码，作为新版本的接口
@@ -153,7 +153,7 @@ def EChart(
                 echart(options, width, height, use_gl=use_gl),
                 h(
                     "figcaption",
-                    [label.source_html(), figure_caption],
+                    [label.source_html(), caption],
                     classes="uzoncalc-label-caption uzoncalc-label-caption-figure",
                 ),
             ],

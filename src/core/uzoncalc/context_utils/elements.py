@@ -408,7 +408,7 @@ def Plot(
     fig: ISavefig | bytes | bytearray | memoryview,
     *,
     width=None,
-    figure_caption: str = "",
+    caption: str = "",
 ):
     """
     将 Matplotlib 图形或 PNG 二进制内容追加到当前文档。
@@ -421,7 +421,7 @@ def Plot(
     return Img(
         f"data:image/png;base64,{image_base64}",
         width=width,
-        alt=figure_caption,
+        alt=caption,
     )
 
 

@@ -183,6 +183,8 @@ Plot(fig, width=520)
 
 ### 变量与公式
 
+变量名参考 linux 风格缩写，变量名不宜过长。
+
 ```python
 # 普通变量赋值（自动渲染公式）
 force = 100 * unit.newton
