@@ -45,6 +45,8 @@ class SwapSymbol(BasePostHandler):
         "Pi": "Π",
         "rho": "ρ",
         "Rho": "Ρ",
+        "sigma": "σ",
+        "Sigma": "Σ",
         "tau": "τ",
         "Tau": "Τ",
         "upsilon": "υ",
