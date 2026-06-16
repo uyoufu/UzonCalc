@@ -28,6 +28,7 @@ from app.mcp.startup import (
     init_tool_search,
     close_tool_search,
 )
+from app.service.playwright_service import close_playwright_service
 
 from utils.jwt_helper import verify_jwt
 
@@ -78,6 +79,9 @@ async def lifespan(app: FastAPI):
 
         # 释放工具搜索资源
         await close_tool_search()
+
+        # 释放 Playwright 浏览器缓存
+        await close_playwright_service()
     except Exception as e:
         logger.error(f"Database shutdown error: {e}")
 

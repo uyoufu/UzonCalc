@@ -79,6 +79,7 @@ pathspec==1.0.4
 pillow==12.1.1
 pint==0.25.2
 platformdirs==4.9.2
+playwright==1.60.0
 pluggy==1.6.0
 portalocker==3.2.0
 protobuf==7.34.0
@@ -87,6 +88,7 @@ pycparser==3.0
 pydantic==2.12.5
 pydantic-core==2.41.5
 pydantic-settings==2.13.1
+pyee==13.0.1
 pygments==2.19.2
 pyjwt==2.11.0
 pyparsing==3.3.2

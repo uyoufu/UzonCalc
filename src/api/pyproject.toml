@@ -27,6 +27,7 @@ dependencies = [
     "fastmcp>=3.0.2",
     "qdrant-client>=1.17.0",
     "uzoncalc",
+    "playwright>=1.60.0",
 ]
 
 [tool.uv.sources]
