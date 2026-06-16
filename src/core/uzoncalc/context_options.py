@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from .context_result_handler.base_context_result_handler import BaseContextResultHandler
+from .context_result_handler.post_pipeline import get_default_context_result_handlers
 from .handcalc.post_handlers.base_post_handler import BasePostHandler
 from .handcalc.post_handlers.post_pipeline import get_default_post_handlers
 
@@ -126,6 +128,11 @@ class ContextOptions:
     # 自定义的后处理器列表
     post_handlers: list[BasePostHandler] = field(
         default_factory=get_default_post_handlers
+    )
+
+    # 自定义的完整正文后处理器列表
+    context_result_handlers: list[BaseContextResultHandler] = field(
+        default_factory=get_default_context_result_handlers
     )
 
     # 页面标题

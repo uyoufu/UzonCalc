@@ -216,3 +216,6 @@ dev_examples/
 
 .fake
 .superpowers/
+
+# AI assistant artifacts
+context-snapshot.json

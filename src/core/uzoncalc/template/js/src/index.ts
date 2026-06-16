@@ -1,7 +1,6 @@
 import { setupContentPatchMessaging } from './contentUpdater'
 import { setupScrollMemory } from './scrollMemory'
 import { ensureTemplateStyles } from './styleInjector'
-import { generateToc } from './toc'
 import { setupOutlinePreview } from './outlinePreview'
 import { applyFigureLabels } from './figureLabels'
 
@@ -20,7 +19,6 @@ function bootstrap(): void {
   ensureTemplateStyles()
   // 正文变化后刷新依赖 DOM 内容的增强能力
   applyFigureLabels()
-  generateToc()
   setupOutlinePreview()
   rerunHighlight()
   setupScrollMemory()

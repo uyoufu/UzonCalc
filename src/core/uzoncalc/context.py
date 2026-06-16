@@ -95,7 +95,10 @@ class CalcContext:
 
     # region result generation
     def html_content(self) -> str:
-        return "\n".join(self.__contents)
+        html_content = "\n".join(self.__contents)
+        for handler in self.options.context_result_handlers:
+            html_content = handler.handle(html_content, ctx=self)
+        return html_content
 
     def html(self) -> str:
         """
