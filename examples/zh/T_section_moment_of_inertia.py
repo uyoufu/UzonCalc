@@ -312,8 +312,6 @@ async def sheet():
     这种方法适用于所有由矩形组成的截面形状。
     """
 
-    save("../output/T_section_moment_of_inertia.html")
-
 
 if __name__ == "__main__":
     view(sheet)

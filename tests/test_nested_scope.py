@@ -33,8 +33,6 @@ async def test_nested_scope():
     
     show()
     i = 9  # 应该显示
-    
-    save("../output/test_nested_scope.html")
 
 
 if __name__ == "__main__":

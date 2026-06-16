@@ -90,46 +90,6 @@ def style(name: str, value: dict[str, Any]):
     ctx.options.styles[name] = dict(value)
 
 
-def save(filename: str | None = None):
-    """
-    保存当前文档为指定文件
-    :param filename: 文件名（可以是完整路径或仅文件名）
-    """
-    # CLI 模式下由 cli.py 统一负责保存，此处直接跳过
-    if _is_cli_mode():
-        return
-
-    from ..template.utils import render_html_template
-
-    ctx = get_current_instance()
-
-    if not filename:
-        # 以当前的标题作为文件名
-        filename = ctx.options.doc_title or "UzonCalc Sheet"
-
-    # 没有扩展名则添加 .html
-    if not filename.endswith(".html"):
-        filename += ".html"
-
-    # 如果 filename 不是绝对路径，则保存到调用者文件所在的目录
-    if not os.path.isabs(filename):
-        caller_dir = ctx.get_location_dir()
-        filename = os.path.join(caller_dir, filename)
-
-    # 获取内容
-    content = ctx.html_content()
-
-    # 使用模板渲染 HTML
-    html_output = render_html_template(content, ctx.options)
-
-    # 保存为 HTML 文件
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(html_output)
-
-    # Show web url
-    print(f"Document saved to (open with browser): file:///{filename}")
-
-
 def toc(title: str = "Table of Contents"):
     """
     插入目录

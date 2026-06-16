@@ -113,6 +113,7 @@ class CalcContext:
         html = self.html()
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)
+        print(f"Document saved to (open with browser): file:///{path}")
 
     # endregion
 

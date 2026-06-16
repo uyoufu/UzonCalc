@@ -26,8 +26,6 @@ async def sheet():
     "Section stress:"
     sigma = N / A
 
-    save("../output/example_unit_en.html")
-
 
 if __name__ == "__main__":
     view(sheet)

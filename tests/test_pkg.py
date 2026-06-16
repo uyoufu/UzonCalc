@@ -7,8 +7,6 @@ async def sheet():
 
     "Hello, UzonCalc!"
 
-    save()
-
 
 if __name__ == "__main__":
-    sheet()
+    run_sync(sheet)

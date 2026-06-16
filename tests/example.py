@@ -52,9 +52,6 @@ async def sheet():
     else:
         final_result = result
 
-    # 保存输出
-    save("../output/example.html")
-
 
 if __name__ == "__main__":
     # 测试模式 1: run_sync 静默执行，使用默认值

@@ -28,8 +28,6 @@ async def sheet():
     "混合运算："
     i = a + b * c - d / e + f**2
 
-    save("../output/test_operator.html")
-
 
 if __name__ == "__main__":
     run_sync(sheet)
