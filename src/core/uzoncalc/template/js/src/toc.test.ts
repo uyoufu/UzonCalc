@@ -50,14 +50,30 @@ class FakeDocument {
   }
 }
 
-function installFakeDom(headings: FakeElement[]): FakeDocument {
-  const fakeDocument = new FakeDocument(headings)
-  ;(globalThis as { document: unknown }).document = fakeDocument
-  ;(globalThis as { window: unknown }).window = {
-    setTimeout() {},
-    addEventListener() {}
+class FakeWindow {
+  timeoutCount = 0
+  readonly eventTypes: string[] = []
+
+  /** 记录是否注册了延迟任务。 */
+  setTimeout(): void {
+    this.timeoutCount += 1
   }
-  return fakeDocument
+
+  /** 记录是否注册了窗口事件。 */
+  addEventListener(eventType: string): void {
+    this.eventTypes.push(eventType)
+  }
+}
+
+function installFakeDom(headings: FakeElement[]): {
+  fakeDocument: FakeDocument
+  fakeWindow: FakeWindow
+} {
+  const fakeDocument = new FakeDocument(headings)
+  const fakeWindow = new FakeWindow()
+  ;(globalThis as { document: unknown }).document = fakeDocument
+  ;(globalThis as { window: unknown }).window = fakeWindow
+  return { fakeDocument, fakeWindow }
 }
 
 afterEach(() => {
@@ -67,7 +83,7 @@ afterEach(() => {
 
 describe('generateToc', () => {
   test('目录标题文本按纯文本转义写入', () => {
-    const fakeDocument = installFakeDom([
+    const { fakeDocument } = installFakeDom([
       new FakeElement({ tagName: 'h2', textContent: 'A < B & C' })
     ])
 
@@ -78,12 +94,23 @@ describe('generateToc', () => {
   })
 
   test('目录页码初始渲染为空白占位', () => {
-    const fakeDocument = installFakeDom([new FakeElement({ tagName: 'h2', textContent: '章节' })])
+    const { fakeDocument } = installFakeDom([
+      new FakeElement({ tagName: 'h2', textContent: '章节' })
+    ])
 
     generateToc()
 
     expect(fakeDocument.tocContainer.innerHTML).toContain(
       'class="toc-page" data-heading-id="heading-0" data-page-placeholder="true">&nbsp;</span>'
     )
+  })
+
+  test('目录生成不注册页码刷新任务', () => {
+    const { fakeWindow } = installFakeDom([new FakeElement({ tagName: 'h2', textContent: '章节' })])
+
+    generateToc()
+
+    expect(fakeWindow.timeoutCount).toBe(0)
+    expect(fakeWindow.eventTypes).toEqual([])
   })
 })
