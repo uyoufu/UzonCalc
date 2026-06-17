@@ -4,7 +4,7 @@ from pathlib import Path
 from playwright.async_api import Error as PlaywrightError
 
 from uzoncalc.service import playwright_service
-from uzoncalc.service.playwright_service import PlaywrightService
+from uzoncalc.service.playwright_service import PlaywrightService, ThreadedPlaywrightService
 
 
 class FakePage:
@@ -289,3 +289,47 @@ def test_close_page_ignores_already_closed_page():
         assert page.close_count == 1
 
     asyncio.run(run_test())
+
+
+def test_threaded_playwright_service_reuses_one_background_loop(monkeypatch, tmp_path):
+    """同步 Playwright 服务应在同一后台事件循环中复用异步服务。"""
+    fake_services = []
+    service_loop_ids = []
+    render_loop_ids = []
+    rendered_urls = []
+
+    class FakeAsyncService:
+        """记录同步封装是否复用同一个异步服务和事件循环。"""
+
+        def __init__(self, storage_state_path=None):
+            self.storage_state_path = storage_state_path
+            self.close_count = 0
+            fake_services.append(self)
+            service_loop_ids.append(id(asyncio.get_running_loop()))
+
+        async def render_pdf_from_url(self, document_url: str) -> bytes:
+            """模拟 PDF 渲染并记录当前事件循环。"""
+            render_loop_ids.append(id(asyncio.get_running_loop()))
+            rendered_urls.append(document_url)
+            return f"pdf:{document_url}".encode("utf-8")
+
+        async def close(self):
+            """记录同步封装是否关闭异步服务。"""
+            self.close_count += 1
+
+    monkeypatch.setattr(playwright_service, "PlaywrightService", FakeAsyncService)
+
+    threaded_service = ThreadedPlaywrightService(tmp_path / "storage.json")
+    first_pdf = threaded_service.render_pdf_from_url("http://127.0.0.1:first/")
+    second_pdf = threaded_service.render_pdf_from_url("http://127.0.0.1:second/")
+    threaded_service.close()
+    threaded_service.close()
+
+    assert first_pdf == b"pdf:http://127.0.0.1:first/"
+    assert second_pdf == b"pdf:http://127.0.0.1:second/"
+    assert rendered_urls == ["http://127.0.0.1:first/", "http://127.0.0.1:second/"]
+    assert len(service_loop_ids) == 1
+    assert render_loop_ids == [service_loop_ids[0], service_loop_ids[0]]
+    assert len(fake_services) == 1
+    assert fake_services[0].close_count == 1
+    assert threaded_service._thread is None

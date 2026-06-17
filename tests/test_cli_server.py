@@ -118,13 +118,13 @@ def test_html_server_toc_route_returns_api_compatible_response(monkeypatch):
     preview_state = HtmlPreviewState("<html><body>计算结果</body></html>")
     calls = []
 
-    async def fake_calculate(document_url: str):
-        """模拟异步页码计算服务。"""
+    def fake_calculate(document_url: str):
+        """模拟同步页码计算服务。"""
         calls.append(document_url)
         return {"heading-0": 3}
 
     monkeypatch.setattr(
-        "uzoncalc.http_server.request_handler.calculate_toc_page_numbers",
+        "uzoncalc.http_server.request_handler.calculate_toc_page_numbers_sync",
         fake_calculate,
     )
 
@@ -145,6 +145,50 @@ def test_html_server_toc_route_returns_api_compatible_response(monkeypatch):
             '"message": "success", "code": 200}'
         )
         assert calls == [f"http://127.0.0.1:{selected_port}/"]
+    finally:
+        server.shutdown()
+        thread.join(timeout=3)
+        server.server_close()
+
+
+def test_html_server_toc_route_handles_repeated_requests(monkeypatch):
+    """CLI HTTP 页码接口应支持连续请求，不复用已关闭的请求事件循环。"""
+    preview_state = HtmlPreviewState("<html><body>计算结果</body></html>")
+    calls = []
+
+    def fake_calculate(document_url: str):
+        """模拟同步页码计算服务。"""
+        calls.append(document_url)
+        return {"heading-0": len(calls)}
+
+    monkeypatch.setattr(
+        "uzoncalc.http_server.request_handler.calculate_toc_page_numbers_sync",
+        fake_calculate,
+    )
+
+    server, selected_port = create_html_server(preview_state, preferred_port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        payload = '{"documentUrl":"http://127.0.0.1:%d/"}' % selected_port
+        first_response = _post_json(selected_port, TOC_PAGE_NUMBERS_ROUTE, payload)
+        second_response = _post_json(selected_port, TOC_PAGE_NUMBERS_ROUTE, payload)
+
+        assert first_response.status == 200
+        assert second_response.status == 200
+        assert first_response.read().decode("utf-8") == (
+            '{"ok": true, "data": {"heading-0": 1}, '
+            '"message": "success", "code": 200}'
+        )
+        assert second_response.read().decode("utf-8") == (
+            '{"ok": true, "data": {"heading-0": 2}, '
+            '"message": "success", "code": 200}'
+        )
+        assert calls == [
+            f"http://127.0.0.1:{selected_port}/",
+            f"http://127.0.0.1:{selected_port}/",
+        ]
     finally:
         server.shutdown()
         thread.join(timeout=3)

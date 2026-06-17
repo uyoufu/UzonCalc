@@ -1,11 +1,13 @@
 """HTML 预览请求处理器。"""
 
-import asyncio
 import json
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler
 
-from ..service.toc_page_numbers import TOC_PAGE_NUMBERS_ROUTE, calculate_toc_page_numbers
+from ..service.toc_page_numbers import (
+    TOC_PAGE_NUMBERS_ROUTE,
+    calculate_toc_page_numbers_sync,
+)
 
 
 def _build_ok_response(data):
@@ -48,7 +50,7 @@ def create_html_request_handler(preview_state):
                     self.send_error(HTTPStatus.BAD_REQUEST, "documentUrl is required")
                     return
 
-                page_numbers = asyncio.run(calculate_toc_page_numbers(document_url))
+                page_numbers = calculate_toc_page_numbers_sync(document_url)
                 response_bytes = json.dumps(
                     _build_ok_response(page_numbers), ensure_ascii=False
                 ).encode("utf-8")

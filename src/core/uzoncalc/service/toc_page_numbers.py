@@ -6,7 +6,6 @@ ToC 页码计算服务。
 
 from __future__ import annotations
 
-import asyncio
 import html
 import re
 from dataclasses import dataclass
@@ -14,7 +13,7 @@ from html.parser import HTMLParser
 
 import fitz
 
-from .playwright_service import PlaywrightService
+from .playwright_service import PlaywrightService, ThreadedPlaywrightService
 
 TOC_PAGE_NUMBERS_ROUTE = "/api/v1/calc/toc-page-numbers"
 TOC_HEADING_MARKER_PREFIX = "UZONCALC_TOC_HEADING:"
@@ -25,6 +24,7 @@ _MARKER_PATTERN = re.compile(
 )
 
 _playwright_service = PlaywrightService()
+_threaded_playwright_service = ThreadedPlaywrightService()
 
 
 def render_heading_marker(heading_id: str) -> str:
@@ -63,7 +63,8 @@ async def calculate_toc_page_numbers(document_url: str) -> dict[str, int]:
 
 def calculate_toc_page_numbers_sync(document_url: str) -> dict[str, int]:
     """同步计算 ToC 页码，供 `CalcContext.save()` 调用。"""
-    return asyncio.run(calculate_toc_page_numbers(document_url))
+    pdf_bytes = _threaded_playwright_service.render_pdf_from_url(document_url)
+    return parse_toc_page_numbers_from_pdf(pdf_bytes)
 
 
 def fill_toc_page_numbers(html_text: str, page_numbers: dict[str, int]) -> str:

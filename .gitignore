@@ -219,3 +219,4 @@ dev_examples/
 
 # AI assistant artifacts
 context-snapshot.json
+data/
