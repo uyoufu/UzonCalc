@@ -8,6 +8,7 @@ export interface DocumentHeadingItem {
 const HEADING_SELECTOR = 'h2, h3, h4, h5, h6'
 const MIN_HEADING_LEVEL = 2
 const MAX_COUNTER_COUNT = 5
+const TOC_HEADING_MARKER_PATTERN = /^UZONCALC_TOC_HEADING:[A-Za-z0-9_.:-]+\|/
 
 /** 根据标题层级生成当前章节编号。 */
 function createSectionNumber(counters: number[], level: number): string {
@@ -37,6 +38,11 @@ function resolveHeadingIndentLevel(heading: HTMLHeadingElement): number {
   return Number.parseInt(heading.tagName.substring(1), 10) - MIN_HEADING_LEVEL
 }
 
+/** 清理标题文本中用于 PDF 页码解析的 toc marker。 */
+function normalizeHeadingText(heading: HTMLHeadingElement): string {
+  return (heading.textContent ?? '').replace(TOC_HEADING_MARKER_PATTERN, '').trim()
+}
+
 /** 收集正文标题并补齐目录和大纲共用的编号信息。 */
 export function collectDocumentHeadings(): DocumentHeadingItem[] {
   const headings = document.querySelectorAll<HTMLHeadingElement>(HEADING_SELECTOR)
@@ -60,7 +66,7 @@ export function collectDocumentHeadings(): DocumentHeadingItem[] {
     updateHeadingCounters(counters, indentLevel)
     items.push({
       heading,
-      text: heading.textContent?.trim() ?? '',
+      text: normalizeHeadingText(heading),
       indentLevel,
       sectionNumber: createSectionNumber(counters, indentLevel)
     })

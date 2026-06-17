@@ -73,6 +73,20 @@ describe('collectDocumentHeadings', () => {
     expect(items.map((item) => item.indentLevel)).toEqual([0, 1, 0])
   })
 
+  test('收集标题时去掉 toc marker 前缀', () => {
+    const headings = [
+      new FakeHeadingElement({
+        tagName: 'h2',
+        textContent: 'UZONCALC_TOC_HEADING:heading-0|安装使用'
+      })
+    ]
+    installFakeDocument(headings)
+
+    const items = collectDocumentHeadings()
+
+    expect(items[0]?.text).toBe('安装使用')
+  })
+
   test('跳过目录内部标题', () => {
     const toc = new FakeHeadingElement({
       tagName: 'div',
