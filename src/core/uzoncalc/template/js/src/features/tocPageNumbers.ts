@@ -1,3 +1,5 @@
+import { resolvePrintButton, setPrintButtonLoading } from '../ui/printButton'
+
 export const TOC_PAGE_NUMBERS_ROUTE = '/api/v1/calc/toc-page-numbers'
 
 interface TocPageNumbersResponse {
@@ -68,6 +70,15 @@ async function fetchTocPageNumbers(documentUrl: string): Promise<Record<string, 
   return result.data
 }
 
+function refreshPrintButtonLoadingState(isLoading: boolean): void {
+  const printButton = resolvePrintButton()
+  if (!printButton) {
+    return
+  }
+
+  setPrintButtonLoading(printButton, isLoading)
+}
+
 /** 打印前按需刷新 ToC 页码，同一 URL 已刷新时不重复请求。 */
 export async function printWithTocPageNumbers(): Promise<void> {
   if (activePrintPromise) {
@@ -79,19 +90,14 @@ export async function printWithTocPageNumbers(): Promise<void> {
     const shouldRefreshPageNumbers = hasTocPagePlaceholders() && lastResolvedDocumentUrl !== documentUrl
 
     if (shouldRefreshPageNumbers) {
-      const printButton = document.querySelector<HTMLButtonElement>('.uz-print-button')
-      if (printButton) {
-        printButton.disabled = true
-      }
+      refreshPrintButtonLoadingState(true)
 
       try {
         const pageNumbers = await fetchTocPageNumbers(documentUrl)
         applyTocPageNumbers(pageNumbers)
         lastResolvedDocumentUrl = documentUrl
       } finally {
-        if (printButton) {
-          printButton.disabled = false
-        }
+        refreshPrintButtonLoadingState(false)
       }
     }
 
@@ -107,7 +113,7 @@ export async function printWithTocPageNumbers(): Promise<void> {
 
 /** 绑定模板打印按钮。 */
 export function setupTocPageNumberPrintButton(): void {
-  const printButton = document.querySelector<HTMLButtonElement>('.uz-print-button')
+  const printButton = resolvePrintButton()
   if (!printButton) {
     return
   }

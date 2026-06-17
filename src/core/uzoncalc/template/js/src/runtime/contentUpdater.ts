@@ -1,4 +1,4 @@
-import { resetTocPageNumberCache } from './tocPageNumbers'
+import { resetTocPageNumberCache } from '../features/tocPageNumbers'
 
 const CONTENT_START_MARK = '<!--CONTENT_START_MARK-->'
 const CONTENT_END_MARK = '<!--CONTENT_END_MARK-->'

@@ -29,6 +29,24 @@ class FakeTocPageElement {
 
 class FakeButtonElement {
   disabled = false
+  textContent = '🖨️'
+  readonly attributes = new Map<string, string>([['aria-label', '打印文档']])
+  readonly dataset: Record<string, string> = {}
+
+  /** 写入按钮属性。 */
+  setAttribute(name: string, value: string): void {
+    this.attributes.set(name, value)
+  }
+
+  /** 读取按钮属性。 */
+  getAttribute(name: string): string | null {
+    return this.attributes.get(name) ?? null
+  }
+
+  /** 删除按钮属性。 */
+  removeAttribute(name: string): void {
+    this.attributes.delete(name)
+  }
 }
 
 class FakeDocument {
@@ -93,8 +111,12 @@ describe('applyTocPageNumbers', () => {
 describe('printWithTocPageNumbers', () => {
   test('首次打印通过统一路由请求页码再触发打印', async () => {
     const requestedUrls: string[] = []
-    installFakeRuntime(async (input, init) => {
+    const fakeDocument = installFakeRuntime(async (input, init) => {
       requestedUrls.push(String(input))
+      expect(fakeDocument.printButton.disabled).toBe(true)
+      expect(fakeDocument.printButton.getAttribute('data-loading')).toBe('true')
+      expect(fakeDocument.printButton.getAttribute('aria-label')).toBe('正在准备打印')
+      expect(fakeDocument.printButton.textContent).toBe('')
       expect(init?.method).toBe('POST')
       expect((init?.headers as Record<string, string>).Authorization).toBe('Bearer token-value')
       expect(JSON.parse(String(init?.body))).toEqual({
@@ -116,6 +138,34 @@ describe('printWithTocPageNumbers', () => {
 
     expect(requestedUrls).toEqual([TOC_PAGE_NUMBERS_ROUTE])
     expect((globalThis as { printCount?: number }).printCount).toBe(1)
+    expect(fakeDocument.printButton.disabled).toBe(false)
+    expect(fakeDocument.printButton.getAttribute('data-loading')).toBeNull()
+    expect(fakeDocument.printButton.getAttribute('aria-label')).toBe('打印文档')
+    expect(fakeDocument.printButton.textContent).toBe('🖨️')
+  })
+
+  test('页码请求失败时恢复打印按钮状态且不触发打印', async () => {
+    const fakeDocument = installFakeRuntime(async () => {
+      expect(fakeDocument.printButton.disabled).toBe(true)
+      expect(fakeDocument.printButton.getAttribute('data-loading')).toBe('true')
+      return new Response(
+        JSON.stringify({
+          ok: false,
+          data: null,
+          message: 'page number service failed',
+          code: 500
+        }),
+        { status: 500, headers: { 'Content-Type': 'application/json' } }
+      )
+    })
+
+    await expect(printWithTocPageNumbers()).rejects.toThrow('page number service failed')
+
+    expect((globalThis as { printCount?: number }).printCount).toBeUndefined()
+    expect(fakeDocument.printButton.disabled).toBe(false)
+    expect(fakeDocument.printButton.getAttribute('data-loading')).toBeNull()
+    expect(fakeDocument.printButton.getAttribute('aria-label')).toBe('打印文档')
+    expect(fakeDocument.printButton.textContent).toBe('🖨️')
   })
 
   test('同一 URL 已有页码时不重复请求', async () => {

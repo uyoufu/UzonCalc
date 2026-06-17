@@ -1,4 +1,4 @@
-import { templateStyles } from './styles'
+import { templateStyles } from '../styles'
 
 const STYLE_ATTRIBUTE = 'data-uzoncalc-template'
 
