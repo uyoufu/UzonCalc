@@ -29,7 +29,8 @@ def test_html_content_generates_toc_from_placeholder():
     assert 'href="#material"' in html
     assert '<span class="toc-number">1.1</span>' in html
     assert 'id="heading-0"' in html
-    assert '<h3 id="material">材料</h3>' in html
+    assert '<h3 id="material">' in html
+    assert 'UZONCALC_TOC_HEADING:material' in html
 
 
 def test_html_content_keeps_content_without_toc_placeholder_unchanged():

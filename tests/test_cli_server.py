@@ -3,6 +3,7 @@ import sys
 import threading
 from pathlib import Path
 from urllib.error import HTTPError
+from urllib.request import Request
 from urllib.request import urlopen
 
 
@@ -14,12 +15,24 @@ from uzoncalc.http_server import (
     create_html_server,
 )
 from uzoncalc.http_server.watcher import watch_script_file_once
+from uzoncalc.service.toc_page_numbers import TOC_PAGE_NUMBERS_ROUTE
 
 
 def _read_preview_html(selected_port: int) -> str:
     """读取本地预览服务返回的 HTML 内容。"""
     response = urlopen(f"http://127.0.0.1:{selected_port}/", timeout=3)
     return response.read().decode("utf-8")
+
+
+def _post_json(selected_port: int, path: str, payload: str):
+    """向本地预览服务提交 JSON 请求。"""
+    request = Request(
+        f"http://127.0.0.1:{selected_port}{path}",
+        data=payload.encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    return urlopen(request, timeout=3)
 
 
 def test_create_html_server_uses_next_port_when_preferred_port_is_busy():
@@ -94,6 +107,44 @@ def test_html_server_returns_404_for_unknown_path():
             assert exc.code == 404
         else:
             raise AssertionError("unknown path should return 404")
+    finally:
+        server.shutdown()
+        thread.join(timeout=3)
+        server.server_close()
+
+
+def test_html_server_toc_route_returns_api_compatible_response(monkeypatch):
+    """CLI HTTP 页码接口应与 API 返回结构保持一致。"""
+    preview_state = HtmlPreviewState("<html><body>计算结果</body></html>")
+    calls = []
+
+    async def fake_calculate(document_url: str):
+        """模拟异步页码计算服务。"""
+        calls.append(document_url)
+        return {"heading-0": 3}
+
+    monkeypatch.setattr(
+        "uzoncalc.http_server.request_handler.calculate_toc_page_numbers",
+        fake_calculate,
+    )
+
+    server, selected_port = create_html_server(preview_state, preferred_port=0)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+
+    try:
+        response = _post_json(
+            selected_port,
+            TOC_PAGE_NUMBERS_ROUTE,
+            '{"documentUrl":"http://127.0.0.1:%d/"}' % selected_port,
+        )
+        assert response.status == 200
+        assert response.headers["Content-Type"] == "application/json; charset=utf-8"
+        assert response.read().decode("utf-8") == (
+            '{"ok": true, "data": {"heading-0": 3}, '
+            '"message": "success", "code": 200}'
+        )
+        assert calls == [f"http://127.0.0.1:{selected_port}/"]
     finally:
         server.shutdown()
         thread.join(timeout=3)

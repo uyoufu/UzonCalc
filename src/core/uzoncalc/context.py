@@ -5,6 +5,10 @@ from .template.utils import render_html_template
 from .context_options import ContextOptions
 from .cache.json_db import JsonDB
 from .interaction import InteractionState
+from .service.toc_page_numbers import (
+    calculate_toc_page_numbers_sync,
+    fill_toc_page_numbers,
+)
 
 
 class CalcContext:
@@ -113,6 +117,13 @@ class CalcContext:
         html = self.html()
         with open(path, "w", encoding="utf-8") as f:
             f.write(html)
+        if 'data-page-placeholder="true"' in html:
+            page_numbers = calculate_toc_page_numbers_sync(
+                f"file://{os.path.abspath(path)}"
+            )
+            html = fill_toc_page_numbers(html, page_numbers)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(html)
         print(f"Document saved to (open with browser): file:///{path}")
 
     # endregion

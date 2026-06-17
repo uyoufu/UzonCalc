@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, test } from 'bun:test'
 
-import { applyContentPatchMessage } from './contentUpdater'
+import { applyContentPatchMessage, applyRuntimeMessage } from './contentUpdater'
 
 class FakeResourceElement {
   private readonly attributes: Record<string, string>
@@ -191,5 +191,50 @@ describe('applyContentPatchMessage', () => {
     expect(newScript?.getAttribute('type')).toBe('module')
     expect(newScript?.getAttribute('src')).toBe('charts.js')
     expect(newScript?.getAttribute('data-chart-id')).toBe('main')
+  })
+
+  test('正文补丁可携带更新后的文档 URL', () => {
+    const fakeDocument = installFakeDocument()
+
+    const applied = applyContentPatchMessage({
+      type: 'uzoncalc:update-content',
+      contentHtml: '<h2>新结果</h2>',
+      documentUrl: 'http://localhost/report.html'
+    })
+
+    expect(applied).toBe(true)
+    expect((globalThis as { __uzoncalcDocumentUrl?: string }).__uzoncalcDocumentUrl).toBe(
+      'http://localhost/report.html'
+    )
+    expect(fakeDocument.contentElement.innerHTML).toContain('<h2>新结果</h2>')
+  })
+
+  test('正文补丁可携带父页面鉴权 token', () => {
+    installFakeDocument()
+
+    const applied = applyContentPatchMessage({
+      type: 'uzoncalc:update-content',
+      contentHtml: '<h2>新结果</h2>',
+      authToken: 'token-value'
+    })
+
+    expect(applied).toBe(true)
+    expect((globalThis as { __uzoncalcAuthToken?: string }).__uzoncalcAuthToken).toBe('token-value')
+  })
+
+  test('运行时消息可单独更新文档 URL 和鉴权 token', () => {
+    const fakeDocument = installFakeDocument()
+
+    applyRuntimeMessage({
+      type: 'uzoncalc:update-runtime',
+      documentUrl: 'http://localhost/report.html',
+      authToken: 'token-value'
+    })
+
+    expect((globalThis as { __uzoncalcDocumentUrl?: string }).__uzoncalcDocumentUrl).toBe(
+      'http://localhost/report.html'
+    )
+    expect((globalThis as { __uzoncalcAuthToken?: string }).__uzoncalcAuthToken).toBe('token-value')
+    expect(fakeDocument.contentElement.innerHTML).toBe('')
   })
 })

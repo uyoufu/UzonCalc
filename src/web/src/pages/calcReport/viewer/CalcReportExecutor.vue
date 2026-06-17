@@ -17,7 +17,8 @@
               <div>{{ tCalcReportPageViewer('pleaseStartExecution') }}</div>
             </div>
           </div>
-          <iframe v-else ref="reportIframeRef" :src="iframeSrc" class="full-height full-width" frameborder="0"></iframe>
+          <iframe v-else ref="reportIframeRef" :src="iframeSrc" class="full-height full-width" frameborder="0"
+            @load="postIframeRuntimeInfo"></iframe>
         </div>
       </template>
     </q-splitter>
@@ -30,6 +31,7 @@ import CalcInputForm from './components/CalcInputForm.vue'
 import { HtmlUpdateType } from 'src/api/calcExecution'
 import type { ICalcReportInstanceInfo } from 'src/api/calcReportInstance'
 import type { PropType } from 'vue'
+import { useUserInfoStore } from 'src/stores/user'
 
 interface ReportResultChangedPayload {
   updateType: HtmlUpdateType
@@ -109,6 +111,18 @@ const splitterLimits: Ref<[number, number] | undefined> = ref(props.autoCollapse
 const lastSplitterValue = ref(30)
 const calcInputFormRef: Ref<typeof CalcInputForm | null> = ref(null)
 const reportIframeRef = ref<HTMLIFrameElement | null>(null)
+const userInfoStore = useUserInfoStore()
+
+function postIframeRuntimeInfo() {
+  const iframeWindow = reportIframeRef.value?.contentWindow
+  if (!iframeWindow || !fullHtmlUrl.value) return
+
+  iframeWindow.postMessage({
+    type: 'uzoncalc:update-runtime',
+    documentUrl: fullHtmlUrl.value,
+    authToken: userInfoStore.token
+  }, '*')
+}
 
 watch(hashUis, (newValue) => {
   if (!props.autoCollapseInputUis) return
@@ -146,7 +160,9 @@ function onReportResultChanged(payload: ReportResultChangedPayload) {
 
   iframeWindow.postMessage({
     type: 'uzoncalc:update-content',
-    contentHtml: payload.contentHtml
+    contentHtml: payload.contentHtml,
+    documentUrl: payload.fullHtmlUrl,
+    authToken: userInfoStore.token
   }, '*')
 }
 

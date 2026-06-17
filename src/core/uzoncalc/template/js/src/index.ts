@@ -3,6 +3,7 @@ import { setupScrollMemory } from './scrollMemory'
 import { ensureTemplateStyles } from './styleInjector'
 import { setupOutlinePreview } from './outlinePreview'
 import { applyFigureLabels } from './figureLabels'
+import { setupTocPageNumberPrintButton } from './tocPageNumbers'
 
 declare const hljs: { highlightAll?: () => void } | undefined
 
@@ -20,6 +21,7 @@ function bootstrap(): void {
   // 正文变化后刷新依赖 DOM 内容的增强能力
   applyFigureLabels()
   setupOutlinePreview()
+  setupTocPageNumberPrintButton()
   rerunHighlight()
   setupScrollMemory()
 }

@@ -5,6 +5,7 @@ import html
 from html.parser import HTMLParser
 
 from .base_context_result_handler import BaseContextResultHandler
+from ..service.toc_page_numbers import render_heading_marker
 
 _HEADING_TAGS = {"h2", "h3", "h4", "h5", "h6"}
 _MIN_HEADING_LEVEL = 2
@@ -83,6 +84,7 @@ class _TocHtmlParser(HTMLParser):
         )
 
         if normalized_tag in _HEADING_TAGS and not is_inside_toc:
+            self.output_parts.append(render_heading_marker(heading_id))
             self.open_headings.append(
                 _OpenHeading(
                     tag=normalized_tag,
