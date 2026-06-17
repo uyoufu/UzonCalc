@@ -261,7 +261,9 @@ def test_static_html_server_does_not_start_file_watcher(monkeypatch):
         fail_watch_script_file,
     )
 
-    startup.serve_static_html("<html>静态内容</html>", preferred_port=0)
+    from uzoncalc.http_server.server import serve_static_html
+
+    serve_static_html("<html>静态内容</html>", preferred_port=0)
 
     assert served_ports == [34567, "closed"]
 
@@ -273,27 +275,41 @@ def test_startup_view_runs_function_and_serves_rendered_html(monkeypatch):
     class FakeContext:
         """模拟计算上下文。"""
 
+        options = object()
+
+        def html_content(self):
+            """返回上下文正文 HTML。"""
+            calls.append(("content",))
+            return "<body>预览内容</body>"
+
     def fake_calc(arg_value, named_value=None):
         """模拟用户传入的计算入口。"""
 
-    def fake_run_sync(func, *args, defaults=None, **kwargs):
-        """验证 view() 透传计算函数参数。"""
-        calls.append(("run", func, args, defaults, kwargs))
-        return FakeContext()
-
-    def fake_render_ctx_html(ctx):
-        """验证 view() 使用本地 HTML 渲染逻辑。"""
-        assert isinstance(ctx, FakeContext)
-        calls.append(("render",))
+    def fake_render_html_template(content, options):
+        """验证 view() 使用模板渲染完整 HTML。"""
+        assert content == "<body>预览内容</body>"
+        assert options is fake_context.options
+        calls.append(("render", content))
         return "<html>预览内容</html>"
 
     def fake_serve_static_html(html_output, preferred_port):
         """验证 view() 启动无监听服务。"""
         calls.append(("serve", html_output, preferred_port))
 
+    fake_context = FakeContext()
+
+    def fake_run_sync(func, *args, defaults=None, **kwargs):
+        """验证 view() 透传计算函数参数。"""
+        calls.append(("run", func, args, defaults, kwargs))
+        return fake_context
+
     monkeypatch.setattr(startup, "run_sync", fake_run_sync)
-    monkeypatch.setattr(startup, "_render_ctx_html", fake_render_ctx_html)
-    monkeypatch.setattr(startup, "serve_static_html", fake_serve_static_html)
+    monkeypatch.setattr(
+        "uzoncalc.template.utils.render_html_template", fake_render_html_template
+    )
+    monkeypatch.setattr(
+        "uzoncalc.http_server.server.serve_static_html", fake_serve_static_html
+    )
 
     startup.view(
         fake_calc,
@@ -311,7 +327,8 @@ def test_startup_view_runs_function_and_serves_rendered_html(monkeypatch):
             {"默认": {"值": 1}},
             {"named_value": "命名参数"},
         ),
-        ("render",),
+        ("content",),
+        ("render", "<body>预览内容</body>"),
         ("serve", "<html>预览内容</html>", 0),
     ]
 

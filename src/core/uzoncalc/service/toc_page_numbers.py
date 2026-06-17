@@ -18,8 +18,10 @@ from .playwright_service import PlaywrightService
 
 TOC_PAGE_NUMBERS_ROUTE = "/api/v1/calc/toc-page-numbers"
 TOC_HEADING_MARKER_PREFIX = "UZONCALC_TOC_HEADING:"
+TOC_HEADING_MARKER_SUFFIX = "|"
 _MARKER_PATTERN = re.compile(
     rf"{re.escape(TOC_HEADING_MARKER_PREFIX)}([A-Za-z0-9_.:-]+)"
+    rf"{re.escape(TOC_HEADING_MARKER_SUFFIX)}"
 )
 
 _playwright_service = PlaywrightService()
@@ -28,11 +30,12 @@ _playwright_service = PlaywrightService()
 def render_heading_marker(heading_id: str) -> str:
     """生成用于 PDF 文本解析的标题 marker。"""
     safe_heading_id = html.escape(heading_id, quote=True)
-    marker_text = f"{TOC_HEADING_MARKER_PREFIX}{safe_heading_id}"
+    marker_text = (
+        f"{TOC_HEADING_MARKER_PREFIX}{safe_heading_id}{TOC_HEADING_MARKER_SUFFIX}"
+    )
     return (
         '<span class="uz-toc-heading-marker" aria-hidden="true" '
-        'style="font-size:1px;line-height:1px;color:transparent;'
-        'opacity:0;display:inline-block;width:1px;height:1px;overflow:hidden;">'
+        'style="font-size:0.1px;line-height:0.1px;color:transparent;">'
         f"{marker_text}</span>"
     )
 
