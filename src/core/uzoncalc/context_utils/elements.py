@@ -358,8 +358,8 @@ def Code(content: str, language: str | None = None):
 
 def info(content: str, persist: bool = False):
     classes = (
-        "flex flex-row items-center bg-blue-100 border border-blue-400 "
-        "text-blue-700 px-4 py-3 rounded relative"
+        "flex flex-row items-center bg-blue-100 "
+        "text-blue-500 px-4 py-3 rounded relative"
     )
     return div(content, classes=classes, persist=persist)
 
