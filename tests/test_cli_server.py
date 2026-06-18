@@ -11,6 +11,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/core"))
 
 from uzoncalc import cli, startup
 from uzoncalc.http_server import (
+    DEFAULT_SERVER_PORT,
     HtmlPreviewState,
     create_html_server,
 )
@@ -352,7 +353,7 @@ def test_startup_view_runs_function_and_serves_rendered_html(monkeypatch):
         "uzoncalc.template.utils.render_html_template", fake_render_html_template
     )
     monkeypatch.setattr(
-        "uzoncalc.http_server.server.serve_static_html", fake_serve_static_html
+        "uzoncalc.http_server.serve_static_html", fake_serve_static_html
     )
 
     startup.view(
@@ -373,7 +374,7 @@ def test_startup_view_runs_function_and_serves_rendered_html(monkeypatch):
         ),
         ("content",),
         ("render", "<body>预览内容</body>"),
-        ("serve", "<html>预览内容</html>", 0),
+        ("serve", "<html>预览内容</html>", DEFAULT_SERVER_PORT),
     ]
 
 

@@ -4,7 +4,11 @@ from pathlib import Path
 from playwright.async_api import Error as PlaywrightError
 
 from uzoncalc.service import playwright_service
-from uzoncalc.service.playwright_service import PlaywrightService, ThreadedPlaywrightService
+from uzoncalc.service.playwright_service import (
+    PlaywrightService,
+    close_playwright_service,
+    get_playwright_service,
+)
 
 
 class FakePage:
@@ -291,45 +295,38 @@ def test_close_page_ignores_already_closed_page():
     asyncio.run(run_test())
 
 
-def test_threaded_playwright_service_reuses_one_background_loop(monkeypatch, tmp_path):
-    """同步 Playwright 服务应在同一后台事件循环中复用异步服务。"""
-    fake_services = []
-    service_loop_ids = []
-    render_loop_ids = []
-    rendered_urls = []
+def test_default_playwright_service_reuses_instance_in_running_loop(monkeypatch):
+    """core 默认 Playwright 服务应在同一事件循环内复用实例。"""
+    created_services = []
 
-    class FakeAsyncService:
-        """记录同步封装是否复用同一个异步服务和事件循环。"""
+    class FakePlaywrightService:
+        """记录默认服务的创建和关闭。"""
 
         def __init__(self, storage_state_path=None):
             self.storage_state_path = storage_state_path
             self.close_count = 0
-            fake_services.append(self)
-            service_loop_ids.append(id(asyncio.get_running_loop()))
-
-        async def render_pdf_from_url(self, document_url: str) -> bytes:
-            """模拟 PDF 渲染并记录当前事件循环。"""
-            render_loop_ids.append(id(asyncio.get_running_loop()))
-            rendered_urls.append(document_url)
-            return f"pdf:{document_url}".encode("utf-8")
+            created_services.append(self)
 
         async def close(self):
-            """记录同步封装是否关闭异步服务。"""
+            """记录默认服务关闭次数。"""
             self.close_count += 1
 
-    monkeypatch.setattr(playwright_service, "PlaywrightService", FakeAsyncService)
+    async def run_test():
+        first_service = get_playwright_service()
+        second_service = get_playwright_service()
 
-    threaded_service = ThreadedPlaywrightService(tmp_path / "storage.json")
-    first_pdf = threaded_service.render_pdf_from_url("http://127.0.0.1:first/")
-    second_pdf = threaded_service.render_pdf_from_url("http://127.0.0.1:second/")
-    threaded_service.close()
-    threaded_service.close()
+        assert first_service is second_service
 
-    assert first_pdf == b"pdf:http://127.0.0.1:first/"
-    assert second_pdf == b"pdf:http://127.0.0.1:second/"
-    assert rendered_urls == ["http://127.0.0.1:first/", "http://127.0.0.1:second/"]
-    assert len(service_loop_ids) == 1
-    assert render_loop_ids == [service_loop_ids[0], service_loop_ids[0]]
-    assert len(fake_services) == 1
-    assert fake_services[0].close_count == 1
-    assert threaded_service._thread is None
+        await close_playwright_service()
+        third_service = get_playwright_service()
+
+        assert third_service is not first_service
+        await close_playwright_service()
+
+    monkeypatch.setattr(playwright_service, "PlaywrightService", FakePlaywrightService)
+
+    asyncio.run(run_test())
+
+    assert len(created_services) == 2
+    assert created_services[0].close_count == 1
+    assert created_services[1].close_count == 1

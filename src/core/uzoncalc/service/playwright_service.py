@@ -8,7 +8,6 @@ from __future__ import annotations
 
 import asyncio
 import logging
-import threading
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
@@ -23,6 +22,25 @@ from playwright.async_api import (
 )
 
 logger = logging.getLogger(__name__)
+_default_services: dict[asyncio.AbstractEventLoop, "PlaywrightService"] = {}
+
+
+def get_playwright_service() -> "PlaywrightService":
+    """返回当前事件循环内复用的默认 Playwright 服务。"""
+    loop = asyncio.get_running_loop()
+    service = _default_services.get(loop)
+    if service is None:
+        service = PlaywrightService()
+        _default_services[loop] = service
+    return service
+
+
+async def close_playwright_service():
+    """关闭并移除当前事件循环内的默认 Playwright 服务。"""
+    loop = asyncio.get_running_loop()
+    service = _default_services.pop(loop, None)
+    if service is not None:
+        await service.close()
 
 
 class PlaywrightService:
@@ -164,102 +182,3 @@ class PlaywrightService:
         async with self._storage_state_lock:
             self.storage_state_path.parent.mkdir(parents=True, exist_ok=True)
             await context.storage_state(path=str(self.storage_state_path))
-
-
-class ThreadedPlaywrightService:
-    """在后台事件循环中复用 PlaywrightService，供同步调用方使用。"""
-
-    def __init__(self, storage_state_path: str | Path | None = None):
-        """初始化后台服务，延迟到首次调用时启动线程和事件循环。"""
-        self.storage_state_path = storage_state_path
-        self._thread_lock = threading.Lock()
-        self._loop: asyncio.AbstractEventLoop | None = None
-        self._thread: threading.Thread | None = None
-        self._service: PlaywrightService | None = None
-        self._ready_event = threading.Event()
-        self._startup_error: BaseException | None = None
-
-    def render_pdf_from_url(self, document_url: str) -> bytes:
-        """同步渲染 PDF，并保证底层异步服务运行在同一后台事件循环。"""
-        service = self._get_service()
-        loop = self._require_loop()
-        future = asyncio.run_coroutine_threadsafe(
-            service.render_pdf_from_url(document_url), loop
-        )
-        return future.result()
-
-    def close(self):
-        """关闭后台 Playwright 服务和事件循环。"""
-        with self._thread_lock:
-            loop = self._loop
-            thread = self._thread
-            service = self._service
-            self._loop = None
-            self._thread = None
-            self._service = None
-            self._ready_event.clear()
-
-        if loop is None or thread is None:
-            return
-
-        if service is not None:
-            future = asyncio.run_coroutine_threadsafe(service.close(), loop)
-            future.result()
-
-        loop.call_soon_threadsafe(loop.stop)
-        thread.join()
-
-    def _get_service(self) -> PlaywrightService:
-        """获取后台事件循环中的 PlaywrightService 单例。"""
-        self._ensure_started()
-        if self._startup_error is not None:
-            raise self._startup_error
-        if self._service is None:
-            raise RuntimeError("Playwright service did not start")
-        return self._service
-
-    def _require_loop(self) -> asyncio.AbstractEventLoop:
-        """返回已启动的后台事件循环。"""
-        if self._loop is None:
-            raise RuntimeError("Playwright event loop did not start")
-        return self._loop
-
-    def _ensure_started(self):
-        """按需启动后台线程，并等待事件循环和服务初始化完成。"""
-        with self._thread_lock:
-            if self._thread is not None:
-                return
-
-            self._ready_event.clear()
-            self._startup_error = None
-            self._thread = threading.Thread(
-                target=self._run_loop,
-                name="uzoncalc-playwright",
-                daemon=True,
-            )
-            self._thread.start()
-
-        self._ready_event.wait()
-
-    def _run_loop(self):
-        """后台线程入口：创建事件循环和异步 PlaywrightService。"""
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        try:
-            self._loop = loop
-            self._service = loop.run_until_complete(self._create_service())
-        except BaseException as exc:
-            self._startup_error = exc
-            self._ready_event.set()
-            loop.close()
-            return
-
-        self._ready_event.set()
-        try:
-            loop.run_forever()
-        finally:
-            loop.close()
-
-    async def _create_service(self) -> PlaywrightService:
-        """在后台事件循环中创建异步 Playwright 服务。"""
-        return PlaywrightService(self.storage_state_path)

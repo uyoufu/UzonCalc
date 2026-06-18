@@ -1,3 +1,4 @@
+import asyncio
 import sys
 import threading
 from pathlib import Path
@@ -9,11 +10,13 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/core"))
 from uzoncalc.http_server import HtmlPreviewState, create_html_server
 from uzoncalc.service.toc_page_numbers import (
     TOC_PAGE_NUMBERS_ROUTE,
+    _run_coroutine_sync,
     calculate_toc_page_numbers_sync,
     fill_toc_page_numbers,
     parse_toc_page_numbers_from_pdf,
     render_heading_marker,
 )
+from uzoncalc.service.playwright_service import close_playwright_service
 
 
 def test_render_heading_marker_uses_stable_machine_text():
@@ -59,6 +62,61 @@ def test_calculate_toc_page_numbers_reads_heading_markers_from_pdf():
         server.server_close()
 
     assert page_numbers == {"heading-0": 1, "heading-1": 1}
+
+
+def test_calculate_toc_page_numbers_sync_rejects_running_event_loop():
+    """同步页码入口不应在已有事件循环中嵌套执行。"""
+
+    async def run_test():
+        with pytest.raises(RuntimeError, match="use calculate_toc_page_numbers"):
+            calculate_toc_page_numbers_sync("http://127.0.0.1:32180/")
+
+    asyncio.run(run_test())
+
+
+def test_calculate_toc_page_numbers_sync_reuses_default_service(monkeypatch):
+    """同步页码入口连续调用时应复用 core 默认 Playwright 服务。"""
+    created_services = []
+    rendered_urls = []
+
+    class FakePlaywrightService:
+        """记录同步页码入口是否复用默认服务。"""
+
+        def __init__(self):
+            created_services.append(self)
+
+        async def render_pdf_from_url(self, document_url: str) -> bytes:
+            """模拟 PDF 渲染并记录调用 URL。"""
+            rendered_urls.append(document_url)
+            return b"pdf-bytes"
+
+        async def close(self):
+            """模拟默认服务关闭。"""
+            return None
+
+    _run_coroutine_sync(close_playwright_service())
+    monkeypatch.setattr(
+        "uzoncalc.service.playwright_service.PlaywrightService",
+        FakePlaywrightService,
+    )
+    monkeypatch.setattr(
+        "uzoncalc.service.toc_page_numbers.parse_toc_page_numbers_from_pdf",
+        lambda pdf_bytes: {"heading-0": len(rendered_urls)},
+    )
+
+    assert calculate_toc_page_numbers_sync("http://127.0.0.1:first/") == {
+        "heading-0": 1
+    }
+    assert calculate_toc_page_numbers_sync("http://127.0.0.1:second/") == {
+        "heading-0": 2
+    }
+
+    assert rendered_urls == [
+        "http://127.0.0.1:first/",
+        "http://127.0.0.1:second/",
+    ]
+    assert len(created_services) == 1
+    _run_coroutine_sync(close_playwright_service())
 
 
 def test_fill_toc_page_numbers_updates_placeholders():

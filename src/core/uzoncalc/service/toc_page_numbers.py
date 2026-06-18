@@ -6,14 +6,17 @@ ToC 页码计算服务。
 
 from __future__ import annotations
 
+import asyncio
 import html
 import re
+import threading
 from dataclasses import dataclass
 from html.parser import HTMLParser
+from typing import Coroutine, TypeVar
 
 import fitz
 
-from .playwright_service import PlaywrightService, ThreadedPlaywrightService
+from .playwright_service import get_playwright_service
 
 TOC_PAGE_NUMBERS_ROUTE = "/api/v1/calc/toc-page-numbers"
 TOC_HEADING_MARKER_PREFIX = "UZONCALC_TOC_HEADING:"
@@ -22,9 +25,7 @@ _MARKER_PATTERN = re.compile(
     rf"{re.escape(TOC_HEADING_MARKER_PREFIX)}([A-Za-z0-9_.:-]+)"
     rf"{re.escape(TOC_HEADING_MARKER_SUFFIX)}"
 )
-
-_playwright_service = PlaywrightService()
-_threaded_playwright_service = ThreadedPlaywrightService()
+_T = TypeVar("_T")
 
 
 def render_heading_marker(heading_id: str) -> str:
@@ -57,14 +58,88 @@ def parse_toc_page_numbers_from_pdf(pdf_bytes: bytes) -> dict[str, int]:
 
 async def calculate_toc_page_numbers(document_url: str) -> dict[str, int]:
     """按真实打印路径生成 PDF，并返回标题 id 到页码的映射。"""
-    pdf_bytes = await _playwright_service.render_pdf_from_url(document_url)
+    pdf_bytes = await get_playwright_service().render_pdf_from_url(document_url)
     return parse_toc_page_numbers_from_pdf(pdf_bytes)
 
 
 def calculate_toc_page_numbers_sync(document_url: str) -> dict[str, int]:
     """同步计算 ToC 页码，供 `CalcContext.save()` 调用。"""
-    pdf_bytes = _threaded_playwright_service.render_pdf_from_url(document_url)
-    return parse_toc_page_numbers_from_pdf(pdf_bytes)
+    return _run_coroutine_sync(calculate_toc_page_numbers(document_url))
+
+
+def _run_coroutine_sync(coroutine):
+    """在同步调用方中执行协程；已处于事件循环时提示改用 async API。"""
+    try:
+        asyncio.get_running_loop()
+    except RuntimeError:
+        return _sync_loop_runner.run(coroutine)
+
+    coroutine.close()
+    raise RuntimeError(
+        "calculate_toc_page_numbers_sync() cannot run inside an active event loop; "
+        "use calculate_toc_page_numbers() instead."
+    )
+
+
+class _SyncLoopRunner:
+    """为同步入口复用一个后台事件循环执行协程。"""
+
+    def __init__(self):
+        """初始化后台事件循环状态。"""
+        self._lock = threading.Lock()
+        self._loop: asyncio.AbstractEventLoop | None = None
+        self._thread: threading.Thread | None = None
+        self._ready_event = threading.Event()
+        self._startup_error: BaseException | None = None
+
+    def run(self, coroutine: Coroutine[object, object, _T]) -> _T:
+        """在后台事件循环中执行协程并返回结果。"""
+        self._ensure_started()
+        if self._startup_error is not None:
+            raise self._startup_error
+        if self._loop is None:
+            raise RuntimeError("Sync event loop did not start")
+
+        future = asyncio.run_coroutine_threadsafe(coroutine, self._loop)
+        return future.result()
+
+    def _ensure_started(self):
+        """按需启动后台事件循环。"""
+        with self._lock:
+            if self._thread is not None:
+                return
+
+            self._ready_event.clear()
+            self._startup_error = None
+            self._thread = threading.Thread(
+                target=self._run_loop,
+                name="uzoncalc-sync-asyncio",
+                daemon=True,
+            )
+            self._thread.start()
+
+        self._ready_event.wait()
+
+    def _run_loop(self):
+        """后台线程入口：创建并运行事件循环。"""
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            self._loop = loop
+        except BaseException as exc:
+            self._startup_error = exc
+            self._ready_event.set()
+            loop.close()
+            return
+
+        self._ready_event.set()
+        try:
+            loop.run_forever()
+        finally:
+            loop.close()
+
+
+_sync_loop_runner = _SyncLoopRunner()
 
 
 def fill_toc_page_numbers(html_text: str, page_numbers: dict[str, int]) -> str:
