@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import replace
+import inspect
 import io
 import re
 from typing import Any, Iterable, List
@@ -346,9 +347,9 @@ def Input(content: str):
 
 
 def code(content: str, language: str | None = None, persist: bool = False):
-    lines = _trim_empty_lines(content.split("\n"))
+    cleaned_content = inspect.cleandoc(content)
     lang_class = f"language-{language}" if language else ""
-    code_html = h("code", children="\n".join(lines), classes=lang_class)
+    code_html = h("code", children=cleaned_content, classes=lang_class)
     return h("pre", children=code_html, classes="my-2 ml-8", persist=persist)
 
 
@@ -378,8 +379,8 @@ def markdown(content: str, persist: bool = False):
     md = get_markdown()
 
     # 移除 content 开头的空行（含仅空白字符的行）
-    trimmed_content = re.sub(r"\A[\t ]*(?:\r?\n)+", "", content)
-    markdown_html = md.render(trimmed_content)
+    cleaned_content = inspect.cleandoc(content)
+    markdown_html = md.render(cleaned_content)
     # 不能直接使用 p 标签，因为 p 标签中无法包含列表等元素
     return div(markdown_html, persist=persist)
 
@@ -462,12 +463,3 @@ def _children_to_html(children: str | List[str] | None) -> str:
     if isinstance(children, list):
         return "".join(str(child) for child in children)
     return str(children)
-
-
-def _trim_empty_lines(lines: Iterable[str]) -> list[str]:
-    trimmed = list(lines)
-    while trimmed and trimmed[0].strip() == "":
-        trimmed.pop(0)
-    while trimmed and trimmed[-1].strip() == "":
-        trimmed.pop()
-    return trimmed

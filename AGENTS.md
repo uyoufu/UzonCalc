@@ -17,3 +17,7 @@
 | src/core/uzoncalc | src/core/uzoncalc/AGENTS.md |
 | src/api           | src/api/AGENTS.md           |
 | src/web           | src/web/AGENTS.md           |
+
+## 测试
+
+测试文件应分类保存在各个项目的 tests/ 下的子目录中
