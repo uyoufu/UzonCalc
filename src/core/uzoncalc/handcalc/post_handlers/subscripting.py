@@ -28,7 +28,8 @@ class Subscripting(BasePostHandler):
     _html_tag_pattern = re.compile(r"(<[^>]+>)")
     _tag_name_pattern = re.compile(r"^</?\s*([a-zA-Z][\w:-]*)")
     _text_name_pattern = re.compile(
-        r"(?<![\w./:-])"
+        r"(?<![\w./:\\-])"
+        r"(\\?)"
         r"([A-Za-z\u0370-\u03FF\u4e00-\u9fff]+"
         r"(?:_[A-Za-z0-9\u0370-\u03FF\u4e00-\u9fff]+)+)"
         r"(?![\w/-])"
@@ -59,6 +60,8 @@ class Subscripting(BasePostHandler):
             name = m.group(2)
             if "_" not in name:
                 return m.group(0)
+            if name.startswith("\\"):
+                return f"<mi{attrs}>{name[1:]}</mi>"
             if name.startswith("_") or name.endswith("_"):
                 return m.group(0)
 
@@ -127,7 +130,10 @@ class Subscripting(BasePostHandler):
             return self._render_plain_text_without_urls(text)
 
         def _repl(match: re.Match[str]) -> str:
-            name = match.group(1)
+            escaped_mark = match.group(1)
+            name = match.group(2)
+            if escaped_mark:
+                return name
             if name.startswith("_") or name.endswith("_") or "__" in name:
                 return name
 
@@ -154,7 +160,7 @@ class Subscripting(BasePostHandler):
 
         if last_end == 0:
             return self._text_name_pattern.sub(
-                lambda match: self._render_plain_text_subscripts(match.group(1)),
+                lambda match: self._render_plain_text_subscripts(match.group(0)),
                 text,
             )
 

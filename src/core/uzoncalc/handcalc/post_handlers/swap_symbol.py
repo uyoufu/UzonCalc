@@ -1,11 +1,11 @@
-"""后处理器：将希腊英文替换为数学符号"""
+"""后处理器：将希腊英文替换为数学符号。"""
 
 import re
 from .base_post_handler import BasePostHandler
 
 
 class SwapSymbol(BasePostHandler):
-    """后处理器：将希腊英文替换为数学符号，跳过引号内的内容"""
+    """后处理器：将未转义的希腊英文替换为数学符号。"""
 
     priority = 20
 
@@ -61,40 +61,23 @@ class SwapSymbol(BasePostHandler):
         "Omega": "Ω",
     }
 
-    # 匹配引号内容的正则（包括HTML实体编码的引号）
-    _QUOTE_PATTERN = re.compile(
-        r"'[^']*'|"  # 单引号
-        r'"[^"]*"|'  # 双引号
-        r"&#x27;.*?&#x27;|"  # HTML编码单引号
-        r"&quot;.*?&quot;|"  # HTML编码双引号
-        r"&#34;.*?&#34;"  # HTML编码双引号(数字形式)
-    )
-
     # 匹配希腊字母的正则（按长度降序避免部分匹配）
     _greek_words = sorted(_REPLACEMENTS.keys(), key=len, reverse=True)
     _GREEK_PATTERN = re.compile(
-        r"\b(" + "|".join(re.escape(w) for w in _greek_words) + r")(?=[_\s\W]|$)"
+        r"(?<![A-Za-z0-9_\\])"
+        r"(\\?)"
+        r"(" + "|".join(re.escape(w) for w in _greek_words) + r")"
+        r"(?=[_\s\W]|$)"
     )
 
     def handle(self, data: str, ctx=None) -> str:
-        """使用占位符方法替换希腊字母，保护引号内的内容"""
-        # 步骤1：用占位符临时替换所有引号内容
-        quotes = []
+        """转换希腊字母英文名称，并移除转义用反斜杠。"""
 
-        def save_quote(match):
-            quotes.append(match.group(0))
-            return f"\x00QUOTE_{len(quotes)-1}\x00"
+        def replace_greek_word(match: re.Match[str]) -> str:
+            escaped_mark = match.group(1)
+            greek_word = match.group(2)
+            if escaped_mark:
+                return greek_word
+            return self._REPLACEMENTS[greek_word]
 
-        data = self._QUOTE_PATTERN.sub(save_quote, data)
-
-        # 步骤2：替换所有希腊字母
-        data = self._GREEK_PATTERN.sub(lambda m: self._REPLACEMENTS[m.group(1)], data)
-
-        # 步骤3：一次性还原所有引号内容（避免多次 replace 扫描）
-        def restore_quote(match):
-            index = int(match.group(1))
-            return quotes[index]
-
-        data = re.sub(r"\x00QUOTE_(\d+)\x00", restore_quote, data)
-
-        return data
+        return self._GREEK_PATTERN.sub(replace_greek_word, data)
