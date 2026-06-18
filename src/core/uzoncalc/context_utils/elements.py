@@ -349,7 +349,7 @@ def code(content: str, language: str | None = None, persist: bool = False):
     lines = _trim_empty_lines(content.split("\n"))
     lang_class = f"language-{language}" if language else ""
     code_html = h("code", children="\n".join(lines), classes=lang_class)
-    return h("pre", children=code_html, classes="my-2", persist=persist)
+    return h("pre", children=code_html, classes="my-2 ml-8", persist=persist)
 
 
 def Code(content: str, language: str | None = None):
