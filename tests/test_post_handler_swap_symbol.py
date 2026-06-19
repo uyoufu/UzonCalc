@@ -1,4 +1,5 @@
 from core.uzoncalc.handcalc.post_handlers.swap_symbol import SwapSymbol
+from core.uzoncalc.context_utils.markdown import get_markdown
 
 
 def test_swap_symbol_converts_greek_word():
@@ -34,3 +35,20 @@ def test_swap_symbol_does_not_convert_word_after_unconsumed_backslash():
     handler = SwapSymbol()
 
     assert handler.handle(r"x\alpha") == r"x\alpha"
+
+
+def test_swap_symbol_skips_code_text():
+    """代码标签中的希腊字母名称和反斜杠应保持原样。"""
+    handler = SwapSymbol()
+
+    html = r"<p><code>\alpha</code> alpha \alpha</p>"
+
+    assert handler.handle(html) == r"<p><code>\alpha</code> α alpha</p>"
+
+
+def test_swap_symbol_keeps_markdown_code_span_backslash():
+    """Markdown 行内代码中的反斜杠不应被转义规则移除。"""
+    handler = SwapSymbol()
+    html = get_markdown().render("`\\alpha`")
+
+    assert handler.handle(html).strip() == r"<p><code>\alpha</code></p>"

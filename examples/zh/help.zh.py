@@ -672,6 +672,60 @@ speedKmPerH
     "单位转换后，速度 (km/h):"
     speedKmPerH
 
+    H2("希腊字母转换")
+
+    "你可以直接使用希腊字母的英文名称如 \\alpha (alpha), \\beta (beta), \\gamma (gamma), \\delta (delta), 系统会自动将其渲染为对应的希腊字母。"
+
+    "以小写字母开头的名称会被渲染为小写希腊字母, 以大写字母开头的名称会被渲染为大写希腊字母。"
+
+    "若不需要让字母被转义为希腊字母, 可以在名称前添加 \\, 例如 、\\\\alpha"
+
+    Code(
+        """
+rho_water = 1000 * unit.kilogram / unit.meter**3
+gamma_0 = 9.81 * unit.meter / unit.second**2
+""",
+        "python",
+    )
+
+    rho_water = 1000 * unit.kilogram / unit.meter**3
+    gamma_0 = 9.81 * unit.meter / unit.second**2
+
+    H2("函数样式")
+
+    "以下函数会被自动转换为数学样式："
+
+    H3("平方根")
+    "你可以使用 sqrt(x) 来表示 x 的平方根。"
+
+    Code(
+        """
+edge1 = 3 * unit.meter
+edge2 = 4 * unit.meter
+diagonal = sqrt(edge1**2 + edge2**2)
+""",
+        "python",
+    )
+
+    edge1 = 3 * unit.meter
+    edge2 = 4 * unit.meter
+    diagonal = sqrt(edge1**2 + edge2**2)
+
+    H3("绝对值")
+
+    "你可以使用 abs(x) 来表示 x 的绝对值。"
+
+    Code(
+        """
+value = -15 * unit.newton
+absValue = abs(value)
+""",
+        "python",
+    )
+
+    value = -15 * unit.newton
+    absValue = abs(value)
+
     H2("字符串高级应用")
 
     H3("f-string")
@@ -700,8 +754,8 @@ speedKmPerH
 
     """
 默认情况下, f-string 中的表达式只会显示计算结果, 但有时候你可能希望在文档中同时显示公式和计算过程,
-这时可以使用 enable_fstring_equation() 函数启用该功能, 启用后 f-string 中的表达式将同时显示公式和计算结果,
-直到调用 disable_fstring_equation() 函数关闭该功能。
+这时可以使用 \\enable_fstring_equation() 函数启用该功能, 启用后 f-string 中的表达式将同时显示公式和计算结果,
+直到调用 \\disable_fstring_equation() 函数关闭该功能。
     """
 
     Code(
@@ -742,6 +796,12 @@ tempArea
     f"Area is calculated as {(tempArea := width * length)}."
     disable_fstring_equation()
     tempArea
+
+    H2("字符串转义")
+
+    Markdown(
+        "前面章节提到，字符的英文名、以 `_` 连接的变量名会将其渲染为希腊字母和下标形式。如果要保持原始字符, 可以在字符前添加 \\, 例如 、`\\alpha`"
+    )
 
     # MARK: 图表
     H2("图表")
@@ -997,60 +1057,6 @@ Plot(get_contour3d_plot(), caption="3D 等高线示例")
 
     show()
     Plot(get_contour3d_plot(), caption="3D 等高线示例")
-
-    H2("希腊字母转换")
-
-    "你可以直接使用希腊字母的英文名称如 \\alpha (alpha), \\beta (beta), \\gamma (gamma), \\delta (delta), 系统会自动将其渲染为对应的希腊字母。"
-
-    "以小写字母开头的名称会被渲染为小写希腊字母, 以大写字母开头的名称会被渲染为大写希腊字母。"
-
-    "若不需要让字母被转义为希腊字母, 可以在名称前添加 \\, 例如 、\\\\alpha"
-
-    Code(
-        """
-rho_water = 1000 * unit.kilogram / unit.meter**3
-gamma_0 = 9.81 * unit.meter / unit.second**2
-""",
-        "python",
-    )
-
-    rho_water = 1000 * unit.kilogram / unit.meter**3
-    gamma_0 = 9.81 * unit.meter / unit.second**2
-
-    H2("函数样式")
-
-    "以下函数会被自动转换为数学样式："
-
-    H3("平方根")
-    "你可以使用 sqrt(x) 来表示 x 的平方根。"
-
-    Code(
-        """
-edge1 = 3 * unit.meter
-edge2 = 4 * unit.meter
-diagonal = sqrt(edge1**2 + edge2**2)
-""",
-        "python",
-    )
-
-    edge1 = 3 * unit.meter
-    edge2 = 4 * unit.meter
-    diagonal = sqrt(edge1**2 + edge2**2)
-
-    H3("绝对值")
-
-    "你可以使用 abs(x) 来表示 x 的绝对值。"
-
-    Code(
-        """
-value = -15 * unit.newton
-absValue = abs(value)
-""",
-        "python",
-    )
-
-    value = -15 * unit.newton
-    absValue = abs(value)
 
     H2("表格")
 
