@@ -1,0 +1,4 @@
+User-agent:*
+Disallow:
+
+Sitemap: https://uzoncalc.uzoncloud.com/sitemap.xml
