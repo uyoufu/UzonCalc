@@ -66,6 +66,27 @@ impl SharedState {
         Ok(())
     }
 
+    pub(crate) fn save_window_size(&self, width: u32, height: u32) -> Result<(), String> {
+        let mut next_config = self
+            .config
+            .lock()
+            .map_err(|_| "failed to lock app config".to_string())?
+            .clone();
+        next_config.set_window_size(width, height);
+
+        save_app_config(&self.config_paths, &next_config).map_err(|error| error.to_string())?;
+
+        {
+            let mut config = self
+                .config
+                .lock()
+                .map_err(|_| "failed to lock app config".to_string())?;
+            *config = next_config;
+        }
+
+        Ok(())
+    }
+
     fn apply_locale_to_desktop_ui(&self) {
         let title = app_title();
 

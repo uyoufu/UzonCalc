@@ -14,6 +14,8 @@ const CONFIG_FILE_NAME: &str = "config.toml";
 pub struct AppConfig {
     #[serde(default)]
     pub webview: Option<WebviewConfig>,
+    #[serde(default)]
+    pub window: Option<WindowConfig>,
     #[serde(default = "default_language")]
     pub language: String,
 }
@@ -23,10 +25,17 @@ pub struct WebviewConfig {
     pub url: Option<String>,
 }
 
+#[derive(Debug, Clone, Deserialize, Serialize)]
+pub struct WindowConfig {
+    pub width: Option<u32>,
+    pub height: Option<u32>,
+}
+
 impl Default for AppConfig {
     fn default() -> Self {
         Self {
             webview: None,
+            window: None,
             language: default_language(),
         }
     }
@@ -49,6 +58,25 @@ impl AppConfig {
 
     pub fn set_locale(&mut self, locale: AppLocale) {
         self.language = locale.as_str().to_string();
+    }
+
+    pub fn window_size(&self) -> Option<(u32, u32)> {
+        let window = self.window.as_ref()?;
+        let width = window.width?;
+        let height = window.height?;
+
+        if width == 0 || height == 0 {
+            return None;
+        }
+
+        Some((width, height))
+    }
+
+    pub fn set_window_size(&mut self, width: u32, height: u32) {
+        self.window = Some(WindowConfig {
+            width: Some(width),
+            height: Some(height),
+        });
     }
 }
 
