@@ -19,6 +19,7 @@ members = [
 dev = [
     { name = "astpretty", specifier = ">=3.0.0" },
     { name = "pytest", specifier = ">=9.0.3" },
+    { name = "rich", specifier = ">=14.3.3" },
 ]
 preview = [
     { name = "fastapi", specifier = ">=0.134.0" },
