@@ -1,5 +1,2 @@
-name = "uzoncalc"
-
 [assets]
 directory = "./" # 关键：告诉 Cloudflare 静态文件就在当前拉取的目录（即 gh-pages 根目录）
-binding = "ASSETS"
