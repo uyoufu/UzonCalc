@@ -8,7 +8,7 @@ English · [中文](README.zh-CN.md)
 
 </div>
 
-[![UzonCalc](https://oss.uzoncloud.com:2234/public/files/images/image-20260620153738596.png)](https://oss.uzoncloud.com:2234/public/files/video/UzonCalc-welcom.mp4)
+[![UzonCalc](https://oss.uzoncloud.com:2234/public/files/images/image-20260620153738596.png)](https://github.com/user-attachments/assets/04384977-d1c6-4fab-825b-34bcb4b036c2)
 
 UzonCalc is AI-oriented calculation report authoring software. Its goal is to let AI help engineers quickly generate and modify calculation reports through UzonCalc, so one report can be written once and reused for life.
 
