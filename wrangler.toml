@@ -1,5 +1,4 @@
 name = "uzoncalc"
-main = "" # 留空，表示不需要运行任何 Worker 动态 JS 代码
 
 [assets]
 directory = "./" # 关键：告诉 Cloudflare 静态文件就在当前拉取的目录（即 gh-pages 根目录）
