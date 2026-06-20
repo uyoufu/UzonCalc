@@ -85,11 +85,18 @@ class FakeChromium:
 
     def __init__(self):
         self.launch_count = 0
+        self.launch_kwargs_list: list[dict] = []
+        self.launch_errors: list[PlaywrightError | None] = []
         self.browsers: list[FakeBrowser] = []
 
     async def launch(self, **kwargs) -> FakeBrowser:
         """创建测试浏览器并记录启动参数。"""
         self.launch_count += 1
+        self.launch_kwargs_list.append(kwargs)
+        if self.launch_errors:
+            launch_error = self.launch_errors.pop(0)
+            if launch_error is not None:
+                raise launch_error
         browser = FakeBrowser()
         browser.launch_kwargs = kwargs
         self.browsers.append(browser)
@@ -153,9 +160,73 @@ def test_allocate_page_returns_page_and_saves_state_in_background(monkeypatch, t
         assert second_page.close_count == 1
         assert factory.start_count == 1
         assert factory.playwright.chromium.launch_count == 1
+        assert factory.playwright.chromium.launch_kwargs_list == [
+            {"channel": "msedge", "headless": True}
+        ]
         assert browser.new_context_count == 1
         assert context.new_page_count == 2
         assert context.storage_state_calls[0] == {"path": str(storage_state_path)}
+
+    asyncio.run(run_test())
+
+
+def test_allocate_page_fallbacks_to_playwright_chromium_when_edge_fails(
+    monkeypatch,
+    tmp_path,
+):
+    """系统 Edge 启动失败时，应回退到 Playwright Chromium。"""
+
+    async def run_test():
+        service, factory = create_service(monkeypatch, tmp_path / "storage.json")
+        chromium = factory.playwright.chromium
+        chromium.launch_errors.append(PlaywrightError("edge unavailable"))
+
+        async with service.allocate_page():
+            pass
+
+        assert chromium.launch_kwargs_list == [
+            {"channel": "msedge", "headless": True},
+            {"headless": True},
+        ]
+        assert chromium.launch_count == 2
+
+        await service.close()
+
+    asyncio.run(run_test())
+
+
+def test_allocate_page_reports_clear_error_when_edge_and_chromium_fail(
+    monkeypatch,
+    tmp_path,
+):
+    """系统 Edge 和 Playwright Chromium 都不可用时，应抛出清晰错误。"""
+
+    async def run_test():
+        service, factory = create_service(monkeypatch, tmp_path / "storage.json")
+        chromium = factory.playwright.chromium
+        chromium.launch_errors.extend(
+            [
+                PlaywrightError("edge unavailable"),
+                PlaywrightError("chromium unavailable"),
+            ]
+        )
+
+        try:
+            async with service.allocate_page():
+                pass
+        except RuntimeError as ex:
+            error_message = str(ex)
+        else:
+            raise AssertionError("Expected RuntimeError")
+
+        assert "Microsoft Edge" in error_message
+        assert "Playwright Chromium" in error_message
+        assert "edge unavailable" in error_message
+        assert "chromium unavailable" in error_message
+        assert chromium.launch_kwargs_list == [
+            {"channel": "msedge", "headless": True},
+            {"headless": True},
+        ]
 
     asyncio.run(run_test())
 

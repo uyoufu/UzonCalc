@@ -115,10 +115,35 @@ class PlaywrightService:
                 self._playwright = await async_playwright().start()
 
             if self._browser is None:
-                self._browser = await self._playwright.chromium.launch(headless=True)
+                self._browser = await self._launch_browser()
 
             self._context = await self._create_context(self._browser)
             return self._context
+
+    async def _launch_browser(self) -> Browser:
+        """优先启动系统 Microsoft Edge，失败时回退 Playwright Chromium。"""
+        assert self._playwright is not None
+        edge_error_message = ""
+        try:
+            return await self._playwright.chromium.launch(
+                channel="msedge",
+                headless=True,
+            )
+        except PlaywrightError as edge_error:
+            edge_error_message = str(edge_error)
+            logger.warning(
+                "Launch Microsoft Edge failed, fallback to Playwright Chromium",
+                exc_info=True,
+            )
+
+        try:
+            return await self._playwright.chromium.launch(headless=True)
+        except PlaywrightError as chromium_error:
+            raise RuntimeError(
+                "Launch browser failed: Microsoft Edge and Playwright Chromium "
+                f"are both unavailable. Edge error: {edge_error_message}; "
+                f"Chromium error: {chromium_error}"
+            ) from chromium_error
 
     async def _create_context(self, browser: Browser) -> BrowserContext:
         """创建浏览器上下文，并在存在历史状态时加载 storage_state。"""
