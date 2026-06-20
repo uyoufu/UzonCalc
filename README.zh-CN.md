@@ -8,6 +8,8 @@
 
 </div>
 
+[![UzonCalc](https://oss.uzoncloud.com:2234/public/files/images/image-20260620153738596.png)](https://oss.uzoncloud.com:2234/public/files/video/UzonCalc-welcom.mp4)
+
 UzonCalc 是一款面向 AI 的计算报告编写软件。目标是让 AI 通过 UzonCalc 帮助工程师快速生成和修改计算报告，做到一次编写，一生复用。
 
 使用 UzonCalc，你只需专注计算逻辑，框架将自动代入变量、生成计算过程、渲染数学公式、自动排版，为您输出专业的计算报告文档。
@@ -47,19 +49,19 @@ pip install uzoncalc
 
 1. **软件下载**
 
-   从 [Releases · uyoufu/UzonCalc](https://github.com/uyoufu/UzonCalc/releases) 下载 `win-x64` 版本，解压后，双击 `UzonCalc.exe` 启动。 
+   从 [Releases · uyoufu/UzonCalc](https://github.com/uyoufu/UzonCalc/releases) 下载 `win-x64` 版本，解压后，双击 `UzonCalc.exe` 启动。
 
 2. 复制以下代码到新建编辑框内
 
-   ``` python
+   ```python
    from uzoncalc import *
-   
+
    @uzon_calc()
    async def sheet():
        doc_title("example")
-   
+
        "Hello, UzonCalc!"
-   
+
        w = 10*unit.m
        l = 5*unit.m
        A = w * l
@@ -104,24 +106,20 @@ python example.py
 
 ## 🌐 在线示例
 
-| 文档           | 源码                                                                      | 在线预览                                                                |
-| -------------- | ------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 使用说明       | [example.zh.py](examples/example.zh.py)                                   | [查看文档](https://calc.uzoncloud.com/examples/example.zh.html)         |
-| T 形截面惯性矩 | [T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py) | [查看文档](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
+| 文档           | 源码                                                                         | 在线预览                                                                |
+| -------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
+| 使用说明       | [help.zh.py](examples/zh/help.zh.py)                                         | [查看文档](https://calc.uzoncloud.com/examples/zh/help.zh.html)         |
+| T 形截面惯性矩 | [T_section_moment_of_inertia.py](examples/zh/T_section_moment_of_inertia.py) | [查看文档](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
 
 ---
-
-## 📄 输出
-
-| 格式 | 方式                               |
-| ---- | ---------------------------------- |
-| HTML | 使用 `save()` 函数生成             |
-| PDF  | 浏览器打开 HTML 后打印             |
-| Word | `pandoc input.html -o output.docx` |
 
 ## 联系方式
 
 李有福：uyoufu@uzoncloud.com
+
+## 更多
+
+[UzonCalc](https://uzoncalc.uzoncloud.com/)
 
 ## 📜 许可证
 
