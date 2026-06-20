@@ -123,6 +123,17 @@ fn stop_api_process(app: &AppHandle) {
 }
 
 fn toggle_window_visibility(window: &WebviewWindow) {
+    match window.is_minimized() {
+        Ok(true) => {
+            show_and_focus_window(window);
+            return;
+        }
+        Ok(false) => {}
+        Err(error) => {
+            log::error!("failed to read window minimized state from tray: {error}");
+        }
+    }
+
     match window.is_visible() {
         Ok(true) => {
             if let Err(error) = window.hide() {
@@ -177,15 +188,15 @@ fn show_active_window(app: &AppHandle, main_window_label: &str, startup_window_l
 
 fn show_and_focus_window(window: &WebviewWindow) {
     if let Err(error) = window.show() {
-        log::error!("failed to show window from tray menu: {error}");
+        log::error!("failed to show window from tray: {error}");
         return;
     }
 
     if let Err(error) = window.unminimize() {
-        log::debug!("failed to unminimize window from tray menu: {error}");
+        log::debug!("failed to unminimize window from tray: {error}");
     }
 
     if let Err(error) = window.set_focus() {
-        log::error!("failed to focus window from tray menu: {error}");
+        log::error!("failed to focus window from tray: {error}");
     }
 }

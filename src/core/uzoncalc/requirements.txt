@@ -8,8 +8,16 @@ xlwings
 
 # For plot
 matplotlib
+svg-py
 
 # Testing dependencies
 pytest
 astpretty
+
+# for markdown processing
+markdown-it-pyrs
+
+# for pdf generation
+pymupdf
+playwright
 
