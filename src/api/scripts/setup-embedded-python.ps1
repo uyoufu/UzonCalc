@@ -108,29 +108,27 @@ if (Test-Path -LiteralPath $requirementsFile) {
 $cacheKey = "v2-$PythonVersion-$arch-$requirementsHash"
 $cacheDir = Join-Path $CacheRoot $cacheKey
 $cachePythonExe = Join-Path $cacheDir "python.exe"
+$cacheHit = $false
 
 Write-Info "Python cache root: $CacheRoot"
 Write-Info "Python cache key: $cacheKey"
 
 if (Test-Path -LiteralPath $cachePythonExe) {
-    Write-Info "检测到缓存的嵌入式 Python 环境，直接复制到目标目录..."
+    Write-Info "检测到缓存的嵌入式 Python 环境，复制到目标目录..."
     Remove-DirectoryIfExists -Path $EMBED_DIR
     Copy-DirectoryContents -Source $cacheDir -Destination $EMBED_DIR
 
     $pythonExe = Join-Path $EMBED_DIR "python.exe"
-    Write-Info "========================================="
-    Write-Info "嵌入式 Python 环境设置完成（来自缓存）！"
-    Write-Info "========================================="
-    Write-Host ""
-    Write-Host "Python 路径: $EMBED_DIR" -ForegroundColor Cyan
-    Write-Host "Python 可执行文件: $pythonExe" -ForegroundColor Cyan
-    Write-Host ""
-    return
+    $cacheHit = $true
+    Write-Info "缓存环境复制完成，将继续刷新本地 workspace 包。"
 }
 
 $downloadedPython = $false
 
-if (Test-Path $pythonExe) {
+if ($cacheHit) {
+    Write-Info "使用缓存的嵌入式 Python，跳过下载和解压。"
+}
+elseif (Test-Path $pythonExe) {
     Write-Info "检测到已缓存的嵌入式 Python: $EMBED_DIR"
     Write-Info "跳过下载和解压，继续检查配置并安装依赖..."
 }
@@ -262,27 +260,27 @@ if (-not (Test-Path $sitePackages)) {
 # 6. 安装依赖
 # ============================================
 
-Write-Info "安装项目依赖..."
+Write-Info "安装第三方依赖..."
 
 $pythonExe = Join-Path $EMBED_DIR "python.exe"
 $requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
 
-if (Test-Path $requirementsFile) {
+if ($cacheHit) {
+    Write-Info "使用缓存环境，跳过第三方依赖安装。"
+}
+elseif (Test-Path $requirementsFile) {
     $filteredRequirementsFile = Join-Path $env:TEMP "uzoncalc-api-requirements.txt"
     $requirementsContent = Get-Content -LiteralPath $requirementsFile |
-        Where-Object { $_ -notmatch '^\s*-e\s+file:' }
+        Where-Object {
+            $_ -notmatch '^\s*-e\s+file:' -and
+            $_ -notmatch '^\s*uzoncalc\s*(?:[#;].*)?$'
+        }
 
     $requirementsContent | Set-Content -LiteralPath $filteredRequirementsFile -Encoding UTF8
 
     try {
         Invoke-PipInstall -Arguments @("install", "-r", $filteredRequirementsFile)
         Assert-LastCommandSucceeded -Message "依赖安装命令执行失败。"
-
-        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $CORE_PROJECT_ROOT)
-        Assert-LastCommandSucceeded -Message "uzoncalc 安装命令执行失败。"
-
-        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $PROJECT_ROOT)
-        Assert-LastCommandSucceeded -Message "uzoncalc-api 安装命令执行失败。"
     }
     catch {
         Write-Error-Message "依赖安装失败: $_"
@@ -304,11 +302,38 @@ else {
 # 7. 写入缓存
 # ============================================
 
-Write-Info "写入嵌入式 Python 缓存..."
-Ensure-Directory -Path $CacheRoot
-Remove-DirectoryIfExists -Path $cacheDir
-Copy-DirectoryContents -Source $EMBED_DIR -Destination $cacheDir
-Write-Info "缓存完成: $cacheDir"
+if ($cacheHit) {
+    Write-Info "当前环境来自缓存，跳过缓存写入。"
+}
+else {
+    Write-Info "写入嵌入式 Python 缓存..."
+    Ensure-Directory -Path $CacheRoot
+    Remove-DirectoryIfExists -Path $cacheDir
+    Copy-DirectoryContents -Source $EMBED_DIR -Destination $cacheDir
+    Write-Info "缓存完成: $cacheDir"
+}
+
+# ============================================
+# 8. 安装本地 workspace 包
+# ============================================
+
+Write-Info "安装本地 workspace 包..."
+
+try {
+    Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", "--force-reinstall", $CORE_PROJECT_ROOT)
+    Assert-LastCommandSucceeded -Message "uzoncalc 安装命令执行失败。"
+
+    Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", "--force-reinstall", $PROJECT_ROOT)
+    Assert-LastCommandSucceeded -Message "uzoncalc-api 安装命令执行失败。"
+}
+catch {
+    Write-Error-Message "本地 workspace 包安装失败: $_"
+    throw
+}
+
+Write-Info "已安装的本地包版本:"
+& $pythonExe -m pip show uzoncalc uzoncalc-api
+Assert-LastCommandSucceeded -Message "本地包版本检查失败。"
 
 # ============================================
 # 完成

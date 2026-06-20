@@ -32,10 +32,10 @@ uzoncalc = "uzoncalc.cli:main"
 include-package-data = false
 
 [tool.setuptools.packages.find]
-# 仅发现带 __init__.py 的真实包，避免把重构残留目录打进发行包。
 where = ["."]
 include = ["uzoncalc*"]
-namespaces = false
+# 仅发现带 __init__.py 的真实包，避免把重构残留目录打进发行包。
+# namespaces = false
 
 [tool.setuptools.package-data]
 "uzoncalc.template" = ["*.html", "*.css"]
