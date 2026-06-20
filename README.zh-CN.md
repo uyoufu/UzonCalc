@@ -8,7 +8,7 @@
 
 </div>
 
-[![UzonCalc](https://oss.uzoncloud.com:2234/public/files/images/image-20260620153738596.png)](https://oss.uzoncloud.com:2234/public/files/video/UzonCalc-welcom.mp4)
+[![UzonCalc](https://oss.uzoncloud.com:2234/public/files/images/image-20260620153738596.png)](https://github.com/user-attachments/assets/04384977-d1c6-4fab-825b-34bcb4b036c2)
 
 UzonCalc 是一款面向 AI 的计算报告编写软件。目标是让 AI 通过 UzonCalc 帮助工程师快速生成和修改计算报告，做到一次编写，一生复用。
 
