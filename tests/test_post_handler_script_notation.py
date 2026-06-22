@@ -93,6 +93,18 @@ def test_script_notation_converts_plain_text_superscript_and_groups():
     )
 
 
+def test_script_notation_converts_prime_superscript_with_subscript():
+    """单引号应可作为未分组上标并与下标组合。"""
+    handler = ScriptNotation()
+
+    html = "<p>a^'_p0</p><math><mi>a^'_p0</mi></math>"
+
+    assert handler.handle(html) == (
+        "<p>a<sub>p0</sub><sup>'</sup></p>"
+        "<math><msubsup><mi>a</mi><mtext>p0</mtext><mtext>'</mtext></msubsup></math>"
+    )
+
+
 def test_script_notation_combines_scripts_for_same_base_in_any_order():
     """同一底数的上下标应按同底组合输出。"""
     handler = ScriptNotation()

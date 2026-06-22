@@ -370,7 +370,7 @@ class ScriptNotation(BasePostHandler):
 
     def _is_operand_char(self, char: str) -> bool:
         """判断字符是否可作为未分组脚标操作数。"""
-        return self._is_base_part_char(char)
+        return self._is_base_part_char(char) or char == "'"
 
     def _is_name_like_char(self, char: str) -> bool:
         """判断字符是否属于变量或路径片段，避免二次匹配。"""
