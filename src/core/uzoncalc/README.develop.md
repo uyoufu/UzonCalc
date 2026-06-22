@@ -66,7 +66,7 @@ UzonCalc 的目标是让工程计算书直接用 Python 编写，并自动生成
 - `BasePostHandler` 定义统一接口，`priority` 控制执行顺序，`handle(data, ctx)` 允许根据上下文选项调整行为。
 - `post_pipeline.py` 负责组装默认处理链，并按优先级排序。
 - `parentheses_simplify.py` 用于去除多余括号，`swap_symbol.py` 用于替换展示符号，`swap_alias.py` 用于应用变量别名。
-- `subscripting.py` 负责把约定形式的变量名进一步整理为下标显示，`format_url.py` 负责处理 URL 等文本细节。
+- `script_notation.py` 负责把约定形式的变量名进一步整理为上下标显示，`format_url.py` 负责处理 URL 等文本细节。
 - 如果需要新增输出修正规则，应优先新增后处理器，而不是把字符串替换逻辑散落到渲染器或上下文层。
 
 ### 4. 输出与扩展层

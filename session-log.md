@@ -12,3 +12,14 @@ Rejected:
 - No `state.md` for setup-only work.
 Open:
 - Refresh map after current dirty work is committed.
+
+## 2026-06-22 15:14 [saved]
+Goal: Add core AGENTS guidance.
+Decisions:
+- Keep `src/core/uzoncalc/AGENTS.md` concise because detailed architecture already lives in `README.develop.md`.
+- Document core/package/test boundaries because agents often mix root workspace and core package commands.
+- Preserve Playwright/PDF verification rules because pagination correctness depends on real browser output.
+Rejected:
+- Do not duplicate the full core architecture walkthrough.
+Open:
+- Track `src/core/uzoncalc/AGENTS.md` when committing this change.

@@ -5,7 +5,7 @@ from .base_post_handler import BasePostHandler
 from .parentheses_simplify import ParenthesesSimplify
 from .swap_symbol import SwapSymbol
 from .swap_alias import SwapAlias
-from .subscripting import Subscripting
+from .script_notation import ScriptNotation
 from .format_url import FormatUrl
 
 
@@ -18,7 +18,7 @@ def get_default_post_handlers() -> List[BasePostHandler]:
         ParenthesesSimplify(),
         SwapSymbol(),
         SwapAlias(),
-        Subscripting(),
+        ScriptNotation(),
         FormatUrl(),
     ]
 

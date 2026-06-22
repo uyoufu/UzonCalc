@@ -150,16 +150,16 @@ def test_table_function_persists_content():
     assert '<td class="name-cell">A</td>' in context.contents[-1]
 
 
-def test_table_function_applies_subscript_post_handler():
-    """Table 写入上下文时应自动转换单元格中的下标文本。"""
+def test_table_function_applies_script_notation_post_handler():
+    """Table 写入上下文时应自动转换单元格中的上下标文本。"""
     context = CalcContext()
     token = _calc_instance.set(context)
     try:
-        Table(["项目"], [["单位宽度静土压力 E_j"]])
+        Table(["项目"], [["单位宽度静土压力 E_j 与 x^2"]])
     finally:
         _calc_instance.reset(token)
 
-    assert "单位宽度静土压力 E<sub>j</sub>" in context.contents[-1]
+    assert "单位宽度静土压力 E<sub>j</sub> 与 x<sup>2</sup>" in context.contents[-1]
 
 
 def test_table_returns_reference_placeholder_and_persists_label_source():
