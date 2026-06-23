@@ -25,24 +25,6 @@ def hide():
 # endregion
 
 
-# disable/enable equation rendering
-def disable_equation():
-    """
-    disable equation rendering
-    """
-    pass
-
-
-def enable_equation():
-    """
-    enable equation rendering
-    """
-    pass
-
-
-# endregion
-
-
 # region enable/disable f-string equation rendering
 def enable_fstring_equation():
     """启用 f-string 表达式的方程渲染。"""
