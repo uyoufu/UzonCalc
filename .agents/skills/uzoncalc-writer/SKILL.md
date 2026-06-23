@@ -37,7 +37,7 @@ if __name__ == "__main__":
 | 函数必须 `async def`           | `@uzon_calc()` 仅支持异步函数                         |
 | 字符串字面量即段落             | 函数体内裸字符串 `"文本"` / `"""多行"""` 作为段落输出 |
 | 变量赋值自动渲染               | `x = expr` 被捕获并渲染为数学公式 `x = expr = 值`     |
-| 变量名用 camelCase             | `_` 被解析为下标（`H_2` → H₂），避免用下划线命名变量  |
+| 变量名用 camelCase             | `_` / `^` 会被解析为下标/上标，普通变量命名避免使用下划线 |
 | 希腊字母自动转换               | `alpha`→α，`Beta`→Β，首字母大写得大写希腊字母         |
 | 纯函数调用不会插桩输出调用过程 | 如 `f(x)` 不会渲染为 `f(x)`，而是直接调用             |
 
@@ -52,6 +52,8 @@ doc_title("页眉标题")      # 设置页面/打印页眉标题
 page_size("A4")            # 页面大小：A4、A3、Letter 等
 toc("目录")                # 在当前位置插入目录（自动编号）
 font_family("Arial")       # 设置字体
+head("meta", {"name": "author", "content": "UzonCalc"})  # 添加去重后的 head 标签
+style("body", {"line-height": "1.8"})                    # 添加全局 CSS 样式
 
 H1("一级标题")             # H1~H6 对应六级标题，自动带有编号
 H2("二级标题")
@@ -183,7 +185,7 @@ Plot(fig, width=520)
 
 ### 变量与公式
 
-变量名参考 linux 风格缩写，变量名不宜过长。
+变量名参考 linux 风格缩写，变量名不宜过长。普通 Python 变量优先使用 camelCase；需要工程符号、中文、上下标时，用 `alias()` 设置展示名。
 
 ```python
 # 普通变量赋值（自动渲染公式）
@@ -191,10 +193,17 @@ force = 100 * unit.newton
 area = 2 * unit.meter**2
 stress = force / area
 
-# 别名（用于中文变量名或复杂下标）
-alias("rhoWater", "ρ_水")
+# 别名（用于中文变量名、工程符号或复杂上下标）
+alias("rhoWater", "rho_水")        # _ 表示下标
 rhoWater = 1000 * unit.kilogram / unit.meter**3
-alias("rhoWater", None)    # 传 None 移除别名
+
+alias("sigmaMax", "sigma_{max}^2") # ^ 表示上标，{} 用于复杂脚标分组
+sigmaMax = 30 * unit.MPa
+
+alias("aPrimeP0", "a^'_p0")        # 可组合上标和下标
+aPrimeP0 = 12 * unit.meter
+
+alias("rhoWater", None)            # 传 None 移除别名
 
 # f-string：默认只显示结果
 f"应力为 {stress}。"
@@ -207,6 +216,8 @@ disable_fstring_equation()
 # 海象运算符在 f-string 中赋值
 f"面积 = {(A := 3 * unit.meter**2)}"
 ```
+
+`alias("变量名", "别名")` 只替换展示名称；替换后的 `_` 和 `^` 会继续由上下标后处理器渲染。未分组脚标读取一个连续 token，复杂脚标使用 `{}` 分组，例如 `M_{max}`、`x^{n+1}`、`x_i^2`。若需要保留原始 `_`、`^` 或希腊字母名称，在字符前加反斜杠转义，例如 `r"\alpha"`、`r"x\_raw"`。
 
 ### 单位
 
@@ -235,6 +246,9 @@ endInline()                    # 结束内联
 
 enable_substitution()        # 开启变量值代入（默认开启）
 disable_substitution()       # 关闭代入（仅显示符号公式）
+decimal(2)                   # 设置小数显示位数
+figure_prefix("图")          # 设置后续图片/图表编号前缀
+table_prefix("表")           # 设置后续表格编号前缀
 ```
 
 ### 表格
@@ -387,10 +401,7 @@ P(get_excel_table(
 ### 保存文档
 
 ```python
-# 在函数内部保存
-save("output/result.html")
-
-# 在函数外部保存
+# 推荐在函数外部保存
 ctx = run_sync(sheet)
 ctx.save("output/result.html")
 ```
@@ -415,7 +426,8 @@ ctx2.save("out2.html")
 
 - 函数体内所有顶层赋值语句均被拦截渲染，若不希望某段代码渲染，用 `hide()` / `show()` 包裹
 - 除 `@uzon_calc()` 函数外，其他函数均不被渲染
-- 变量名中的 `_` 渲染为下标，命名时应使用 camelCase
+- 变量名、别名和普通文本中的 `_` / `^` 会渲染为下标/上标，命名时应使用 camelCase
+- 复杂上下标使用 `{}` 分组，组合脚标可写成 `x_i^2`、`M_{max}^{n+1}`
 - 数组下标 `arr[0, 1]` 自动渲染为下标形式
 - `@uzon_calc()` 函数支持相互嵌套调用，内层函数的内容合并到当前上下文
 - 单位计算依赖 pint，量纲不匹配时会抛出错误

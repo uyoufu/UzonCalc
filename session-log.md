@@ -23,3 +23,14 @@ Rejected:
 - Do not duplicate the full core architecture walkthrough.
 Open:
 - Track `src/core/uzoncalc/AGENTS.md` when committing this change.
+
+## 2026-06-23 13:26 [saved]
+Goal: Update uzoncalc writer skill.
+Decisions:
+- Document alias `_` and `^` notation because `ScriptNotation` now handles both scripts.
+- Prefer `ctx.save()` in the skill because no global `save()` helper exists.
+- Mention ineffective equation toggles only as non-recommended APIs because current functions are no-ops.
+Rejected:
+- Do not revive `Subscripting` names.
+Open:
+- Commit `.agents/skills/uzoncalc-writer/SKILL.md` with this log entry.
