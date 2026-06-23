@@ -4,6 +4,7 @@ import { ensureTemplateStyles } from './ui/styleInjector'
 import { setupOutlinePreview } from './features/outlinePreview'
 import { applyFigureLabels } from './features/figureLabels'
 import { setupTocPageNumberPrintButton } from './features/tocPageNumbers'
+import { renderLatexElements } from './features/latexRendering'
 
 declare const hljs: { highlightAll?: () => void } | undefined
 
@@ -22,6 +23,7 @@ function bootstrap(): void {
   applyFigureLabels()
   setupOutlinePreview()
   setupTocPageNumberPrintButton()
+  renderLatexElements()
   rerunHighlight()
   setupScrollMemory()
 }

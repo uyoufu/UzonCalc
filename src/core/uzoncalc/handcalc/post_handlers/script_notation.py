@@ -45,7 +45,7 @@ class ScriptNotation(BasePostHandler):
         r"(?=[\s<>'\"\],.;:!?)]|$)",
         re.IGNORECASE,
     )
-    _skip_text_tags = {"code", "pre", "script", "style", "math"}
+    _skip_text_tags = {"code", "pre", "script", "style", "math", "latex"}
 
     def handle(self, data: str, ctx=None) -> str:
         """执行上下标后处理，统一修正公式与普通 HTML 文本。"""

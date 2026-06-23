@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import replace
+import html
 import inspect
 import io
 import re
@@ -390,7 +391,8 @@ def Markdown(content: str):
 
 
 def laTex(content: str, persist: bool = False):
-    return h("latex", children=content, persist=persist)
+    """渲染块级 LaTeX 公式，交由 HTML 模板中的 KaTeX 运行时排版。"""
+    return h("latex", children=html.escape(content), classes="latex", persist=persist)
 
 
 def LaTex(content: str):

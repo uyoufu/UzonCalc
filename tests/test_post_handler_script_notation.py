@@ -37,6 +37,18 @@ def test_script_notation_skips_code_and_pre_text():
     )
 
 
+def test_script_notation_skips_latex_text():
+    """LaTeX 标签中的内容应保持原始公式语法。"""
+    handler = ScriptNotation()
+
+    html = r"<p>E_j</p><latex class=\"latex\">x_i^2 + \frac{a_b}{c^d}</latex>"
+
+    assert handler.handle(html) == (
+        r"<p>E<sub>j</sub></p>"
+        r"<latex class=\"latex\">x_i^2 + \frac{a_b}{c^d}</latex>"
+    )
+
+
 def test_script_notation_skips_url_text():
     """URL 文本中的上下标片段不应被转换。"""
     handler = ScriptNotation()

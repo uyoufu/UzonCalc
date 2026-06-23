@@ -46,6 +46,17 @@ def test_swap_symbol_skips_code_text():
     assert handler.handle(html) == r"<p><code>\alpha</code> α alpha</p>"
 
 
+def test_swap_symbol_skips_latex_text():
+    """LaTeX 标签中的反斜杠命令应交给 KaTeX 处理。"""
+    handler = SwapSymbol()
+
+    html = r"<p>gamma \gamma</p><latex class=\"latex\">\gamma_0</latex>"
+
+    assert handler.handle(html) == (
+        r"<p>γ gamma</p><latex class=\"latex\">\gamma_0</latex>"
+    )
+
+
 def test_swap_symbol_keeps_markdown_code_span_backslash():
     """Markdown 行内代码中的反斜杠不应被转义规则移除。"""
     handler = SwapSymbol()

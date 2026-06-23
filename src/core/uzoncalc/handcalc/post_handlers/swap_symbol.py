@@ -71,7 +71,7 @@ class SwapSymbol(BasePostHandler):
     )
     _html_tag_pattern = re.compile(r"(<[^>]+>)")
     _tag_name_pattern = re.compile(r"^</?\s*([a-zA-Z][\w:-]*)")
-    _skip_text_tags = {"code", "pre", "script", "style"}
+    _skip_text_tags = {"code", "pre", "script", "style", "latex"}
 
     def handle(self, data: str, ctx=None) -> str:
         """转换希腊字母英文名称，并移除转义用反斜杠。"""
