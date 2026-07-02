@@ -73,7 +73,7 @@ def table(
             h(
                 "caption",
                 children=caption_children,
-                classes="uzoncalc-label-caption uzoncalc-label-caption-table",
+                classes="uzoncalc-label-caption uzoncalc-label-caption-table whitespace-nowrap",
             )
         )
 

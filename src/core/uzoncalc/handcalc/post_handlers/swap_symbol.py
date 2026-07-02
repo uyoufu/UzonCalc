@@ -58,7 +58,7 @@ class SwapSymbol(BasePostHandler):
         "psi": "ψ",
         "Psi": "Ψ",
         "omega": "ω",
-        "Omega": "Ω",
+        "Omega": "Ω"
     }
 
     # 匹配希腊字母的正则（按长度降序避免部分匹配）
@@ -122,6 +122,7 @@ class SwapSymbol(BasePostHandler):
 
     def _replace_plain_text_greek_words(self, text: str) -> str:
         """转换普通文本中的希腊字母英文名称。"""
+
         def replace_greek_word(match: re.Match[str]) -> str:
             escaped_mark = match.group(1)
             greek_word = match.group(2)

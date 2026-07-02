@@ -3275,7 +3275,7 @@ wheels = [
 
 [[package]]
 name = "uzoncalc"
-version = "1.3.1"
+version = "1.3.3"
 source = { editable = "src/core" }
 dependencies = [
     { name = "markdown-it-pyrs" },

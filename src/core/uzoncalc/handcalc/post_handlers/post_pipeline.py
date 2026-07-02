@@ -2,6 +2,7 @@
 
 from typing import List
 from .base_post_handler import BasePostHandler
+from .comparison_symbol import ComparisonSymbol
 from .parentheses_simplify import ParenthesesSimplify
 from .swap_symbol import SwapSymbol
 from .swap_alias import SwapAlias
@@ -16,6 +17,7 @@ def get_default_post_handlers() -> List[BasePostHandler]:
     """
     handlers: List[BasePostHandler] = [
         ParenthesesSimplify(),
+        ComparisonSymbol(),
         SwapSymbol(),
         SwapAlias(),
         ScriptNotation(),

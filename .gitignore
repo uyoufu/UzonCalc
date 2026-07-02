@@ -221,3 +221,4 @@ dev_examples/
 context-snapshot.json
 data/
 test-results/
+session-log.md

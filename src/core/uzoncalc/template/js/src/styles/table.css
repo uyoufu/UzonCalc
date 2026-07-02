@@ -3,7 +3,7 @@ table {
   border-collapse: collapse;
   width: auto;
   margin: var(--uz-space-lg) auto;
-  text-align: center;
+  text-align: left;
 }
 
 th,

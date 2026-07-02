@@ -34,3 +34,24 @@ Rejected:
 - Do not revive `Subscripting` names.
 Open:
 - Commit `.agents/skills/uzoncalc-writer/SKILL.md` with this log entry.
+
+## 2026-06-23 22:12 [saved]
+Goal: Preserve skill/config session decisions.
+Decisions:
+- Keep writer-skill decisions in session log because hook reminders need durable rationale.
+- Keep Nginx troubleshooting out of project memory because it was unrelated operational support.
+Rejected:
+- Do not replace existing writer-skill entry with a broader summary.
+Open:
+- Commit `.agents/skills/uzoncalc-writer/SKILL.md` with related changes.
+
+## 2026-06-25 18:55 [saved]
+Goal: Document writer-skill UI control boundary.
+Decisions:
+- Base UI guidance on Python `Field` because agents write calculation scripts, not Vue code.
+- Explain `values` as current-window form state because visible/onChanged depend on it.
+- Mark extra LowCodeForm props unsupported because Python Field does not expose them.
+Rejected:
+- Do not document frontend-only props as writer-skill APIs.
+Open:
+- Commit `.agents/skills/uzoncalc-writer/SKILL.md` with this log entry.
