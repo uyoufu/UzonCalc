@@ -1,9 +1,10 @@
 /* UzonCalc template table styles */
 table {
   border-collapse: collapse;
-  width: auto;
   margin: var(--uz-space-lg) auto;
-  text-align: left;
+  width: 100%;
+  table-layout: auto;  
+  text-align: center;
 }
 
 th,

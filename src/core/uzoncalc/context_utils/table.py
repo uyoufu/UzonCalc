@@ -88,7 +88,13 @@ def table(
         tbody_rows = [body_row.to_html() for body_row in body_rows]
         children.append(h("tbody", children="".join(tbody_rows)))
 
-    return h("table", children=children, classes=classes, props=props, persist=persist)
+    return h(
+        "table",
+        children=children,
+        classes=classes,
+        props=props,
+        persist=persist,
+    )
 
 
 def Table(
