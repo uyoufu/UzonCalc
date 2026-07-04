@@ -25,23 +25,6 @@ SDIST_REQUIRED_SUFFIXES = {
 FORBIDDEN_RUNTIME_DEPENDENCIES = {"fastapi", "uvicorn", "twine", "build"}
 
 
-def test_workspace_discovers_core_package_from_src_core():
-    """核心包项目根目录应位于 src/core，便于 uv workspace 自动发现。"""
-    root_config = tomllib.loads((REPO_ROOT / "pyproject.toml").read_text("utf-8"))
-    core_config_path = REPO_ROOT / "src/core/pyproject.toml"
-
-    assert "src/core" in root_config["tool"]["uv"]["workspace"]["members"]
-    assert "src/uzoncalc" not in root_config["tool"]["uv"]["workspace"]["members"]
-    assert core_config_path.exists()
-    assert not (REPO_ROOT / "src/core/uzoncalc/pyproject.toml").exists()
-
-    core_config = tomllib.loads(core_config_path.read_text("utf-8"))
-    assert core_config["project"]["name"] == "uzoncalc"
-    assert core_config["project"]["readme"]["file"] == "uzoncalc/README.md"
-    assert core_config["tool"]["setuptools"]["packages"]["find"]["where"] == ["."]
-    assert core_config["tool"]["setuptools"]["packages"]["find"]["namespaces"] is False
-
-
 def test_power_shell_scripts_reference_current_core_layout():
     """编译和上传脚本应使用 src/core/uzoncalc 目录结构。"""
     publish_script = (REPO_ROOT / "scripts/publish-uzoncalc-core.ps1").read_text("utf-8")

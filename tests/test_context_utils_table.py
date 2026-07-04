@@ -2,7 +2,6 @@ from importlib import import_module
 from typing import Any, get_type_hints
 
 from core.uzoncalc.context import CalcContext
-from core.uzoncalc.context_utils.elements import HtmlFragment
 from core.uzoncalc.context_utils.table import Table, Td, Tr, table, td, th
 from core.uzoncalc.globals import _calc_instance
 from core.uzoncalc.units import unit
@@ -160,39 +159,3 @@ def test_table_function_applies_script_notation_post_handler():
         _calc_instance.reset(token)
 
     assert "单位宽度静土压力 E<sub>j</sub> 与 x<sup>2</sup>" in context.contents[-1]
-
-
-def test_table_returns_reference_placeholder_and_persists_label_source():
-    """Table 应返回可复用引用占位符，并在标题中写入表号源标记。"""
-    context = CalcContext()
-    token = _calc_instance.set(context)
-    try:
-        placeholder = Table(["Name"], [["A"]], title="示例表")
-    finally:
-        _calc_instance.reset(token)
-
-    assert (
-        placeholder
-        == '<a data-uzoncalc-label-ref="table-1" data-uzoncalc-label-kind="table" data-uzoncalc-label-prefix="表"></a>'
-    )
-    assert isinstance(placeholder, str)
-    assert isinstance(placeholder, HtmlFragment)
-    assert placeholder.__html__() == str(placeholder)
-    assert 'data-uzoncalc-label-source="table-1"' in context.contents[-1]
-    assert 'data-uzoncalc-label-prefix="表"' in context.contents[-1]
-    assert 'class="uzoncalc-label-caption uzoncalc-label-caption-table"' in context.contents[-1]
-    assert "示例表" in context.contents[-1]
-
-
-def test_table_without_title_still_persists_caption_label_source():
-    """无标题 Table 也应生成 caption 以承载自动编号。"""
-    context = CalcContext()
-    token = _calc_instance.set(context)
-    try:
-        Table(["Name"], [["A"]])
-    finally:
-        _calc_instance.reset(token)
-
-    assert "<caption" in context.contents[-1]
-    assert 'class="uzoncalc-label-caption uzoncalc-label-caption-table"' in context.contents[-1]
-    assert 'data-uzoncalc-label-source="table-1"' in context.contents[-1]

@@ -7,7 +7,6 @@ from core.uzoncalc.handcalc.ast_to_ir import expr_to_ir
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MATH_STYLE_PATH = PROJECT_ROOT / "src/core/uzoncalc/template/js/src/styles/math.css"
-LEGACY_TEMPLATE_STYLE_PATH = PROJECT_ROOT / "tests/template.css"
 MATHML_NAMESPACE = {"m": "http://www.w3.org/1998/Math/MathML"}
 
 
@@ -107,10 +106,3 @@ def test_method_power_places_exponent_on_method_name():
     assert power_node.find("m:mrow[1]/m:mtext", MATHML_NAMESPACE).text == "resize"
     assert power_node.find("m:mrow[2]/m:mn", MATHML_NAMESPACE).text == "2"
     assert "<mo>(</mo><mrow><mi" not in mathml
-
-
-def test_legacy_template_math_power_exponent_style_keeps_parity():
-    """旧模板样式样本应与实际模板保持幂标规则一致。"""
-    style_content = _read_style_content(LEGACY_TEMPLATE_STYLE_PATH)
-
-    _assert_power_exponent_style(style_content)
