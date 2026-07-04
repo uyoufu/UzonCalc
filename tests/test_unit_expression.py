@@ -37,6 +37,24 @@ def test_multiple_non_unit_factors_share_single_unit_text():
     assert mathml.count('class="unit"') == 1
 
 
+def test_unit_product_parenthesizes_low_precedence_factor():
+    """单位折叠重建乘积时，加减表达式因子应按乘法上下文补括号。"""
+    mathml = _render_expression_mathml("a * unit.MPa * (b / c - 1.0)")
+
+    assert "<mo>(</mo>" in mathml
+    assert "<mo>)</mo>" in mathml
+    assert ">MPa<" in mathml
+
+
+def test_unit_product_keeps_plain_product_without_extra_parentheses():
+    """普通乘除单位表达式不应因上下文传递增加无意义括号。"""
+    mathml = _render_expression_mathml("a * unit.MPa * b / c")
+
+    assert "<mo>(</mo>" not in mathml
+    assert "<mo>)</mo>" not in mathml
+    assert ">MPa<" in mathml
+
+
 def test_non_unit_denominator_stays_fraction_with_folded_unit():
     """非单位分母应保留分数结构，单位仍折叠为单一节点。"""
     mathml = _render_expression_mathml("a * unit.kN / b / unit.meter**3")

@@ -7,8 +7,9 @@ from dataclasses import dataclass
 from ...units import unit
 from .. import ir
 from ..unit_collector import get_const_number, unit_powers_to_expr
+from .operator_rendering import BinOpChildSide, OperatorContext
 
-ExprConverter = Callable[[ast.AST], ir.MathNode]
+ExprConverter = Callable[[ast.AST, OperatorContext | None], ir.MathNode]
 
 
 @dataclass(slots=True)
@@ -215,7 +216,10 @@ def build_factor_product(
     for idx, factor_node in enumerate(nodes):
         if idx:
             children.append(ir.mo("·"))
-        children.append(expr_to_ir(factor_node))
+        factor_side = BinOpChildSide.LEFT if idx == 0 else BinOpChildSide.RIGHT
+        children.append(
+            expr_to_ir(factor_node, OperatorContext(ast.Mult, factor_side))
+        )
 
     if len(children) == 1:
         return children[0]
@@ -230,13 +234,16 @@ def extract_numeric_part(node: ast.AST) -> ir.MathNode | None:
     return build_non_unit_node(parts, expr_to_ir=_simple_expr_to_ir)
 
 
-def _simple_expr_to_ir(node: ast.AST) -> ir.MathNode:
+def _simple_expr_to_ir(
+    node: ast.AST, operator_context: OperatorContext | None = None
+) -> ir.MathNode:
     """将基础非单位节点转换为 MathIR，供兼容提取函数使用。"""
+    del operator_context
     if isinstance(node, ast.Constant) and isinstance(node.value, (int, float)):
         return ir.mn(node.value)
     if isinstance(node, ast.BinOp):
-        left = _simple_expr_to_ir(node.left)
-        right = _simple_expr_to_ir(node.right)
+        left = _simple_expr_to_ir(node.left, None)
+        right = _simple_expr_to_ir(node.right, None)
         if isinstance(node.op, ast.Mult):
             return ir.mrow([left, ir.mo("·"), right])
         if isinstance(node.op, ast.Div):

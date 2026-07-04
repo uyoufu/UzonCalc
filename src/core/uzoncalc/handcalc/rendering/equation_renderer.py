@@ -10,6 +10,8 @@ from .value_renderer import is_array_value, should_render_runtime_value, value_t
 
 SYMBOL_COLON = ":"
 SYMBOL_COMMA = ","
+SYMBOL_ATTRIBUTE_SEPARATOR = "."
+_UNRESOLVED = object()
 
 
 def build_equation_parts(
@@ -88,6 +90,14 @@ def substitute_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.Math
         if isinstance(n, ir.Mi) and n.name in locals_map:
             return value_to_ir(locals_map[n.name])
 
+        if isinstance(n, ir.Mi):
+            attribute_value = _try_resolve_attribute_path(n.name, locals_map)
+            if (
+                attribute_value is not _UNRESOLVED
+                and should_render_runtime_value(attribute_value)
+            ):
+                return value_to_ir(attribute_value)
+
         return None
 
     return transform_ir(
@@ -114,6 +124,26 @@ def style_array_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.Mat
 def is_private_lhs(lhs: Any) -> bool:
     """判断赋值左侧是否为默认隐藏的私有变量。"""
     return isinstance(lhs, ir.Mi) and lhs.name.startswith("_")
+
+
+def _try_resolve_attribute_path(name: str, locals_map: Mapping[str, Any]) -> Any:
+    """按 locals 中的根对象解析属性访问路径，失败时返回未解析标记。"""
+    if SYMBOL_ATTRIBUTE_SEPARATOR not in name:
+        return _UNRESOLVED
+
+    root_name, *attribute_names = name.split(SYMBOL_ATTRIBUTE_SEPARATOR)
+    if not root_name or not attribute_names or root_name not in locals_map:
+        return _UNRESOLVED
+
+    current_value = locals_map[root_name]
+    for attribute_name in attribute_names:
+        if not attribute_name:
+            return _UNRESOLVED
+        try:
+            current_value = getattr(current_value, attribute_name)
+        except AttributeError:
+            return _UNRESOLVED
+    return current_value
 
 
 def _try_resolve_subscript(
