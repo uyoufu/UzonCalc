@@ -7,7 +7,7 @@ import xml.etree.ElementTree as ET
 
 
 _FACTORY_NAME_OVERRIDES: dict[type, str] = {}
-_POWER_EXPONENT_SPACE_WIDTH = "0.4em"
+_POWER_EXPONENT_SPACE_WIDTH = "0.2em"
 
 
 # MathNode IR(means Intermediate Representation) node definitions

@@ -4,7 +4,6 @@ import xml.etree.ElementTree as ET
 
 from core.uzoncalc.handcalc.ast_to_ir import expr_to_ir
 
-
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MATH_STYLE_PATH = PROJECT_ROOT / "src/core/uzoncalc/template/js/src/styles/math.css"
 MATHML_NAMESPACE = {"m": "http://www.w3.org/1998/Math/MathML"}
@@ -54,7 +53,7 @@ def test_power_exponent_uses_mathml_space_before_number():
 
     exponent_row = root.find(".//m:msup/m:mrow[2]", MATHML_NAMESPACE)
     assert exponent_row is not None
-    assert exponent_row.find("m:mspace", MATHML_NAMESPACE).attrib["width"] == "0.4em"
+    assert exponent_row.find("m:mspace", MATHML_NAMESPACE).attrib["width"] == "0.2em"
     assert exponent_row.find("m:mn", MATHML_NAMESPACE).text == "2"
 
 

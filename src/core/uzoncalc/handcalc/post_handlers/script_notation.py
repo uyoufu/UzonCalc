@@ -70,7 +70,9 @@ class ScriptNotation(BasePostHandler):
             if parsed is None:
                 return m.group(0)
             if parsed.is_escaped_base:
-                return f"<mi{attrs}>{parsed.base}{self._plain_script_suffix(parsed)}</mi>"
+                return (
+                    f"<mi{attrs}>{parsed.base}{self._plain_script_suffix(parsed)}</mi>"
+                )
             return self._build_mathml_script(attrs, parsed)
 
         return self._mi_pattern.sub(_repl, data)
@@ -172,9 +174,7 @@ class ScriptNotation(BasePostHandler):
             return None
         return parsed
 
-    def _read_script_notation(
-        self, text: str, start: int
-    ) -> ScriptParseResult | None:
+    def _read_script_notation(self, text: str, start: int) -> ScriptParseResult | None:
         """从指定游标读取一个变量上下标块。"""
         if not self._is_base_boundary_before(text, start):
             return None
@@ -249,9 +249,7 @@ class ScriptNotation(BasePostHandler):
             cursor += 1
         return cursor
 
-    def _read_script_operand(
-        self, text: str, cursor: int
-    ) -> tuple[str | None, int]:
+    def _read_script_operand(self, text: str, cursor: int) -> tuple[str | None, int]:
         """读取 _/^ 后的操作数，支持单 token 和花括号分组。"""
         if cursor >= len(text):
             return None, cursor
@@ -270,9 +268,7 @@ class ScriptNotation(BasePostHandler):
             return None, operand_start
         return text[operand_start:cursor], cursor
 
-    def _read_grouped_operand(
-        self, text: str, cursor: int
-    ) -> tuple[str | None, int]:
+    def _read_grouped_operand(self, text: str, cursor: int) -> tuple[str | None, int]:
         """用深度计数器读取花括号分组操作数。"""
         group_start = cursor + 1
         cursor += 1
@@ -307,9 +303,12 @@ class ScriptNotation(BasePostHandler):
     def _build_mathml_script(self, attrs: str, parsed: ScriptParseResult) -> str:
         """构造 MathML 上下标结构。"""
         base_xml = f"<mi{attrs}>{parsed.base}</mi>"
-        sub_xml_list = [f"<mtext>{subscript}</mtext>" for subscript in parsed.subscripts]
+        sub_xml_list = [
+            f"<mtext>{subscript}</mtext>" for subscript in parsed.subscripts
+        ]
         sup_xml_list = [
-            f"<mtext>{superscript}</mtext>" for superscript in parsed.superscripts
+            f"<mtext style='margin-left:0.2em;'>{superscript}</mtext>"
+            for superscript in parsed.superscripts
         ]
 
         while len(sub_xml_list) > 1:
@@ -362,7 +361,11 @@ class ScriptNotation(BasePostHandler):
 
     def _is_base_start_char(self, char: str) -> bool:
         """判断字符是否可作为变量底数开头。"""
-        return char.isalpha() or "\u0370" <= char <= "\u03ff" or "\u4e00" <= char <= "\u9fff"
+        return (
+            char.isalpha()
+            or "\u0370" <= char <= "\u03ff"
+            or "\u4e00" <= char <= "\u9fff"
+        )
 
     def _is_base_part_char(self, char: str) -> bool:
         """判断字符是否可作为变量底数的非首字符。"""
