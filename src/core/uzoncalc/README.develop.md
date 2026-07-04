@@ -50,7 +50,7 @@ UzonCalc 的目标是让工程计算书直接用 Python 编写，并自动生成
 - `call_rendering.py` 负责普通函数、方法调用、关键字参数和特殊函数格式化，例如把 `sqrt(x)`、`abs(x)` 渲染成更接近数学记号的形式。
 - `operator_rendering.py` 负责二元/一元操作符映射和括号判定，保证加减乘除幂在展示时符合优先级和结合律。
 - `subscript_rendering.py` 负责变量下标、切片和多维索引的 IR 生成，例如把 `A[i]`、`A[i:j]` 转成 `MSub` 结构。
-- `unit_expression.py` 负责识别 `unit.xxx` 参与的乘除幂表达式，把单位部分折叠为统一的单位节点，并尽量分离数值部分。
+- `unit_product/` 负责识别 `unit.xxx` 参与的乘除幂表达式，先正规化为有序乘积因子，再把单位绑定到相邻表达式因子并生成 MathIR。
 
 #### rendering
 

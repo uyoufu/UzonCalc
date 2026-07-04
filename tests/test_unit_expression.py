@@ -10,16 +10,17 @@ def _render_expression_mathml(expression: str) -> str:
     return expr_to_ir(expression_node).to_mathml_xml()
 
 
-def test_variable_unit_fraction_folds_unit_to_single_text():
-    """变量参与单位乘除时，单位应折叠为 kN/m³。"""
+def test_variable_unit_fraction_attaches_unit_to_variable():
+    """变量参与单位乘除时，单位应附着到相邻变量。"""
     mathml = _render_expression_mathml("gammaInput * unit.kN / unit.meter**3")
 
+    assert ">gammaInput<" in mathml
     assert ">kN/m³<" in mathml
     assert "<mfrac>" not in mathml
 
 
-def test_numeric_unit_fraction_keeps_existing_folded_unit():
-    """纯数值单位表达式应保持原有折叠行为。"""
+def test_numeric_unit_fraction_attaches_unit_to_number():
+    """数值单位表达式应显示为带单位数值。"""
     mathml = _render_expression_mathml("18 * unit.kN / unit.meter**3")
 
     assert ">18<" in mathml
@@ -27,18 +28,19 @@ def test_numeric_unit_fraction_keeps_existing_folded_unit():
     assert "<mfrac>" not in mathml
 
 
-def test_multiple_non_unit_factors_share_single_unit_text():
-    """多个非单位因子应保留乘积，并共用单一单位节点。"""
+def test_unit_attaches_to_nearest_previous_factor():
+    """多个非单位因子中，单位应附着到源码中最近的前置因子。"""
     mathml = _render_expression_mathml("a * b * unit.kN / unit.meter**3")
 
     assert ">a<" in mathml
     assert ">b<" in mathml
     assert ">kN/m³<" in mathml
     assert mathml.count('class="unit"') == 1
+    assert mathml.index(">b<") < mathml.index(">kN/m³<")
 
 
 def test_unit_product_parenthesizes_low_precedence_factor():
-    """单位折叠重建乘积时，加减表达式因子应按乘法上下文补括号。"""
+    """单位局部绑定后，加减表达式因子仍应按乘法上下文补括号。"""
     mathml = _render_expression_mathml("a * unit.MPa * (b / c - 1.0)")
 
     assert "<mo>(</mo>" in mathml
@@ -55,15 +57,41 @@ def test_unit_product_keeps_plain_product_without_extra_parentheses():
     assert ">MPa<" in mathml
 
 
-def test_non_unit_denominator_stays_fraction_with_folded_unit():
-    """非单位分母应保留分数结构，单位仍折叠为单一节点。"""
+def test_non_unit_denominator_keeps_local_denominator_unit():
+    """非单位分母应保留分数结构，分母单位附着到分母因子。"""
     mathml = _render_expression_mathml("a * unit.kN / b / unit.meter**3")
 
     assert "<mfrac>" in mathml
     assert ">a<" in mathml
     assert ">b<" in mathml
-    assert ">kN/m³<" in mathml
-    assert mathml.count('class="unit"') == 1
+    assert ">kN<" in mathml
+    assert ">m³<" in mathml
+    assert mathml.count('class="unit"') == 2
+    assert mathml.index(">a<") < mathml.index(">kN<")
+    assert mathml.index(">b<") < mathml.index(">m³<")
+
+
+def test_unit_product_keeps_unit_next_to_attribute_factor():
+    """属性值与单位相乘时，单位应保持在属性因子旁边。"""
+    mathml = _render_expression_mathml(
+        "epsilon_cu * conc.elasticModulus * unit.MPa / 10 * (beta / x - 1.0)"
+    )
+
+    assert ">conc.elasticModulus<" in mathml
+    assert ">MPa<" in mathml
+    assert ">10<" in mathml
+    assert mathml.index(">conc.elasticModulus<") < mathml.index(">MPa<")
+    assert mathml.index(">MPa<") < mathml.index(">10<")
+
+
+def test_denominator_only_unit_stays_in_fraction_denominator():
+    """纯分母单位不应被渲染成前一个变量的 1/unit 后缀。"""
+    mathml = _render_expression_mathml("a / unit.second")
+
+    assert "<mfrac>" in mathml
+    assert ">a<" in mathml
+    assert ">s<" in mathml
+    assert mathml.index(">a<") < mathml.index(">s<")
 
 
 def test_grouped_unit_power_folds_to_single_unit_text():
@@ -76,7 +104,7 @@ def test_grouped_unit_power_folds_to_single_unit_text():
 
 
 def test_non_unit_factor_with_grouped_unit_power_uses_single_unit_text():
-    """非单位因子和组合单位幂次共存时，单位仍应整体折叠。"""
+    """非单位因子和组合单位幂次共存时，单位应附着到该因子。"""
     mathml = _render_expression_mathml("a * (unit.kN / unit.meter) ** 2")
 
     assert ">a<" in mathml
@@ -90,6 +118,14 @@ def test_dimensionless_unit_cancellation_returns_only_non_unit_part():
     mathml = _render_expression_mathml("a * unit.meter / unit.meter")
 
     assert ">a<" in mathml
+    assert 'class="unit"' not in mathml
+
+
+def test_zero_power_unit_product_renders_as_one():
+    """含单位乘积的零次幂应正规化为 1。"""
+    mathml = _render_expression_mathml("(a * unit.meter) ** 0")
+
+    assert ">1<" in mathml
     assert 'class="unit"' not in mathml
 
 

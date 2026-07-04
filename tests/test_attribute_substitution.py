@@ -29,21 +29,23 @@ async def attribute_substitution_sheet():
     )
 
     epsilon_cu = conc.epsilonCu
-    x = 200
-    beta = conc.beta
+    x = 200 * unit.mm
+    beta = conc.beta * unit.mm
     show()
 
     enable_substitution()
-    f_all = epsilon_cu * conc.elasticModulus * unit.MPa * (beta / x - 1.0)
+    f_all = epsilon_cu * conc.elasticModulus * unit.MPa / 10 * (beta / x - 1.0)
 
 
 def test_attribute_value_substitution_keeps_unit_product_parentheses():
-    """属性值应在代入式中替换，单位折叠后的乘法因子应保留括号。"""
+    """属性值应在代入式中替换，局部单位绑定后仍保留括号。"""
     ctx = run_sync(attribute_substitution_sheet)
     content = ctx.contents[-1]
 
     assert content.count(">conc.elasticModulus<") == 1
     assert "<mn>200000</mn>" in content
+    assert content.index(">conc.elasticModulus<") < content.index(">MPa<")
+    assert content.index("<mn>200000</mn>") < content.rindex(">MPa<")
     assert content.count("<mo>(</mo>") >= 2
     assert content.count("<mo>)</mo>") >= 2
-    assert "<mn>-1999.9</mn>" in content
+    assert "<mn>-199.99</mn>" in content

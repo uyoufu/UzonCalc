@@ -15,7 +15,7 @@ from .converters.operator_rendering import (
     apply_operator_context_parentheses,
 )
 from .converters.subscript_rendering import render_subscript
-from .converters.unit_expression import try_fold_mixed_unit_expr
+from .converters.unit_product import try_render_unit_product_expr
 
 
 def _unparse(node: ast.AST) -> str:
@@ -79,9 +79,11 @@ def _expr_unary(node: ast.UnaryOp) -> ir.MathNode:
 @expr_to_ir.register(ast.BinOp)
 def _expr_binop(node: ast.BinOp) -> ir.MathNode:
     # 特殊处理单位表达式
-    mixed_unit = try_fold_mixed_unit_expr(node, expr_to_ir=_expr_to_ir_with_context)
-    if mixed_unit is not None:
-        return mixed_unit
+    unit_product = try_render_unit_product_expr(
+        node, expr_to_ir=_expr_to_ir_with_context
+    )
+    if unit_product is not None:
+        return unit_product
 
     op_type = type(node.op)
 
