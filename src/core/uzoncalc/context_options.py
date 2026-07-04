@@ -100,8 +100,8 @@ class ContextOptions:
     # 跳过以 _ 开头的临时/私有变量的记录
     suppress_private_assignments: bool = True
 
-    # 记录结构化步骤（不仅是字符串），便于后续渲染或调试
-    record_structured_steps: bool = True
+    # 是否渲染原始公式表达式，关闭后仍保留值代入和结果
+    enable_formula_expression: bool = True
 
     # 是否启用 fstring 方程渲染
     # 默认为 False

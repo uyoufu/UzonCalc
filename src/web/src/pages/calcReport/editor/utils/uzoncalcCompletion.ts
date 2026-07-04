@@ -158,10 +158,10 @@ export const uzoncalcCompletions: UzonCalcCompletion[] = [
     documentation: '开始行内模式，多个表达式将在同一行显示，使用指定的分隔符连接。'
   },
   {
-    label: 'endInline',
+    label: 'end_inline',
     kind: monaco.languages.CompletionItemKind.Function,
-    insertText: 'endInline()',
-    detail: 'endInline()',
+    insertText: 'end_inline()',
+    detail: 'end_inline()',
     documentation: '结束行内模式，恢复正常的换行显示。'
   },
 

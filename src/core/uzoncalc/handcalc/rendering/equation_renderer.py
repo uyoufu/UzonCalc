@@ -17,16 +17,19 @@ def build_equation_parts(
     locals_map: Mapping[str, Any],
     value: Any,
     *,
+    enable_formula_expression: bool = True,
     enable_substitution: bool = True,
 ) -> list[ir.MathNode]:
     """构建方程的各部分（表达式、替换值、结果值）。"""
     expr_node = style_array_vars(expr_node, locals_map)
-    parts: list[ir.MathNode] = [expr_node]
+    parts: list[ir.MathNode] = []
+    if enable_formula_expression:
+        parts.append(expr_node)
 
     if enable_substitution:
         # 仅替换公式中的变量节点，不直接展示复杂运行期对象 repr。
         substituted = substitute_vars(expr_node, locals_map)
-        if substituted != expr_node:
+        if substituted != expr_node and substituted not in parts:
             parts.append(substituted)
 
     if should_render_runtime_value(value):
@@ -53,6 +56,7 @@ def build_equation_parts_for_assignment(
     value: Any,
     locals_map: Mapping[str, Any],
     *,
+    enable_formula_expression: bool = True,
     enable_substitution: bool = True,
 ) -> list[ir.MathNode]:
     """为赋值语句构建方程各部分。"""
@@ -64,10 +68,10 @@ def build_equation_parts_for_assignment(
                 rhs_styled,
                 locals_map,
                 value,
+                enable_formula_expression=enable_formula_expression,
                 enable_substitution=enable_substitution,
-            )[1:]
+            )
         )
-        parts.insert(1, rhs_styled)
     elif should_render_runtime_value(value):
         parts.append(value_to_ir(value))
     return parts

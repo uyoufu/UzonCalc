@@ -247,7 +247,7 @@ show()                       # 恢复渲染
 
 inline()                     # 后续元素内联排列
 x = 1; y = 2
-endInline()                    # 结束内联
+end_inline()                    # 结束内联
 
 enable_substitution()        # 开启变量值代入（默认开启）
 disable_substitution()       # 关闭代入（仅显示符号公式）

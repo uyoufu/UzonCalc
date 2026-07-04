@@ -163,31 +163,31 @@ async def sheet():
     inline()
     "截面总面积 A = "
     A_total
-    endInline()
+    end_inline()
 
     inline()
     "中立轴位置（以底部计）y_c = "
     y_c
-    endInline()
+    end_inline()
 
     H3("惯性矩")
 
     inline()
     "截面惯性矩 I_c = "
     I_total
-    endInline()
+    end_inline()
 
     H3("截面抵抗矩")
 
     inline()
     "上侧抵抗矩 W_top = "
     W_top
-    endInline()
+    end_inline()
 
     inline()
     "下侧抵抗矩 W_bottom = "
     W_bottom
-    endInline()
+    end_inline()
 
     Br()
 

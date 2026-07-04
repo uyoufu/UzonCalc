@@ -41,6 +41,26 @@ def disable_fstring_equation():
 # endregion
 
 
+# region enable/disable formula expression rendering
+def enable_formula_expression():
+    """
+    enable formula expression rendering
+    """
+    ctx = get_current_instance()
+    ctx.options.enable_formula_expression = True
+
+
+def disable_formula_expression():
+    """
+    disable formula expression rendering
+    """
+    ctx = get_current_instance()
+    ctx.options.enable_formula_expression = False
+
+
+# endregion
+
+
 # region enable/disable variable substitution in equations
 def enable_substitution():
     """
@@ -67,7 +87,7 @@ def inline(separator: str = " "):
     ctx.start_inline(separator)
 
 
-def endInline():
+def end_inline():
     ctx = get_current_instance()
     ctx.end_inline()
 

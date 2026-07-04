@@ -53,18 +53,21 @@ def _render_math(
     if html_fragment is not None:
         return html_fragment
 
-    # 如果 enable_fstring_equation 为 False，只显示值
+    # 如果未启用 f-string 方程，只显示值。
     if not ctx.options.enable_fstring_equation:
         return render_value_fragment(runtime_value)
 
     if segment.kind == "namedexpr":
-        return _render_namedexpr(segment, runtime_value, locals_map)
+        return _render_namedexpr(segment, runtime_value, locals_map, ctx)
 
-    return _render_expr(segment, runtime_value, locals_map)
+    return _render_expr(segment, runtime_value, locals_map, ctx)
 
 
 def _render_namedexpr(
-    segment: FStringSegmentLike, value: Any, locals_map: Mapping[str, Any]
+    segment: FStringSegmentLike,
+    value: Any,
+    locals_map: Mapping[str, Any],
+    ctx: CalcContext,
 ) -> str:
     """渲染命名表达式。"""
     lhs: ir.MathNode = segment.lhs or ir.mtext("")
@@ -78,20 +81,29 @@ def _render_namedexpr(
 
     if isinstance(value, ir.MathNode):
         # 如果 value 已经是 MathNode，直接使用
-        parts: list[ir.MathNode] = [lhs, rhs, value]
+        parts: list[ir.MathNode] = [lhs]
+        if ctx.options.enable_formula_expression:
+            parts.append(rhs)
+        parts.append(value)
     else:
         parts = [lhs] + build_equation_parts(
             rhs,
             locals_map,
             value,
+            enable_formula_expression=ctx.options.enable_formula_expression,
             enable_substitution=True,
         )
 
+    if len(parts) <= 1:
+        return render_value_fragment(value)
     return ir.equation(parts).to_mathml_xml()
 
 
 def _render_expr(
-    segment: FStringSegmentLike, value: Any, locals_map: Mapping[str, Any]
+    segment: FStringSegmentLike,
+    value: Any,
+    locals_map: Mapping[str, Any],
+    ctx: CalcContext,
 ) -> str:
     """渲染数学表达式片段。"""
     expr_node: ir.MathNode = segment.expr or ir.mtext("")
@@ -99,13 +111,18 @@ def _render_expr(
 
     if isinstance(value, ir.MathNode):
         # 如果 value 已经是 MathNode，直接使用
-        parts = [expr_node, value]
+        parts = [value]
+        if ctx.options.enable_formula_expression:
+            parts.insert(0, expr_node)
     else:
         parts = build_equation_parts(
             expr_node,
             locals_map,
             value,
+            enable_formula_expression=ctx.options.enable_formula_expression,
             enable_substitution=True,
         )
 
+    if not parts:
+        return render_value_fragment(value)
     return ir.equation(parts).to_mathml_xml()

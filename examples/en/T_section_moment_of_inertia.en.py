@@ -204,31 +204,31 @@ async def sheet():
     inline()
     "Total section area A = "
     A_total
-    endInline()
+    end_inline()
 
     inline()
     "Neutral axis position (from bottom) y_c = "
     y_c
-    endInline()
+    end_inline()
 
     H3("Moment of Inertia")
 
     inline()
     "Section moment of inertia I_c = "
     I_total
-    endInline()
+    end_inline()
 
     H3("Section Modulus")
 
     inline()
     "Upper section modulus W_top = "
     W_top
-    endInline()
+    end_inline()
 
     inline()
     "Lower section modulus W_bottom = "
     W_bottom
-    endInline()
+    end_inline()
 
     Br()
 
