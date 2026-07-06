@@ -124,9 +124,32 @@ def test_script_notation_converts_prime_superscript_with_subscript():
     html = "<p>a^'_p0</p><math><mi>a^'_p0</mi></math>"
 
     assert render_with_handler(handler, html) == (
-        "<p>a<sub>p0</sub><sup>'</sup></p>"
+        "<p>a<sup>'</sup><sub>p0</sub></p>"
         "<math><msubsup><mi>a</mi><mtext>p0</mtext>"
         "<mtext>'</mtext></msubsup></math>"
+    )
+
+
+def test_script_notation_preserves_html_script_source_order():
+    """普通 HTML 文本中的同底上下标应按源码顺序输出。"""
+    handler = ScriptNotation()
+
+    html = "<p>在文件中使用符号: sigma^'_p0，x_i^2，y^3_j</p>"
+
+    assert render_with_handler(handler, html) == (
+        "<p>在文件中使用符号: sigma<sup>'</sup><sub>p0</sub>，"
+        "x<sub>i</sub><sup>2</sup>，y<sup>3</sup><sub>j</sub></p>"
+    )
+
+
+def test_script_notation_converts_subscript_after_base_prime():
+    """紧贴基名的单引号应保留为底数字符，并继续解析后续下标。"""
+    handler = ScriptNotation()
+
+    html = "<p>sigma'_p0(MPa)，sigma''_p0，sigma'</p>"
+
+    assert render_with_handler(handler, html) == (
+        "<p>sigma'<sub>p0</sub>(MPa)，sigma''<sub>p0</sub>，sigma'</p>"
     )
 
 
@@ -137,7 +160,7 @@ def test_script_notation_combines_scripts_for_same_base_in_any_order():
     html = "<p>x_i^2 和 y^3_j</p>"
 
     assert render_with_handler(handler, html) == (
-        "<p>x<sub>i</sub><sup>2</sup> 和 y<sub>j</sub><sup>3</sup></p>"
+        "<p>x<sub>i</sub><sup>2</sup> 和 y<sup>3</sup><sub>j</sub></p>"
     )
 
 
@@ -165,10 +188,10 @@ def test_script_notation_unescapes_plain_text_and_skips_conversion():
     """普通文本中反斜杠转义的上下标变量应保持原变量名。"""
     handler = ScriptNotation()
 
-    html = r"<p>\f_y 和 f_y，\x^2 和 x^2，x\^2</p>"
+    html = r"<p>\f_y 和 f_y，\x^2 和 x^2，x\^2 和 x\_i</p>"
 
     assert render_with_handler(handler, html) == (
-        "<p>f_y 和 f<sub>y</sub>，x^2 和 x<sup>2</sup>，x^2</p>"
+        "<p>f_y 和 f<sub>y</sub>，x^2 和 x<sup>2</sup>，x^2 和 x_i</p>"
     )
 
 
