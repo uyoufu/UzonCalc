@@ -78,9 +78,13 @@ class ScriptNotation(BasePostHandler):
     def _render_html_text_node(self, node: etree._Element) -> None:
         """仅转换 HTML 文本节点，避免误改标签属性。"""
         if node.text and not is_text_in_tag_context(node, self._skip_text_tags):
-            replace_node_text_with_parts(node, self._render_plain_text_script_parts(node.text))
+            replace_node_text_with_parts(
+                node, self._render_plain_text_script_parts(node.text)
+            )
         if node.tail and not is_tail_in_tag_context(node, self._skip_text_tags):
-            replace_node_tail_with_parts(node, self._render_plain_text_script_parts(node.tail))
+            replace_node_tail_with_parts(
+                node, self._render_plain_text_script_parts(node.tail)
+            )
 
     def _render_plain_text_scripts(self, text: str) -> str:
         """将普通文本中的变量上下标转换为 HTML sub/sup 标签。"""
@@ -140,10 +144,21 @@ class ScriptNotation(BasePostHandler):
         result: list[str] = []
         cursor = 0
         while cursor < len(text):
+            candidate_start = self._find_next_script_candidate_start(text, cursor)
+            if candidate_start > cursor:
+                result.append(text[cursor:candidate_start])
+                cursor = candidate_start
+                continue
+
             parsed = self._read_script_notation(text, cursor)
             if parsed is None:
-                result.append(text[cursor])
-                cursor += 1
+                plain_base_end = self._read_plain_base_without_script_end(text, cursor)
+                if plain_base_end > cursor:
+                    result.append(text[cursor:plain_base_end])
+                    cursor = plain_base_end
+                else:
+                    result.append(text[cursor])
+                    cursor += 1
                 continue
 
             if parsed.is_escaped_base:
@@ -163,10 +178,21 @@ class ScriptNotation(BasePostHandler):
         result: list[HtmlPart] = []
         cursor = 0
         while cursor < len(text):
+            candidate_start = self._find_next_script_candidate_start(text, cursor)
+            if candidate_start > cursor:
+                result.append(text[cursor:candidate_start])
+                cursor = candidate_start
+                continue
+
             parsed = self._read_script_notation(text, cursor)
             if parsed is None:
-                result.append(text[cursor])
-                cursor += 1
+                plain_base_end = self._read_plain_base_without_script_end(text, cursor)
+                if plain_base_end > cursor:
+                    result.append(text[cursor:plain_base_end])
+                    cursor = plain_base_end
+                else:
+                    result.append(text[cursor])
+                    cursor += 1
                 continue
 
             if parsed.is_escaped_base:
@@ -183,6 +209,37 @@ class ScriptNotation(BasePostHandler):
         if parsed is None or len(parsed.original) != len(text):
             return None
         return parsed
+
+    def _find_next_script_candidate_start(self, text: str, cursor: int) -> int:
+        """查找下一个可能开始上下标解析的安全变量边界。"""
+        while cursor < len(text):
+            if self._is_script_candidate_start(text, cursor):
+                return cursor
+            cursor += 1
+        return len(text)
+
+    def _is_script_candidate_start(self, text: str, cursor: int) -> bool:
+        """判断当前位置是否可能是上下标变量块起点。"""
+        if not self._is_base_boundary_before(text, cursor):
+            return False
+        if text[cursor] == "\\":
+            return cursor + 1 < len(text) and self._is_base_start_char(text[cursor + 1])
+        return self._is_base_start_char(text[cursor])
+
+    def _read_plain_base_without_script_end(self, text: str, cursor: int) -> int:
+        """读取没有紧随脚标标记的普通变量名结束位置。"""
+        base_cursor = cursor
+        if text[base_cursor] == "\\":
+            base_cursor += 1
+            if base_cursor >= len(text):
+                return cursor
+
+        base_end = self._read_base_name_end(text, base_cursor)
+        if base_end == base_cursor:
+            return cursor
+        if base_end < len(text) and self._is_script_mark_at(text, base_end):
+            return cursor
+        return base_end
 
     def _read_script_notation(self, text: str, start: int) -> ScriptParseResult | None:
         """从指定游标读取一个变量上下标块。"""
@@ -329,7 +386,9 @@ class ScriptNotation(BasePostHandler):
         """构造 MathML 上下标结构。"""
         base_xml = etree.Element("mi", attrib=dict(source_node.attrib))
         base_xml.text = parsed.base
-        sub_xml_list = [self._create_mtext(subscript) for subscript in parsed.subscripts]
+        sub_xml_list = [
+            self._create_mtext(subscript) for subscript in parsed.subscripts
+        ]
         sup_xml_list = [
             self._create_mtext(superscript) for superscript in parsed.superscripts
         ]

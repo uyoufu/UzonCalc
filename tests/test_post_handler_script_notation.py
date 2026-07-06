@@ -149,6 +149,17 @@ def test_script_notation_preserves_repeated_subscript_nesting():
     assert render_with_handler(handler, html) == "<p>x<sub>1</sub><sub>2</sub></p>"
 
 
+def test_script_notation_keeps_matching_after_plain_base_fast_forward():
+    """普通变量名快进后仍应继续匹配后续有效上下标。"""
+    handler = ScriptNotation()
+
+    html = "<p>alpha beta gamma plainVariable 后续 f_y 和 x^2</p>"
+
+    assert render_with_handler(handler, html) == (
+        "<p>alpha beta gamma plainVariable 后续 f<sub>y</sub> 和 x<sup>2</sup></p>"
+    )
+
+
 def test_script_notation_unescapes_plain_text_and_skips_conversion():
     """普通文本中反斜杠转义的上下标变量应保持原变量名。"""
     handler = ScriptNotation()
