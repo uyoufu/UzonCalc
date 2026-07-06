@@ -41,7 +41,7 @@ class PostHandlerNode:
             None.
         """
         if self._tag_name is None:
-            self._tag_name = element_tag_name(self.node)
+            self._tag_name = self._get_element_tag_name(self.node)
         return self._tag_name
 
     @property
@@ -55,7 +55,9 @@ class PostHandlerNode:
             None.
         """
         if self._text_context_tag_names is None:
-            self._text_context_tag_names = tuple(_iter_context_tag_names(self.node))
+            self._text_context_tag_names = tuple(
+                self._iter_context_tag_names(self.node)
+            )
         return self._text_context_tag_names
 
     @property
@@ -70,9 +72,9 @@ class PostHandlerNode:
             None.
         """
         if self._tail_context_tag_names is None:
-            parent = self.node.getparent()
+            text_context_tag_names = self.text_context_tag_names
             self._tail_context_tag_names = (
-                tuple(_iter_context_tag_names(parent)) if parent is not None else ()
+                text_context_tag_names[1:] if self.tag_name else text_context_tag_names
             )
         return self._tail_context_tag_names
 
@@ -178,7 +180,24 @@ class PostHandlerNode:
         """
         if skip_tags and self.is_text_in_tag_context(skip_tags):
             return
-        replace_node_text_with_parts(self.node, parts)
+        self.node.text = None
+        insert_index = 0
+        tail_target = self.node
+        writes_parent_text = True
+        for part in parts:
+            if isinstance(part, str):
+                if not part:
+                    continue
+                if writes_parent_text:
+                    self.node.text = (self.node.text or "") + part
+                else:
+                    tail_target.tail = (tail_target.tail or "") + part
+                continue
+            part.tail = None
+            self.node.insert(insert_index, part)
+            insert_index += 1
+            tail_target = part
+            writes_parent_text = False
 
     def replace_tail_with_parts(
         self,
@@ -202,7 +221,22 @@ class PostHandlerNode:
         """
         if skip_tags and self.is_tail_in_tag_context(skip_tags):
             return
-        replace_node_tail_with_parts(self.node, parts)
+        parent = self.node.getparent()
+        if parent is None:
+            return
+        self.node.tail = None
+        insert_index = parent.index(self.node) + 1
+        tail_target = self.node
+        for part in parts:
+            if isinstance(part, str):
+                if not part:
+                    continue
+                tail_target.tail = (tail_target.tail or "") + part
+                continue
+            part.tail = None
+            parent.insert(insert_index, part)
+            insert_index += 1
+            tail_target = part
 
     def replace_with_element(self, replacement: etree._Element) -> None:
         """Replace the wrapped element in-place.
@@ -216,7 +250,46 @@ class PostHandlerNode:
         Raises:
             None.
         """
-        replace_node_with_element(self.node, replacement)
+        parent = self.node.getparent()
+        if parent is None:
+            return
+        replacement.tail = self.node.tail
+        parent.replace(self.node, replacement)
+
+    def _iter_context_tag_names(self, node: etree._Element) -> Iterable[str]:
+        """Yield lowercase tag names from a node through its ancestors.
+
+        Args:
+            node: Starting lxml element for the context lookup.
+
+        Returns:
+            An iterable of lowercase tag names, excluding non-element nodes.
+
+        Raises:
+            None.
+        """
+        current: etree._Element | None = node
+        while current is not None:
+            tag_name = self._get_element_tag_name(current)
+            if tag_name:
+                yield tag_name
+            current = current.getparent()
+
+    def _get_element_tag_name(self, node: etree._Element) -> str:
+        """Return the lowercase local tag name for an lxml element.
+
+        Args:
+            node: lxml node whose tag should be normalized.
+
+        Returns:
+            Lowercase local tag name, or an empty string for non-element nodes.
+
+        Raises:
+            None.
+        """
+        if not isinstance(node.tag, str):
+            return ""
+        return node.tag.rsplit("}", 1)[-1].lower()
 
 
 def parse_html_fragment(content: str) -> etree._Element:
@@ -247,89 +320,3 @@ def serialize_html_fragment(root: etree._Element) -> str:
         return serialized_root[len(open_wrapper) : -len(close_wrapper)]
     return serialized_root
 
-
-def element_tag_name(node: etree._Element) -> str:
-    """Return the lowercase local tag name for an lxml element."""
-    if not isinstance(node.tag, str):
-        return ""
-    return node.tag.rsplit("}", 1)[-1].lower()
-
-
-def _iter_context_tag_names(node: etree._Element) -> Iterable[str]:
-    """Yield lowercase tag names from a node through its ancestors.
-
-    Args:
-        node: Starting lxml element for the context lookup.
-
-    Returns:
-        An iterable of lowercase tag names, excluding non-element nodes.
-
-    Raises:
-        None.
-    """
-    current: etree._Element | None = node
-    while current is not None:
-        tag_name = element_tag_name(current)
-        if tag_name:
-            yield tag_name
-        current = current.getparent()
-
-
-def replace_node_text_with_parts(
-    node: etree._Element,
-    parts: Iterable[HtmlPart],
-) -> None:
-    """Replace node text with text/element parts inserted before children."""
-    node.text = None
-    insert_index = 0
-    tail_target = node
-    writes_parent_text = True
-    for part in parts:
-        if isinstance(part, str):
-            if not part:
-                continue
-            if writes_parent_text:
-                node.text = (node.text or "") + part
-            else:
-                tail_target.tail = (tail_target.tail or "") + part
-            continue
-        part.tail = None
-        node.insert(insert_index, part)
-        insert_index += 1
-        tail_target = part
-        writes_parent_text = False
-
-
-def replace_node_tail_with_parts(
-    node: etree._Element,
-    parts: Iterable[HtmlPart],
-) -> None:
-    """Replace node tail with text/element parts inserted after the node."""
-    parent = node.getparent()
-    if parent is None:
-        return
-    node.tail = None
-    insert_index = parent.index(node) + 1
-    tail_target = node
-    for part in parts:
-        if isinstance(part, str):
-            if not part:
-                continue
-            tail_target.tail = (tail_target.tail or "") + part
-            continue
-        part.tail = None
-        parent.insert(insert_index, part)
-        insert_index += 1
-        tail_target = part
-
-
-def replace_node_with_element(
-    node: etree._Element,
-    replacement: etree._Element,
-) -> None:
-    """Replace an element in-place while preserving its tail text."""
-    parent = node.getparent()
-    if parent is None:
-        return
-    replacement.tail = node.tail
-    parent.replace(node, replacement)
