@@ -7,12 +7,7 @@ from lxml import etree
 from .base_post_handler import BasePostHandler
 from .dom_utils import (
     HtmlPart,
-    element_tag_name,
-    is_tail_in_tag_context,
-    is_text_in_tag_context,
-    replace_node_tail_with_parts,
-    replace_node_text_with_parts,
-    replace_node_with_element,
+    PostHandlerNode,
 )
 
 
@@ -55,14 +50,15 @@ class ScriptNotation(BasePostHandler):
     )
     _skip_text_tags = {"code", "pre", "script", "style", "math", "latex"}
 
-    def handle(self, node: etree._Element, ctx=None) -> None:
+    def handle(self, post_node: PostHandlerNode, ctx=None) -> None:
         """执行上下标后处理，统一修正公式与普通 HTML 文本。"""
-        self._render_mathml_mi_node(node)
-        self._render_html_text_node(node)
+        self._render_mathml_mi_node(post_node)
+        self._render_html_text_node(post_node)
 
-    def _render_mathml_mi_node(self, node: etree._Element) -> None:
+    def _render_mathml_mi_node(self, post_node: PostHandlerNode) -> None:
         """将 MathML mi 节点中的上下标变量转换为 MathML 脚标结构。"""
-        if element_tag_name(node) != "mi" or node.text is None or len(node):
+        node = post_node.node
+        if post_node.tag_name != "mi" or node.text is None or len(node):
             return
         if "_" not in node.text and "^" not in node.text:
             return
@@ -73,17 +69,18 @@ class ScriptNotation(BasePostHandler):
         if parsed.is_escaped_base:
             node.text = parsed.base + self._plain_script_suffix(parsed)
             return
-        replace_node_with_element(node, self._build_mathml_script(node, parsed))
+        post_node.replace_with_element(self._build_mathml_script(node, parsed))
 
-    def _render_html_text_node(self, node: etree._Element) -> None:
+    def _render_html_text_node(self, post_node: PostHandlerNode) -> None:
         """仅转换 HTML 文本节点，避免误改标签属性。"""
-        if node.text and not is_text_in_tag_context(node, self._skip_text_tags):
-            replace_node_text_with_parts(
-                node, self._render_plain_text_script_parts(node.text)
+        node = post_node.node
+        if node.text and not post_node.is_text_in_tag_context(self._skip_text_tags):
+            post_node.replace_text_with_parts(
+                self._render_plain_text_script_parts(node.text)
             )
-        if node.tail and not is_tail_in_tag_context(node, self._skip_text_tags):
-            replace_node_tail_with_parts(
-                node, self._render_plain_text_script_parts(node.tail)
+        if node.tail and not post_node.is_tail_in_tag_context(self._skip_text_tags):
+            post_node.replace_tail_with_parts(
+                self._render_plain_text_script_parts(node.tail)
             )
 
     def _render_plain_text_scripts(self, text: str) -> str:

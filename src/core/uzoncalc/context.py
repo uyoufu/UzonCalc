@@ -10,6 +10,7 @@ from .service.toc_page_numbers import (
     fill_toc_page_numbers,
 )
 from .handcalc.post_handlers.dom_utils import (
+    PostHandlerNode,
     parse_html_fragment,
     serialize_html_fragment,
 )
@@ -85,8 +86,9 @@ class CalcContext:
 
         root = parse_html_fragment(content)
         for node in list(root.iter()):
+            post_node = PostHandlerNode(node)
             for handler in self.options.post_handlers:
-                handler.handle(node, ctx=self)
+                handler.handle(post_node, ctx=self)
         return serialize_html_fragment(root)
 
     def start_inline(self, separator: str = " "):

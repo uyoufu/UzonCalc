@@ -1,10 +1,9 @@
 """后处理器：将希腊英文替换为数学符号。"""
 
 import re
-from lxml import etree
 
 from .base_post_handler import BasePostHandler
-from .dom_utils import replace_node_tail, replace_node_text
+from .dom_utils import PostHandlerNode
 
 
 class SwapSymbol(BasePostHandler):
@@ -74,13 +73,13 @@ class SwapSymbol(BasePostHandler):
     )
     _skip_text_tags = {"code", "pre", "script", "style", "latex"}
 
-    def handle(self, node: etree._Element, ctx=None) -> None:
+    def handle(self, post_node: PostHandlerNode, ctx=None) -> None:
         """转换希腊字母英文名称，并移除转义用反斜杠。"""
-        replace_node_text(
-            node, self._replace_plain_text_greek_words, skip_tags=self._skip_text_tags
+        post_node.replace_text(
+            self._replace_plain_text_greek_words, skip_tags=self._skip_text_tags
         )
-        replace_node_tail(
-            node, self._replace_plain_text_greek_words, skip_tags=self._skip_text_tags
+        post_node.replace_tail(
+            self._replace_plain_text_greek_words, skip_tags=self._skip_text_tags
         )
 
     def _replace_plain_text_greek_words(self, text: str) -> str:

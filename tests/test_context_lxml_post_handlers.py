@@ -24,3 +24,13 @@ def test_context_post_handlers_convert_html_fragment_content():
     assert ctx.html_content() == (
         '<p data-name="E_j">E<sub>j</sub> ≤ E<sub>k</sub></p>'
     )
+
+
+def test_context_post_handlers_chain_alias_into_script_notation():
+    """别名替换后的文本应继续交给后续上下标处理器。"""
+    ctx = CalcContext()
+    ctx.options.aliases["stress"] = "E_j"
+
+    ctx.append_content("stress")
+
+    assert ctx.html_content() == "E<sub>j</sub>"

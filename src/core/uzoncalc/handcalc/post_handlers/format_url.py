@@ -1,17 +1,14 @@
 from __future__ import annotations
 
+import re
+
 from lxml import etree
 
 from .base_post_handler import BasePostHandler
 from .dom_utils import (
     HtmlPart,
-    is_tail_in_tag_context,
-    is_text_in_tag_context,
-    replace_node_tail_with_parts,
-    replace_node_text_with_parts,
+    PostHandlerNode,
 )
-
-import re
 
 
 class FormatUrl(BasePostHandler):
@@ -28,12 +25,20 @@ class FormatUrl(BasePostHandler):
     )
     _TRAILING_PUNCTUATION = ",.;:!?)]}"
 
-    def handle(self, node: etree._Element, ctx=None) -> None:
+    def handle(self, post_node: PostHandlerNode, ctx=None) -> None:
         """将当前节点可见文本中的 URL 转换为链接。"""
-        if node.text and not is_text_in_tag_context(node, self._SKIP_TEXT_TAGS):
-            replace_node_text_with_parts(node, self._format_url_text_parts(node.text))
-        if node.tail and not is_tail_in_tag_context(node, self._SKIP_TEXT_TAGS):
-            replace_node_tail_with_parts(node, self._format_url_text_parts(node.tail))
+        if post_node.node.text and not post_node.is_text_in_tag_context(
+            self._SKIP_TEXT_TAGS
+        ):
+            post_node.replace_text_with_parts(
+                self._format_url_text_parts(post_node.node.text)
+            )
+        if post_node.node.tail and not post_node.is_tail_in_tag_context(
+            self._SKIP_TEXT_TAGS
+        ):
+            post_node.replace_tail_with_parts(
+                self._format_url_text_parts(post_node.node.tail)
+            )
 
     def _format_url_text_parts(self, text: str) -> list[HtmlPart]:
         """将单个文本片段中的 URL 转换为 a 标签片段。"""

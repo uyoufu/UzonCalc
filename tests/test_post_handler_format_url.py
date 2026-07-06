@@ -1,5 +1,6 @@
 from core.uzoncalc.handcalc.post_handlers.format_url import FormatUrl
 from core.uzoncalc.handcalc.post_handlers.dom_utils import (
+    PostHandlerNode,
     parse_html_fragment,
     serialize_html_fragment,
 )
@@ -8,7 +9,7 @@ from core.uzoncalc.handcalc.post_handlers.dom_utils import (
 def render_with_handler(handler, html: str) -> str:
     root = parse_html_fragment(html)
     for node in list(root.iter()):
-        handler.handle(node)
+        handler.handle(PostHandlerNode(node))
     return serialize_html_fragment(root)
 
 

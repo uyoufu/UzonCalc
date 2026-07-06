@@ -4,10 +4,8 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Optional
 
-from lxml import etree
-
 from .base_post_handler import BasePostHandler
-from .dom_utils import replace_node_tail, replace_node_text
+from .dom_utils import PostHandlerNode
 
 if TYPE_CHECKING:
     from ...context import CalcContext
@@ -24,7 +22,9 @@ class SwapAlias(BasePostHandler):
 
     priority = 10
 
-    def handle(self, node: etree._Element, ctx: Optional[CalcContext] = None) -> None:
+    def handle(
+        self, post_node: PostHandlerNode, ctx: Optional[CalcContext] = None
+    ) -> None:
         if ctx is None:
             return
 
@@ -46,5 +46,5 @@ class SwapAlias(BasePostHandler):
         if not replacements:
             return
 
-        replace_node_text(node, lambda text: replacements.get(text, text))
-        replace_node_tail(node, lambda text: replacements.get(text, text))
+        post_node.replace_text(lambda text: replacements.get(text, text))
+        post_node.replace_tail(lambda text: replacements.get(text, text))

@@ -1,5 +1,6 @@
 from core.uzoncalc.handcalc.post_handlers.comparison_symbol import ComparisonSymbol
 from core.uzoncalc.handcalc.post_handlers.dom_utils import (
+    PostHandlerNode,
     parse_html_fragment,
     serialize_html_fragment,
 )
@@ -9,7 +10,7 @@ from core.uzoncalc.handcalc.post_handlers.post_pipeline import get_default_post_
 def render_with_handler(handler, html: str) -> str:
     root = parse_html_fragment(html)
     for node in list(root.iter()):
-        handler.handle(node)
+        handler.handle(PostHandlerNode(node))
     return serialize_html_fragment(root)
 
 
