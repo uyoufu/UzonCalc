@@ -1,12 +1,23 @@
 from core.uzoncalc.handcalc.post_handlers.comparison_symbol import ComparisonSymbol
+from core.uzoncalc.handcalc.post_handlers.dom_utils import (
+    parse_html_fragment,
+    serialize_html_fragment,
+)
 from core.uzoncalc.handcalc.post_handlers.post_pipeline import get_default_post_handlers
+
+
+def render_with_handler(handler, html: str) -> str:
+    root = parse_html_fragment(html)
+    for node in list(root.iter()):
+        handler.handle(node)
+    return serialize_html_fragment(root)
 
 
 def test_comparison_symbol_converts_plain_text_operators():
     """普通文本中的比较运算符应转换为数学比较符号。"""
     handler = ComparisonSymbol()
 
-    assert handler.handle("a <= b, c >= d, e != f, g == h") == (
+    assert render_with_handler(handler, "a <= b, c >= d, e != f, g == h") == (
         "a ≤ b, c ≥ d, e ≠ f, g ≡ h"
     )
 
@@ -17,7 +28,7 @@ def test_comparison_symbol_converts_html_text_nodes_only():
 
     html = '<p data-rule="a <= b">a <= b and c >= d</p>'
 
-    assert handler.handle(html) == '<p data-rule="a <= b">a ≤ b and c ≥ d</p>'
+    assert render_with_handler(handler, html) == '<p data-rule="a &lt;= b">a ≤ b and c ≥ d</p>'
 
 
 def test_comparison_symbol_converts_escaped_angle_operators():
@@ -26,7 +37,7 @@ def test_comparison_symbol_converts_escaped_angle_operators():
 
     html = "<p>a &lt;= b and c &gt;= d</p>"
 
-    assert handler.handle(html) == "<p>a ≤ b and c ≥ d</p>"
+    assert render_with_handler(handler, html) == "<p>a ≤ b and c ≥ d</p>"
 
 
 def test_comparison_symbol_skips_code_pre_and_latex_text():
@@ -40,11 +51,11 @@ def test_comparison_symbol_skips_code_pre_and_latex_text():
         "<latex>g <= h</latex>"
     )
 
-    assert handler.handle(html) == (
+    assert render_with_handler(handler, html) == (
         "<p>a ≤ b</p>"
-        "<code>c <= d</code>"
-        "<pre>e >= f</pre>"
-        "<latex>g <= h</latex>"
+        "<code>c &lt;= d</code>"
+        "<pre>e &gt;= f</pre>"
+        "<latex>g &lt;= h</latex>"
     )
 
 

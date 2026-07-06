@@ -2,7 +2,18 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
+from lxml import etree
+
 from .base_post_handler import BasePostHandler
+from .dom_utils import (
+    HtmlPart,
+    element_tag_name,
+    is_tail_in_tag_context,
+    is_text_in_tag_context,
+    replace_node_tail_with_parts,
+    replace_node_text_with_parts,
+    replace_node_with_element,
+)
 
 
 @dataclass(frozen=True)
@@ -36,9 +47,6 @@ class ScriptNotation(BasePostHandler):
 
     priority = 30
 
-    _mi_pattern = re.compile(r"<mi([^>]*)>([^<]+)</mi>")
-    _html_tag_pattern = re.compile(r"(<[^>]+>)")
-    _tag_name_pattern = re.compile(r"^</?\s*([a-zA-Z][\w:-]*)")
     _url_pattern = re.compile(
         r"(?<![\w/])"
         r"((?:https?://|www\.)[^\t\n\r\f\v <>'\"\]]+)"
@@ -47,79 +55,32 @@ class ScriptNotation(BasePostHandler):
     )
     _skip_text_tags = {"code", "pre", "script", "style", "math", "latex"}
 
-    def handle(self, data: str, ctx=None) -> str:
+    def handle(self, node: etree._Element, ctx=None) -> None:
         """执行上下标后处理，统一修正公式与普通 HTML 文本。"""
-        if "_" not in data and "^" not in data:
-            return data
+        self._render_mathml_mi_node(node)
+        self._render_html_text_node(node)
 
-        data = self._render_mathml_mi_scripts(data)
-        return self._render_html_text_scripts(data)
+    def _render_mathml_mi_node(self, node: etree._Element) -> None:
+        """将 MathML mi 节点中的上下标变量转换为 MathML 脚标结构。"""
+        if element_tag_name(node) != "mi" or node.text is None or len(node):
+            return
+        if "_" not in node.text and "^" not in node.text:
+            return
 
-    def _render_mathml_mi_scripts(self, data: str) -> str:
-        """将 MathML mi 标签中的上下标变量转换为 MathML 脚标结构。"""
-        if "<mi" not in data:
-            return data
+        parsed = self._parse_single_script_notation(node.text)
+        if parsed is None:
+            return
+        if parsed.is_escaped_base:
+            node.text = parsed.base + self._plain_script_suffix(parsed)
+            return
+        replace_node_with_element(node, self._build_mathml_script(node, parsed))
 
-        def _repl(m: re.Match[str]) -> str:
-            attrs = m.group(1)
-            name = m.group(2)
-            if "_" not in name and "^" not in name:
-                return m.group(0)
-
-            parsed = self._parse_single_script_notation(name)
-            if parsed is None:
-                return m.group(0)
-            if parsed.is_escaped_base:
-                return (
-                    f"<mi{attrs}>{parsed.base}{self._plain_script_suffix(parsed)}</mi>"
-                )
-            return self._build_mathml_script(attrs, parsed)
-
-        return self._mi_pattern.sub(_repl, data)
-
-    def _render_html_text_scripts(self, data: str) -> str:
+    def _render_html_text_node(self, node: etree._Element) -> None:
         """仅转换 HTML 文本节点，避免误改标签属性。"""
-        if "<" not in data:
-            return self._render_plain_text_scripts(data)
-
-        parts = self._html_tag_pattern.split(data)
-        result: list[str] = []
-        skip_stack: list[str] = []
-
-        for part in parts:
-            if not part:
-                continue
-            if part.startswith("<") and part.endswith(">"):
-                self._track_skip_text_tag(part, skip_stack)
-                result.append(part)
-                continue
-
-            # 跳过代码、脚本、样式和 MathML 区域，避免重复或误转换。
-            if skip_stack:
-                result.append(part)
-            else:
-                result.append(self._render_plain_text_scripts(part))
-
-        return "".join(result)
-
-    def _track_skip_text_tag(self, tag_text: str, skip_stack: list[str]) -> None:
-        """根据当前 HTML 标签维护需要跳过文本转换的标签栈。"""
-        tag_match = self._tag_name_pattern.match(tag_text)
-        if not tag_match:
-            return
-
-        tag_name = tag_match.group(1).lower()
-        if tag_name not in self._skip_text_tags:
-            return
-
-        is_closing_tag = tag_text.startswith("</")
-        is_self_closing_tag = tag_text.endswith("/>")
-        if is_closing_tag:
-            if skip_stack and skip_stack[-1] == tag_name:
-                skip_stack.pop()
-            return
-        if not is_self_closing_tag:
-            skip_stack.append(tag_name)
+        if node.text and not is_text_in_tag_context(node, self._skip_text_tags):
+            replace_node_text_with_parts(node, self._render_plain_text_script_parts(node.text))
+        if node.tail and not is_tail_in_tag_context(node, self._skip_text_tags):
+            replace_node_tail_with_parts(node, self._render_plain_text_script_parts(node.tail))
 
     def _render_plain_text_scripts(self, text: str) -> str:
         """将普通文本中的变量上下标转换为 HTML sub/sup 标签。"""
@@ -127,6 +88,32 @@ class ScriptNotation(BasePostHandler):
             return self._render_plain_text_without_urls(text)
 
         return self._render_script_notation(text, self._build_html_script)
+
+    def _render_plain_text_script_parts(self, text: str) -> list[HtmlPart]:
+        """将普通文本中的变量上下标转换为 HTML 元素片段。"""
+        if "_" not in text and "^" not in text:
+            return [text]
+        if "http://" in text or "https://" in text or "www." in text:
+            return self._render_plain_text_without_url_parts(text)
+        return self._render_script_notation_parts(text, self._build_html_script_parts)
+
+    def _render_plain_text_without_url_parts(self, text: str) -> list[HtmlPart]:
+        """保护 URL 片段，只转换 URL 之外的普通文本。"""
+        result: list[HtmlPart] = []
+        last_end = 0
+        for match in self._url_pattern.finditer(text):
+            start, end = match.span(1)
+            result.extend(self._render_plain_text_script_parts(text[last_end:start]))
+            result.append(match.group(1))
+            last_end = end
+
+        if last_end == 0:
+            return self._render_script_notation_parts(
+                text, self._build_html_script_parts
+            )
+
+        result.extend(self._render_plain_text_script_parts(text[last_end:]))
+        return result
 
     def _render_plain_text_without_urls(self, text: str) -> str:
         """保护 URL 片段，只转换 URL 之外的普通文本。"""
@@ -166,6 +153,29 @@ class ScriptNotation(BasePostHandler):
             cursor += len(parsed.original)
 
         return "".join(result)
+
+    def _render_script_notation_parts(
+        self,
+        text: str,
+        render: Callable[[ScriptParseResult], list[HtmlPart]],
+    ) -> list[HtmlPart]:
+        """按游标扫描文本，将合法变量上下标块替换为 DOM 片段。"""
+        result: list[HtmlPart] = []
+        cursor = 0
+        while cursor < len(text):
+            parsed = self._read_script_notation(text, cursor)
+            if parsed is None:
+                result.append(text[cursor])
+                cursor += 1
+                continue
+
+            if parsed.is_escaped_base:
+                result.append(parsed.base + self._plain_script_suffix(parsed))
+            else:
+                result.extend(render(parsed))
+            cursor += len(parsed.original)
+
+        return result
 
     def _parse_single_script_notation(self, text: str) -> ScriptParseResult | None:
         """解析完整 mi 文本，失败时返回 None 以便保持原样。"""
@@ -300,29 +310,63 @@ class ScriptNotation(BasePostHandler):
             rendered += f"<sup>{superscript}</sup>"
         return rendered
 
-    def _build_mathml_script(self, attrs: str, parsed: ScriptParseResult) -> str:
+    def _build_html_script_parts(self, parsed: ScriptParseResult) -> list[HtmlPart]:
+        """构造普通 HTML 文本中的 sub/sup DOM 片段。"""
+        parts: list[HtmlPart] = [parsed.base]
+        for subscript in parsed.subscripts:
+            sub_element = etree.Element("sub")
+            sub_element.text = subscript
+            parts.append(sub_element)
+        for superscript in parsed.superscripts:
+            sup_element = etree.Element("sup")
+            sup_element.text = superscript
+            parts.append(sup_element)
+        return parts
+
+    def _build_mathml_script(
+        self, source_node: etree._Element, parsed: ScriptParseResult
+    ) -> etree._Element:
         """构造 MathML 上下标结构。"""
-        base_xml = f"<mi{attrs}>{parsed.base}</mi>"
-        sub_xml_list = [
-            f"<mtext>{subscript}</mtext>" for subscript in parsed.subscripts
-        ]
+        base_xml = etree.Element("mi", attrib=dict(source_node.attrib))
+        base_xml.text = parsed.base
+        sub_xml_list = [self._create_mtext(subscript) for subscript in parsed.subscripts]
         sup_xml_list = [
-            f"<mtext style='margin-left:0.2em;'>{superscript}</mtext>"
-            for superscript in parsed.superscripts
+            self._create_mtext(superscript) for superscript in parsed.superscripts
         ]
 
         while len(sub_xml_list) > 1:
-            base_xml = f"<msub>{base_xml}{sub_xml_list.pop(0)}</msub>"
+            base_xml = self._wrap_mathml_script("msub", base_xml, sub_xml_list.pop(0))
         while len(sup_xml_list) > 1:
-            base_xml = f"<msup>{base_xml}{sup_xml_list.pop(0)}</msup>"
+            base_xml = self._wrap_mathml_script("msup", base_xml, sup_xml_list.pop(0))
 
         if sub_xml_list and sup_xml_list:
-            return f"<msubsup>{base_xml}{sub_xml_list[0]}{sup_xml_list[0]}</msubsup>"
+            return self._wrap_mathml_script(
+                "msubsup", base_xml, sub_xml_list[0], sup_xml_list[0]
+            )
         if sub_xml_list:
-            return f"<msub>{base_xml}{sub_xml_list[0]}</msub>"
+            return self._wrap_mathml_script("msub", base_xml, sub_xml_list[0])
         if sup_xml_list:
-            return f"<msup>{base_xml}{sup_xml_list[0]}</msup>"
+            return self._wrap_mathml_script("msup", base_xml, sup_xml_list[0])
         return base_xml
+
+    def _create_mtext(self, text: str, *, style: str | None = None) -> etree._Element:
+        """Create an mtext element for a parsed MathML script operand."""
+        element = etree.Element("mtext")
+        if style is not None:
+            element.set("style", style)
+        element.text = text
+        return element
+
+    def _wrap_mathml_script(
+        self,
+        tag_name: str,
+        *children: etree._Element,
+    ) -> etree._Element:
+        """Create a MathML script wrapper with the provided child elements."""
+        element = etree.Element(tag_name)
+        for child in children:
+            element.append(child)
+        return element
 
     def _plain_script_suffix(self, parsed: ScriptParseResult) -> str:
         """把解析结果还原为无转义、无标签的脚标文本。"""

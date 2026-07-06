@@ -9,6 +9,10 @@ from .service.toc_page_numbers import (
     calculate_toc_page_numbers_sync,
     fill_toc_page_numbers,
 )
+from .handcalc.post_handlers.dom_utils import (
+    parse_html_fragment,
+    serialize_html_fragment,
+)
 
 
 class CalcContext:
@@ -64,9 +68,7 @@ class CalcContext:
         if self.options.skip_content:
             return
 
-        # 对 content 进行后处理
-        for handler in self.options.post_handlers:
-            content = handler.handle(content, ctx=self)
+        content = self._post_process_content(content)
 
         # 若有 row_values，则添加到 row_values 中
         # 在其它地方将其转换成一行内容
@@ -75,6 +77,17 @@ class CalcContext:
             return
 
         self.__contents.append(content)
+
+    def _post_process_content(self, content: str) -> str:
+        """Parse content once and let each post handler mutate DOM nodes."""
+        if not self.options.post_handlers:
+            return content
+
+        root = parse_html_fragment(content)
+        for node in list(root.iter()):
+            for handler in self.options.post_handlers:
+                handler.handle(node, ctx=self)
+        return serialize_html_fragment(root)
 
     def start_inline(self, separator: str = " "):
         self.__inline_separator = separator

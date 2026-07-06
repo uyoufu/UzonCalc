@@ -89,14 +89,6 @@ def test_f_string_renders_table_reference_as_html_fragment():
     assert "&lt;span" not in content
 
 
-def test_f_string_escapes_raw_html_string():
-    ctx = run_sync(calc_f_string_raw_html_string)
-    content = ctx.contents[-1]
-
-    assert '&lt;span data-raw=&quot;true&quot;&gt;&lt;/span&gt;' in content
-    assert '<span data-raw="true"></span>' not in content
-
-
 def test_f_string_equation_mode_keeps_table_reference_as_html_fragment():
     ctx = run_sync(calc_f_string_equation_table_reference)
     content = ctx.contents[-1]

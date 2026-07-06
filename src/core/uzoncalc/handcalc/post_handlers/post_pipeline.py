@@ -3,7 +3,6 @@
 from typing import List
 from .base_post_handler import BasePostHandler
 from .comparison_symbol import ComparisonSymbol
-from .parentheses_simplify import ParenthesesSimplify
 from .swap_symbol import SwapSymbol
 from .swap_alias import SwapAlias
 from .script_notation import ScriptNotation
@@ -16,7 +15,6 @@ def get_default_post_handlers() -> List[BasePostHandler]:
     按优先级执行（数值越小越靠前），同优先级按类名稳定排序
     """
     handlers: List[BasePostHandler] = [
-        ParenthesesSimplify(),
         ComparisonSymbol(),
         SwapSymbol(),
         SwapAlias(),
