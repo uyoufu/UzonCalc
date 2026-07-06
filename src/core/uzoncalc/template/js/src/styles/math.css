@@ -56,6 +56,14 @@ msup > :nth-child(2) {
   line-height: 1;
 }
 
+msubsup > :nth-child(2) {
+  margin-left: var(--uz-space-2xs);
+}
+
+msubsup > :nth-child(3) {
+  margin-left: var(--uz-space-2xs);
+}
+
 mfrac,
 mfrac * {
   font-size: inherit;
