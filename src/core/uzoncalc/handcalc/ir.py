@@ -238,11 +238,41 @@ class MRowArray(MRow):
     mathml_attrib: ClassVar[dict[str, str]] = {"class": "array-value"}
 
 
+@dataclass(frozen=True, slots=True)
+class MTd(MathNode):
+    """MathML table cell used by matrix-style array values."""
+
+    children: List[MathNode]
+    tag: ClassVar[str] = "mtd"
+    mathml_attrib: ClassVar[dict[str, str]] = {"class": "array-matrix-cell"}
+
+
+@dataclass(frozen=True, slots=True)
+class MTr(MathNode):
+    """MathML table row used by matrix-style array values."""
+
+    children: List[MTd]
+    tag: ClassVar[str] = "mtr"
+    mathml_attrib: ClassVar[dict[str, str]] = {"class": "array-matrix-row"}
+
+
+@dataclass(frozen=True, slots=True)
+class MTable(MathNode):
+    """MathML table used to render rectangular two-dimensional arrays."""
+
+    rows: List[MTr]
+    tag: ClassVar[str] = "mtable"
+    mathml_attrib: ClassVar[dict[str, str]] = {"class": "array-matrix"}
+
+
 # Register factory function name overrides used by MathNode.to_python_ast.
 _FACTORY_NAME_OVERRIDES.update(
     {
         MiArray: "mi_array",
         MRowArray: "mrow_array",
+        MTd: "mtd",
+        MTr: "mtr",
+        MTable: "mtable",
         MFunctionName: "mfunction_name",
         MMath: "mmath",
     }
@@ -454,6 +484,21 @@ def mrow(children: List[MathNode]) -> MRow:
 
 def mrow_array(children: List[MathNode]) -> MRowArray:
     return MRowArray(children=children)
+
+
+def mtd(children: List[MathNode]) -> MTd:
+    """Construct a matrix table cell."""
+    return MTd(children=children)
+
+
+def mtr(children: List[MTd]) -> MTr:
+    """Construct a matrix table row."""
+    return MTr(children=children)
+
+
+def mtable(rows: List[MTr]) -> MTable:
+    """Construct a matrix table."""
+    return MTable(rows=rows)
 
 
 def mfrac(num: MathNode, den: MathNode) -> MFrac:

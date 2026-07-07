@@ -35,6 +35,10 @@ def target_to_ir(node: ast.AST) -> ir.MathNode:
     return ir.mtext(_unparse(node))
 
 
+# 使用 singledispatch 实现，支持扩展新的 AST 节点类型
+# 将 AST 节点转换为 Math Intermediate Representation 节点
+
+
 @singledispatch
 def expr_to_ir(node: ast.AST) -> ir.MathNode:
     """
@@ -167,9 +171,42 @@ def _expr_subscript(node: ast.Subscript) -> ir.MathNode:
 
 def _sequence_to_array(elements: list[ast.expr]) -> ir.MathNode:
     """列表/元组按数组值样式渲染。"""
+    if _is_rectangular_two_dimensional_sequence(elements):
+        return _sequence_to_matrix_array(elements)
+
     items: List[ir.MathNode] = []
     for idx, element in enumerate(elements):
         if idx:
             items.append(ir.mo(","))
         items.append(_expr_to_ir_with_context(element))
     return ir.mrow_array([ir.mo("["), *items, ir.mo("]")])
+
+
+def _is_rectangular_two_dimensional_sequence(elements: list[ast.expr]) -> bool:
+    """判断 AST 序列是否为可矩阵化的二维矩形数组。"""
+    if not elements:
+        return False
+    if not all(_is_ast_sequence(row) for row in elements):
+        return False
+
+    first_row_length = len(elements[0].elts)
+    for row in elements:
+        if len(row.elts) != first_row_length:
+            return False
+        if any(_is_ast_sequence(cell) for cell in row.elts):
+            return False
+    return True
+
+
+def _sequence_to_matrix_array(elements: list[ast.expr]) -> ir.MathNode:
+    """将二维矩形 AST 序列渲染为 MathML 矩阵。"""
+    rows = [
+        ir.mtr([ir.mtd([_expr_to_ir_with_context(cell)]) for cell in row.elts])
+        for row in elements
+    ]
+    return ir.mrow_array([ir.mo("["), ir.mtable(rows), ir.mo("]")])
+
+
+def _is_ast_sequence(node: ast.expr) -> bool:
+    """判断 AST 节点是否为 list/tuple 序列。"""
+    return isinstance(node, (ast.List, ast.Tuple))

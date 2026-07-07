@@ -61,18 +61,12 @@ def value_to_ir(value: Any) -> ir.MathNode:
     if isinstance(value, str):
         return ir.mtext(value)
 
-    if isinstance(value, (list, tuple)):
-        items: list[ir.MathNode] = []
-        for idx, item in enumerate(value):
-            if idx:
-                items.append(ir.mo(SYMBOL_COMMA))
-            items.append(value_to_ir(item))
-        return ir.mrow_array(
-            [ir.mo(SYMBOL_LEFT_BRACKET), *items, ir.mo(SYMBOL_RIGHT_BRACKET)]
-        )
-
+    # np.array(1).tolist() 会返回标量 1，不是数组 [1]，需要特殊处理
     if isinstance(value, np.ndarray):
         return value_to_ir(value.tolist())
+
+    if isinstance(value, (list, tuple)):
+        return _array_to_ir(value)
 
     if isinstance(value, pint.Quantity):
         # 使用 format_number 处理浮点数精度问题
@@ -121,7 +115,7 @@ def render_value_fragment(value: Any) -> str:
         return html_fragment
     if isinstance(value, ir.MathNode):
         return value.to_mathml_xml()
-    if isinstance(value, (FormattedQuantity, pint.Quantity)):
+    if isinstance(value, (list, tuple, np.ndarray, FormattedQuantity, pint.Quantity)):
         return value_to_ir(value).to_mathml_xml()
     return render_value_text(value)
 
@@ -157,6 +151,50 @@ def apply_format_spec(value: Any, format_spec: str) -> Any:
 
 def _quantity_to_ir(magnitude: str, units: str) -> ir.MathNode:
     return ir.mrow([ir.mn(magnitude), ir.mo(""), ir.mu(units)])
+
+
+def _array_to_ir(value: list[Any] | tuple[Any, ...]) -> ir.MathNode:
+    """Render a Python sequence as a one-dimensional array or matrix."""
+    if _is_rectangular_two_dimensional_array(value):
+        return _matrix_array_to_ir(value)
+
+    items: list[ir.MathNode] = []
+    for idx, item in enumerate(value):
+        if idx:
+            items.append(ir.mo(SYMBOL_COMMA))
+        items.append(value_to_ir(item))
+    return ir.mrow_array(
+        [ir.mo(SYMBOL_LEFT_BRACKET), *items, ir.mo(SYMBOL_RIGHT_BRACKET)]
+    )
+
+
+def _is_rectangular_two_dimensional_array(value: list[Any] | tuple[Any, ...]) -> bool:
+    """Return True when a sequence can be displayed as a rectangular matrix."""
+    if not value:
+        return False
+    if not all(_is_runtime_sequence(row) for row in value):
+        return False
+
+    first_row_length = len(value[0])
+    for row in value:
+        if len(row) != first_row_length:
+            return False
+        if any(_is_runtime_sequence(cell) for cell in row):
+            return False
+    return True
+
+
+def _matrix_array_to_ir(value: list[Any] | tuple[Any, ...]) -> ir.MathNode:
+    """Render a rectangular two-dimensional sequence with MathML table rows."""
+    rows = [ir.mtr([ir.mtd([value_to_ir(cell)]) for cell in row]) for row in value]
+    return ir.mrow_array(
+        [ir.mo(SYMBOL_LEFT_BRACKET), ir.mtable(rows), ir.mo(SYMBOL_RIGHT_BRACKET)]
+    )
+
+
+def _is_runtime_sequence(value: Any) -> bool:
+    """Return True for runtime sequence containers that represent arrays."""
+    return isinstance(value, (list, tuple))
 
 
 def _math_node_to_text(value: ir.MathNode) -> str:

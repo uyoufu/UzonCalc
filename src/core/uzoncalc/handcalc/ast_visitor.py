@@ -3,7 +3,7 @@ from typing import Optional
 
 from .field_names import FieldNames
 from .recording_state import RecordingState
-from .ast_to_step import AstToStepConverter
+from .ast_to_step_converter import AstToStepConverter
 from .recording_injector import RecordingInjector
 from .call_filters import should_hide_call
 from . import ir
