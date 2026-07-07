@@ -46,7 +46,9 @@ def _read_effective_math_style():
 
 def _extract_css_rule_block(style_content: str, selector: str) -> str:
     """Extract a CSS rule body for a selector."""
-    rule_pattern = re.compile(rf"{re.escape(selector)}\s*\{{(?P<body>.*?)\}}", re.DOTALL)
+    rule_pattern = re.compile(
+        rf"{re.escape(selector)}\s*\{{(?P<body>.*?)\}}", re.DOTALL
+    )
     rule_match = rule_pattern.search(style_content)
     assert rule_match is not None
     return rule_match.group("body")
