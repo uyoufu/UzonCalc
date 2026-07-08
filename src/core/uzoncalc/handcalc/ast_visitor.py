@@ -212,11 +212,26 @@ class AstNodeVisitor(ast.NodeTransformer):
             return [node, record_call]
 
         # General expression statement -> math output.
+        temp_var = (
+            f"__uzon_expr_value_{getattr(node, 'lineno', 0)}_"
+            f"{getattr(node, 'col_offset', 0)}__"
+        )
+        temp_target = ast.Name(id=temp_var, ctx=ast.Store())
+        ast.copy_location(temp_target, node)
+        temp_assign = ast.Assign(targets=[temp_target], value=node.value)
+        ast.copy_location(temp_assign, node)
+
+        value_node = ast.Name(id=temp_var, ctx=ast.Load())
+        ast.copy_location(value_node, node)
+
         step = self._converter.convert_expr(node.value)
         record_call = self._injector.make_record_call(
-            node, step=step, include_locals=True
+            node,
+            step=step,
+            value_node=value_node,
+            include_locals=True,
         )
-        return [node, record_call]
+        return [temp_assign, record_call]
 
     # region 内部方法
     def _should_hide_assignment(self, node: ast.Assign) -> bool:
