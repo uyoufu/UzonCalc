@@ -31,7 +31,7 @@ def normalize_renderable_value(value: Any) -> Any | None:
         return value
 
     if isinstance(value, bool):
-        return None
+        return str(value)
 
     if isinstance(value, str):
         return value
