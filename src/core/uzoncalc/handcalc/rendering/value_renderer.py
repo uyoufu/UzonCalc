@@ -4,12 +4,12 @@ import html
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 import pint
 
 from ...globals import get_current_instance
 from ...context_utils.element_models import HtmlFragment
 from .. import ir
+from .value_normalizer import normalize_renderable_value
 
 FLOAT_PRECISION = 12  # 浮点数清理精度（消除浮点误差）
 SYMBOL_COMMA = ","
@@ -27,26 +27,24 @@ class FormattedQuantity:
 
 def should_render_runtime_value(value: Any) -> bool:
     """仅展示稳定、可读的运行期值，避免复杂对象 repr 污染计算书。"""
-    if value is None:
-        return False
-    if isinstance(value, ir.MathNode):
-        return True
     if isinstance(value, FormattedQuantity):
         return True
-    if isinstance(value, (int, float, str)):
-        return True
-    if isinstance(value, (list, tuple, np.ndarray, pint.Quantity)):
-        return True
-    return False
+    return normalize_renderable_value(value) is not None
 
 
 def is_array_value(value: Any) -> bool:
     """判断运行期值是否应按数组样式展示。"""
-    return isinstance(value, (list, tuple, np.ndarray))
+    normalized_value = normalize_renderable_value(value)
+    return isinstance(normalized_value, list)
 
 
 def value_to_ir(value: Any) -> ir.MathNode:
     """将 Python 运行期值转换为 MathIR。"""
+    normalized_value = normalize_renderable_value(value)
+    if normalized_value is None and not isinstance(value, FormattedQuantity):
+        return ir.mtext("")
+    value = normalized_value if normalized_value is not None else value
+
     if isinstance(value, ir.MathNode):
         return value
 
@@ -61,19 +59,16 @@ def value_to_ir(value: Any) -> ir.MathNode:
     if isinstance(value, str):
         return ir.mtext(value)
 
-    # np.array(1).tolist() 会返回标量 1，不是数组 [1]，需要特殊处理
-    if isinstance(value, np.ndarray):
-        return value_to_ir(value.tolist())
-
-    if isinstance(value, (list, tuple)):
+    if isinstance(value, list):
         return _array_to_ir(value)
 
     if isinstance(value, pint.Quantity):
         # 使用 format_number 处理浮点数精度问题
         magnitude = value.magnitude
+        normalized_magnitude = normalize_renderable_value(magnitude)
         formatted_magnitude = (
-            format_number(magnitude)
-            if isinstance(magnitude, (int, float))
+            format_number(normalized_magnitude)
+            if isinstance(normalized_magnitude, (int, float))
             else str(magnitude)
         )
         return _quantity_to_ir(formatted_magnitude, str(value.units))
@@ -90,6 +85,9 @@ def render_value_text(value: Any) -> str:
         return html.escape(_math_node_to_text(value))
     if isinstance(value, FormattedQuantity):
         return html.escape(f"{value.magnitude} {value.units}")
+    normalized_value = normalize_renderable_value(value)
+    if normalized_value is not None:
+        value = normalized_value
     if isinstance(value, str):
         return html.escape(value)
     if isinstance(value, (int, float)):
@@ -115,7 +113,7 @@ def render_value_fragment(value: Any) -> str:
         return html_fragment
     if isinstance(value, ir.MathNode):
         return value.to_mathml_xml()
-    if isinstance(value, (list, tuple, np.ndarray, FormattedQuantity, pint.Quantity)):
+    if should_render_runtime_value(value):
         return value_to_ir(value).to_mathml_xml()
     return render_value_text(value)
 

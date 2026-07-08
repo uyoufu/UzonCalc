@@ -239,6 +239,11 @@ class MRowArray(MRow):
 
 
 @dataclass(frozen=True, slots=True)
+class MCall(MRow):
+    """Math row that represents a function or method call."""
+
+
+@dataclass(frozen=True, slots=True)
 class MTd(MathNode):
     """MathML table cell used by matrix-style array values."""
 
@@ -270,6 +275,7 @@ _FACTORY_NAME_OVERRIDES.update(
     {
         MiArray: "mi_array",
         MRowArray: "mrow_array",
+        MCall: "mcall",
         MTd: "mtd",
         MTr: "mtr",
         MTable: "mtable",
@@ -484,6 +490,11 @@ def mrow(children: List[MathNode]) -> MRow:
 
 def mrow_array(children: List[MathNode]) -> MRowArray:
     return MRowArray(children=children)
+
+
+def mcall(children: List[MathNode]) -> MCall:
+    """Construct a function or method call row."""
+    return MCall(children=children)
 
 
 def mtd(children: List[MathNode]) -> MTd:

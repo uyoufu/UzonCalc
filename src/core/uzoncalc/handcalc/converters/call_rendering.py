@@ -29,7 +29,7 @@ def render_call(
     if short_func_name != full_func_name:
         # math 模块函数展示时省略模块前缀，只保留数学函数名。
         arg_nodes = build_call_arg_nodes(node, expr_to_ir=expr_to_ir)
-        return ir.mrow(
+        return ir.mcall(
             [ir.mfunction_name(short_func_name), ir.mo("("), *arg_nodes, ir.mo(")")]
         )
 
@@ -37,7 +37,7 @@ def render_call(
     if isinstance(node.func, ast.Attribute):
         obj = expr_to_ir(node.func.value)
         arg_nodes = build_call_arg_nodes(node, expr_to_ir=expr_to_ir)
-        return ir.mrow(
+        return ir.mcall(
             [
                 obj,  # 对象，斜体
                 ir.mo("."),  # 点号不是函数名，保持操作符样式
@@ -50,7 +50,7 @@ def render_call(
 
     # 普通函数调用: f(a, b)
     arg_nodes = build_call_arg_nodes(node, expr_to_ir=expr_to_ir)
-    return ir.mrow(
+    return ir.mcall(
         [ir.mfunction_name(unparse(node.func)), ir.mo("("), *arg_nodes, ir.mo(")")]
     )
 
@@ -63,7 +63,9 @@ def build_call_arg_nodes(
     """统一渲染位置参数、关键字参数、星号参数。"""
     arg_nodes: list[ir.MathNode] = []
     call_args = [_call_arg_to_ir(arg, expr_to_ir) for arg in node.args]
-    call_args.extend(_call_keyword_to_ir(keyword, expr_to_ir) for keyword in node.keywords)
+    call_args.extend(
+        _call_keyword_to_ir(keyword, expr_to_ir) for keyword in node.keywords
+    )
 
     for idx, arg_node in enumerate(call_args):
         if idx:

@@ -14,6 +14,8 @@ def transform_ir(
     transformer: Callable[[ir.MathNode], ir.MathNode | None],
     *,
     should_descend: Callable[[ir.MathNode, str], bool] | None = None,
+    should_descend_child: Callable[[ir.MathNode, str, ir.MathNode, int], bool]
+    | None = None,
 ) -> TNode:
     """
     Generic IR tree transformer.
@@ -40,7 +42,12 @@ def transform_ir(
 
         if isinstance(v, ir.MathNode):
             new_v = (
-                transform_ir(v, transformer, should_descend=should_descend)
+                transform_ir(
+                    v,
+                    transformer,
+                    should_descend=should_descend,
+                    should_descend_child=should_descend_child,
+                )
                 if should_descend is None or should_descend(node, f.name)
                 else v
             )
@@ -50,10 +57,22 @@ def transform_ir(
 
         if isinstance(v, list) and all(isinstance(ch, ir.MathNode) for ch in v):
             if should_descend is None or should_descend(node, f.name):
-                new_list = [
-                    transform_ir(ch, transformer, should_descend=should_descend)
-                    for ch in v
-                ]
+                new_list = []
+                for child_index, child in enumerate(v):
+                    if should_descend_child is not None and not should_descend_child(
+                        node, f.name, child, child_index
+                    ):
+                        new_list.append(child)
+                        continue
+
+                    new_list.append(
+                        transform_ir(
+                            child,
+                            transformer,
+                            should_descend=should_descend,
+                            should_descend_child=should_descend_child,
+                        )
+                    )
             else:
                 new_list = v
             updated[f.name] = new_list

@@ -34,6 +34,7 @@
     "pyrs",
     "pytest",
     "redoc",
+    "renderable",
     "retcode",
     "rowspan",
     "subscriptify",
