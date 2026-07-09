@@ -27,7 +27,7 @@ class Td:
         # 复用通用 HTML 渲染函数，避免属性拼接逻辑重复。
         from .elements import h
 
-        return h("td", children=_format_td_cell_value(self.value), classes=self.classes)
+        return h("td", children=self.value, classes=self.classes)
 
 
 @dataclass
@@ -188,14 +188,6 @@ def _render_body_cell(value: TableCellValue | Td) -> str:
     if text.startswith("<td"):
         return text
     return Td(value=value).to_html()
-
-
-def _format_td_cell_value(value: TableCellValue) -> str:
-    """格式化 td 单元格显示文本。"""
-
-    from ..handcalc.rendering.value_renderer import render_value_text
-
-    return render_value_text(value)
 
 
 def _wrap_header_cell(value: Any) -> str:
