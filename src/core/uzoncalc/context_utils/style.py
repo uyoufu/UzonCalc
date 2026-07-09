@@ -51,8 +51,7 @@ def italic(content: str | list[str]) -> str:
         HTML string wrapped in an italic tag.
 
     Raises:
-        RuntimeError: Propagated when ``persist`` is true and no calculation
-            context is active.
+        RuntimeError: Propagated when no calculation context is active.
     """
     return h("i", content)
 

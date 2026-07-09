@@ -44,6 +44,7 @@ class TextStep:
     ) -> None:
         if ctx.options.skip_content:
             return
+
         content = str(value if value is not None else self.text)
         render_html(ctx, html.escape(content))
 
