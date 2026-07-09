@@ -225,8 +225,10 @@ def p(
     return h("p", content, classes=classes, props=props, persist=persist)
 
 
-def P(content: str | List[str], *, props: Props | None = None):
-    p(content, props=props, persist=True)
+def P(
+    content: str | List[str], *, classes: str | None = None, props: Props | None = None
+):
+    p(content, classes=classes, props=props, persist=True)
 
 
 def div(
