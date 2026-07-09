@@ -150,11 +150,8 @@ class AstNodeVisitor(ast.NodeTransformer):
             setattr(node, FieldNames.skip_record, True)
             return node
 
-        if isinstance(node.value, ast.Call):
-            # 检查是否应该隐藏该函数调用（如 UI 等）
-            if should_hide_call(node.value):
-                return node
-            # 其他函数调用 -> 不记录
+        if self._is_unrecorded_call_expression(node.value):
+            # 裸调用语句只保留副作用；await func() 在 AST 中会包一层 Await。
             return node
 
         # Pure string literal statement (non-docstring) -> text output.
@@ -234,6 +231,23 @@ class AstNodeVisitor(ast.NodeTransformer):
         return [temp_assign, record_call]
 
     # region 内部方法
+    def _is_unrecorded_call_expression(self, node: ast.expr) -> bool:
+        """判断表达式语句是否为不需要记录的函数调用。
+
+        Args:
+            node: 表达式语句的值节点。
+
+        Returns:
+            如果表达式是 ``func()`` 或 ``await func()`` 形式则返回 True。
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
+        if isinstance(node, ast.Call):
+            return True
+
+        return isinstance(node, ast.Await) and isinstance(node.value, ast.Call)
+
     def _should_hide_assignment(self, node: ast.Assign) -> bool:
         """
         检查赋值语句是否应该被隐藏

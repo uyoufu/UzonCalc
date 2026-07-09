@@ -41,6 +41,22 @@ def record_once_value() -> int:
     return 2
 
 
+async def append_async_call_marker(ctx) -> int:
+    """Append a marker while exercising a bare awaited call expression.
+
+    Args:
+        ctx: Active calculation context supplied by the caller.
+
+    Returns:
+        Marker value that should be ignored by bare-call expression handling.
+
+    Raises:
+        No exceptions are intentionally raised.
+    """
+    ctx.append_content("<p>await-call-side-effect</p>")
+    return 1
+
+
 @uzon_calc()
 async def expression_result_sheet():
     """Render pure expression statements that should include final values.
@@ -93,6 +109,22 @@ async def table_expression_sheet():
         No exceptions are intentionally raised.
     """
     Table(["Name"], [["A"]])
+
+
+@uzon_calc()
+async def awaited_call_expression_sheet(ctx):
+    """Execute a top-level awaited call without adding a formula row.
+
+    Args:
+        ctx: Active calculation context injected by ``@uzon_calc``.
+
+    Returns:
+        None.
+
+    Raises:
+        No exceptions are intentionally raised.
+    """
+    await append_async_call_marker(ctx)
 
 
 def test_pure_division_expression_appends_final_result():
@@ -175,4 +207,23 @@ def test_top_level_table_call_does_not_render_formula_row():
 
     assert "<table" in content
     assert "<td>A</td>" in content
+    assert "<math" not in content
+
+
+def test_top_level_awaited_call_does_not_render_formula_row():
+    """Top-level awaited calls keep side effects without formula output.
+
+    Args:
+        None.
+
+    Returns:
+        None.
+
+    Raises:
+        AssertionError: If the awaited call is recorded as a formula.
+    """
+    ctx = run_sync(awaited_call_expression_sheet)
+    content = ctx.html_content()
+
+    assert "<p>await-call-side-effect</p>" in content
     assert "<math" not in content
