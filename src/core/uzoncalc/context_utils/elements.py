@@ -5,8 +5,8 @@ from dataclasses import replace
 import html
 import inspect
 import io
-import re
-from typing import Any, Iterable, List
+from typing import Any, List
+import svg as svg_lib
 
 from ..globals import get_current_instance
 from .element_models import AutoLabel, HtmlFragment, ISavefig, LabelKind, Props
@@ -287,6 +287,35 @@ def Row(content: str | List[str], *, props: Props | None = None, tag: str = "div
     row(content, props=props, tag=tag, persist=True)
 
 
+def Figure(
+    content: str | List[str] | svg_lib.SVG,
+    caption: str | None = None,
+) -> str:
+    label = create_auto_label(LabelKind.FIGURE)
+    caption_children: list[str] = [str(label.source_html())]
+    if caption:
+        caption_children.append(caption)
+
+    # 转化为 html 字符串
+    if isinstance(content, svg_lib.SVG):
+        content = str(content)
+
+    h(
+        "figure",
+        [
+            div(content, classes="uzoncalc-figure-body"),
+            h(
+                "figcaption",
+                caption_children,
+                classes="uzoncalc-label-caption uzoncalc-label-caption-figure",
+            ),
+        ],
+        classes="uzoncalc-figure-wrapper",
+        persist=True,
+    )
+    return label.reference_html()
+
+
 def img(
     src: str,
     classes: str | None = None,
@@ -316,29 +345,12 @@ def Img(
     width: str | int | None = None,
     height: str | int | None = None,
     props: Props | None = None,
-):
-    label = create_auto_label(LabelKind.FIGURE)
-    caption_children: list[str] = [str(label.source_html())]
-    if alt:
-        caption_children.append(alt)
+) -> str:
     img_props = _extend_props(
         props, {"src": src, "alt": alt, "width": width, "height": height}
     )
     image_html = h("img", classes=classes, props=img_props, is_self_closing=True)
-    h(
-        "figure",
-        [
-            div(image_html, classes="uzoncalc-figure-body"),
-            h(
-                "figcaption",
-                caption_children,
-                classes="uzoncalc-label-caption uzoncalc-label-caption-figure",
-            ),
-        ],
-        classes="uzoncalc-figure-wrapper",
-        persist=True,
-    )
-    return label.reference_html()
+    return Figure(image_html, alt)
 
 
 def input(content: str, persist: bool = False):
