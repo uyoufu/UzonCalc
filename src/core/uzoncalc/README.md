@@ -280,3 +280,12 @@ Compile Result: [UzonCalc Full Example](https://calc.uzoncloud.com/example.en.ht
 ```bash
 uzoncalc path/to/your/script.py --output path/to/output.html
 ```
+
+Package a report script and its statically imported local Python modules:
+
+```bash
+uzoncalc zip -p path/to/your/script.py
+python path/to/your/script.uzc
+```
+
+The script must contain at least one `@uzon_calc` entry. If it has no `if __name__ == "__main__"` block, packaging succeeds only when there is exactly one calculation entry, and the generated archive calls `view()` for that entry.

@@ -104,6 +104,15 @@ python example.py
 
 You will see `Serving document at: http://127.0.0.1:32180/`. Click it or open it in a browser to view the result.
 
+**3. Package as a `.uzc` archive**
+
+```bash
+uzoncalc zip -p example.py
+python example.uzc
+```
+
+The zip command validates that the script contains an `@uzon_calc` entry. If the script does not define an `if __name__ == "__main__"` block, the archive automatically calls `view()` for the single calculation entry.
+
 ## 🌐 Online Examples
 
 | Document                  | Source                                                                       | Online Preview                                                         |

@@ -4,14 +4,17 @@ UzonCalc CLI 入口
 用法：
     uzoncalc path/to/script.py
     uzoncalc path/to/script.py --output path/to/output.html
+    uzoncalc zip -p path/to/script.py
 """
 
 import argparse
 import importlib.util
 import inspect
 import os
+from pathlib import Path
 import sys
 
+from .cli_archive import create_uzc_archive
 from .http_server import DEFAULT_SERVER_PORT, serve_reloadable_html
 
 # 环境变量名：设置后 doc.save() 将变为空操作
@@ -145,7 +148,76 @@ def _serve_html(
     )
 
 
-def main():
+def _build_zip_parser() -> argparse.ArgumentParser:
+    """创建 zip 子命令参数解析器。
+
+    Args:
+        None.
+
+    Returns:
+        用于解析 uzoncalc zip 参数的 ArgumentParser。
+
+    Raises:
+        None.
+    """
+    parser = argparse.ArgumentParser(
+        prog="uzoncalc zip",
+        description="将 UzonCalc 计算脚本打包为可通过 python 运行的 .uzc 归档",
+    )
+    parser.add_argument(
+        "--path",
+        "-p",
+        required=True,
+        help="要打包的 Python 脚本路径",
+    )
+    parser.add_argument(
+        "--output",
+        "-o",
+        default=None,
+        help="输出 .uzc 文件路径（省略时保存到脚本同目录）",
+    )
+    return parser
+
+
+def _run_zip_command(argv: list[str]) -> int:
+    """执行 zip 子命令。
+
+    Args:
+        argv: zip 子命令后的命令行参数。
+
+    Returns:
+        成功时返回 0，失败时返回 1。
+
+    Raises:
+        SystemExit: 当 argparse 解析失败时抛出。
+    """
+    parser = _build_zip_parser()
+    args = parser.parse_args(argv)
+    try:
+        archive_path = create_uzc_archive(
+            Path(args.path),
+            Path(args.output) if args.output else None,
+        )
+    except Exception as e:
+        print(f"Error: {e}", file=sys.stderr)
+        return 1
+
+    print(f"Archive created: {archive_path}")
+    return 0
+
+
+def _build_legacy_parser() -> argparse.ArgumentParser:
+    """创建既有脚本运行命令的参数解析器。
+
+    Args:
+        None.
+
+    Returns:
+        用于解析既有 CLI 参数的 ArgumentParser。
+
+    Raises:
+        None.
+    """
     parser = argparse.ArgumentParser(
         prog="uzoncalc",
         description="运行 UzonCalc 计算脚本并导出 HTML 文档",
@@ -165,12 +237,33 @@ def main():
         action="store_true",
         help=f"启动本地 HTTP 预览服务（默认端口 {DEFAULT_SERVER_PORT}，占用时自动递增）",
     )
-    args = parser.parse_args()
+    return parser
+
+
+def main(argv: list[str] | None = None) -> int:
+    """运行 UzonCalc CLI。
+
+    Args:
+        argv: 可选命令行参数；为空时读取 sys.argv[1:]。
+
+    Returns:
+        成功时返回 0，失败时返回 1。
+
+    Raises:
+        SystemExit: 当 argparse 解析失败时抛出。
+        Exception: 既有脚本运行路径中的业务异常会按原行为透传。
+    """
+    argv = list(sys.argv[1:] if argv is None else argv)
+    if argv and argv[0] == "zip":
+        return _run_zip_command(argv[1:])
+
+    parser = _build_legacy_parser()
+    args = parser.parse_args(argv)
 
     script_path = os.path.abspath(args.script)
     if not os.path.isfile(script_path):
         print(f"Error: 脚本文件不存在: {script_path}", file=sys.stderr)
-        sys.exit(1)
+        return 1
 
     output_path = os.path.abspath(args.output) if args.output else None
 
@@ -189,7 +282,8 @@ def main():
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
         raise
+    return 0
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
