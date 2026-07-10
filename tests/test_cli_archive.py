@@ -1,4 +1,6 @@
+import os
 import subprocess
+import stat
 import sys
 import zipfile
 from pathlib import Path
@@ -130,6 +132,38 @@ def test_zip_archive_adds_view_main_for_single_entry_without_main_guard(tmp_path
     )
 
     assert result.stdout.strip() == "view:auto-main"
+
+
+def test_zip_archive_runs_after_user_adds_execute_permission(tmp_path):
+    """用户赋予归档执行权限后，应能直接执行 .uzc 文件。"""
+    _write_uzoncalc_stub(tmp_path)
+    script_path = tmp_path / "report.py"
+    archive_path = tmp_path / "report.uzc"
+    script_path.write_text(
+        "\n".join(
+            [
+                "from uzoncalc import uzon_calc",
+                "",
+                "@uzon_calc",
+                "def sheet():",
+                "    return 'direct-exec'",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    assert cli.main(["zip", "-p", str(script_path)]) == 0
+
+    os.chmod(archive_path, archive_path.stat().st_mode | stat.S_IXUSR)
+    result = subprocess.run(
+        [str(archive_path)],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.stdout.strip() == "view:direct-exec"
 
 
 def test_zip_command_rejects_multiple_entries_without_main_guard(tmp_path, capsys):

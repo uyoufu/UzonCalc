@@ -11,6 +11,7 @@ _ARCHIVE_SOURCE_DIR = f"{_ARCHIVE_BUNDLE_DIR}/src"
 _ARCHIVE_MANIFEST_PATH = f"{_ARCHIVE_BUNDLE_DIR}/manifest.json"
 _MANIFEST_ENTRY_PATH = "entry_path"
 _MANIFEST_AUTO_VIEW_ENTRY = "auto_view_entry"
+_ARCHIVE_SHEBANG = b"#!/usr/bin/env python3\n"
 
 
 def _is_uzon_calc_decorator(decorator: ast.expr) -> bool:
@@ -376,7 +377,7 @@ def create_uzc_archive(
     script_path: Path,
     output_path: Path | None = None,
 ) -> Path:
-    """创建可通过 python 运行的 .uzc 归档。
+    """创建可通过 python 或执行权限直接运行的 .uzc 归档。
 
     Args:
         script_path: 待打包的 UzonCalc 计算书脚本。
@@ -420,18 +421,23 @@ def create_uzc_archive(
         _MANIFEST_AUTO_VIEW_ENTRY: auto_view_entry,
     }
 
-    with zipfile.ZipFile(
-        archive_path,
-        "w",
-        compression=zipfile.ZIP_DEFLATED,
-    ) as archive:
-        archive.writestr("__main__.py", _build_archive_main_source(auto_view_entry))
-        archive.writestr(
-            _ARCHIVE_MANIFEST_PATH,
-            json.dumps(manifest, ensure_ascii=False, indent=2),
-        )
-        for source_file in source_files:
-            relative_source_path = source_file.relative_to(source_root).as_posix()
-            archive.write(source_file, f"{_ARCHIVE_SOURCE_DIR}/{relative_source_path}")
+    with archive_path.open("wb") as archive_file:
+        archive_file.write(_ARCHIVE_SHEBANG)
+        with zipfile.ZipFile(
+            archive_file,
+            "w",
+            compression=zipfile.ZIP_DEFLATED,
+        ) as archive:
+            archive.writestr("__main__.py", _build_archive_main_source(auto_view_entry))
+            archive.writestr(
+                _ARCHIVE_MANIFEST_PATH,
+                json.dumps(manifest, ensure_ascii=False, indent=2),
+            )
+            for source_file in source_files:
+                relative_source_path = source_file.relative_to(source_root).as_posix()
+                archive.write(
+                    source_file,
+                    f"{_ARCHIVE_SOURCE_DIR}/{relative_source_path}",
+                )
 
     return archive_path
