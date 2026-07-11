@@ -5,3 +5,5 @@
 ## 多语言
 
 controller 和 service 层中，对前端所有的返回值都应进行多语言适配，使用 `ui/api/app/i18n.py` 中的 `_(message:str)` 函数
+
+## Codegraph 代码图
