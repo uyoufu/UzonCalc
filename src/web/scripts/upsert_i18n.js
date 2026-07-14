@@ -72,7 +72,7 @@ export function parseCliArgs(argv) {
 }
 
 /**
- * Reads a locale file exported as `export default { ... }`.
+ * Reads a locale default export from either an object literal or an executable Bun module.
  * @param {string} filePath Locale file path.
  * @returns {Record<string, unknown>} Parsed locale object.
  */
@@ -80,11 +80,29 @@ export function readLocaleFile(filePath) {
   const sourceText = fs.readFileSync(filePath, 'utf8')
   const objectText = sourceText.replace(/^\s*export\s+default\s+/, '').trim()
 
-  if (!objectText.startsWith('{') || !objectText.endsWith('}')) {
-    throw new Error(`Locale file must use "export default { ... }": ${filePath}`)
+  if (objectText.startsWith('{') && objectText.endsWith('}')) {
+    return Function(`"use strict"; return (${objectText});`)()
   }
 
-  return Function(`"use strict"; return (${objectText});`)()
+  if (typeof Bun === 'undefined') {
+    throw new Error(`Locale file must use "export default { ... }" outside Bun: ${filePath}`)
+  }
+
+  // Locale modules may assign the object to a typed constant before exporting it.
+  // Let Bun evaluate that module shape while keeping all locale access inside this script.
+  const importResult = Bun.spawnSync({
+    cmd: [
+      'bun',
+      '-e',
+      `import locale from ${JSON.stringify(pathToFileURL(filePath).href)}; console.log(JSON.stringify(locale))`
+    ],
+    stdout: 'pipe',
+    stderr: 'pipe'
+  })
+  if (importResult.exitCode !== 0) {
+    throw new Error(`Failed to load locale module ${filePath}: ${importResult.stderr.toString().trim()}`)
+  }
+  return JSON.parse(importResult.stdout.toString())
 }
 
 /**
