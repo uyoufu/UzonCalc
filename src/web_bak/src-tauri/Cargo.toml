@@ -1,0 +1,44 @@
+[package]
+name = "UzonCalc"
+version = "1.3.0"
+description = "UzonCalc 是一款 AI 友好的工程计算软件"
+authors = ["uyoufu"]
+license = "MIT"
+repository = "https://github.com/uyoufu/UzonCalc"
+edition = "2021"
+rust-version = "1.77.2"
+
+[package.metadata.i18n]
+load-path = "locales"
+default-locale = "zh-CN"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[lib]
+name = "app_lib"
+crate-type = ["staticlib", "cdylib", "rlib"]
+
+[build-dependencies]
+tauri-build = { version = "2.6.1", features = [] }
+
+[dependencies]
+axum = { version = "0.8", features = ["tokio"] }
+rust-i18n = "3"
+tokio = { version = "1", features = ["net", "rt-multi-thread", "sync"] }
+serde_json = "1.0"
+serde = { version = "1.0", features = ["derive"] }
+log = "0.4"
+tauri = { version = "2.11.1", features = ["tray-icon"] }
+tauri-plugin-log = "2"
+toml = "0.9"
+tower-http = { version = "0.6", features = ["cors"] }
+
+[target.'cfg(any(target_os = "macos", windows, target_os = "linux"))'.dependencies]
+tauri-plugin-single-instance = "2"
+
+[profile.release]
+codegen-units = 1 # 允许 LLVM 执行更好的优化。
+lto = true # 启用链接时优化。
+opt-level = "s" # 优先考虑小的二进制文件大小。如果您更喜欢速度，请使用 `3`。
+panic = "abort" # 通过禁用 panic 处理程序来提高性能。
+strip = true # 确保移除调试符号。

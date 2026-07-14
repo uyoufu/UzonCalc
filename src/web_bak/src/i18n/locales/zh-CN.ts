@@ -1,0 +1,350 @@
+export default {
+  // #region 全局通用
+  global: {
+    appName: 'UzonCalc',
+    order: '序号',
+    failed: '失败',
+    success: '操作成功',
+    confirm: '确认',
+    cancel: '取消',
+    view: '查看',
+    version: '版本',
+    lastModified: '最后修改时间',
+    modify: '修改',
+    edit: '编辑',
+    delete: '删除',
+    new: '新增',
+    add: '添加',
+    confirmOperation: '操作确认',
+    deleteConfirmation: '删除确认',
+    warning: '警告',
+    notice: '注意',
+    cancelOperation: '取消操作',
+    languageRequired: '语言是必填项',
+    htmlContentRequired: 'Html 内容是必填项',
+    deleteSuccess: '删除成功',
+    updateSuccess: '更新成功',
+    pleaseInputNumber: '请输入数字',
+    import: '导入',
+    importing: '导入中',
+    export: '导出',
+    exporting: '导出中',
+    validate: '验证',
+    validateMultiple: '批量验证',
+    yes: '是',
+    no: '否',
+    empty: '无',
+    save: '保存'
+  },
+  // #endregion
+
+  // #region components
+  components: {
+    // 清空
+    clear: '清空',
+    // 移除已上传文件
+    removeUploadedFile: '移除已上传文件',
+    // 选择文件
+    selectFile: '选择文件',
+    // 上传
+    upload: '上传',
+    // 中止上传
+    abortUpload: '中止上传',
+    // 等待上传中...
+    waitingForUpload: '等待上传中...',
+    // 剩余
+    remain: '剩余',
+    // 正在计算 ${callbackData.file.name} 哈希值
+    calculatingFileHash: '正在计算 {fileName} 哈希值',
+    // 正在上传 ${file.name}
+    uploadingFile: '正在上传 {fileName}'
+  },
+  // #endregion
+
+  // #region search input 组件
+  searchInput: {
+    placeholder: '搜索'
+  },
+  // #endregion
+
+  collapseLeft: {
+    collapse: '折叠',
+    expand: '展开'
+  },
+
+  collapseRight: {
+    collapse: '折叠',
+    expand: '展开'
+  },
+
+  // #region components 组件
+  categoryList: {
+    youCanRightClickToAddNewCategory: '您可以右键单击以添加新分类',
+    newCategory: '新增分类',
+    newCategorySuccess: '新增分类成功',
+    onlyLettersNumbersUnderscoresAndCannotStartWithNumber:
+      '仅支持字母、数字、下划线，且不能以数字开头',
+
+    modifyCategory: '修改分类',
+    deleteCategory: '删除分类',
+    modifyCategorySuccess: '修改分类成功',
+
+    deleteCategoryConfirm: '您确定要删除分类 "{label}" 吗？此操作无法撤销。',
+    deleteCategorySuccess: '删除分类 "{label}" 成功',
+
+    field_name: '名称',
+    field_icon: '图标',
+    field_cover: '封面',
+    field_total: '总数',
+    field_order: '排序值',
+    field_description: '描述'
+  },
+  // #endregion
+
+  // #region utils
+  utils: {
+    // `... 等共 ${labels.length} ${unit}`
+    totalItems: '... 等共 {count} {unit}',
+    item: '项',
+
+    // 未找到文件
+    file_fileNotFound: '未找到文件',
+    // 未检测到文件,可能是用户已取消
+    file_noFileDetected: '未检测到文件,可能是用户已取消',
+    // 指定 Worksheet
+    file_specifyWorksheet: '指定 WorkSheet',
+    // 请选择 Worksheet
+    file_pleaseSelectWorksheet: '请选择 WorkSheet',
+    // 字段 ${field} 不能为空
+    file_fieldCannotBeEmpty: '字段 {field} 不能为空',
+    // 严格模式下, mappers 不能为空
+    file_mappersCannotBeEmptyInStrictMode: '严格模式下, mappers 不能为空',
+    // 第 ${rowIndex} 行数据中，${map.headerName} 列不能为空
+    file_fieldCannotBeEmptyAtRow: '第 {rowIndex} 行数据中，{field} 列不能为空',
+    // 正在计算 hash 值...
+    file_calculatingHash: '正在计算 hash 值...',
+    // 文件 ${file.name} sha256 值为：
+    file_fileHashCalculated: '文件 {fileName} sha256 值为：',
+    // hash 已校验, 等待上传
+    file_hashVerifiedWaitingUpload: 'hash 已校验, 等待上传',
+    // 下载地址不合法,应以 http 开头
+    file_invalidDownloadUrl: '下载地址不合法,应以 http 开头',
+    // 正在解析文件...
+    file_parsingFile: '正在解析文件...',
+    // 下载完成
+    file_downloadCompleted: '下载完成',
+    // 下载失败
+    file_downloadFailed: '下载失败',
+    // ${fileHandle.name} 下载中...
+    file_downloadingFile: '{fileName} 下载中...',
+    // ${ext} 文件
+    file_fileExtension: '{ext} 文件'
+  },
+  // #endregion
+
+  // #region 路由
+  routes: {
+    sponsorAuthor: '支持作者',
+    helpDoc: '帮助文档',
+    startGuide: '使用说明',
+    login: '用户登录',
+    singlePages: '单页面',
+    exception: '异常'
+  },
+  // #endregion
+
+  // #region 按钮
+  buttons: {
+    new: '新增',
+    newItem: '新增项',
+    delete: '删除',
+    deleteItem: '删除项',
+    save: '保存',
+    cancel: '取消',
+    cancelCurrentOperation: '取消当前操作',
+    export: '导出',
+    exportData: '导出数据',
+    import: '导入',
+    importData: '导入数据',
+    confirm: '确认',
+    confirmCurrentOperation: '确认当前操作'
+  },
+  // #endregion
+
+  // #region 登录页
+  loginPage: {
+    userName: '用户名',
+    password: '密码',
+    signIn: '登录',
+    version: '版本',
+    client: '客户端',
+    server: '服务器',
+    pleaseInputUserName: '请输入用户名',
+    pleaseInputPassword: '请输入密码'
+  },
+  // #endregion
+
+  // #region user
+  userPage: {
+    userInfo: '用户信息',
+    profile: '个人资料'
+  },
+  // #endregion
+
+  // #region 首页
+  dashboardPage: {
+    index: '首页',
+    newCalcReport: '新建报告',
+    myFavorites: '我的收藏',
+    noCategory: '无分类'
+  },
+  // #endregion
+
+  // #region calcReport
+  calcReportPage: {
+    calcManagement: '计算管理',
+    calcReport: '计算报告',
+    reportTemplate: '报告模板',
+    myCalcs: '我的计算',
+
+    newCalcReport: '新建计算',
+    newCalcReportTooltip: '创建新的计算报告',
+
+    editCalcReport: '编辑计算',
+
+    defaultCalcReportName: '',
+    errorNoCategory: '没有 categoryOid，请关联分类信息',
+    errorCategoryNotFound: '找不到对应的分类信息',
+    pleaseInputCalcReportName: '请输入计算报告名称(有效的文件名，不能包含 : * ? " < > | 等字符)',
+
+    calcReportViewer: '查看计算',
+
+    // #region Viewer 页面
+    viewer: {
+      name: '名称',
+      openLocalFile: '打开本地文件',
+      devLocalFilePathPlaceholder: '输入本机文件完整路径',
+      applyDevLocalFilePath: '使用该路径打开',
+      restart: '重新开始',
+      executeCalculation: '执行计算',
+      resumeCalculation: '继续计算',
+      uiDisplayArea: 'UI 显示区',
+      pleaseStartExecution: '请单击 "执行计算" 按钮开始执行',
+      missingReportOidOrPath: '缺失计算报告 oid 或路径',
+      calculationCompleted: '计算执行完成',
+      missingExecutionId: '缺失执行 ID',
+      resumeExecutionFailed: '恢复计算执行失败',
+      saveAsInstance: '保存为计算实例',
+      saveCurrentInstance: '保存当前实例',
+      saveInstance: '保存计算实例',
+      saveInstanceSuccess: '计算实例保存成功',
+      instanceCategory: '实例分类',
+      resultNotReady: '请先执行计算'
+    },
+    // #endregion
+
+    editor: {
+      index: {
+        // 请输入报告名称
+        pleaseInputReportName: '请输入报告名称(仅支持字母、数字、下划线，且不能以数字开头)',
+        // 保存 Ctrl + S
+        saveTooltip: '保存 (Ctrl + S)',
+        // 保存成功
+        saveSuccess: '保存成功',
+        // 保存失败
+        saveFailed: '保存失败',
+        runTooltip: '运行 (F5)',
+        formatTooltip: '格式化 (Alt + Shift + F)'
+      },
+
+      menubar: {
+        insert: '插入',
+        format: '格式',
+        groups: {
+          elements: '元素',
+          options: '选项'
+        },
+        elements: {
+          title: '标题',
+          subtitle: '副标题',
+          h: '任意章节标题',
+          h1: '一级章节标题',
+          h2: '二级章节标题',
+          h3: '三级章节标题',
+          h4: '四级章节标题',
+          h5: '五级章节标题',
+          h6: '六级章节标题',
+          p: '段落',
+          div: '容器',
+          span: '行内元素',
+          br: '换行',
+          row: '行',
+          img: '图片',
+          table: '表格',
+          input: '输入框',
+          code: '代码块',
+          info: '信息',
+          latex: 'LaTeX',
+          plot: '图表'
+        },
+        options: {
+          show: '显示',
+          hide: '隐藏',
+          enableSubstitution: '启用替换',
+          disableSubstitution: '禁用替换',
+          enableFStringEquation: '启用 F 字符串公式',
+          disableFStringEquation: '禁用 F 字符串公式',
+          inline: '行内',
+          endInline: '换行',
+          alias: '别名'
+        }
+      }
+    },
+
+    list: {
+      col_name: '名称',
+      col_description: '描述',
+      col_version: '版本',
+      col_lastModified: '最后修改时间',
+      col_createdAt: '创建时间',
+      deleteReportConfirm: '确认删除计算报告 "{name}"？',
+      reportName: '报告名称',
+      reportDescription: '报告描述',
+      modifyReport: '修改报告',
+      modifyInfo: '修改信息',
+      modifyReportSourceCode: '修改源码',
+      copy: '复制',
+      copyReport: '复制报告',
+      copyReportNameSuffix: '_副本',
+      copyReportSuccess: '复制报告成功',
+      reportNameRequired: '请输入报告名称',
+      showInFileExplorer: '在文件资源管理器中显示',
+      modifyReportSuccess: '修改报告成功'
+    }
+  },
+
+  calcReportInstancePage: {
+    calcsManagement: '计算管理',
+    myCalcs: '我的计算',
+    defaultCategoryName: '默认分类',
+    list: {
+      col_name: '名称',
+      col_description: '描述',
+      col_reportName: '来源计算',
+      col_version: '版本',
+      col_lastModified: '最后修改时间',
+      col_createdAt: '创建时间',
+      instanceName: '实例名称',
+      instanceDescription: '实例描述',
+      modifyInstance: '修改计算实例',
+      modifyInfo: '修改信息',
+      modifyInstanceSuccess: '修改计算实例成功',
+      deleteInstanceConfirm: '确认删除计算实例 "{name}"？'
+    }
+  },
+
+  calcModulePage: {
+    calcModule: '计算模块'
+  }
+  // #endregion
+}

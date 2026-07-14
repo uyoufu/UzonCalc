@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="zh-CN">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>UzonCalc - 启动失败</title>
+  <style>
+    :root {
+      --primary: #7367f0;
+      --secondary: #42b883;
+      --negative: #ff7a7a;
+      --accent: #2f3842;
+      --bg-1: #f7f8ff;
+      --bg-2: #ffffff;
+      --text-main: #1f2430;
+      --text-sub: #5c6273;
+      --line: rgba(115, 103, 240, 0.18);
+      --negative-soft: rgba(255, 122, 122, 0.13);
+      --negative-line: rgba(255, 122, 122, 0.34);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html,
+    body {
+      margin: 0;
+      width: 100%;
+      height: 100%;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang SC", "Microsoft YaHei", sans-serif;
+      background:
+        radial-gradient(1000px 520px at 8% 0%, rgba(115, 103, 240, 0.2) 0%, rgba(115, 103, 240, 0) 55%),
+        radial-gradient(860px 460px at 100% 100%, rgba(66, 184, 131, 0.16) 0%, rgba(66, 184, 131, 0) 60%),
+        radial-gradient(620px 360px at 82% 8%, rgba(255, 122, 122, 0.14) 0%, rgba(255, 122, 122, 0) 58%),
+        linear-gradient(180deg, var(--bg-1) 0%, #f3f5fb 100%);
+      color: var(--text-main);
+      overflow: hidden;
+    }
+
+    .wrap {
+      width: 100%;
+      height: 100%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 28px;
+    }
+
+    .card {
+      width: min(720px, 92vw);
+      border-radius: 18px;
+      padding: 36px 40px;
+      background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), var(--bg-2));
+      border: 1px solid var(--line);
+      box-shadow: 0 16px 40px rgba(31, 36, 48, 0.12);
+      backdrop-filter: blur(4px);
+    }
+
+    .mark {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 48px;
+      height: 48px;
+      border-radius: 14px;
+      background: var(--negative-soft);
+      border: 1px solid var(--negative-line);
+      color: var(--negative);
+      font-size: 28px;
+      font-weight: 700;
+      line-height: 1;
+      box-shadow: 0 8px 22px rgba(255, 122, 122, 0.16);
+    }
+
+    .title {
+      margin: 20px 0 0;
+      color: var(--primary);
+      font-size: 32px;
+      line-height: 1.2;
+      letter-spacing: 0;
+      font-weight: 700;
+    }
+
+    .lead {
+      margin: 10px 0 0;
+      color: var(--text-sub);
+      font-size: 15px;
+      line-height: 1.6;
+    }
+
+    .details {
+      margin-top: 26px;
+      padding: 16px 18px 17px;
+      border: 1px solid var(--negative-line);
+      border-radius: 8px;
+      background: linear-gradient(180deg, rgba(255, 122, 122, 0.09), rgba(255, 255, 255, 0.74));
+    }
+
+    .details-label {
+      margin: 0 0 8px;
+      color: var(--accent);
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .message {
+      margin: 0;
+      color: #354052;
+      font-family: "SFMono-Regular", Consolas, "Liberation Mono", monospace;
+      font-size: 13px;
+      line-height: 1.6;
+      overflow-wrap: anywhere;
+      white-space: pre-wrap;
+    }
+
+    .actions {
+      display: grid;
+      gap: 10px;
+      margin-top: 22px;
+      padding-top: 20px;
+      border-top: 1px solid var(--line);
+      color: #7a8090;
+      font-size: 14px;
+      line-height: 1.55;
+    }
+
+    .action {
+      display: flex;
+      gap: 10px;
+      align-items: flex-start;
+    }
+
+    .dot {
+      width: 7px;
+      height: 7px;
+      margin-top: 8px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--primary), var(--secondary));
+      flex: 0 0 auto;
+    }
+
+    @media (max-width: 520px) {
+      .wrap {
+        padding: 18px;
+      }
+
+      .card {
+        padding: 26px 22px;
+      }
+
+      .title {
+        font-size: 24px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="wrap">
+    <section class="card" aria-labelledby="launch-error-title">
+      <div class="mark">!</div>
+      <h1 class="title" id="launch-error-title">后台服务启动失败</h1>
+      <p class="lead" id="launch-error-lead">UzonCalc 无法连接本地后台服务，因此暂时不能进入应用界面。</p>
+
+      <section class="details" aria-label="错误详情" id="launch-error-details">
+        <p class="details-label" id="launch-error-details-label">错误详情</p>
+        <p class="message" id="launch-error-message">后台服务未能正常启动。</p>
+      </section>
+
+      <div class="actions">
+        <div class="action">
+          <span class="dot"></span>
+          <span id="launch-error-action-restart">请关闭应用后重新启动，等待后台服务完成初始化。</span>
+        </div>
+        <div class="action">
+          <span class="dot"></span>
+          <span id="launch-error-action-logs">如果问题持续出现，请检查应用目录下的日志文件或确认安装包资源完整。</span>
+        </div>
+      </div>
+    </section>
+  </main>
+  <script>
+    const texts = window.__UZON_LAUNCH_ERROR_TEXTS__;
+
+    function setText(id, value) {
+      if (typeof value !== 'string' || value.length === 0) {
+        return;
+      }
+
+      const element = document.getElementById(id);
+      if (element) {
+        element.textContent = value;
+      }
+    }
+
+    function setAttribute(id, name, value) {
+      if (typeof value !== 'string' || value.length === 0) {
+        return;
+      }
+
+      const element = document.getElementById(id);
+      if (element) {
+        element.setAttribute(name, value);
+      }
+    }
+
+    function getErrorMessage() {
+      const params = new URLSearchParams(window.location.search);
+      const message = params.get('message');
+      if (typeof message === 'string' && message.length > 0) {
+        return message;
+      }
+
+      if (texts && typeof texts.default_error_message === 'string') {
+        return texts.default_error_message;
+      }
+
+      return '';
+    }
+
+    if (texts && typeof texts === 'object') {
+      setText('launch-error-title', texts.title);
+      setText('launch-error-lead', texts.lead);
+      setText('launch-error-details-label', texts.details_label);
+      setText('launch-error-action-restart', texts.action_restart);
+      setText('launch-error-action-logs', texts.action_logs);
+      setAttribute('launch-error-details', 'aria-label', texts.details_label);
+
+      if (typeof texts.page_title === 'string' && texts.page_title.length > 0) {
+        document.title = texts.page_title;
+      }
+
+      if (typeof texts.html_lang === 'string' && texts.html_lang.length > 0) {
+        document.documentElement.lang = texts.html_lang;
+      } else if (typeof texts.locale === 'string' && texts.locale.length > 0) {
+        document.documentElement.lang = texts.locale;
+      }
+    }
+
+    setText('launch-error-message', getErrorMessage());
+  </script>
+</body>
+
+</html>
