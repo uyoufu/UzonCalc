@@ -1,44 +1,54 @@
-"""
-本地 Sandbox 执行器
+"""Trusted in-process execution backend for configured desktop-style use."""
 
-封装现有的 SandboxManager 逻辑，提供统一的执行器接口
-"""
+from typing import Any
 
-from typing import Any, Dict
+from app.db.models.enums import ExecutorType
+from app.service.calc_report_build_service import local_runtime_fingerprint
+
+from .backend_types import (
+    PreparedExecutionBundle,
+    RuntimeDescriptor,
+    SandboxBackendMode,
+)
 from .execution_result import ExecutionResult
 from .executor_interface import ISandboxExecutor
 from .manager import SandboxManager
 
 
-class LocalSandboxExecutor(ISandboxExecutor):
-    """本地进程内执行器"""
+class InProcessSandboxExecutor(ISandboxExecutor):
+    """Run pre-instrumented bundle code directly inside the API process."""
 
-    async def execute_script(
+    async def runtime_descriptor(self) -> RuntimeDescriptor:
+        """Return the local Python/toolchain identity."""
+        return RuntimeDescriptor(
+            mode=SandboxBackendMode.IN_PROCESS,
+            fingerprint=local_runtime_fingerprint(),
+            executor_type=ExecutorType.LOCAL,
+            node_id="api-process",
+        )
+
+    async def execute_bundle(
         self,
-        script_path: str,
-        defaults: Dict[str, Dict[str, Any]] | None = None,
+        bundle: PreparedExecutionBundle,
+        defaults: dict[str, dict[str, Any]] | None = None,
         is_silent: bool = False,
-        package_root: str | None = None,
     ) -> ExecutionResult:
-        """执行脚本"""
+        """Execute the bundle entry through the existing interactive runner."""
         return await SandboxManager.execute_script(
-            script_path=script_path,
+            script_path=str(bundle.root / bundle.entry_path),
             defaults=defaults or {},
             is_silent=is_silent,
-            package_root=package_root,
+            package_root=str(bundle.root),
         )
 
     async def continue_execution(
         self,
         execution_id: str,
-        defaults: Dict[str, Dict[str, Any]],
+        defaults: dict[str, dict[str, Any]],
     ) -> ExecutionResult:
-        """继续执行"""
-        return await SandboxManager.continue_execution(
-            execution_id=execution_id,
-            defaults=defaults,
-        )
+        """Continue the matching in-process runner."""
+        return await SandboxManager.continue_execution(execution_id, defaults)
 
     async def terminate(self, execution_id: str) -> None:
-        """终止执行"""
+        """Cancel and remove the matching in-process runner."""
         SandboxManager.terminate(execution_id)

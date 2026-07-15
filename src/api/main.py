@@ -1,3 +1,5 @@
+"""Create and run the UzonCalc HTTP API application."""
+
 import os
 import time
 import sys
@@ -29,6 +31,8 @@ from app.mcp.startup import (
     close_tool_search,
 )
 from app.service.playwright_service import close_playwright_service
+from app.sandbox.core.backend_factory import close_sandbox_executor
+from app.service.calc_execution_service import expire_orphaned_executions
 
 from utils.jwt_helper import verify_jwt
 
@@ -58,6 +62,9 @@ async def lifespan(app: FastAPI):
     if not db_initialized:
         raise RuntimeError("Database initialization failed during startup")
 
+    async with get_db_manager().session() as session:
+        await expire_orphaned_executions(session)
+
     # migrations
     # run_migrations()
 
@@ -82,6 +89,9 @@ async def lifespan(app: FastAPI):
 
         # 释放 Playwright 浏览器缓存
         await close_playwright_service()
+
+        # 终止仍在运行的计算会话并关闭远程连接池
+        await close_sandbox_executor()
     except Exception as e:
         logger.error(f"Database shutdown error: {e}")
 
@@ -143,6 +153,7 @@ logger.info(f"Directories initialized!")
 # 添加鉴权中间件
 @app.middleware("http")
 async def authentication(request: Request, call_next: Callable):
+    """Validate JWT authentication for protected HTTP requests."""
     # 忽略根路径和静态文件路径
     if request.url.path == "/":
         return await call_next(request)
@@ -184,6 +195,7 @@ async def authentication(request: Request, call_next: Callable):
 # # 添加异常捕获中间件
 @app.middleware("http")
 async def catch_exception(request: Request, call_next):
+    """Convert application and framework exceptions into response envelopes."""
     try:
         response = await call_next(request)
     except Exception as e:
@@ -205,6 +217,7 @@ async def catch_exception(request: Request, call_next):
 
 @app.middleware("http")
 async def use_i18n(request: Request, call_next: Callable):
+    """Select request-local gettext translations before route execution."""
     return await i18n_middleware(request, call_next)
 
 
@@ -219,6 +232,7 @@ async def use_i18n(request: Request, call_next: Callable):
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
+    """Measure request latency and expose it in a response header."""
     start_time = time.time()
 
     logger.debug(f"Start processing request: [{request.url}]")

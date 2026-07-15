@@ -19,7 +19,7 @@ data/calcs/{userId}/{categoryName}/{reportName}.py
 5. 同一次执行可以引用同一计算书的多个发布版本。
 6. 所有执行都固定到可复现的源码、依赖、预插桩产物和运行时版本。
 7. 本机 sandbox 与 Docker sandbox 使用相同 bundle 协议和缓存键。
-8. 托管计算书在保存后提前生成插桩文件，执行阶段不再临时插桩。
+8. 托管计算书在首次执行时按 runtime fingerprint 懒构建插桩文件，后续执行复用 READY 产物。
 
 本方案统一使用 `CalcReport` 领域命名。
 
@@ -119,7 +119,7 @@ artifact hash 根据规范化文件清单计算，文件清单至少包含相对
 4. 拒绝绝对路径、`..`、符号链接、设备文件和其他不安全归档内容。
 5. 生成或复用 SOURCE artifact。
 6. 原子替换 workspace，更新数据库中的 artifact 指针并递增 revision。
-7. 提交异步预插桩任务。
+7. 不触发预插桩；首次执行通过 artifact build 租约协调懒构建。
 
 源码保存成功不依赖预插桩成功。编辑中的语法或插桩错误不会导致源码丢失，但会阻止运行和发布。
 
@@ -635,22 +635,22 @@ VERSION
 
 编辑器默认运行 WORKSPACE，普通查看器和正式执行默认运行 LATEST。未发布报告可以运行 WORKSPACE，但不能运行 LATEST、被引用或分享。
 
-## 8. 本机 sandbox 运行与缓存
+## 8. 执行后端选择与本机 sandbox
 
-第一阶段实现本机 sandbox，但从一开始使用 bundle 接口，不再向 executor 传递用户目录的 `script_path` 和 `package_root`。
+部署通过 `sandbox.mode` 全局选择 `in_process`、Linux `bubblewrap` 或独立远程 `docker` 服务。三种后端使用相同 bundle、会话和运行时 fingerprint 接口，不再向 executor 传递用户目录的 `script_path` 和 `package_root`。`in_process` 仅用于部署者明确接受同进程风险的环境；`bubblewrap` 和 Docker 均为每次执行提供独立进程边界。
 
 ### 8.1 执行流程
 
 1. 主 API 完成报告权限、执行来源和依赖解析。
-2. 校验全部 INSTRUMENTED artifact 为 READY。
+2. 为全部 SOURCE/runtime 组合取得或等待数据库 build 租约；租约持有者在独立 helper 进程执行纯 AST 构建，其余并发请求共享结果。
 3. 生成 bundle manifest 和 bundle hash。
 4. Bundle assembler 按 hash 组装或复用只读目录。
 5. 为本次执行创建独立 `/work` 和 `/output`。
-6. 启动全新 Python 子进程加载预插桩入口。
+6. 按配置在进程内、bubblewrap 子进程或远程 Docker 容器加载预插桩入口。
 7. 创建 `calc_execution`，将进程通信通道和租约写入执行管理器；交互 defaults 和步骤单独写入一对一的 `user_input_history`。
 8. 完成、取消、超时或异常时终止整个进程组并释放租约。
 
-本机执行也不得在主 API 进程 import 用户代码。每次执行使用新子进程，避免 `sys.modules`、全局变量、线程和 monkey patch 污染后续计算。
+`bubblewrap` 后端不得在主 API 进程 import 用户代码，并为每次执行使用新子进程，避免 `sys.modules`、全局变量、线程和 monkey patch 污染后续计算。`in_process` 是显式配置的兼容后端，不提供该隔离保证。
 
 ### 8.2 本机缓存层
 
@@ -751,7 +751,7 @@ POST /sandbox/terminate
 2. 拒绝路径穿越、符号链接、压缩炸弹、超大文件和异常文件数量。
 3. 读取入口清单并恢复源码树。
 4. 生成平台 `calcbook.json` 和 SOURCE artifact。
-5. 保持未发布状态并异步预插桩。
+5. 保持未发布和 `not_requested` 构建状态，首次执行时懒构建。
 6. 导入阶段不执行任何用户代码。
 
 后续 `.uzc` 可以扩展 SOURCE manifest 和依赖声明，但派生执行文件仍不作为跨运行时交换格式。
@@ -778,7 +778,7 @@ build 响应来自 `calc_report_artifact_build`，不从报告主表读取状态
 ```text
 POST /calc-report/{reportOid}/versions
   body: { versionName, description? }
-  要求当前 SOURCE 对目标工具链构建为 READY
+  只要求 SOURCE 通过静态语法和依赖声明校验，不触发目标工具链构建
 
 GET /calc-report/{reportOid}/versions
   返回全部发布版本和 latest 标记
@@ -814,7 +814,7 @@ executorType
 isCompleted / resultPath / windows
 ```
 
-预插桩未完成统一返回稳定业务错误 `EXECUTION_ARTIFACT_NOT_READY`；构建失败返回 `EXECUTION_ARTIFACT_BUILD_FAILED` 和结构化诊断。请求线程不得临时执行 AST 插桩。
+首次执行等待懒构建；等待超时统一返回稳定业务错误 `EXECUTION_ARTIFACT_NOT_READY`，构建失败返回 `EXECUTION_ARTIFACT_BUILD_FAILED` 和结构化诊断。AST 插桩只在独立 helper 进程执行，不在主 API 进程执行用户模块或顶层代码。
 
 ## 12. 发布状态
 
@@ -841,17 +841,17 @@ workspaceArtifactId 匹配其他发布版本
 1. **数据库与 SOURCE 存储**：统一 BaseModel 和初始迁移，实现规范化报告、artifact、版本、依赖、bundle、执行和实例表。
 2. **预插桩构建**：实现 artifact build 状态机、纯 AST 文件构建器、诊断、source map 和 INSTRUMENTED artifact。
 3. **版本与依赖**：实现发布/latest/恢复、版本审核、关系型 selector、依赖快照和作用域 import 改写。
-4. **本机 sandbox**：切换到 bundle/component 请求和独立子进程，分别落地执行审计与交互输入历史。
+4. **执行后端**：实现共用 bundle/component 契约和 `in_process`、`bubblewrap`、远程 Docker 三种配置后端，分别落地执行审计与交互输入历史。
 5. **分享和导入**：在 SOURCE artifact 与依赖模型上实现固定版本分享和安全 `.uzc` 导入。
-6. **Docker sandbox**：实现 prepare/upload/execute 协议、节点缓存、容器租约和资源隔离。
+6. **Docker sandbox**：实现独立服务的 prepare/upload/execute 协议、节点缓存、容器租约和资源隔离。
 
-第一阶段完成本机 sandbox；Docker 的协议、缓存键和失败语义在第一阶段即固定，避免后续修改 bundle 和数据库契约。
+三种后端在同一阶段完成，并共用协议、缓存键和失败语义，避免因部署模式修改 bundle 和数据库契约。
 
 ## 14. 验收场景
 
 ### 14.1 workspace 与版本
 
-1. 新报告保存后只有 workspace，状态为 `unpublished`；构建 READY 后可预览，但不能引用或分享。
+1. 新报告保存后只有 workspace，状态为 `unpublished + not_requested`；首次预览等待构建 READY，未发布内容仍不能被引用或分享。
 2. 发布 `1.0.0` 后 latest 指向该版本；再次保存 workspace 不改变 latest。
 3. 发布 `1.1.0` 后新执行使用 `1.1.0`，旧 bundle 和活动会话仍使用原版本。
 4. latest 回退只移动指针；从版本恢复只修改 workspace。

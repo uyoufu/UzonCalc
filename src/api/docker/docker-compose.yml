@@ -1,4 +1,30 @@
 services:
+  sandbox-runtime-image:
+    build:
+      context: ../../..
+      dockerfile: src/api/docker/Dockerfile.sandbox
+    image: uzoncalc-sandbox:latest
+    command: ["true"]
+
+  sandbox-service:
+    build:
+      context: ../../..
+      dockerfile: src/api/docker/Dockerfile.sandbox-service
+    image: uzoncalc-sandbox-service:latest
+    restart: unless-stopped
+    depends_on:
+      sandbox-runtime-image:
+        condition: service_completed_successfully
+    environment:
+      UZONCALC_SANDBOX_TOKEN: ${UZONCALC_SANDBOX_TOKEN:?set UZONCALC_SANDBOX_TOKEN}
+      UZONCALC_SANDBOX_CACHE: ${UZONCALC_SANDBOX_CACHE:-/var/lib/uzoncalc-sandbox}
+    ports:
+      - "8001:8001"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      # The identical host/container path lets sibling runtime containers bind it.
+      - ${UZONCALC_SANDBOX_CACHE:-/var/lib/uzoncalc-sandbox}:${UZONCALC_SANDBOX_CACHE:-/var/lib/uzoncalc-sandbox}
+
   # postgres:
   #   image: postgres:16-alpine
   #   restart: always

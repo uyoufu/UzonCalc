@@ -1,131 +1,156 @@
-"""
-计算执行 API 控制器
+"""HTTP endpoints for reproducible managed calculation execution."""
 
-提供 HTTP 端点供前端调用。
-"""
+from typing import Annotated
 
-from fastapi import APIRouter, Body, Depends, HTTPException
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
-from typing import Annotated, Optional
 
-from app.controller.calc.calc_dto import (
-    CalcExecutionReqDTO,
-    CalcFileReqDTO,
-    CalcResumeReqDTO,
-    ExecutionResultResDTO,
+from app.controller.calc.calc_execution_dto import (
+    CalcExecutionContinueDTO,
+    CalcExecutionListResDTO,
+    CalcExecutionResDTO,
+    CalcExecutionStartDTO,
 )
 from app.controller.depends import get_session, get_token_payload
-from app.i18n import _
 from app.response.response_result import ResponseResult, ok
 from app.sandbox.core.execution_result import ExecutionResult
-from app.service.calc_execution_service import (
-    start_execution,
-    continue_execution,
-    start_file_execution,
-)
+from app.service import calc_execution_service
+from app.service.calc_execution_service import ExecutionStep
 from app.service.html_cache.html_cacher import html_cacher
-
-from config import logger, app_config
 from utils.jwt_helper import TokenPayloads
 
-router = APIRouter(
-    prefix="/v1/calc/execution",
-    tags=["calc-execution"],
-)
+router = APIRouter(prefix="/v1/calc/execution", tags=["calc-execution"])
 
 
-def finalize_execution_result_html(
-    result: ExecutionResult, last_html_path: Optional[str], relative_path: str
-) -> ExecutionResultResDTO:
-    """整理执行结果 HTML 字段，转换为前端响应 DTO"""
-    patch_result = html_cacher.build_content_patch_from_paths(
-        last_html_path,
-        relative_path,
-    )
-
-    res = ExecutionResultResDTO.model_validate(result)
-    res.html = ""
-    res.htmlPath = relative_path
-    res.updateType = patch_result.updateType
-    res.htmlContentPatch = patch_result.contentHtml
-    return res
-
-
-@router.post("/start")
+@router.post("")
 async def start_calc_execution(
-    data: CalcExecutionReqDTO,
+    request: CalcExecutionStartDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    db_session: AsyncSession = Depends(get_session),
-) -> ResponseResult[ExecutionResultResDTO]:
-    """
-    开始调用计算执行
-    """
-
-    result = await start_execution(
-        db_session,
-        tokenPayloads.id,
-        data.reportOid,
-        data.defaults or {},
-        is_silent=data.isSilent,
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcExecutionResDTO]:
+    """Start one workspace/latest/version execution."""
+    step = await calc_execution_service.start_execution(
+        session, tokenPayloads.id, request
     )
-
-    # 对结果进行缓存
-    relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    response_dto = finalize_execution_result_html(
-        result, data.lastHtmlPath, relative_path
+    response = await _finalize_step(
+        step, request.lastHtmlPath, tokenPayloads.id, session
     )
+    return ok(data=response)
 
-    return ok(response_dto)
 
-
-@router.post("/resume/{connectionId}")
-async def resume_calc_execution(
-    connectionId: str,
-    data: CalcResumeReqDTO,
+@router.post("/{executionId}/continue")
+async def continue_calc_execution(
+    executionId: str,
+    request: CalcExecutionContinueDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    db_session: AsyncSession = Depends(get_session),
-) -> ResponseResult[ExecutionResultResDTO]:
-    """
-    恢复调用计算执行
-    """
-
-    result = await continue_execution(connectionId, data.defaults or {})
-
-    # 对结果进行缓存
-    relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    response_dto = finalize_execution_result_html(
-        result, data.lastHtmlPath, relative_path
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcExecutionResDTO]:
+    """Continue the original process/container without rebuilding its bundle."""
+    step = await calc_execution_service.continue_execution(
+        session, tokenPayloads.id, executionId, request.defaults
     )
+    response = await _finalize_step(
+        step, request.lastHtmlPath, tokenPayloads.id, session
+    )
+    return ok(data=response)
 
-    return ok(response_dto)
 
-
-@router.post("/file")
-async def start_file_calc_execution(
-    data: CalcFileReqDTO,
+@router.get("")
+async def list_calc_executions(
+    offset: Annotated[int, Query(ge=0)] = 0,
+    limit: Annotated[int, Query(ge=1, le=100)] = 20,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    db_session: AsyncSession = Depends(get_session),
-) -> ResponseResult[ExecutionResultResDTO]:
-    """
-    启动文件执行（调试用）
-    """
-    if not app_config.is_desktop:
-        raise HTTPException(
-            status_code=403,
-            detail=_("File execution is not allowed in server deployment"),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcExecutionListResDTO]:
+    """List persisted execution audit records."""
+    oids, total = await calc_execution_service.list_execution_oids(
+        session, tokenPayloads.id, offset=offset, limit=limit
+    )
+    items = [
+        _step_response(
+            await calc_execution_service.get_execution_step(
+                session, tokenPayloads.id, oid
+            )
         )
+        for oid in oids
+    ]
+    return ok(data=CalcExecutionListResDTO(items=items, total=total))
 
-    if not data.filePath:
-        raise HTTPException(status_code=400, detail=_("filePath is required"))
 
-    result = await start_file_execution(
-        db_session, tokenPayloads.id, data.filePath, data.defaults or {}
+@router.get("/{executionId}")
+async def get_calc_execution(
+    executionId: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcExecutionResDTO]:
+    """Return one persisted execution and immutable provenance."""
+    step = await calc_execution_service.get_execution_step(
+        session, tokenPayloads.id, executionId
     )
+    return ok(data=_step_response(step))
 
-    # 对结果进行缓存
-    relative_path = await html_cacher.cache_html(result, tokenPayloads.id, db_session)
-    response_dto = finalize_execution_result_html(
-        result, data.lastHtmlPath, relative_path
+
+@router.delete("/{executionId}")
+async def terminate_calc_execution(
+    executionId: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[None]:
+    """Terminate an active execution idempotently."""
+    await calc_execution_service.terminate_execution(
+        session, tokenPayloads.id, executionId
     )
+    return ok()
 
-    return ok(response_dto)
+
+async def _finalize_step(
+    step: ExecutionStep,
+    last_html_path: str | None,
+    user_id: int,
+    session: AsyncSession,
+) -> CalcExecutionResDTO:
+    """Cache internal HTML, persist its path, and build the public response."""
+    public_result = ExecutionResult.model_validate(step.result)
+    public_result.executionId = step.execution.oid
+    html_path = await html_cacher.cache_html(public_result, user_id, session)
+    patch = html_cacher.build_content_patch_from_paths(last_html_path, html_path)
+    await calc_execution_service.record_result_path(
+        session, step.execution.oid, user_id, html_path
+    )
+    response = _step_response(step)
+    response.htmlPath = html_path
+    response.updateType = patch.updateType
+    response.htmlContentPatch = patch.contentHtml
+    return response
+
+
+def _step_response(step: ExecutionStep) -> CalcExecutionResDTO:
+    """Convert internal execution models into a stable public response."""
+    resolved_version = (
+        f"{step.resolved_version.major}.{step.resolved_version.minor}."
+        f"{step.resolved_version.patch}"
+        if step.resolved_version is not None
+        else None
+    )
+    from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorType
+
+    return CalcExecutionResDTO(
+        executionId=step.execution.oid,
+        reportOid=step.report.oid,
+        sourceType=ExecutionSourceType(step.execution.sourceType).name.lower(),
+        resolvedVersion=resolved_version,
+        sourceArtifactHash=f"sha256:{step.source_artifact.contentHash}",
+        executionArtifactHash=f"sha256:{step.execution_artifact.contentHash}",
+        bundleHash=f"sha256:{step.bundle.bundleHash}",
+        runtimeFingerprint=step.bundle.runtimeFingerprint,
+        executorType=ExecutorType(step.execution.executorType).name.lower(),
+        backendMode=(step.execution.metrics or {}).get(
+            "backend", step.runtime.mode.value
+        ),
+        status=ExecutionStatus(step.execution.status).name.lower(),
+        isCompleted=step.result.isCompleted,
+        windows=step.result.windows,
+        htmlPath=step.execution.resultPath or "",
+        createdAt=step.execution.createdAt,
+        completedAt=step.execution.completedAt,
+    )

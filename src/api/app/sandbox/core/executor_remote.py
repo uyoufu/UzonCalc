@@ -1,131 +1,154 @@
-"""
-远程 Sandbox 执行器
+"""Remote Docker sandbox client using artifact-aware internal protocols."""
 
-通过 HTTP 调用远程 sandbox 服务
-"""
+from __future__ import annotations
 
-from typing import Any, Dict
+from pathlib import Path
+from typing import Any
+
 import httpx
-from app.sandbox.core.execution_result import ExecutionResult
-from app.sandbox.core.executor_interface import ISandboxExecutor
-from config import logger
+
+from app.db.models.enums import ExecutorType
+from app.service.calc_report_artifact_service import artifact_store
+from config import app_config
+
+from .backend_types import (
+    PreparedExecutionBundle,
+    RuntimeDescriptor,
+    SandboxBackendMode,
+)
+from .execution_result import ExecutionResult
+from .executor_interface import ISandboxExecutor
 
 
-class RemoteSandboxExecutor(ISandboxExecutor):
-    """远程 HTTP 执行器"""
+class RemoteDockerSandboxExecutor(ISandboxExecutor):
+    """Prepare cached artifacts and execute bundles through a Docker service."""
 
-    def __init__(self, base_url: str, timeout: float = 300.0):
-        """
-        初始化远程执行器
-
-        :param base_url: 远程 sandbox 服务地址，如 "http://sandbox-service:8001"
-        :param timeout: 请求超时时间（秒）
-        """
-        self.base_url = base_url.rstrip("/")
-        self.timeout = timeout
+    def __init__(self) -> None:
+        """Initialize a lazy authenticated HTTP client."""
         self._client: httpx.AsyncClient | None = None
+        self._descriptor: RuntimeDescriptor | None = None
 
-    async def _get_client(self) -> httpx.AsyncClient:
-        """获取或创建 HTTP 客户端"""
-        if self._client is None or self._client.is_closed:
-            self._client = httpx.AsyncClient(
-                base_url=self.base_url,
-                timeout=httpx.Timeout(self.timeout),
-            )
-        return self._client
+    async def runtime_descriptor(self) -> RuntimeDescriptor:
+        """Fetch and cache the remote image/toolchain capability descriptor."""
+        if self._descriptor is not None:
+            return self._descriptor
+        response = await (await self._get_client()).get("/sandbox/health")
+        response.raise_for_status()
+        payload = response.json()
+        image_digest = payload.get("runtimeImageDigest")
+        if not image_digest:
+            raise RuntimeError("Docker sandbox did not report a runtime image digest")
+        self._descriptor = RuntimeDescriptor(
+            mode=SandboxBackendMode.DOCKER,
+            fingerprint=payload["runtimeFingerprint"],
+            executor_type=ExecutorType.DOCKER,
+            image_digest=image_digest,
+            node_id=payload.get("nodeId"),
+        )
+        return self._descriptor
 
-    async def execute_script(
+    async def execute_bundle(
         self,
-        script_path: str,
-        defaults: Dict[str, Dict[str, Any]] | None = None,
+        bundle: PreparedExecutionBundle,
+        defaults: dict[str, dict[str, Any]] | None = None,
         is_silent: bool = False,
-        package_root: str | None = None,
     ) -> ExecutionResult:
-        """执行脚本"""
+        """Upload only missing artifacts, prepare the bundle, and start Docker."""
         client = await self._get_client()
-
-        try:
-            payload = {
-                "script_path": script_path,
+        await self._prepare_bundle(client, bundle)
+        response = await client.post(
+            "/sandbox/execute",
+            json={
+                "bundleHash": bundle.bundle_hash,
+                "entryPath": bundle.entry_path,
                 "defaults": defaults or {},
-                "is_silent": is_silent,
-            }
-            if package_root is not None:
-                payload["package_root"] = package_root
-            
-            response = await client.post(
-                "/sandbox/execute",
-                json=payload,
-            )
-            response.raise_for_status()
-            data = response.json()
-            return ExecutionResult(**data)
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"HTTP error executing script: {e.response.status_code} - {e.response.text}"
-            )
-            raise RuntimeError(f"Remote execution failed: {e.response.text}")
-        except httpx.RequestError as e:
-            logger.error(f"Request error executing script: {e}")
-            raise RuntimeError(f"Failed to connect to remote sandbox service: {e}")
+                "isSilent": is_silent,
+            },
+        )
+        response.raise_for_status()
+        return ExecutionResult.model_validate(response.json())
 
     async def continue_execution(
         self,
         execution_id: str,
-        defaults: Dict[str, Dict[str, Any]],
+        defaults: dict[str, dict[str, Any]],
     ) -> ExecutionResult:
-        """继续执行"""
-        client = await self._get_client()
-
-        try:
-            response = await client.post(
-                "/sandbox/continue",
-                json={
-                    "execution_id": execution_id,
-                    "defaults": defaults,
-                },
-            )
-            response.raise_for_status()
-            data = response.json()
-            return ExecutionResult(**data)
-        except httpx.HTTPStatusError as e:
-            if e.response.status_code == 404:
-                raise ValueError(f"Execution {execution_id} not found")
-            logger.error(
-                f"HTTP error continuing execution: {e.response.status_code} - {e.response.text}"
-            )
-            raise RuntimeError(f"Remote execution failed: {e.response.text}")
-        except httpx.RequestError as e:
-            logger.error(f"Request error continuing execution: {e}")
-            raise RuntimeError(f"Failed to connect to remote sandbox service: {e}")
+        """Continue a remote Docker container session."""
+        response = await (await self._get_client()).post(
+            "/sandbox/continue",
+            json={"executionId": execution_id, "defaults": defaults},
+        )
+        response.raise_for_status()
+        return ExecutionResult.model_validate(response.json())
 
     async def terminate(self, execution_id: str) -> None:
-        """终止执行"""
-        client = await self._get_client()
+        """Terminate a remote Docker session."""
+        response = await (await self._get_client()).post(
+            "/sandbox/terminate", json={"executionId": execution_id}
+        )
+        response.raise_for_status()
 
-        try:
-            response = await client.post(
-                "/sandbox/terminate",
-                json={"execution_id": execution_id},
-            )
-            response.raise_for_status()
-        except httpx.HTTPStatusError as e:
-            logger.error(
-                f"HTTP error terminating execution: {e.response.status_code} - {e.response.text}"
-            )
-            raise RuntimeError(f"Remote termination failed: {e.response.text}")
-        except httpx.RequestError as e:
-            logger.error(f"Request error terminating execution: {e}")
-            raise RuntimeError(f"Failed to connect to remote sandbox service: {e}")
-
-    async def close(self):
-        """关闭 HTTP 客户端"""
-        if self._client:
+    async def close(self) -> None:
+        """Close the shared HTTP connection pool."""
+        if self._client is not None:
             await self._client.aclose()
             self._client = None
 
-    async def __aenter__(self):
-        return self
+    async def _get_client(self) -> httpx.AsyncClient:
+        """Return a lazy client configured for the internal sandbox service."""
+        if self._client is None or self._client.is_closed:
+            self._client = httpx.AsyncClient(
+                base_url=app_config.sandbox_remote_url.rstrip("/"),
+                timeout=httpx.Timeout(app_config.sandbox_remote_timeout),
+                headers={"Authorization": f"Bearer {app_config.sandbox_remote_token}"},
+            )
+        return self._client
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb):
-        await self.close()
+    async def _prepare_bundle(
+        self, client: httpx.AsyncClient, bundle: PreparedExecutionBundle
+    ) -> None:
+        """Satisfy remote artifact misses and atomically prepare the bundle."""
+        response = await client.post(
+            "/sandbox/bundles/prepare",
+            json={
+                "bundleHash": bundle.bundle_hash,
+                "manifest": bundle.manifest,
+            },
+        )
+        response.raise_for_status()
+        missing_hashes = response.json().get("missingArtifacts", [])
+        for content_hash in missing_hashes:
+            artifact_dir = (
+                artifact_store.root / "sha256" / content_hash[:2] / content_hash
+            )
+            manifest_path = artifact_dir / "manifest.json"
+            payload_path = artifact_dir / "payload.zip"
+            if not manifest_path.is_file() or not payload_path.is_file():
+                raise RuntimeError(f"Local artifact cache is missing {content_hash}")
+            with manifest_path.open("rb") as manifest_file, payload_path.open(
+                "rb"
+            ) as payload_file:
+                upload = await client.put(
+                    f"/sandbox/artifacts/{content_hash}",
+                    files={
+                        "manifest": (
+                            "manifest.json",
+                            manifest_file,
+                            "application/json",
+                        ),
+                        "payload": (
+                            "payload.zip",
+                            payload_file,
+                            "application/zip",
+                        ),
+                    },
+                )
+                upload.raise_for_status()
+        if missing_hashes:
+            final = await client.post(
+                "/sandbox/bundles/prepare",
+                json={"bundleHash": bundle.bundle_hash, "manifest": bundle.manifest},
+            )
+            final.raise_for_status()
+            if final.json().get("missingArtifacts"):
+                raise RuntimeError("Remote sandbox still reports missing artifacts")

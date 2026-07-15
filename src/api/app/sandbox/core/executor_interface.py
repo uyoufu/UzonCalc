@@ -1,57 +1,39 @@
-"""
-Sandbox 执行器抽象接口
-
-定义统一的执行接口，支持本地进程内调用和远程 HTTP 调用两种方式
-"""
+"""Abstract execution backend shared by all managed sandbox mechanisms."""
 
 from abc import ABC, abstractmethod
-from typing import Any, Dict
+from typing import Any
 
+from .backend_types import PreparedExecutionBundle, RuntimeDescriptor
 from .execution_result import ExecutionResult
 
 
 class ISandboxExecutor(ABC):
-    """Sandbox 执行器抽象接口"""
+    """Start, continue, and terminate one bundle-backed execution session."""
 
     @abstractmethod
-    async def execute_script(
-        self,
-        script_path: str,
-        defaults: Dict[str, Dict[str, Any]] | None = None,
-        is_silent: bool = False,
-        package_root: str | None = None,
-    ) -> ExecutionResult:
-        """
-        启动脚本执行
+    async def runtime_descriptor(self) -> RuntimeDescriptor:
+        """Return the exact runtime identity used for build/bundle keys."""
 
-        :param script_path: 脚本文件路径
-        :param defaults: 默认参数字典
-        :param is_silent: 是否静默模式
-        :param package_root: 脚本所在的包根目录路径，会添加到系统路径中
-        :return: 执行结果
-        """
-        pass
+    @abstractmethod
+    async def execute_bundle(
+        self,
+        bundle: PreparedExecutionBundle,
+        defaults: dict[str, dict[str, Any]] | None = None,
+        is_silent: bool = False,
+    ) -> ExecutionResult:
+        """Start a new execution from an immutable prepared bundle."""
 
     @abstractmethod
     async def continue_execution(
         self,
         execution_id: str,
-        defaults: Dict[str, Dict[str, Any]],
+        defaults: dict[str, dict[str, Any]],
     ) -> ExecutionResult:
-        """
-        继续执行（提交用户输入）
-
-        :param execution_id: 执行 ID
-        :param defaults: 用户输入参数
-        :return: 执行结果
-        """
-        pass
+        """Continue the original session with one user-input payload."""
 
     @abstractmethod
     async def terminate(self, execution_id: str) -> None:
-        """
-        终止执行
+        """Terminate an active execution and release backend resources."""
 
-        :param execution_id: 执行 ID
-        """
-        pass
+    async def close(self) -> None:
+        """Close shared backend resources during API shutdown."""

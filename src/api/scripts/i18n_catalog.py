@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import io
 from pathlib import Path
 
 from babel.messages.catalog import Catalog
@@ -43,8 +44,11 @@ def write_po_catalog(po_path: Path, catalog: Catalog) -> None:
         ValueError: If the catalog contains invalid PO content.
     """
     po_path.parent.mkdir(parents=True, exist_ok=True)
-    with po_path.open("wb") as po_file:
-        write_po(po_file, catalog)
+    buffer = io.BytesIO()
+    write_po(buffer, catalog)
+    # Babel terminates the final entry with a blank separator line. Keeping one
+    # terminal newline avoids repository whitespace warnings without changing PO syntax.
+    po_path.write_bytes(buffer.getvalue().rstrip(b"\n") + b"\n")
 
 
 def write_mo_catalog(

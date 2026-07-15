@@ -1,759 +1,352 @@
-"""
-计算报告服务层
-负责计算报告的业务逻辑处理
-"""
+"""Metadata, copy, soft-delete, and favorite services for CalcReport."""
 
-import os
 import datetime
-from typing import List, cast
+import json
+from pathlib import Path
+from typing import cast
+
+from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
-from app.db.models.calc_report import CalcReport
-from app.db.models.calc_report_category import CalcReportCategory
-from app.controller.calc.calc_dto import (
-    CalcReportReqDTO,
+from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_report_dto import (
+    CalcReportCopyDTO,
+    CalcReportListResDTO,
     CalcReportResDTO,
-    CalcReportListFilterDTO,
-    CalcReportCountFilterDTO,
-    CategoryInfoResDTO,
+    CalcReportUpdateDTO,
 )
+from app.db.models.calc_report import CalcReport, CalcReportOrigin
+from app.db.models.calc_report_artifact import (
+    CalcReportArtifact,
+    CalcReportArtifactBuild,
+)
+from app.db.models.calc_report_category import CalcReportCategory
+from app.db.models.calc_report_dependency import (
+    CalcReportDependency,
+    CalcReportDependencySelector,
+)
+from app.db.models.calc_report_version import CalcReportVersion
+from app.db.models.enums import ArtifactBuildStatus, ReportOriginType
+from app.db.models.favorite_calc_report import FavoriteCalcReport
+from app.db.models.object_id import ObjectId
 from app.exception.custom_exception import raise_ex
-from app.i18n import _
-from app.utils.path_manager import (
-    build_calc_report_file_path,
-    copy_calc_report_file,
-    sync_calc_report_file,
-    write_calc_report_file,
-)
-from config import logger
+from app.service.calc_report_artifact_service import artifact_store, public_hash
+from app.service.calc_report_category_service import get_category
+from app.service.calc_report_build_service import configured_runtime_fingerprint_hint
+from app.service.calc_report_workspace_service import get_owned_report
+from config import app_config, logger
 
 
-async def check_report_name_exists(
+async def list_reports(
     user_id: int,
-    report_name: str,
     session: AsyncSession,
-    exclude_oid: str | None,
-    category_id: int | None = None,
+    *,
     category_oid: str | None = None,
-) -> bool:
-    """
-    检查报告名称是否已存在
-
-    :param user_id: 用户 ID
-    :param report_name: 报告名称
-    :param exclude_oid: 排除的报告 OID（更新时传入当前报告的 OID）
-    :param session: 数据库会话
-    :param category_id: 分类 ID（优先使用）
-    :param category_oid: 分类 OID（category_id 为空时使用）
-    :return: True 表示名称已存在
-    """
-    target_category_id = category_id
-
-    # 兼容通过 category_oid 指定分类（常用于新增场景）
-    if target_category_id is None and category_oid:
-        category = await session.scalar(
-            select(CalcReportCategory).where(
-                (CalcReportCategory.oid == category_oid)
-                & (CalcReportCategory.userId == user_id)
-                & (CalcReportCategory.status == 1)
-            )
+    query: str | None = None,
+    offset: int = 0,
+    limit: int = 20,
+) -> CalcReportListResDTO:
+    """List active owned reports with derived state and total count."""
+    conditions = [CalcReport.userId == user_id, CalcReport.deletedAt.is_(None)]
+    if category_oid:
+        category = await get_category(user_id, category_oid, session)
+        conditions.append(CalcReport.categoryId == category.id)
+    if query:
+        pattern = f"%{query.strip()}%"
+        conditions.append(
+            CalcReport.name.ilike(pattern) | CalcReport.description.ilike(pattern)
         )
-        if category:
-            category = cast(CalcReportCategory, category)
-            target_category_id = category.id
-
-    # 更新场景且未显式指定分类时，回退为当前报告所属分类
-    if target_category_id is None and exclude_oid:
-        current_report = await session.scalar(
-            select(CalcReport).where(
-                (CalcReport.oid == exclude_oid)
-                & (CalcReport.userId == user_id)
-                & (CalcReport.status == 1)
-            )
+    total = await session.scalar(select(func.count(CalcReport.id)).where(*conditions))
+    reports = (
+        await session.scalars(
+            select(CalcReport)
+            .where(*conditions)
+            .order_by(CalcReport.updatedAt.desc(), CalcReport.id.desc())
+            .offset(offset)
+            .limit(limit)
         )
-        if current_report:
-            current_report = cast(CalcReport, current_report)
-            target_category_id = current_report.categoryId
-
-    query = select(CalcReport).where(
-        (CalcReport.userId == user_id)
-        & (CalcReport.name == report_name)
-        & (CalcReport.status == 1)
+    ).all()
+    return CalcReportListResDTO(
+        items=[await _report_response(report, session) for report in reports],
+        total=total or 0,
     )
 
-    # 仅在同一分类下判重
-    if target_category_id is not None:
-        query = query.where(CalcReport.categoryId == target_category_id)
 
-    # 如果是更新场景，排除自身
-    if exclude_oid:
-        query = query.where(CalcReport.oid != exclude_oid)
-
-    result = await session.execute(query)
-    existing_report = result.scalars().first()
-
-    return existing_report is not None
-
-
-async def create_calc_report(
-    user_id: int, data: CalcReportReqDTO, session: AsyncSession
+async def get_report(
+    user_id: int, report_oid: str, session: AsyncSession
 ) -> CalcReportResDTO:
-    """
-    创建新的计算报告
+    """Return one active owned report with derived state."""
+    report = await get_owned_report(user_id, report_oid, session)
+    return await _report_response(report, session)
 
-    :param user_id: 用户 ID
-    :param data: 报告数据
-    :param session: 数据库会话
-    :return: 创建的报告信息
-    """
-    # 验证分类存在且属于当前用户
-    result = await session.execute(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.id == data.categoryId)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
+
+async def update_report(
+    user_id: int,
+    report_oid: str,
+    request: CalcReportUpdateDTO,
+    session: AsyncSession,
+) -> CalcReportResDTO:
+    """Update report display metadata without moving workspace storage."""
+    report = await get_owned_report(user_id, report_oid, session)
+    category = await get_category(user_id, request.categoryOid, session)
+    duplicate = await session.scalar(
+        select(CalcReport.id).where(
+            CalcReport.userId == user_id,
+            CalcReport.categoryId == category.id,
+            CalcReport.name == request.name.strip(),
+            CalcReport.id != report.id,
+            CalcReport.deletedAt.is_(None),
         )
     )
-    category = result.scalars().first()
-
-    if not category:
-        raise_ex("Category not found", code=404)
-
-    category = cast(CalcReportCategory, category)
-
-    # 创建新报告
-    report = CalcReport(
-        userId=user_id,
-        categoryId=data.categoryId,
-        name=data.name,
-        description=data.description,
-        cover=data.cover,
-    )
-    session.add(report)
-
-    # 增加分类计数
-    category.total += 1
-
+    if duplicate is not None:
+        raise_ex("Report name already exists in this category", code=409)
+    report.categoryId = category.id
+    report.name = request.name.strip()
+    report.description = request.description
+    report.cover = request.cover
     await session.commit()
     await session.refresh(report)
-
-    logger.info(
-        f"计算报告创建成功: userId={user_id}, categoryId={data.categoryId}, reportId={report.oid}"
-    )
-
-    return CalcReportResDTO.model_validate(report, from_attributes=True)
+    return await _report_response(report, session)
 
 
-async def get_calc_report(report_oid: str, session: AsyncSession) -> CalcReportResDTO:
-    """
-    获取单个计算报告
-
-    :param user_id: 用户 ID
-    :param report_oid: 报告 OID
-    :param session: 数据库会话
-    :return: 报告信息
-    """
-    result = await session.execute(
-        select(CalcReport).where(
-            (CalcReport.oid == report_oid) & (CalcReport.status == 1)
-        )
-    )
-    report = result.scalars().first()
-
-    if not report:
-        raise_ex("Report not found", code=404)
-
-    report = cast(CalcReport, report)
-
-    return CalcReportResDTO.model_validate(report, from_attributes=True)
-
-
-async def get_calc_report_source_code(
-    user_id: int, report_oid: str, session: AsyncSession
-) -> str:
-    """
-    获取计算报告源码
-
-    :param user_id: 用户 ID
-    :param report_oid: 报告 OID
-    :param session: 数据库会话
-    :return: 报告源码
-    """
-    file_path = await get_calc_report_source_file_path(user_id, report_oid, session)
-
-    with open(file_path, "r", encoding="utf-8") as f:
-        return f.read()
-
-
-async def get_calc_report_source_file_path(
-    user_id: int, report_oid: str, session: AsyncSession
-) -> str:
-    """
-    获取计算报告源码文件路径
-
-    :param user_id: 用户 ID
-    :param report_oid: 报告 OID
-    :param session: 数据库会话
-    :return: 报告源码文件绝对路径
-    """
-    result = await session.execute(
-        select(CalcReport).where(
-            (CalcReport.oid == report_oid)
-            & (CalcReport.userId == user_id)
-            & (CalcReport.status == 1)
-        )
-    )
-    report = result.scalars().first()
-
-    if not report:
-        raise_ex("Report not found", code=404)
-
-    report = cast(CalcReport, report)
-
-    category = await session.scalar(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.id == report.categoryId)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
-        )
-    )
-    if not category:
-        raise_ex("Category not found", code=404)
-
-    category = cast(CalcReportCategory, category)
-
-    file_path = build_calc_report_file_path(user_id, report.name, category.name)
-    if not os.path.exists(file_path):
-        raise_ex("Report source file not found", code=404)
-
-    return file_path
-
-
-async def get_calc_report_category(
-    report_oid: str, session: AsyncSession
-) -> CategoryInfoResDTO:
-    """
-    获取计算报告所属的分类信息
-
-    :param report_oid: 报告 OID
-    :param session: 数据库会话
-    :return: 分类信息
-    """
-    # 使用联表查询，一次性获取分类信息
-    result = await session.execute(
-        select(CalcReportCategory)
-        .join(CalcReport, CalcReport.categoryId == CalcReportCategory.id)
-        .where(
-            (CalcReport.oid == report_oid)
-            & (CalcReport.status == 1)
-            & (CalcReportCategory.status == 1)
-        )
-    )
-    category = result.scalars().first()
-
-    if not category:
-        raise_ex("Report or category not found", code=404)
-
-    category = cast(CalcReportCategory, category)
-
-    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
-
-
-async def list_calc_reports(
-    user_id: int, filter_data: CalcReportListFilterDTO, session: AsyncSession
-) -> tuple[List[CalcReportResDTO], int]:
-    """
-    获取计算报告列表（分页）
-
-    :param user_id: 用户 ID
-    :param filter_data: 过滤和分页数据
-    :param session: 数据库会话
-    :return: 报告列表和总数
-    """
-    # 构建查询条件
-    where_clause = (CalcReport.userId == user_id) & (CalcReport.status == 1)
-
-    if filter_data.categoryId:
-        where_clause = where_clause & (CalcReport.categoryId == filter_data.categoryId)
-    if filter_data.filter:
-        # 按 name、description 模糊搜索
-        like_pattern = f"%{filter_data.filter}%"
-        where_clause = where_clause & (
-            (CalcReport.name.ilike(like_pattern))
-            | (CalcReport.description.ilike(like_pattern))
-        )
-
-    # 获取总数
-    count_result = await session.scalar(
-        select(func.count(CalcReport.id)).where(where_clause)
-    )
-    total = count_result or 0
-
-    # 获取分页数据
-    result = await session.execute(
-        select(CalcReport)
-        .where(where_clause)
-        .order_by(CalcReport.createdAt.desc())
-        .offset(filter_data.pagination.skip)
-        .limit(filter_data.pagination.limit)
-    )
-    reports = result.scalars().all()
-
-    return (
-        [
-            CalcReportResDTO.model_validate(report, from_attributes=True)
-            for report in reports
-        ],
-        total,
-    )
-
-
-async def count_calc_reports(
-    user_id: int, filter_data: CalcReportCountFilterDTO, session: AsyncSession
-) -> int:
-    """
-    统计计算报告数量
-
-    :param user_id: 用户 ID
-    :param filter_data: 过滤数据
-    :param session: 数据库会话
-    :return: 报告数量
-    """
-    where_clause = (CalcReport.userId == user_id) & (CalcReport.status == 1)
-
-    if filter_data.categoryId:
-        where_clause = where_clause & (CalcReport.categoryId == filter_data.categoryId)
-    if filter_data.filter:
-        # 按 name、description 模糊搜索
-        like_pattern = f"%{filter_data.filter}%"
-        where_clause = where_clause & (
-            (CalcReport.name.ilike(like_pattern))
-            | (CalcReport.description.ilike(like_pattern))
-        )
-
-    count_result = await session.scalar(
-        select(func.count(CalcReport.id)).where(where_clause)
-    )
-    return count_result or 0
-
-
-async def update_calc_report(
-    user_id: int, report_oid: str, data: CalcReportReqDTO, session: AsyncSession
+async def copy_report(
+    user_id: int,
+    source_report_oid: str,
+    request: CalcReportCopyDTO,
+    session: AsyncSession,
 ) -> CalcReportResDTO:
-    """
-    更新计算报告
-    warn: 调用该接口之前，一定要对 reportName 进行唯一性校验，确保同一用户下没有重名的报告
-    :param user_id: 用户 ID
-    :param report_oid: 报告 OID
-    :param data: 更新的报告数据
-    :param session: 数据库会话
-    :return: 更新后的报告信息
-    """
-    # 获取报告
-    result = await session.execute(
-        select(CalcReport).where(
-            (CalcReport.oid == report_oid)
-            & (CalcReport.userId == user_id)
-            & (CalcReport.status == 1)
-        )
-    )
-    report = result.scalars().first()
-
-    if not report:
-        raise_ex("Report not found", code=404)
-
-    report = cast(CalcReport, report)
-
-    old_name = report.name
-
-    old_category = await session.scalar(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.id == report.categoryId)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
-        )
-    )
-    if not old_category:
-        raise_ex("Category not found", code=404)
-    old_category = cast(CalcReportCategory, old_category)
-
-    target_category = old_category
-
-    # 如果分类有变化，验证新分类存在且属于当前用户
-    if report.categoryId != data.categoryId:
-        category_result = await session.execute(
-            select(CalcReportCategory).where(
-                (CalcReportCategory.id == data.categoryId)
-                & (CalcReportCategory.userId == user_id)
-                & (CalcReportCategory.status == 1)
-            )
-        )
-        new_category = category_result.scalars().first()
-
-        if not new_category:
-            raise_ex("Category not found", code=404)
-
-        new_category = cast(CalcReportCategory, new_category)
-        target_category = new_category
-
-        # 更新旧分类计数
-        old_category.total = max(0, old_category.total - 1)
-
-        # 更新新分类计数
-        new_category.total += 1
-
-    old_file_path = build_calc_report_file_path(user_id, old_name, old_category.name)
-    new_file_path = build_calc_report_file_path(
-        user_id, data.name, target_category.name
-    )
-
-    sync_calc_report_file(old_file_path, new_file_path)
-
-    # 更新报告信息
-    report.name = data.name
-    report.description = data.description
-    if data.cover is not None:
-        report.cover = data.cover
-    report.categoryId = data.categoryId
-    # 递增版本号
-    report.version += 1
-    # 更新修改时间
-    report.lastModified = datetime.datetime.now(datetime.timezone.utc)
-
-    await session.commit()
-    await session.refresh(report)
-
-    logger.info(f"计算报告更新成功: userId={user_id}, reportOid={report_oid}")
-
-    return CalcReportResDTO.model_validate(report, from_attributes=True)
-
-
-async def copy_calc_report(
-    user_id: int, report_oid: str, new_name: str, session: AsyncSession
-) -> CalcReportResDTO:
-    """
-    复制计算报告到原分类下
-
-    :param user_id: 用户 ID
-    :param report_oid: 原报告 OID
-    :param new_name: 新报告名称
-    :param session: 数据库会话
-    :return: 新报告信息
-    """
-    if not new_name:
-        raise_ex("reportName is required", code=400)
-
-    # 获取原报告，确保只能复制当前用户自己的有效报告
-    report = await session.scalar(
-        select(CalcReport).where(
-            (CalcReport.oid == report_oid)
-            & (CalcReport.userId == user_id)
-            & (CalcReport.status == 1)
-        )
-    )
-    if not report:
-        raise_ex("Report not found", code=404)
-    report = cast(CalcReport, report)
-
-    category = await session.scalar(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.id == report.categoryId)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
-        )
-    )
-    if not category:
-        raise_ex("Category not found", code=404)
-    category = cast(CalcReportCategory, category)
-
-    # 复制时按原报告所在分类判重，避免覆盖同名源码文件
-    name_exists = await check_report_name_exists(
-        user_id,
-        new_name,
-        session,
-        exclude_oid=None,
-        category_id=report.categoryId,
-    )
-    if name_exists:
+    """Copy an owned workspace and its mutable dependency declarations."""
+    source = await get_owned_report(user_id, source_report_oid, session)
+    if source.workspaceArtifactId is None:
         raise_ex(
-            _("Report name '{name}' already exists").format(name=new_name),
+            "Workspace not found",
+            code=404,
+            error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
+        )
+    category = await get_category(user_id, request.categoryOid, session)
+    target_oid = request.reportOid or ObjectId().to_hex()
+    if not ObjectId.is_valid(target_oid):
+        raise_ex(
+            "Invalid report identifier",
             code=400,
+            error_code=CalcErrorCode.INVALID_OBJECT_ID,
         )
-
-    source_file_path = build_calc_report_file_path(user_id, report.name, category.name)
-    if not os.path.exists(source_file_path):
-        raise_ex("Report source file not found", code=404)
-
-    target_file_path = build_calc_report_file_path(user_id, new_name, category.name)
-
-    new_report = CalcReport(
+    existing = await session.scalar(
+        select(CalcReport.id).where(CalcReport.oid == target_oid)
+    )
+    if existing is not None:
+        raise_ex("Report identifier already exists", code=409)
+    target = CalcReport(
+        oid=target_oid,
         userId=user_id,
-        categoryId=report.categoryId,
-        name=new_name,
-        description=report.description,
-        cover=report.cover,
-        type=report.type,
-        copyFromId=report.id,
+        categoryId=category.id,
+        name=request.name.strip(),
+        description=request.description,
+        cover=request.cover,
+        entryPath=source.entryPath,
+        formatVersion=source.formatVersion,
+        workspaceRevision=1,
+        workspaceArtifactId=source.workspaceArtifactId,
     )
-    session.add(new_report)
-    category.total += 1
-
-    try:
-        # 先刷新数据库默认值，确保返回的新报告包含 oid 等字段
-        await session.flush()
-        copy_calc_report_file(source_file_path, target_file_path)
-        await session.commit()
-    except Exception as ex:
-        await session.rollback()
-        logger.exception(
-            f"复制计算报告失败: userId={user_id}, reportOid={report_oid}, newName={new_name}"
-        )
-        raise_ex(
-            _("Copy report failed: {error}").format(error=ex),
-            code=500,
-        )
-
-    await session.refresh(new_report)
-
-    logger.info(
-        f"计算报告复制成功: userId={user_id}, sourceReportOid={report_oid}, "
-        f"newReportOid={new_report.oid}"
-    )
-
-    return CalcReportResDTO.model_validate(new_report, from_attributes=True)
-
-
-async def save_calc_report_source_code(
-    user_id: int,
-    report_name: str | None,
-    report_oid: str | None,
-    category_oid: str | None,
-    code: str,
-    session: AsyncSession,
-) -> tuple[CalcReportResDTO, str]:
-    report = await save_or_update_calc_report(
-        user_id, report_name, report_oid, category_oid, session
-    )
-
-    category = await session.scalar(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.id == report.categoryId)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
+    session.add(target)
+    await session.flush()
+    session.add(
+        CalcReportOrigin(
+            reportId=target.id,
+            originType=ReportOriginType.COPY.value,
+            sourceReportId=source.id,
+            sourceArtifactId=source.workspaceArtifactId,
         )
     )
-    if not category:
-        raise_ex("Category not found", code=404)
-    category = cast(CalcReportCategory, category)
-
-    file_path = build_calc_report_file_path(user_id, report.name, category.name)
-    write_calc_report_file(file_path, code)
-
-    return report, file_path
-
-
-async def delete_calc_report(
-    user_id: int, report_oid: str, session: AsyncSession
-) -> None:
-    """
-    删除计算报告（逻辑删除，将 status 设为 0）
-
-    :param user_id: 用户 ID
-    :param report_oid: 报告 OID
-    :param session: 数据库会话
-    """
-    # 获取报告
-    result = await session.execute(
-        select(CalcReport).where(
-            (CalcReport.oid == report_oid)
-            & (CalcReport.userId == user_id)
-            & (CalcReport.status == 1)
-        )
-    )
-    report = result.scalars().first()
-
-    if not report:
-        raise_ex("Report not found", code=404)
-
-    report = cast(CalcReport, report)
-
-    # 逻辑删除：设置 status 为 0
-    report.status = 0
-
-    # 减少分类计数
-    category_result = await session.execute(
-        select(CalcReportCategory).where(CalcReportCategory.id == report.categoryId)
-    )
-    category = category_result.scalars().first()
-    if category:
-        category.total = max(0, category.total - 1)
-
-    await session.commit()
-
-    logger.info(f"计算报告删除成功: userId={user_id}, reportOid={report_oid}")
-
-
-async def batch_delete_calc_reports(
-    user_id: int, report_oids: List[str], session: AsyncSession
-) -> int:
-    """
-    批量删除计算报告（逻辑删除）
-
-    :param user_id: 用户 ID
-    :param report_oids: 报告 OID 列表
-    :param session: 数据库会话
-    :return: 删除的报告数量
-    """
-    if not report_oids:
-        return 0
-
-    # 获取所有要删除的报告
-    result = await session.execute(
-        select(CalcReport).where(
-            (CalcReport.userId == user_id)
-            & (CalcReport.oid.in_(report_oids))
-            & (CalcReport.status == 1)
-        )
-    )
-    reports = result.scalars().all()
-
-    if not reports:
-        return 0
-
-    # 按分类统计删除的报告数量
-    category_count_map: dict[int, int] = {}
-    for report in reports:
-        if report.categoryId not in category_count_map:
-            category_count_map[report.categoryId] = 0
-        category_count_map[report.categoryId] += 1
-
-    # 更新所有报告状态
-    for report in reports:
-        report.status = 0
-
-    # 更新分类计数
-    if category_count_map:
-        category_result = await session.execute(
-            select(CalcReportCategory).where(
-                CalcReportCategory.id.in_(category_count_map.keys())
+    dependencies = (
+        await session.scalars(
+            select(CalcReportDependency).where(
+                CalcReportDependency.reportId == source.id
             )
         )
-        categories = category_result.scalars().all()
-        for category in categories:
-            delete_count = category_count_map.get(category.id, 0)
-            category.total = max(0, category.total - delete_count)
-
-    await session.commit()
-
-    logger.info(f"计算报告批量删除成功: userId={user_id}, count={len(reports)}")
-
-    return len(reports)
-
-
-async def save_or_update_calc_report(
-    user_id: int,
-    report_name: str | None,
-    report_oid: str | None,
-    category_oid: str | None,
-    session: AsyncSession,
-) -> CalcReportResDTO:
-    """
-    保存或更新计算报告
-
-    若 report_oid 为 None，则创建新报告；否则更新现有报告
-
-    :param user_id: 用户 ID
-    :param report_name: 报告名称
-    :param report_oid: 报告 OID（可选）
-    :param category_oid: 分类 OID（新增时需要）
-    :param session: 数据库会话
-    :return: 报告信息（包含 oid）
-    """
-    if not report_name:
-        raise_ex("reportName is required", code=400)
-
-    # 先按 userId + name 判断唯一性
-    report = await session.scalar(
-        select(CalcReport).where(
-            (CalcReport.userId == user_id)
-            & (CalcReport.name == report_name)
-            & (CalcReport.status == 1)
+    ).all()
+    for dependency in dependencies:
+        copied = CalcReportDependency(
+            reportId=target.id,
+            targetReportId=dependency.targetReportId,
+            alias=dependency.alias,
         )
-    )
-
-    # 若未找到，再根据 report_oid 回退查找（用于重命名场景）
-    if not report and report_oid:
-        report = await session.scalar(
-            select(CalcReport).where(CalcReport.oid == report_oid)
-        )
-
-    if report:
-        report = cast(CalcReport, report)
-
-        # 如果提供了 category_oid，转换为 category_id
-        category_id = report.categoryId  # 默认使用当前分类
-        if category_oid:
-            new_category = await session.scalar(
-                select(CalcReportCategory).where(
-                    (CalcReportCategory.oid == category_oid)
-                    & (CalcReportCategory.userId == user_id)
-                    & (CalcReportCategory.status == 1)
+        session.add(copied)
+        await session.flush()
+        selectors = (
+            await session.scalars(
+                select(CalcReportDependencySelector).where(
+                    CalcReportDependencySelector.dependencyId == dependency.id
                 )
             )
-            if not new_category:
-                raise_ex("Category not found", code=404)
-            new_category = cast(CalcReportCategory, new_category)
-            category_id = new_category.id
+        ).all()
+        for selector in selectors:
+            session.add(
+                CalcReportDependencySelector(
+                    dependencyId=copied.id,
+                    targetReportId=selector.targetReportId,
+                    selectorKey=selector.selectorKey,
+                    targetVersionId=selector.targetVersionId,
+                    isDefault=selector.isDefault,
+                )
+            )
+    await session.commit()
+    artifact = await session.get(CalcReportArtifact, source.workspaceArtifactId)
+    if artifact is not None:
+        _materialize_report_workspace(user_id, target, artifact)
+    return await _report_response(target, session)
 
-        # 构建更新 DTO，保留原有的 description 和 cover
-        update_data = CalcReportReqDTO(
-            name=cast(str, report_name),
-            description=report.description,
-            cover=report.cover,
-            categoryId=category_id,
+
+async def delete_report(user_id: int, report_oid: str, session: AsyncSession) -> None:
+    """Soft-delete an owned report and remove its favorite association."""
+    report = await get_owned_report(user_id, report_oid, session)
+    report.deletedAt = datetime.datetime.now(datetime.timezone.utc)
+    await session.execute(
+        delete(FavoriteCalcReport).where(
+            FavoriteCalcReport.userId == user_id,
+            FavoriteCalcReport.reportId == report.id,
         )
+    )
+    await session.commit()
 
-        # 调用 update_calc_report 执行更新逻辑
-        return await update_calc_report(user_id, report.oid, update_data, session)
-    else:
-        # 创建新报告，需要 category_oid
-        if not category_oid:
-            raise_ex("categoryOid is required for creating new report", code=400)
 
-        # 根据 oid 查找分类
-        category = await session.scalar(
-            select(CalcReportCategory).where(
-                (CalcReportCategory.oid == category_oid)
-                & (CalcReportCategory.userId == user_id)
-                & (CalcReportCategory.status == 1)
+async def set_favorite(
+    user_id: int, report_oid: str, is_favorite: bool, session: AsyncSession
+) -> CalcReportResDTO:
+    """Create or delete the current user's report favorite association."""
+    report = await get_owned_report(user_id, report_oid, session)
+    favorite = await session.get(FavoriteCalcReport, (user_id, report.id))
+    if is_favorite and favorite is None:
+        session.add(FavoriteCalcReport(userId=user_id, reportId=report.id))
+    elif not is_favorite and favorite is not None:
+        await session.delete(favorite)
+    await session.commit()
+    return await _report_response(report, session)
+
+
+def get_workspace_projection_path(user_id: int, report_oid: str) -> Path:
+    """Return an OID-based readable workspace projection path."""
+    return (
+        Path(app_config.calc_report_reports_root)
+        / str(user_id)
+        / report_oid
+        / "workspace"
+    ).resolve()
+
+
+async def _report_response(
+    report: CalcReport, session: AsyncSession
+) -> CalcReportResDTO:
+    """Build report response fields from normalized database relationships."""
+    category = await session.get(CalcReportCategory, report.categoryId)
+    workspace_artifact = (
+        await session.get(CalcReportArtifact, report.workspaceArtifactId)
+        if report.workspaceArtifactId is not None
+        else None
+    )
+    latest = (
+        await session.get(CalcReportVersion, report.latestVersionId)
+        if report.latestVersionId is not None
+        else None
+    )
+    latest_artifact = (
+        await session.get(CalcReportArtifact, latest.sourceArtifactId)
+        if latest is not None
+        else None
+    )
+    build = None
+    runtime_fingerprint = configured_runtime_fingerprint_hint()
+    if workspace_artifact is not None and runtime_fingerprint is not None:
+        build = await session.scalar(
+            select(CalcReportArtifactBuild).where(
+                CalcReportArtifactBuild.sourceArtifactId == workspace_artifact.id,
+                CalcReportArtifactBuild.runtimeFingerprint == runtime_fingerprint,
             )
         )
+    build_status = (
+        ArtifactBuildStatus(build.status).name.lower()
+        if build is not None
+        else "not_requested"
+    )
+    publish_state = "unpublished"
+    if latest is not None and workspace_artifact is not None:
+        if latest.sourceArtifactId == workspace_artifact.id:
+            publish_state = "published"
+        else:
+            matches_version = await session.scalar(
+                select(CalcReportVersion.id).where(
+                    CalcReportVersion.reportId == report.id,
+                    CalcReportVersion.sourceArtifactId == workspace_artifact.id,
+                )
+            )
+            publish_state = (
+                "workspace_version_mismatch"
+                if matches_version is not None
+                else "unpublished_changes"
+            )
+    is_favorite = (
+        await session.get(FavoriteCalcReport, (report.userId, report.id)) is not None
+    )
+    latest_name = (
+        f"{latest.major}.{latest.minor}.{latest.patch}" if latest is not None else None
+    )
+    return CalcReportResDTO(
+        reportOid=report.oid,
+        categoryOid=category.oid if category is not None else "",
+        name=report.name,
+        description=report.description,
+        cover=report.cover,
+        entryPath=report.entryPath,
+        formatVersion=report.formatVersion,
+        workspaceRevision=report.workspaceRevision,
+        workspaceArtifactHash=(
+            public_hash(workspace_artifact.contentHash)
+            if workspace_artifact is not None
+            else None
+        ),
+        latestVersionName=latest_name,
+        latestArtifactHash=(
+            public_hash(latest_artifact.contentHash)
+            if latest_artifact is not None
+            else None
+        ),
+        buildStatus=build_status,
+        publishState=publish_state,
+        isFavorite=is_favorite,
+        createdAt=report.createdAt,
+        updatedAt=report.updatedAt,
+    )
 
-        if not category:
-            raise_ex("Category not found", code=404)
 
-        category = cast(CalcReportCategory, category)
-
-        # 创建新报告
-        report = CalcReport(
-            userId=user_id,
-            categoryId=category.id,
-            name=report_name,
+def _materialize_report_workspace(
+    user_id: int, report: CalcReport, artifact: CalcReportArtifact
+) -> None:
+    """Materialize a copied report's readable workspace projection."""
+    try:
+        artifact_store.materialize(
+            artifact.storageKey, get_workspace_projection_path(user_id, report.oid)
         )
-        if report_oid:
-            report.oid = report_oid  # 如果提供了 report_oid，使用它而不是自动生成
-        session.add(report)
+    except OSError:
+        logger.exception("Failed to materialize copied report %s", report.oid)
 
-        # 增加分类计数
-        category.total += 1
 
-        await session.commit()
-        await session.refresh(report)
-
-        logger.info(
-            f"计算报告文件新增: userId={user_id}, "
-            f"reportOid={report.oid}, reportName={report_name}, categoryOid={category_oid}"
-        )
-
-    return CalcReportResDTO.model_validate(report, from_attributes=True)
+def write_latest_projection(
+    user_id: int, report: CalcReport, version: CalcReportVersion
+) -> None:
+    """Write the recoverable latest.json projection for a report."""
+    report_root = get_workspace_projection_path(user_id, report.oid).parent
+    report_root.mkdir(parents=True, exist_ok=True)
+    temporary = report_root / ".latest.json.tmp"
+    temporary.write_text(
+        json.dumps(
+            {
+                "reportOid": report.oid,
+                "versionName": f"{version.major}.{version.minor}.{version.patch}",
+                "versionOid": version.oid,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    temporary.replace(report_root / "latest.json")

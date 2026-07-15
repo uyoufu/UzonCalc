@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.controller.depends import get_session, get_token_payload
 from app.i18n import _
 from app.service import calc_report_service
+from app.service.calc_report_workspace_service import get_owned_report
 from app.response.response_result import ResponseResult, ok, fail
 from app.utils.show_dialog import show_file_dialog
 from app.utils.file_explorer import show_in_file_explorer
@@ -52,10 +53,9 @@ async def show_calc_report_in_explorer(
     if not app_config.is_desktop:
         return fail(message="This endpoint is only available in desktop mode", code=403)
 
-    file_path = await calc_report_service.get_calc_report_source_file_path(
-        tokenPayloads.id,
-        report_oid,
-        session,
+    await get_owned_report(tokenPayloads.id, report_oid, session)
+    workspace_path = calc_report_service.get_workspace_projection_path(
+        tokenPayloads.id, report_oid
     )
-    await run_in_threadpool(show_in_file_explorer, file_path)
+    await run_in_threadpool(show_in_file_explorer, str(workspace_path))
     return ok()
