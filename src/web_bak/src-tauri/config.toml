@@ -1,8 +1,0 @@
-language = "zh-CN"
-
-[webview]
-url = "index.html"
-
-[window]
-width = 1200
-height = 800

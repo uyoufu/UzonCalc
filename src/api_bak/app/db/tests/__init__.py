@@ -1,3 +1,0 @@
-"""
-Database module tests package
-"""
