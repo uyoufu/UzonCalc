@@ -1,42 +1,44 @@
-"""
-Temporary File Model - Tracks temporary files that need to be cleaned up after expiration
-"""
+"""Temporary-file cleanup table definition."""
 
 import datetime
-from sqlalchemy import String, DateTime, Boolean, Text
+
+from sqlalchemy import Boolean, DateTime, Index, String, Text, UniqueConstraint, false
 from sqlalchemy.orm import Mapped, mapped_column
+
 from .base import BaseModel
 
 
 class TmpFile(BaseModel):
-    """临时文件表模型"""
+    """Track an expiring temporary file and its cleanup state."""
 
     __tablename__ = "tmp_files"
-
-    # 文件路径（绝对路径）
-    filePath: Mapped[str] = mapped_column(
-        String(500), nullable=False, index=True, unique=True
+    __table_args__ = (
+        UniqueConstraint("filePath", name="uq_tmp_files_filePath"),
+        Index("ix_tmp_files_filePath", "filePath"),
+        Index("ix_tmp_files_expireTime", "expireTime"),
+        Index("ix_tmp_files_isDeleted", "isDeleted"),
     )
 
-    # 过期时间（UTC时间）
+    filePath: Mapped[str] = mapped_column(String(500), nullable=False)
     expireTime: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        nullable=False,
-        index=True,
+        DateTime(timezone=True), nullable=False
     )
-
-    # 备注信息
     remark: Mapped[str | None] = mapped_column(Text, nullable=True)
-
-    # 是否已删除
     isDeleted: Mapped[bool] = mapped_column(
-        Boolean, default=False, nullable=False, index=True
+        Boolean, default=False, server_default=false(), nullable=False
     )
-
-    # 删除时间
     deletedAt: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
     )
 
-    def __repr__(self):
-        return f"<TmpFile(id={self.id}, filePath='{self.filePath}', expireTime='{self.expireTime}')>"
+    def __repr__(self) -> str:
+        """Return a concise diagnostic representation of the temporary file.
+
+        Returns:
+            String containing the row ID, path, and expiration timestamp.
+        """
+
+        return (
+            f"<TmpFile(id={self.id}, filePath='{self.filePath}', "
+            f"expireTime='{self.expireTime}')>"
+        )

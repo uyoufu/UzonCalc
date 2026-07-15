@@ -13,7 +13,7 @@ from .core.engine import (
     reset_session_factory,
 )
 from .core.session import init_session_factory, get_db_session, get_async_session
-from .models import BaseModel
+from .models import Base
 
 logger = logging.getLogger(__name__)
 
@@ -114,7 +114,7 @@ class DatabaseManager:
         """
         try:
             async with self.engine.begin() as conn:
-                await conn.run_sync(BaseModel.metadata.create_all)
+                await conn.run_sync(Base.metadata.create_all)
             logger.info("All tables created successfully")
         except Exception as e:
             logger.error(f"Failed to create tables: {e}")
@@ -127,7 +127,7 @@ class DatabaseManager:
         """
         try:
             async with self.engine.begin() as conn:
-                await conn.run_sync(BaseModel.metadata.drop_all)
+                await conn.run_sync(Base.metadata.drop_all)
             logger.info("All tables dropped successfully")
         except Exception as e:
             logger.error(f"Failed to drop tables: {e}")

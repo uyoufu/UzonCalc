@@ -1,19 +1,48 @@
-from sqlalchemy import JSON, String, Text
-from .base import BaseModel
+"""Calculation-report category table definition."""
+
+import datetime
+
+from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, text
 from sqlalchemy.orm import Mapped, mapped_column
+
+from .base import BaseModel
 
 
 class CalcReportCategory(BaseModel):
-    """system_settings table model"""
+    """Group a user's calculation reports for navigation and ordering."""
 
     __tablename__ = "calc_report_category"
+    __table_args__ = (
+        Index(
+            "uq_calc_report_category_active_user_name",
+            "userId",
+            "name",
+            unique=True,
+            sqlite_where=text('"deletedAt" IS NULL'),
+            postgresql_where=text('"deletedAt" IS NULL'),
+        ),
+        Index(
+            "ix_calc_report_category_user_deleted_sort",
+            "userId",
+            "deletedAt",
+            "sortOrder",
+        ),
+    )
 
-    userId: Mapped[int] = mapped_column(nullable=False, index=True)
-    name: Mapped[str] = mapped_column(String(50), index=True)
-    # 状态： 0-删除，1-正常
-    status: Mapped[int] = mapped_column(nullable=False, default=1)
-
+    userId: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    name: Mapped[str] = mapped_column(String(50), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    order: Mapped[int] = mapped_column(nullable=False)
-    # 关联的计算书数量
-    total: Mapped[int] = mapped_column(nullable=False, default=0)
+    sortOrder: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    updatedAt: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+    deletedAt: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
