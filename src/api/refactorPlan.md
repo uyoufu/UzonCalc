@@ -1,517 +1,685 @@
-# 计算书存储、分享、导入与执行架构重构思路
+# CalcReport 存储、版本、预插桩与沙箱执行重构方案
 
-## 1. 背景
+## 1. 背景与目标
 
-当前计算书由数据库记录和单个 Python 文件共同组成，源码路径按以下规则生成：
+当前计算书由数据库记录和单个 Python 文件组成，源码路径由用户、分类和名称共同决定：
 
 ```text
 data/calcs/{userId}/{categoryName}/{reportName}.py
 ```
 
-这种方式实现简单，也便于早期直接编辑和执行单文件计算书。但随着多文件计算项目、计算书分享、`.uzc` 导入、跨计算书引用和服务器多用户部署等需求出现，名称、目录、身份和 Python 导入之间开始互相制约。
+该模型无法稳定支持多文件计算书、跨计算书引用、不可变版本、分享导入和隔离执行。名称或分类变化会移动源码，辅助模块无法可靠参与缓存失效，主 API 和 sandbox 之间还依赖宿主机路径。
 
-本次重构的核心方向是：
+重构后的 `CalcReport` 应同时满足：
 
-> 将计算书从“数据库记录对应一个按名称保存的 Python 文件”，提升为“具有稳定身份、文件树、版本、依赖和执行清单的计算项目包”。
+1. 使用 `reportOid` 作为稳定身份，展示名称、分类和物理路径互不耦合。
+2. 一个计算书可以包含入口脚本、辅助模块和资源文件。
+3. 当前编辑内容、已发布版本和 latest 指针职责明确。
+4. 仅已发布版本可以被其他计算书引用、分享或正式执行。
+5. 同一次执行可以引用同一计算书的多个发布版本。
+6. 所有执行都固定到可复现的源码、依赖、预插桩产物和运行时版本。
+7. 本机 sandbox 与 Docker sandbox 使用相同 bundle 协议和缓存键。
+8. 托管计算书在保存后提前生成插桩文件，执行阶段不再临时插桩。
 
-## 2. 目标
+本方案统一使用 `CalcReport` 领域命名。
 
-重构后的架构应支持：
+## 2. 核心概念
 
-1. 用户通过分享链接导入其他用户的计算书，并安全处理名称冲突。
-2. 一个计算书包含入口脚本、辅助 Python 文件和资源文件。
-3. 用户可以引用自己的其他计算书，但不需要知道内部唯一 ID 或物理路径。
-4. 导入 `uzoncalc zip` 生成的 `.uzc`，保留其本地依赖和目录结构。
-5. 分享、导入和执行的计算书一律按不可信代码处理。
-6. 服务器通过短生命周期容器运行代码，同时支持交互式计算在短期内保持执行状态。
-7. 展示名称、分类、物理存储、Python import 和版本可以分别演进。
-
-## 3. 现有方案的主要问题
-
-### 3.1 名称承担了过多职责
-
-当前名称同时参与：
-
-- UI 展示。
-- 数据库判重。
-- 物理文件路径生成。
-- Python 文件名和潜在模块名生成。
-- 分类目录组织。
-
-因此计算书改名或移动分类时必须同步移动源码文件。分类本应只是 UI 组织信息，却直接影响运行路径。加入版本、分享来源和依赖后，这种耦合会使任何名称调整都可能破坏执行环境。
-
-### 3.2 跨分类同名规则不一致
-
-保存前的名称检查按同一分类判重，但实际保存时会先按 `userId + name` 全局查找计算书。跨分类创建同名计算书时，可能把另一分类中的记录识别为待更新对象。
-
-这说明名称不能继续作为计算书身份或主要查找键。服务层必须以稳定项目 ID 定位更新对象，名称只能作为展示属性或有限范围内的业务约束。
-
-### 3.3 单文件模型不能表达计算项目
-
-现有保存接口只接收一段 `code` 并写入一个 `.py` 文件，无法自然表达：
-
-- 主入口和多个辅助 Python 文件。
-- 图片、Excel、JSON 等资源。
-- 入口文件路径。
-- 项目格式版本。
-- 依赖清单和依赖版本。
-- 文件完整性哈希。
-- 可供其他计算书调用的公共模块。
-
-### 3.4 Python import 缺少可靠隔离
-
-当前运行逻辑临时将用户目录和脚本目录加入进程级 `sys.path`。常见的 `helper.py`、`common.py` 容易在计算书之间发生模块名冲突。
-
-入口模块缓存只检查入口文件本身，辅助模块变化不一定能使缓存失效。普通导入模块还可能保留在 `sys.modules` 中，影响后续执行。在服务器多用户环境中，不能继续把进程级 Python 导入状态作为租户隔离手段。
-
-### 3.5 数据库和文件系统无法形成事务
-
-现有流程中可能出现：
-
-- 数据库提交成功，但源码写入失败。
-- 文件移动成功，但数据库更新失败。
-- 数据库回滚后，已复制的文件仍然存在。
-- 逻辑删除后物理文件继续保留，并可能被后续同名计算书覆盖。
-
-需要通过不可变版本、临时写入、原子发布和状态机减少数据库与文件系统的不一致窗口。
-
-### 3.6 分享能力缺少完整边界
-
-现有模型包含审核和分享范围字段，但缺少：
-
-- 不可猜测的分享令牌。
-- 分享版本和来源版本。
-- 过期、撤销和访问次数策略。
-- 导入来源记录。
-- 导入后的依赖重映射。
-- 统一的所有权和分享授权校验。
-
-正式支持分享前，所有详情读取、源码读取、执行、复制和导入接口都必须统一经过访问控制服务。
-
-### 3.7 `.uzc` 还不是完整交换格式
-
-当前 `.uzc` 能够打包入口目录下静态导入的本地 Python 模块，这是可复用的基础，但其清单信息较少，尚未描述：
-
-- 格式版本。
-- 项目元数据和入口类型。
-- 文件哈希。
-- 资源文件。
-- 计算书依赖图。
-- 外部 Python 依赖策略。
-- 生成工具和 UzonCalc 版本。
-
-服务器不能直接信任归档中的路径或调用 `extractall()`。导入过程必须防止路径穿越、符号链接、压缩炸弹、异常文件数量和超大解压体积，并且不得在导入阶段执行任何代码。
-
-## 4. 核心设计原则
-
-### 4.1 身份、名称和路径解耦
-
-一个计算项目至少需要区分以下概念：
+### 2.1 身份、名称与路径分离
 
 | 概念 | 示例 | 职责 |
 | --- | --- | --- |
-| 项目 OID | `67ab...` | 数据库关联、权限和物理存储 |
+| 报告 OID | `67ab...` | API、权限和物理存储的稳定身份 |
 | 展示名称 | `连续梁承载力计算` | UI 展示，可修改 |
-| 依赖别名 | `continuous_beam` | 当前项目源码中的 import 名称 |
-| 入口路径 | `main.py` | 项目内部入口，由清单管理 |
-| 版本 OID | `91cd...` | 指向一次不可变源码快照 |
+| workspace revision | `18` | 当前工作区的并发保存边界 |
+| 源码 artifact hash | `sha256:source...` | 完整源码和资源快照 |
+| 执行 artifact hash | `sha256:exec...` | 特定工具链生成的预插桩文件 |
+| 发布版本 | `1.2.1` | 不可变源码 artifact 的语义版本 |
+| 依赖别名 | `continuous_beam` | 当前计算书源码中的局部引用名 |
+| bundle hash | `sha256:bundle...` | 一次确定的入口、依赖和运行时组合 |
 
-物理路径不对用户公开，也不写入用户源码。展示名称变化不应移动物理文件，分类变化不应改变执行路径。
+展示名称和分类不参与源码路径、Python 模块名或缓存键。所有物理路径均由服务端根据 OID 或内容 hash 推导。
 
-### 4.2 计算书是项目包，不是单文件
-
-每个项目拥有独立文件树和项目清单。当前可编辑内容统一放在 `workspace` 下：
+### 2.2 workspace、version 与 latest
 
 ```text
-workspace/
-  calcbook.json
-  src/
-    main.py
-    api.py
-    helpers.py
-  resources/
+workspace
+  当前可编辑内容，可以反复保存
+
+published version
+  绑定一次不可变源码 artifact，不允许覆盖
+
+latest
+  指向某个 published version 的数据库指针
 ```
 
-建议约定：
+- 保存只更新 workspace，不自动发布，也不改变 latest。
+- 发布创建新的 `MAJOR.MINOR.PATCH` 版本，并默认将 latest 指向该版本。
+- latest 可以回退到任意已有版本，不修改 workspace。
+- 从旧版本恢复只替换 workspace，不修改 latest。
+- `latestVersionId` 是唯一权威来源；`latest.json` 只是可重建投影。
+- workspace 可以在编辑器中预览执行，但不能成为其他报告的依赖或分享来源。
 
-- `src/main.py` 负责计算书入口、UI 和文档生成。
-- `src/api.py` 或清单声明的导出模块负责跨计算书复用。
-- 其他源码文件属于项目内部实现。
-- 资源文件必须使用项目内相对路径访问。
+## 3. 文件与 artifact 存储
 
-其他计算书不应直接导入目标项目的 `main.py`，避免执行装饰器、顶层初始化和文档生成等副作用。
-
-### 4.3 `workspace` 可修改，命名版本不可修改
-
-`workspace` 表示当前可编辑内容。用户保存计算书时，服务端原子替换 `workspace`，并记录这次完整内容对应的 artifact hash。保存不会自动改变任何已发布版本，也不会改变其他计算书通过 `latest` 得到的依赖内容。
-
-用户主动发布版本时填写 `MAJOR.MINOR.PATCH` 格式的版本号，例如 `1.2.1`。系统将其转换为可用于 Python import 的目录名 `v_1_2_1`，并在 `version/v_1_2_1` 下保存不可变内容。
-
-第一阶段只支持三个非负整数构成的版本号，不支持 prerelease 和 build metadata。版本名在项目内唯一，已发布版本不得覆盖或修改；修正内容必须发布新版本。
-
-### 4.4 `latest` 是已发布版本指针
-
-`latest` 不再保存可编辑源码，而是指向当前被提升为默认版本的 `CalcProjectVersion`。数据库字段 `latestVersionId` 是唯一权威来源，项目目录下的 `latest.json` 只是便于检查和部署同步的可重建投影。
-
-- 成功发布新版本后，默认将 `latestVersionId` 更新为该版本。
-- 系统允许将 `latest` 重新指向任意已有版本，用于回退或重新提升。
-- 调整 `latest` 只移动指针，不覆盖或修改 `workspace`。
-- 如需在旧版本基础上继续编辑，必须显式执行“从版本恢复到 workspace”。
-- 尚无已发布版本时 `latestVersionId` 为空，项目不能被其他计算书引用、正式执行或分享。
-- `v_1_2_1` 永久绑定发布时的 content hash。
-- 相同内容即使被多个项目或版本使用，也可以复用同一 artifact。
-- 正式执行、分享和导入必须记录 `latest` 当时解析到的版本 ID 和 content hash，不能只记录 `latest` 字符串。
-
-因此，引用 `latest` 仍然可以审计和复现：历史执行记录使用当时解析出的已发布 artifact，而不是重新解析后来发生变化的指针。
-
-## 5. 建议领域模型
-
-以下模型用于表达职责，不代表最终数据库字段必须完全按此命名。
+### 3.1 报告工作区
 
 ```text
-CalcProject
-  oid
-  ownerUserId
-  displayName
-  categoryId
-  entryPath
-  workspaceArtifactHash
-  latestVersionId
-  status
-
-CalcProjectVersion
-  oid
-  projectId
-  versionName
-  importSegment
-  storageKey
-  contentHash
-  formatVersion
-  createdAt
-
-CalcProjectDependency
-  projectId
-  alias
-  targetProjectId
-  defaultSelector
-  selectors
-
-CalcArtifact
-  contentHash
-  storageKey
-  fileCount
-  totalSize
-  formatVersion
-  createdAt
-
-CalcShareLink
-  tokenHash
-  sourceProjectId
-  sourceVersionId
-  sourceArtifactHash
-  expiresAt
-  revokedAt
-  createdBy
-
-CalcProjectOrigin
-  projectId
-  sourceType
-  sourceProjectId
-  sourceVersionId
-  sourceArtifactHash
-  sourceArchiveHash
-```
-
-`defaultSelector` 和 `selectors` 保存逻辑选择器，例如 `latest`、`1.2.1`。版本 OID 和 content hash 仍由后端使用，不暴露到用户源码中。分类只作为项目列表的组织元数据，不参与源码路径构造。
-
-计算书详情和列表响应还应返回以下派生状态：
-
-```text
-CalcPublishState
-  unpublished
-  published
-  unpublished_changes
-  workspace_version_mismatch
-
-CalcProjectPublishInfo
-  workspaceArtifactHash
-  workspaceVersionName
-  latestVersionId
-  latestVersionName
-  latestArtifactHash
-  publishState
-```
-
-状态计算规则如下：
-
-- `unpublished`：项目没有 `latestVersionId`。
-- `published`：workspace content hash 与 latest 版本一致。
-- `unpublished_changes`：workspace content hash 不匹配任何已发布版本。
-- `workspace_version_mismatch`：workspace 匹配某个已发布版本，但该版本不是 latest，常见于 latest 回退或从旧版本恢复 workspace。
-
-## 6. 物理存储建议
-
-服务器永久存储可以使用本地磁盘或对象存储。项目目录按稳定 OID 定位，目录内明确区分当前内容和命名版本：
-
-```text
-data/calc-projects/{userId}/{projectOid}/
+data/calc-reports/{userId}/{reportOid}/
   workspace/
     calcbook.json
     src/
       main.py
       api.py
+      helpers.py
     resources/
   latest.json
   version/
     v_1_2_1/
       calcbook.json
       src/
-        main.py
-        api.py
       resources/
 ```
 
-`latest.json` 至少记录 `versionOid`、`versionName`、`importSegment`、`contentHash` 和 `updatedAt`。版本目录名用于人工检查和 import 选择，数据库仍以 `latestVersionId` 和版本 OID 关联业务数据。需要扩展到多实例部署时，`storageKey` 可以指向对象存储，而业务层不依赖具体磁盘路径。
+约定：
 
-不可变 artifact 使用独立的内容寻址存储，避免执行容器直接访问项目目录：
+- 默认入口为 `src/main.py`，实际入口由 `calcbook.json.entryPath` 声明。
+- `src/api.py` 或清单中的 export modules 用于跨计算书复用。
+- 其他报告不得直接引用目标报告的 `main.py`，避免触发入口初始化。
+- 资源只能通过计算书根目录内的规范化相对路径访问。
+- workspace 和 version 目录用于编辑、人工检查和恢复，不直接暴露给执行进程。
+
+### 3.2 内容寻址存储
 
 ```text
-data/calc-artifacts/sha256/{hashPrefix}/{contentHash}/
+data/calc-artifacts/sha256/{prefix}/{artifactHash}/
   manifest.json
   payload.zip
 ```
 
-`manifest.json` 至少记录规范化相对路径、文件大小和文件 SHA-256。artifact hash 根据规范化文件清单计算，不依赖压缩文件的时间戳或写入顺序。
+artifact 分为：
 
-保存 `workspace` 时采用以下过程：
+```text
+SOURCE
+  用户源码、资源、calcbook.json 和依赖声明快照
 
-1. 将新内容写入项目外的临时目录。
-2. 校验清单、入口、路径、文件数量、总体积和允许的文件类型。
-3. 拒绝绝对路径、`..`、符号链接和其他不能安全归档的文件。
-4. 生成规范化文件清单和 content hash，并创建或复用不可变 artifact。
-5. 原子替换 `workspace` 目录，更新 `workspaceArtifactHash`。
-6. 任一步失败时删除临时内容，不改变当前有效的 workspace 和数据库指针。
-
-发布命名版本时，将当前 `workspaceArtifactHash` 绑定到新的 `CalcProjectVersion`，并原子发布对应的 `version/v_x_y_z`。创建版本记录和更新 `latestVersionId` 必须在同一数据库事务内完成；如果版本名已存在，则直接拒绝。
-
-数据库事务提交后，以临时文件加原子替换方式刷新 `latest.json`。如果刷新失败，不回滚已经成功的版本发布，而是记录告警并由修复任务根据 `latestVersionId` 重建，因为数据库是唯一权威来源。
-
-调整 latest 时只更新 `latestVersionId` 并刷新 `latest.json`，不修改 workspace。将版本恢复到 workspace 是独立操作：读取指定版本 artifact，写入临时目录，校验后原子替换 workspace，并更新 `workspaceArtifactHash`。
-
-## 7. 跨计算书引用
-
-### 7.1 用户不获取真实文件名
-
-用户按展示名称选择依赖，系统为当前项目创建依赖别名，并显式声明本次允许使用的版本集合。例如项目 B 引用“连续梁承载力计算”：
-
-```json
-{
-  "dependencies": {
-    "continuous_beam": {
-      "projectOid": "67ab...",
-      "default": "latest",
-      "selectors": ["latest", "1.2.1"]
-    }
-  }
-}
+INSTRUMENTED
+  由 SOURCE 和 toolchain fingerprint 派生的预插桩 Python 文件及 source map
 ```
 
-`default` 必须出现在 `selectors` 中。执行包只携带这里声明的版本，不会复制目标项目全部历史版本。
+SOURCE 是可编辑、发布、分享和导出的权威内容，并为执行提供资源文件。INSTRUMENTED 是可删除、可重建的代码缓存，不复制资源，不得覆盖用户源码，也不得作为分享来源。
 
-依赖只能声明 `latest` 或已经发布的明确版本。`workspace` 不是合法 selector，也不存在 `calcdeps.<alias>.workspace` import。尚未发布的项目不能作为依赖目标。
+artifact hash 根据规范化文件清单计算，文件清单至少包含相对路径、大小和文件 SHA-256；不得依赖 zip 时间戳、文件写入顺序或宿主机绝对路径。
 
-### 7.2 三种版本引用形式
+### 3.3 workspace 原子保存
 
-项目 B 可以使用以下 import：
+1. 校验客户端提交的 `workspaceRevision`，不一致时拒绝覆盖。
+2. 将完整工作区写入报告目录之外的临时目录。
+3. 校验入口、路径、文件数量、总体积、文件类型和 `calcbook.json`。
+4. 拒绝绝对路径、`..`、符号链接、设备文件和其他不安全归档内容。
+5. 生成或复用 SOURCE artifact。
+6. 原子替换 workspace，更新数据库中的 artifact 指针并递增 revision。
+7. 提交异步预插桩任务。
+
+源码保存成功不依赖预插桩成功。编辑中的语法或插桩错误不会导致源码丢失，但会阻止运行和发布。
+
+## 4. 数据库分表与字段定义
+
+### 4.1 现有分表问题
+
+数据库表不应仅为了复用旧名称而承担新的混合职责。当前方案需要修正以下问题：
+
+- 不可变 artifact 与可变构建任务混在 `calc_report_artifact`，导致大量条件空字段。
+- `workspaceBuildStatus` 落在报告主表，无法同时表达本机与 Docker 的不同 runtime fingerprint。
+- bundle manifest 重复写入每次执行历史，artifact GC 也无法通过外键识别 bundle 引用。
+- `user_input_history` 同时承担执行审计、进程路由、输入步骤和结果，低频与高频数据相互干扰。
+- `calc_report_archive` 与 `input_cache` 都表达最近输入，存在双重数据源。
+- dependency selectors 和指定分享用户使用 JSON，数据库无法校验版本归属和用户外键。
+- `published_version`、`user_input_history` 和 `input_cache` 当前没有业务调用，因此可以重新评估：版本表改用明确名称，后两者只在职责与名称一致时保留。
+
+因此采用语义优先的分表方式：保留 `calc_report`、分类、实例、收藏和输入缓存等职责明确的表；版本、构建、bundle 和执行使用明确领域名称。
+
+### 4.2 通用字段约定
+
+数据库模型使用一个共享 `Base(DeclarativeBase)`。需要独立身份的业务实体继承抽象 `BaseModel` 并统一包含：
+
+```text
+id                  INTEGER PRIMARY KEY AUTOINCREMENT
+oid                 CHAR(24) NOT NULL UNIQUE
+createdAt           DATETIME(timezone=True) NOT NULL
+```
+
+- 主键已经包含索引，不再为 `id` 创建重复普通索引。
+- `oid` 必须唯一，只用于 API 和外部标识；表间关联统一使用整数 ID。
+- 可变实体增加 `updatedAt`；支持软删除的报告、分类和实例增加 `deletedAt`。
+- hash 保存不带 `sha256:` 前缀的 `CHAR(64)`；运行镜像 digest 使用 `VARCHAR(71)`。
+- 枚举使用 `SMALLINT + IntEnum + CHECK`，兼容 SQLite 和 PostgreSQL。
+- JSON 字段使用 callable default，禁止 `{}`、`[]` 等共享可变默认值。
+- 纯关联表直接继承 `Base`，不创建 OID，使用组合主键或组合唯一约束；所有表仍共享同一份 metadata。
+
+跨表枚举集中定义为：
+
+```text
+ArtifactKind            SOURCE=1, INSTRUMENTED=2
+ArtifactBuildStatus     PENDING=0, BUILDING=1, READY=2, FAILED=3
+VersionReviewStatus     PENDING=0, APPROVED=1, REJECTED=2
+ExecutionSourceType     WORKSPACE=1, LATEST=2, VERSION=3
+ExecutorType            LOCAL=1, DOCKER=2
+ExecutionStatus         PENDING=0, RUNNING=1, SUCCEEDED=2,
+                        FAILED=3, CANCELLED=4, EXPIRED=5
+ShareAccessType         LINK=1, PUBLIC=2, SPECIFIED_USERS=3
+ReportOriginType        CREATED=1, COPY=2, SHARE=3, UZC_IMPORT=4
+```
+
+### 4.3 报告与分类
+
+#### `calc_report_category`
+
+```text
+userId              INTEGER FK users.id NOT NULL
+name                VARCHAR(50) NOT NULL
+description         TEXT NULL
+sortOrder           INTEGER NOT NULL DEFAULT 0
+updatedAt           DATETIME NOT NULL
+deletedAt           DATETIME NULL
+```
+
+删除 `status` 和易漂移的 `total`。建立活跃分类 `(userId, name)` 部分唯一索引，以及 `(userId, deletedAt, sortOrder)` 列表索引。
+
+#### `calc_report`
+
+```text
+userId                  INTEGER FK users.id NOT NULL
+categoryId              INTEGER FK calc_report_category.id NOT NULL
+name                    VARCHAR(100) NOT NULL
+description             TEXT NULL
+cover                   VARCHAR(500) NULL
+entryPath               VARCHAR(255) NOT NULL DEFAULT 'src/main.py'
+formatVersion           SMALLINT NOT NULL DEFAULT 1
+workspaceRevision       BIGINT NOT NULL DEFAULT 0
+workspaceArtifactId     INTEGER FK calc_report_artifact.id NULL
+latestVersionId         INTEGER NULL
+updatedAt               DATETIME NOT NULL
+deletedAt               DATETIME NULL
+```
+
+删除 `type`、整数 `version`、`copyFromId`、`isApproved`、`shareType`、`shareToUserIds` 和 build 状态字段。建立活跃报告 `(userId, categoryId, name)` 部分唯一索引，以及 `(userId, deletedAt, updatedAt)` 列表索引。
+
+`workspaceArtifactId` 必须指向 SOURCE artifact。`latestVersionId` 不使用单列外键，而是与 `calc_report.id` 组成命名复合外键，引用 `(calc_report_version.reportId, calc_report_version.id)`，确保 latest 属于当前报告。
+
+#### `calc_report_origin`
+
+来源信息属于可选的一对一关系，不放入报告热表：
+
+```text
+reportId                INTEGER FK calc_report.id NOT NULL UNIQUE
+originType              SMALLINT NOT NULL
+sourceReportId          INTEGER FK calc_report.id NULL
+sourceVersionId         INTEGER FK calc_report_version.id NULL
+sourceArtifactId        INTEGER FK calc_report_artifact.id NULL
+sourceArchiveHash       CHAR(64) NULL
+metadata                JSON NULL
+```
+
+`originType` 为 CREATED、COPY、SHARE 或 UZC_IMPORT。来源 artifact 形成持久引用，保证后续 workspace 修改后仍能审计初始来源。
+
+### 4.4 Artifact 与预插桩构建
+
+#### `calc_report_artifact`
+
+只保存已完成原子发布的不可变对象：
+
+```text
+artifactKind            SMALLINT NOT NULL          # SOURCE/INSTRUMENTED
+contentHash             CHAR(64) NOT NULL UNIQUE
+storageKey              VARCHAR(500) NOT NULL UNIQUE
+manifest                JSON NOT NULL
+fileCount               INTEGER NOT NULL CHECK >= 0
+totalSize               BIGINT NOT NULL CHECK >= 0
+formatVersion           SMALLINT NOT NULL CHECK >= 1
+```
+
+该表不保存 build status、错误、lease、runtime fingerprint 或访问热度。artifact GC 根据外键引用和活动租约判断，不在每次读取时更新数据库。
+
+#### `calc_report_artifact_build`
+
+可变构建任务单独保存：
+
+```text
+sourceArtifactId        INTEGER FK calc_report_artifact.id NOT NULL
+runtimeFingerprint      VARCHAR(255) NOT NULL
+outputArtifactId        INTEGER FK calc_report_artifact.id NULL
+status                  SMALLINT NOT NULL             # PENDING/BUILDING/READY/FAILED
+diagnostics             JSON NULL
+attemptCount            INTEGER NOT NULL DEFAULT 0
+leaseOwner              VARCHAR(128) NULL
+leaseExpiresAt          DATETIME NULL
+startedAt               DATETIME NULL
+completedAt             DATETIME NULL
+updatedAt               DATETIME NOT NULL
+```
+
+约束 `(sourceArtifactId, runtimeFingerprint)` 唯一。READY 必须存在 output artifact；非 BUILDING 状态不得保留有效 lease。索引 `(status, leaseExpiresAt)` 供 worker 抢占和超时恢复。
+
+build 不包含 `reportId`，相同 SOURCE 和 runtime 可以跨报告复用。报告当前构建状态通过 `workspaceArtifactId + runtimeFingerprint` 查询，不落到 `calc_report`。
+
+### 4.5 发布版本与审核
+
+#### `calc_report_version`
+
+使用清晰表名替代旧 `published_version`：
+
+```text
+reportId                INTEGER FK calc_report.id NOT NULL
+sourceArtifactId        INTEGER FK calc_report_artifact.id NOT NULL
+major                   INTEGER NOT NULL CHECK >= 0
+minor                   INTEGER NOT NULL CHECK >= 0
+patch                   INTEGER NOT NULL CHECK >= 0
+description             TEXT NULL
+publishedByUserId       INTEGER FK users.id NOT NULL
+reviewStatus            SMALLINT NOT NULL DEFAULT PENDING
+reviewedByUserId        INTEGER FK users.id NULL
+reviewedAt              DATETIME NULL
+reviewComment           TEXT NULL
+```
+
+版本字符串 `1.2.3` 和 import segment `v_1_2_3` 均从数字字段派生，不重复落库。约束 `(reportId, major, minor, patch)` 唯一，并增加 `(reportId, id)` 唯一键供复合外键引用。
+
+版本、SOURCE artifact 和版本号不可修改。审核状态属于不可变发布版本；只有 APPROVED 版本可以创建分享链接。工具链升级只新增 artifact build，不产生新业务版本。
+
+### 4.6 Workspace 依赖与 selector
+
+#### `calc_report_dependency`
+
+```text
+reportId                INTEGER FK calc_report.id NOT NULL
+targetReportId          INTEGER FK calc_report.id NOT NULL
+alias                   VARCHAR(64) NOT NULL
+updatedAt               DATETIME NOT NULL
+```
+
+约束 `(reportId, alias)` 唯一、`reportId != targetReportId`，并增加 `(id, targetReportId)` 唯一键供 selector 复合引用。
+
+#### `calc_report_dependency_selector`
+
+```text
+dependencyId            INTEGER FK calc_report_dependency.id NOT NULL
+targetReportId          INTEGER FK calc_report.id NOT NULL
+selectorKey             VARCHAR(32) NOT NULL
+targetVersionId         INTEGER FK calc_report_version.id NULL
+isDefault               BOOLEAN NOT NULL DEFAULT FALSE
+```
+
+- `(dependencyId, selectorKey)` 唯一。
+- 每个 dependency 通过部分唯一索引保证最多一个 `isDefault = TRUE`。
+- `latest` 要求 `targetVersionId IS NULL`；明确版本要求非空。
+- 复合外键保证 selector 的 target report 与 dependency 一致，并保证明确版本属于 target report。
+- 至少一个 selector 且恰好一个 default 由 dependency service 在事务内保证。
+
+workspace 保存时把 dependency 和 selector 快照写入 SOURCE manifest。发布版本通过 SOURCE artifact 获得不可变声明，不再单独复制 dependency JSON。
+
+### 4.7 分享
+
+#### `calc_report_share_link`
+
+```text
+versionId               INTEGER FK calc_report_version.id NOT NULL
+tokenHash               CHAR(64) NOT NULL UNIQUE
+accessType              SMALLINT NOT NULL             # LINK/PUBLIC/SPECIFIED_USERS
+expiresAt               DATETIME NULL
+revokedAt               DATETIME NULL
+maxUseCount             INTEGER NULL CHECK >= 0
+useCount                INTEGER NOT NULL DEFAULT 0 CHECK >= 0
+createdByUserId         INTEGER FK users.id NOT NULL
+```
+
+report 和 artifact 均由 version 推导，不重复保存。创建链接时要求 version 已 APPROVED；`useCount` 使用条件更新原子递增。
+
+#### `calc_report_share_recipient`
+
+```text
+shareLinkId             INTEGER FK calc_report_share_link.id
+userId                  INTEGER FK users.id
+PRIMARY KEY (shareLinkId, userId)
+```
+
+使用关联表替代 `allowedUserIds` JSON。SPECIFIED_USERS 必须至少存在一个 recipient，由 share service 在同一事务中保证。
+
+### 4.8 Bundle 与 artifact 引用
+
+#### `calc_execution_bundle`
+
+```text
+bundleHash                  CHAR(64) NOT NULL UNIQUE
+runtimeFingerprint          VARCHAR(255) NOT NULL
+runtimeImageDigest          VARCHAR(71) NULL
+entrySourceArtifactId       INTEGER FK calc_report_artifact.id NOT NULL
+entryExecutionArtifactId    INTEGER FK calc_report_artifact.id NOT NULL
+manifest                    JSON NOT NULL
+formatVersion               SMALLINT NOT NULL DEFAULT 1
+```
+
+bundle 是与用户和执行会话无关的不可变内容对象。manifest 用于传输，关系表用于数据库完整性和 GC。
+
+#### `calc_execution_bundle_component`
+
+```text
+bundleId                    INTEGER FK calc_execution_bundle.id NOT NULL
+componentKey                VARCHAR(160) NOT NULL
+scopeKey                    VARCHAR(80) NOT NULL
+alias                       VARCHAR(64) NULL
+selectorKey                 VARCHAR(32) NULL
+sourceArtifactId            INTEGER FK calc_report_artifact.id NOT NULL
+executionArtifactId         INTEGER FK calc_report_artifact.id NOT NULL
+isEntry                     BOOLEAN NOT NULL DEFAULT FALSE
+```
+
+`componentKey` 对入口固定为 `entry`，对依赖使用规范化的 `scope/alias/selector`。约束 `(bundleId, componentKey)` 唯一，并用部分唯一索引保证每个 bundle 最多一个 entry；至少一个 entry 由 bundle service 在事务内保证。entry 的 alias/selector 为空，依赖 component 必须非空。component 外键使 artifact 引用可查询，无需解析 JSON 才能执行 GC。
+
+### 4.9 执行与交互输入
+
+#### `calc_execution`
+
+保存低频执行状态和可复现审计信息：
+
+```text
+userId                  INTEGER FK users.id NOT NULL
+reportId                INTEGER FK calc_report.id NOT NULL
+bundleId                INTEGER FK calc_execution_bundle.id NOT NULL
+sourceType              SMALLINT NOT NULL       # WORKSPACE/LATEST/VERSION
+resolvedVersionId       INTEGER FK calc_report_version.id NULL
+executorType            SMALLINT NOT NULL       # LOCAL/DOCKER
+status                  SMALLINT NOT NULL
+sandboxExecutionId      VARCHAR(64) NULL UNIQUE
+executorNodeId          VARCHAR(128) NULL
+startedAt               DATETIME NULL
+lastActiveAt            DATETIME NULL
+expiresAt               DATETIME NULL
+completedAt             DATETIME NULL
+resultPath              VARCHAR(500) NULL
+errorCode               VARCHAR(64) NULL
+errorMessage            TEXT NULL
+metrics                 JSON NULL
+```
+
+WORKSPACE 要求 `resolvedVersionId IS NULL`；LATEST/VERSION 要求非空。复合外键保证 resolved version 属于当前 report。索引覆盖 `(userId, createdAt)`、`(reportId, createdAt)` 和 `(status, expiresAt)`。
+
+#### `user_input_history`
+
+保留表名，但只保存高频变化的交互状态，与 execution 一对一：
+
+```text
+executionId             INTEGER FK calc_execution.id NOT NULL UNIQUE
+defaults                JSON NOT NULL
+inputHistory            JSON NOT NULL
+currentStep             INTEGER NOT NULL DEFAULT 0
+totalSteps              INTEGER NOT NULL DEFAULT 0
+updatedAt               DATETIME NOT NULL
+```
+
+删除文件路径、发布状态、结果 HTML、executor、bundle 和错误字段。交互更新不改写 `calc_execution` 的 bundle 与来源审计字段。
+
+#### `input_cache`
+
+只保存用户最近一次输入：
+
+```text
+userId                  INTEGER FK users.id NOT NULL
+reportId                INTEGER FK calc_report.id NOT NULL
+entryName               VARCHAR(128) NOT NULL
+sourceArtifactId        INTEGER FK calc_report_artifact.id NOT NULL
+defaults                JSON NOT NULL
+updatedAt               DATETIME NOT NULL
+expiresAt               DATETIME NULL
+```
+
+约束 `(userId, reportId, entryName)` 唯一。source artifact 只用于判断字段结构是否可能变化，不参与唯一键。删除职责重复的 `calc_report_archive`。
+
+### 4.10 计算实例与收藏
+
+#### `calc_report_instance_category`
+
+与报告分类相同，使用 `sortOrder`、`updatedAt`、`deletedAt`，删除 `status` 和 `total`。
+
+#### `calc_report_instance`
+
+```text
+userId                  INTEGER FK users.id NOT NULL
+categoryId              INTEGER FK calc_report_instance_category.id NOT NULL
+reportId                INTEGER FK calc_report.id NOT NULL
+sourceVersionId         INTEGER FK calc_report_version.id NULL
+bundleId                INTEGER FK calc_execution_bundle.id NOT NULL
+executionId             INTEGER FK calc_execution.id NULL
+reportName              VARCHAR(100) NULL
+name                    VARCHAR(100) NOT NULL
+description             TEXT NULL
+defaults                JSON NOT NULL
+resultPath              VARCHAR(500) NOT NULL
+revision                BIGINT NOT NULL DEFAULT 1
+updatedAt               DATETIME NOT NULL
+deletedAt               DATETIME NULL
+```
+
+workspace 实例通过 bundle 固定源码；发布版本实例同时保存 sourceVersionId。即使执行历史后续清理，bundle 与版本仍能复现实例来源。
+
+#### `favorite_calc_reports`
+
+使用 `(userId, reportId)` 组合主键并保留 `createdAt`，不再创建无业务用途的 OID。
+
+### 4.11 模型与迁移边界
+
+- 所有 ORM 模型统一使用同一个 `Base.metadata`；实体继承 `BaseModel`，关联表直接继承 `Base`，删除 `user_input_history.py` 中的第二套 declarative base。
+- Alembic `target_metadata` 只使用 `Base.metadata`。
+- 不再创建 `calc_report_archive` 和 `published_version`。
+- 重写 `001_initial_schema.py`，合并实例表并删除 `002_calc_report_instance.py`。
+- `upgrade` 按 artifact、报告、版本、依赖、分享、bundle、执行、实例顺序创建，`downgrade` 反向删除。
+- 全部外键、CHECK、唯一约束和部分索引显式命名。
+- 报告、分类和实例使用软删除；workspace dependency、input cache、收藏和 share recipient 在所有者硬删除时 CASCADE。
+- 已被版本、分享、bundle 或实例引用的 artifact/version/bundle 使用 RESTRICT；实例的可选 execution 被清理时使用 SET NULL。
+- `calc_report` 与 version 的循环引用、selector 的目标归属、execution 的 resolved version 和 instance 的 source version 均使用命名复合外键。
+- latest 循环外键在 report/version 两表创建完成后添加：PostgreSQL 使用 `ALTER TABLE`，SQLite 使用 Alembic batch recreate；downgrade 先移除该约束。
+- 不读取、转换或迁移现有数据库数据。
+
+## 5. 多版本引用与依赖固化
+
+### 5.1 用户 import 形式
 
 ```python
-# 使用依赖清单中的默认版本，默认值为 latest
+# 使用依赖声明中的 default selector
 from calcdeps.continuous_beam.api import calculate_capacity
 
-# 显式使用 latest
+# 新执行时解析目标报告的 latest
 from calcdeps.continuous_beam.latest.api import calculate_capacity
 
-# 显式使用不可变版本 1.2.1
+# 永久绑定明确版本
 from calcdeps.continuous_beam.v_1_2_1.api import calculate_capacity
 ```
 
-Bundle Builder 在 `calcdeps/<alias>/` 下生成别名包，将其 `__path__` 扩展到默认选择器对应的已发布版本目录，因此省略版本的 import 不需要复制整套源码。显式版本目录则按声明的 selector 生成。
+源码中不出现目标 OID、artifact hash 或物理路径。
 
-`latest` 和符合 `v_<major>_<minor>_<patch>` 的名称是跨项目导出根目录下的保留名称。依赖别名必须是合法且非保留的 Python 标识符。
+### 5.2 解析规则
 
-用户不需要知道以下真实路径：
+- `latest` 读取目标报告的 `latestVersionId`，为空时拒绝引用。
+- `v_1_2_1` 读取目标报告不可变的明确版本。
+- 省略 selector 时使用依赖声明的 default，默认是 latest。
+- 每次新建 bundle 时在同一数据库读事务中解析整个依赖闭包。
+- 解析结果写入 bundle manifest；活动会话永不重新解析 latest。
+- 同一 artifact 可被多个 alias 或 selector 使用，但只存储和传输一次。
+- 循环检测以已解析的报告、版本和 artifact 节点为准。
 
-```text
-/data/calc-projects/1001/67ab.../version/v_1_2_1/src/api.py
-```
+### 5.3 报告局部命名空间
 
-### 7.3 依赖别名属于引用方项目
-
-依赖别名不是用户全局名称，而是当前项目中的局部绑定。因此同一用户可以在不同项目中使用相同的 `common`，也可以在一个项目中同时引用两个同名来源：
-
-```python
-from calcdeps.common_old.api import calculate as calculate_old
-from calcdeps.common_new.api import calculate as calculate_new
-```
-
-展示名称修改、物理路径变化或分享导入后重新生成 OID，都不会要求修改源码，只需保持当前项目中的别名映射。
-
-同一别名可以在一次执行中同时引用 `latest` 和一个或多个命名版本，适用于新旧算法对比。所有使用的 selector 必须预先出现在依赖清单中；不能把静态源码扫描作为完整性和权限判断的唯一依据，因为动态 import 和条件 import 可能无法可靠识别。
-
-### 7.4 选择器解析与执行固化
-
-构建执行包时，后端将每个逻辑选择器解析为确定 artifact：
-
-- `latest` 先解析目标项目的 `latestVersionId`，再读取该版本永久绑定的 content hash；`latestVersionId` 为空时拒绝引用。
-- `1.2.1` 解析为 `CalcProjectVersion` 永久绑定的 content hash。
-- 省略版本的 import 解析为依赖清单中的 `default`，默认是 `latest`。
-
-解析结果写入 bundle manifest。即使执行期间目标项目再次保存，已经创建的 bundle 也不会静默切换内容。
-
-添加或升级依赖时，后端应校验：
-
-- 当前用户是否有权访问目标项目或目标分享版本。
-- 别名是否符合 Python 模块命名规则。
-- selector 是否存在、是否已声明，以及版本名是否符合约束。
-- 是否形成循环依赖。
-- 依赖深度、项目数量和总体积是否超过限制。
-
-### 7.5 版本管理接口
-
-目标 API 至少包含：
+平铺的全局 `calcdeps` 无法正确支持传递依赖中的同名 alias。预插桩构建器因此将托管源码中的静态 `calcdeps` import 改写为 artifact 作用域内部命名空间：
 
 ```text
-POST /calc-report/{reportOid}/versions
-  body: { versionName }
-  发布当前 workspace，并自动将新版本提升为 latest
+用户源码:
+  calcdeps.common.latest.api
 
-GET /calc-report/{reportOid}/versions
-  返回全部已发布版本和当前 latest 标记
-
-PUT /calc-report/{reportOid}/latest
-  body: { versionName }
-  将 latest 指向已有版本，不修改 workspace
-
-POST /calc-report/{reportOid}/workspace/restore
-  body: { versionName }
-  将指定版本内容恢复到 workspace，不修改 latest
+执行产物:
+  __uzon_deps__.scope_{sourceHash}.common.latest.api
 ```
 
-现有保存接口只保存 workspace，响应从单独的报告 OID 调整为结构化结果：
+每个 SOURCE artifact 拥有独立 scope，入口和传递依赖中的 `common` 不会互相覆盖。用户仍只编写公开的 `calcdeps` 形式。
+
+第一阶段仅支持可静态识别的 `import` 和 `from ... import ...`。使用 `importlib`、`__import__` 或字符串拼接动态加载 `calcdeps` 时构建失败；后续如需动态能力，应提供显式受控的依赖加载 API，而不是开放任意模块路径。
+
+## 6. 预插桩执行 artifact
+
+### 6.1 现有运行时插桩的问题
+
+当前 `@uzon_calc` 和 `@uzon_calc_func` 在模块 import 时调用 `instrument_function()`：读取函数源码、转换 AST、编译并 `exec` 新函数。内存缓存以函数对象为 key，只在单进程内有效，无法跨本机子进程或 Docker 容器复用。
+
+托管 CalcReport 应把这一步前移到 workspace 保存之后，运行时只加载已生成文件。
+
+### 6.2 构建键与工具链指纹
 
 ```text
-SaveCalcReportResult
-  reportOid
-  workspaceArtifactHash
-  publishState
+toolchainFingerprint =
+  uzoncalcVersion
+  + instrumentationFormatVersion
+  + pythonImplementation
+  + pythonMajorMinor
+  + runtimeBuildId
+
+derivationKey = SHA256(
+  sourceArtifactHash
+  + toolchainFingerprint
+)
 ```
 
-## 8. 分享与导入
+Docker 的 `runtimeImageDigest` 是 runtimeBuildId 的权威实现；本机运行使用相同依赖锁和构建标识生成等价 fingerprint。
 
-### 8.1 分享采用已解析 artifact
-
-分享链接只能由已发布版本创建。选择 `latest` 分享时，创建过程必须立即解析并固定 `sourceVersionId` 和 `sourceArtifactHash`；分享链接后续不会跟随 `latest` 变化。尚未发布的 workspace 不能分享。分享令牌只用于授权导入，不直接暴露项目 OID，也不作为源码访问路径。
-
-### 8.2 导入生成接收者自己的项目
-
-接收者导入后：
-
-1. 创建新的项目 OID，将源 artifact 写入接收者的初始 workspace。
-2. 使用来源版本名创建接收者自己的不可变版本并设为 latest。
-3. 复制分享时已解析的依赖 artifact 闭包。
-4. 将依赖关系映射到新创建的项目 ID。
-5. 保留项目内部依赖别名，使源码无需改写。
-6. 记录来源项目、来源版本、artifact hash 和归档哈希。
-
-展示名称冲突可以自动生成 `名称（2）` 或让用户在导入确认时修改。由于物理路径按 OID 存储，展示名称冲突不会造成文件覆盖。
-
-### 8.3 `.uzc` 作为导入来源
-
-现有 `.uzc` 可以通过兼容适配器导入：
-
-1. 在独立导入流程中安全解析归档。
-2. 读取现有入口清单。
-3. 将归档内 `src` 文件树转换为项目 workspace。
-4. 生成平台使用的 `calcbook.json` 和 workspace artifact，保持未发布状态。
-5. 不执行任何归档代码。
-
-后续可以扩展 `.uzc` 清单，使其成为正式交换格式，同时保留旧归档兼容读取能力。
-
-## 9. 服务器执行安全框架
-
-所有用户编写、分享或导入的 Python 代码必须按恶意代码处理。主 API 进程不得直接 import 用户代码。
-
-### 9.1 运行镜像与用户 artifact 分离
-
-UzonCalc 核心包、允许使用的第三方 Python 依赖和模板 JS 固化在带 digest 的容器镜像中，由容器运行时缓存镜像层。它们不应在每次执行时放入用户 bundle。
-
-用户 artifact 只包含当前项目源码、资源和声明的项目依赖。执行容器不能读取用户的其他项目，更不能挂载整个 `data/calc-projects/{userId}`。
-
-### 9.2 Bundle 是 artifact 组合清单
-
-执行请求必须显式区分源码来源：
+### 6.3 异步构建状态机
 
 ```text
-CalcExecutionSource
-  { type: "workspace" }
-  { type: "latest" }
-  { type: "version", versionName: "1.2.1" }
+PENDING -> BUILDING -> READY
+                   -> FAILED
 ```
 
-编辑器保存后使用 `workspace` 执行当前可编辑内容。普通查看器和未指定来源的正式执行默认使用 `latest`，也可以指定明确版本。`latestVersionId` 为空时，正式执行返回“计算书尚未发布”，但不影响编辑器执行 workspace。
+1. workspace 保存 SOURCE artifact 后幂等创建构建任务。
+2. worker 获取 derivation lease，避免多实例重复构建。
+3. worker 对整个源码树做纯 AST 转换和静态校验。
+4. worker 不 import、exec 或运行任何用户模块和顶层代码。
+5. worker输出镜像目录结构的 `.py` 文件、source map 和 instrumentation manifest。
+6. 生成文件通过 `compile()` 语法校验后写入临时目录，再原子发布为 INSTRUMENTED artifact。
+7. 完成时更新对应 `calc_report_artifact_build`；报告当前状态始终按最新 `workspaceArtifactId + runtimeFingerprint` 派生，旧 revision 的结果不会覆盖新 workspace。
 
-Execution Bundle Builder 根据入口项目和依赖清单生成规范化 bundle manifest：
+构建错误按文件、原始行号、错误类型和消息写入 build diagnostics。源码保存仍然成功，但编辑器运行和发布必须拒绝当前 SOURCE/runtime 对应的 `PENDING`、`BUILDING` 或 `FAILED` 状态。
+
+### 6.4 运行时跳过重复插桩
+
+生成文件保留 `@uzon_calc`、`@uzon_calc_func` 的上下文和调用语义，但为已转换函数添加受控的 pre-instrumented marker，并注入 recorder/IR/step runtime 引用。装饰器看到 marker 后只创建现有包装函数，不再调用 AST 插桩器。
+
+托管执行入口增加强校验：
+
+- manifest 的 SOURCE hash、toolchain fingerprint 和文件 hash 必须匹配。
+- 入口和依赖必须全部来自 READY 的 INSTRUMENTED artifact。
+- 缺失产物时触发或等待异步构建，并返回稳定的 `EXECUTION_ARTIFACT_NOT_READY`，不得回退到运行时插桩。
+
+普通本地 Python 脚本、CLI 和旧 `.uzc` 不属于托管 CalcReport，继续保留现有运行时插桩兼容路径。
+
+### 6.5 工具链升级
+
+toolchain fingerprint 变化时：
+
+- SOURCE artifact 和业务版本保持不变。
+- 原 INSTRUMENTED artifact 不删除，但不能被新运行时使用。
+- 部署任务预热 latest、近期 workspace 和高频版本。
+- 尚未预热的版本在首次请求时进入 PENDING；执行不会使用旧工具链或临时插桩。
+
+## 7. Execution Bundle
+
+### 7.1 Bundle manifest
 
 ```json
 {
   "formatVersion": 1,
+  "runtimeFingerprint": "uzoncalc-...",
   "runtimeImageDigest": "sha256:...",
   "entry": {
+    "reportOid": "67ab...",
     "sourceType": "latest",
-    "versionName": "1.2.1",
-    "artifactHash": "sha256:current...",
+    "resolvedVersion": "1.2.1",
+    "sourceArtifactHash": "sha256:source...",
+    "executionArtifactHash": "sha256:exec...",
     "entryPath": "src/main.py"
   },
-  "aliases": {
-    "continuous_beam": {
-      "default": "latest",
-      "selectors": {
-        "latest": "sha256:latest...",
-        "v_1_2_1": "sha256:version..."
+  "scopes": {
+    "scope_sourceHash": {
+      "continuous_beam": {
+        "default": "latest",
+        "selectors": {
+          "latest": "sha256:exec-latest...",
+          "v_1_2_1": "sha256:exec-version..."
+        }
       }
     }
   }
 }
 ```
 
-`bundleHash` 根据规范化 manifest 计算，用于标识一次确定的源码和依赖组合。artifact 与 bundle 都是不可变对象，内容变化时生成新 hash，不做原地缓存失效。
+`bundleHash` 根据规范化 manifest 计算，不包含用户授权 token、节点 ID、临时路径或时间戳。manifest 保存到 `calc_execution_bundle`，每个源码和执行 artifact 同时写入 `calc_execution_bundle_component`，用于引用审计和 GC。权限校验与内容寻址必须分离，知道 bundle hash 不代表有权执行。
 
-容器内可将这些 artifact 组装为：
+### 7.2 执行来源
 
 ```text
-/bundle/
-  current/
-    src/
-    resources/
-  calcdeps/
-    continuous_beam/
-      __init__.py
-      latest/
-      v_1_2_1/
+WORKSPACE
+  使用当前 workspace SOURCE 和对应 READY 执行产物
+
+LATEST
+  立即解析 latestVersionId，并把明确版本写入执行历史
+
+VERSION
+  使用请求指定的不可变版本
 ```
 
-### 9.3 Artifact 缓存和传输协议
+编辑器默认运行 WORKSPACE，普通查看器和正式执行默认运行 LATEST。未发布报告可以运行 WORKSPACE，但不能运行 LATEST、被引用或分享。
 
-远程 sandbox API 不再接收宿主机 `script_path` 和 `package_root`，而采用以下流程：
+## 8. 本机 sandbox 运行与缓存
 
-1. 主 API 完成权限校验、selector 解析和 bundle manifest 构建。
-2. 主 API 调用 `prepare bundle`，sandbox 返回本节点缺失的 artifact hash。
-3. 主 API 只上传缺失 artifact，或提供对象存储短期签名地址。
-4. sandbox 将上传内容解压到临时目录，校验文件清单和 hash 后原子发布到节点缓存。
-5. 主 API 使用 `bundleHash` 和短期执行授权 token 启动执行。
-6. sandbox 将缓存 artifact 只读组装到 `/bundle`，为本次执行创建独立 `/work` 和 `/output`。
+第一阶段实现本机 sandbox，但从一开始使用 bundle 接口，不再向 executor 传递用户目录的 `script_path` 和 `package_root`。
 
-目标内部接口可以表达为：
+### 8.1 执行流程
+
+1. 主 API 完成报告权限、执行来源和依赖解析。
+2. 校验全部 INSTRUMENTED artifact 为 READY。
+3. 生成 bundle manifest 和 bundle hash。
+4. Bundle assembler 按 hash 组装或复用只读目录。
+5. 为本次执行创建独立 `/work` 和 `/output`。
+6. 启动全新 Python 子进程加载预插桩入口。
+7. 创建 `calc_execution`，将进程通信通道和租约写入执行管理器；交互 defaults 和步骤单独写入一对一的 `user_input_history`。
+8. 完成、取消、超时或异常时终止整个进程组并释放租约。
+
+本机执行也不得在主 API 进程 import 用户代码。每次执行使用新子进程，避免 `sys.modules`、全局变量、线程和 monkey patch 污染后续计算。
+
+### 8.2 本机缓存层
+
+| 缓存 | Key | 生命周期 |
+| --- | --- | --- |
+| SOURCE artifact | source hash | 被 workspace、版本或分享引用期间保留 |
+| INSTRUMENTED artifact | derivation key/content hash | 跨执行保留，工具链变化后自然不命中 |
+| bundle assembly | bundle hash | 跨子进程复用，LRU/TTL 回收 |
+| 执行会话 | execution ID | 交互完成、取消或超时后销毁 |
+| 输入缓存 | user/report/entry | 数据库 TTL，记录来源 SOURCE 供结构变化判断 |
+
+bundle assembly 使用硬链接、只读 bind 或安全复制组合 artifact，不修改内容寻址目录。GC 不得删除活动 bundle lease 引用的 artifact。
+
+### 8.3 交互继续执行
+
+`continue` 只接收：
+
+```text
+executionId
+defaults
+```
+
+它必须路由到原子进程，只更新 `calc_execution.lastActiveAt` 和 `user_input_history`，不重新解析 latest、不重建 bundle、不传输 artifact，也不重新插桩。API 重启、进程丢失或超时后不能透明恢复 Python 内存状态，应把执行标记为 `FAILED` 或 `EXPIRED`，由用户重新开始执行。
+
+## 9. Docker sandbox 运行与缓存
+
+Docker 阶段复用本机阶段的 bundle manifest、artifact 格式和执行记录，只替换 orchestrator 与传输实现。
+
+### 9.1 内部协议
 
 ```text
 POST /sandbox/bundles/prepare
@@ -521,205 +689,217 @@ POST /sandbox/continue
 POST /sandbox/terminate
 ```
 
-`bundleHash` 只负责内容寻址，不是授权凭据。短期 token 至少绑定用户 ID、bundle hash、镜像 digest、过期时间和允许的操作。
+流程：
 
-单机部署可以让主 API 与 sandbox 使用同一专用 artifact store，避免网络传输，但容器仍然只挂载 artifact 缓存，不挂载项目数据目录。多实例部署使用相同的缺失查询协议，从对象存储或主 API 获取未命中内容。
+1. Orchestrator 选择具有目标 runtime image 的节点。
+2. `prepare` 返回该节点缺失的 SOURCE 和 INSTRUMENTED artifact hash。
+3. 主 API 只上传缺失内容，或提供对象存储短期签名地址。
+4. 节点在临时目录校验 manifest、文件 hash 和安全解压规则。
+5. 校验成功后原子发布到节点 artifact cache。
+6. 节点按 bundle hash 组装只读 `/bundle`。
+7. 容器获得独立 `/work`、`/output`，并为每次执行启动独立子进程。
 
-### 9.4 对执行速度的影响
+容器从 INSTRUMENTED artifact 组装可执行代码，从 SOURCE artifact 只读组装 manifest 声明的资源；不得把 SOURCE 中未插桩的 `src` 目录加入 Python 搜索路径。容器不挂载 `data/calc-reports`、整个用户目录、数据库凭据或 Docker socket。
 
-不挂载整个用户目录会增加首次缓存未命中的准备成本，但不会要求每次执行重新传递全部 bundle：
+### 9.2 Docker 缓存层
 
-- 冷缓存首次执行需要计算或读取 artifact、传输缺失字节、校验并解压。
-- artifact 缓存命中时只交换 bundle manifest 和控制请求，不上传 artifact 内容。
-- 保存 workspace 只产生新的编辑预览 artifact，不改变正式执行或依赖方已经解析的 latest bundle。
-- 发布版本通常直接复用 `workspaceArtifactHash`，不需要重新打包相同内容。
-- 发布新版本或调整 latest 指针后，新建 bundle 使用新的版本解析结果；已经生成的 bundle 保持原 artifact。
-- 交互式 `continue` 只传递 `executionId` 和用户输入，不再次准备 bundle。
-- 容器销毁只清理容器和可写工作目录，宿主 sandbox 节点的 artifact 缓存可以继续供新容器使用。
-
-因此，需要区分三类缓存：
-
-| 缓存层 | 缓存内容 | 生命周期 |
+| 缓存 | Key | 生命周期 |
 | --- | --- | --- |
-| 容器镜像缓存 | UzonCalc、Python 依赖、模板 JS | 随镜像 digest 更新 |
-| Sandbox artifact 缓存 | 用户项目和依赖的不可变 artifact | 跨容器，按容量和 TTL 回收 |
-| 执行租约 | 已组装 bundle、子进程和交互状态 | 短期，执行完成或超时即销毁 |
+| 运行镜像 | image digest | 由容器运行时管理 |
+| 节点 artifact cache | source/execution artifact hash | 跨容器，LRU/TTL/容量回收 |
+| 节点 bundle assembly | bundle hash | 跨容器或租约复用 |
+| 容器租约 | userId + bundleHash + image digest | 短期空闲复用 |
+| 子进程会话 | execution ID | 单次交互执行 |
 
-实现阶段应分别记录 artifact 构建、传输、校验解压、容器启动和 Python 执行耗时。没有真实项目体积分布和部署网络基线前，不预设固定毫秒目标，但必须满足以下行为：
+容器不得跨用户、bundle 或 image digest 复用。bundle 相同只表示内容相同，不取消用户授权和会话隔离检查。
 
-- 缓存命中时 artifact 上传字节数为 0。
-- `continue` 不传输 bundle 或 artifact。
-- 仅一个项目 artifact 变化时，不重传未变化的依赖 artifact。
-- 容器无法通过缓存路径读取 bundle manifest 未声明的项目内容。
+### 9.3 缓存竞争与故障
 
-### 9.5 短期容器租约
+- artifact 上传幂等，未完成上传对执行请求不可见。
+- hash 或解压校验失败时删除临时内容，不能发布缓存项。
+- `prepare` 后 artifact 被 GC 时，`execute` 返回可重试 cache miss，主 API 重新 prepare。
+- GC 使用租约引用计数，不能删除活动容器使用的 artifact。
+- 节点丢失或容器异常时终止会话，不尝试迁移进程内状态。
+- runtime image digest 变化时容器、bundle 和 INSTRUMENTED artifact 按 fingerprint 重新匹配。
 
-为兼顾交互计算和启动性能，容器可以短期复用，但租约至少绑定到：
+### 9.4 安全基线
 
-```text
-userId + bundleHash + runtimeImageDigest
-```
+- 非 root 用户、只读根文件系统、删除 Linux capabilities。
+- `no-new-privileges`，禁止 privileged、宿主 PID/IPC 和 Docker socket。
+- CPU、内存、进程数、文件大小、运行时间和临时磁盘限额。
+- 默认禁止网络，扩展联网能力必须经显式权限和受控代理。
+- 固定镜像和第三方依赖，不允许运行时安装软件包。
+- 配置 seccomp/AppArmor；公开多租户部署可进一步采用 gVisor 或 Kata。
 
-容器不得跨用户或跨 bundle 复用。以下情况应销毁并重建容器：
+## 10. 分享与 `.uzc` 导入
 
-- bundle hash 或运行镜像 digest 变化。
-- 空闲 TTL 到期。
-- 达到最大运行次数或最长生存时间。
-- 执行超时、OOM、异常退出或资源违规。
-- 用户主动重置执行环境。
+### 10.1 分享导入
 
-容器复用只是性能优化，不能作为安全边界。
+分享只能固定到审核状态为 APPROVED 的发布版本，只传递 SOURCE artifact 和已解析来源信息，不传递 INSTRUMENTED artifact。接收者导入后：
 
-### 9.6 每次执行使用独立子进程
+1. 创建自己的 report OID 和 workspace。
+2. 重建依赖目标映射，但保留用户源码中的 alias。
+3. 创建接收者自己的初始发布版本并设为 latest。
+4. 根据接收者当前 toolchain 异步生成 INSTRUMENTED artifact。
+5. 记录来源报告、版本、SOURCE artifact 和分享记录。
 
-容器内的控制服务不得将用户代码 import 到自身进程。每次计算启动独立 Python 子进程：
+### 10.2 `.uzc` 导入
 
-- UI 交互期间保留该子进程。
-- 继续执行请求路由到对应子进程。
-- 完成、取消或超时后终止整个进程组。
-- 下一次执行使用新的子进程和干净临时目录。
+现有 `.uzc` 通过兼容适配器转换：
 
-这样可以避免 `sys.modules`、全局变量、线程和 monkey patch 污染后续执行。
+1. 安全解析归档，不调用 `extractall()` 直接信任路径。
+2. 拒绝路径穿越、符号链接、压缩炸弹、超大文件和异常文件数量。
+3. 读取入口清单并恢复源码树。
+4. 生成平台 `calcbook.json` 和 SOURCE artifact。
+5. 保持未发布状态并异步预插桩。
+6. 导入阶段不执行任何用户代码。
 
-### 9.7 容器安全基线
+后续 `.uzc` 可以扩展 SOURCE manifest 和依赖声明，但派生执行文件仍不作为跨运行时交换格式。
 
-执行容器至少需要：
+## 11. API 与状态契约
 
-- 使用非 root 用户。
-- 根文件系统只读。
-- 删除全部 Linux capabilities。
-- 启用 `no-new-privileges`。
-- 禁止 privileged、宿主 PID/IPC 和 Docker socket。
-- 限制 CPU、内存、进程数、文件大小和临时磁盘。
-- 默认禁用网络。
-- 固定运行镜像和依赖版本，不允许运行时安装包。
-- 配置 seccomp 和 AppArmor；公开多租户部署可进一步使用 gVisor 或 Kata。
-
-需要联网的扩展能力通过显式权限和受控代理提供，不能让用户代码直接访问数据库、内部服务、宿主网络或云主机元数据。
-
-### 9.8 输入与输出边界
-
-容器目录建议分为：
+### 11.1 workspace
 
 ```text
-/bundle   只读执行包
-/work     有容量限制的临时目录
-/output   有类型和容量限制的输出目录
+PUT /calc-report/{reportOid}/workspace
+  request:  workspaceRevision + complete workspace
+  response: reportOid, workspaceRevision, sourceArtifactHash,
+            buildStatus, publishState
+
+GET /calc-report/{reportOid}/workspace/build
+  response: sourceArtifactHash, toolchainFingerprint,
+            buildStatus, diagnostics
 ```
 
-主服务只收集声明过的输出文件，并校验路径、大小和 MIME 类型。计算结果 HTML 同样属于不可信内容，应通过独立域名、无登录 Cookie、严格 CSP 和 sandboxed iframe 展示，避免结果页面攻击主站。
+build 响应来自 `calc_report_artifact_build`，不从报告主表读取状态。
 
-### 9.9 执行会话授权和缓存失败处理
-
-`executionId` 必须在服务端关联：
-
-- 用户 ID。
-- 项目 ID、bundle hash 和解析后的 artifact hash。
-- 容器租约 ID。
-- 子进程 ID。
-- 创建时间和过期时间。
-
-继续、终止和读取结果时必须同时验证当前用户，不能只凭一个 `executionId` 操作执行会话。远程 sandbox 服务应只位于内部网络，并使用服务身份认证。
-
-缓存写入和回收还必须满足：
-
-- hash、文件清单或安全解压校验失败时删除临时内容，不能发布缓存项。
-- 未完成上传对执行请求不可见，重复上传同一 hash 必须幂等。
-- 缓存 GC 使用容量上限和 LRU/TTL 策略，但不得删除正在被容器租约引用的 artifact。
-- `prepare` 后 artifact 被 GC 回收时，`execute` 返回可重试的 cache miss，由主 API 重新补齐缺失项。
-- artifact hash 不能绕过项目所有权、分享授权或依赖访问检查。
-
-## 10. 前端发布状态提示
-
-前端直接使用后端返回的 `CalcPublishState`，不自行比较时间戳或猜测版本状态。
-
-计算书列表沿用现有 `version` 列：
-
-- `unpublished`：版本显示为空，并显示“未发布”标识。
-- `published`：显示 latest 版本，例如 `v1.2.1`，不显示警告。
-- `unpublished_changes`：显示 latest 版本，并显示“有未发布修改”标识。
-- `workspace_version_mismatch`：同时显示 workspace 对应版本和 latest 版本，并提示“工作区与当前发布版不一致”。
-
-编辑器在顶部名称、保存和运行按钮附近显示相同状态。编辑器运行按钮执行 workspace；发布入口要求用户填写版本号，并在成功后刷新报告详情和列表状态。
-
-普通查看器执行已发布版本，只显示本次实际执行的版本名，不显示 workspace 修改警告，避免让用户误以为正式执行使用了未发布内容。
-
-## 11. 建议模块边界
-
-可以按职责逐步形成以下服务：
+### 11.2 version
 
 ```text
-CalcProjectService
-  管理项目元数据、workspace、latest 指针和分类
+POST /calc-report/{reportOid}/versions
+  body: { versionName, description? }
+  要求当前 SOURCE 对目标工具链构建为 READY
 
-CalcVersionService
-  发布、校验和读取不可变命名版本
+GET /calc-report/{reportOid}/versions
+  返回全部发布版本和 latest 标记
 
-CalcArtifactService
-  生成规范化文件清单，保存和读取内容寻址 artifact
+PUT /calc-report/{reportOid}/latest
+  body: { versionName }
+  只移动 latest 指针
 
-CalcDependencyService
-  管理依赖别名、selector、权限和循环检测
-
-CalcShareService
-  创建、撤销和验证分享链接
-
-CalcImportService
-  安全导入分享版本和 .uzc 归档
-
-ExecutionBundleBuilder
-  解析 selector，生成 calcdeps 命名空间和 bundle manifest
-
-SandboxArtifactCache
-  校验、发布、组装和回收 sandbox 节点 artifact
-
-SandboxOrchestrator
-  管理容器租约、子进程、资源限制和执行会话
+POST /calc-report/{reportOid}/workspace/restore
+  body: { versionName }
+  只替换 workspace，并触发预插桩
 ```
 
-控制器只负责认证、DTO 转换和调用服务，不直接拼接文件路径、解压归档或操作容器。
+版本响应由 major/minor/patch 派生 `versionName` 和 import segment；版本审核接口只更新 review 字段，不允许修改源码 artifact 或版本号。
 
-## 12. 渐进式重构方向
+### 11.3 execution
 
-该架构不要求一次性完成，可以按以下方向逐步演进：
+```text
+CalcExecutionSource
+  { type: "workspace" }
+  { type: "latest" }
+  { type: "version", versionName: "1.2.1" }
+```
 
-1. 使用项目 OID 和 `workspace` 目录保存当前内容，解除展示名称和分类对文件路径的影响。
-2. 在保存流程中生成 workspace artifact，并增加 `version/v_x_y_z`、`latestVersionId` 和 `latest.json`。
-3. 增加发布、调整 latest、恢复 workspace 和前端发布状态接口。
-4. 增加项目局部依赖别名、默认 selector、多版本声明和 `calcdeps` 命名空间构建，只允许引用已发布版本。
-5. 实现 workspace/latest/version 三种执行来源、分层 bundle manifest、sandbox artifact cache 和缺失 artifact 传输协议。
-6. 将 sandbox 改为容器内独立子进程，停止传递主机文件路径，并补充租约授权和缓存回收。
-7. 在统一 artifact、权限和版本模型之上实现分享链接与 `.uzc` 导入。
+执行响应和历史至少记录：
 
-## 13. 验收场景
+```text
+executionId
+sourceType / resolvedVersion
+sourceArtifactHash / executionArtifactHash
+bundleHash / runtimeFingerprint
+executorType
+isCompleted / resultPath / windows
+```
 
-实现时至少验证以下场景：
+预插桩未完成统一返回稳定业务错误 `EXECUTION_ARTIFACT_NOT_READY`；构建失败返回 `EXECUTION_ARTIFACT_BUILD_FAILED` 和结构化诊断。请求线程不得临时执行 AST 插桩。
 
-1. 新项目保存后只存在 workspace，`publishState` 为 `unpublished`；编辑器可以执行 workspace，正式执行、引用和分享均返回“尚未发布”。
-2. 发布 `1.0.0` 后创建 `version/v_1_0_0`，`latestVersionId` 和 `latest.json` 指向该版本，状态变为 `published`；默认 import 和 `.latest` import 均解析到该版本。
-3. 再次保存 workspace 后，latest 仍指向 `1.0.0`，状态变为 `unpublished_changes`；编辑器执行新 workspace，普通查看器和依赖方继续执行 `1.0.0`。
-4. 发布 `1.1.0` 后自动提升 latest，状态恢复为 `published`；新建 bundle 解析到 `1.1.0`，已经生成的旧 bundle 保持不变。
-5. 将 latest 回退到 `1.0.0` 时 workspace 保持 `1.1.0` 内容，状态变为 `workspace_version_mismatch`；`.latest` 使用 `1.0.0`，`.v_1_1_0` 仍可显式使用。
-6. 从 `1.0.0` 恢复 workspace 时只替换 workspace；latest 保持当前指针，发布状态根据两个 content hash 重新计算。
-7. `latest.json` 缺失、损坏或内容过期时，可以根据数据库中的 `latestVersionId` 重建，不影响版本解析的权威结果。
-8. 分享 latest 时，分享记录固定创建瞬间的版本 ID 和 artifact hash；之后提升 latest 不改变已有分享内容。
-9. 保存 workspace 只上传新的 workspace artifact；未变化的依赖 artifact 继续命中缓存，交互式 `continue` 不重新传输 bundle。
+## 12. 发布状态
 
-## 14. 总结
+`CalcPublishState` 不单独落库，根据 artifact 指针派生：
 
-推荐架构可以概括为：
+```text
+latestVersionId 为空
+  -> unpublished
 
-> 内部使用稳定项目 ID 分离保存可编辑 workspace、latest 发布指针和不可变命名版本；只有已发布版本可以被引用和分享；执行时将 workspace、latest 或明确版本解析为内容寻址 artifact，只向 sandbox 传递缓存未命中的内容，并在按用户、bundle 和镜像隔离的短期容器中运行独立子进程。
+workspaceArtifactId == latest.sourceArtifactId
+  -> published
 
-在这个模型中：
+workspaceArtifactId 匹配其他发布版本
+  -> workspace_version_mismatch
 
-- 改名和移动分类不会影响物理文件或 import。
-- 用户无需知道内部 OID 和真实路径。
-- 同名计算书不会覆盖彼此。
-- workspace 保存不会使其他项目的默认依赖静默变化。
-- 默认引用可以跟随 `latest`，显式版本引用保持不可变，同一次执行也可以比较多个版本。
-- 前端可以明确区分未发布、已发布、存在未发布修改和 workspace 与 latest 不一致。
-- 分享和导入可以安全重建项目身份及依赖关系。
-- 服务器不会把整个用户目录暴露给不可信代码。
-- 容器销毁不会使镜像层和 sandbox artifact 缓存失效，同一内容不需要每次重新传输。
-- 每次执行都可以追溯到确定的 bundle、artifact、依赖版本和运行镜像。
+其它情况
+  -> unpublished_changes
+```
+
+构建状态与发布状态相互独立，并根据当前 runtime 对应的 artifact build 派生。例如 workspace 可以是 `unpublished_changes + BUILDING` 或 `published + FAILED`。列表和编辑器同时显示两个状态；普通查看器只展示本次实际执行的版本和 runtime，不展示 workspace 警告。
+
+## 13. 实施阶段
+
+1. **数据库与 SOURCE 存储**：统一 BaseModel 和初始迁移，实现规范化报告、artifact、版本、依赖、bundle、执行和实例表。
+2. **预插桩构建**：实现 artifact build 状态机、纯 AST 文件构建器、诊断、source map 和 INSTRUMENTED artifact。
+3. **版本与依赖**：实现发布/latest/恢复、版本审核、关系型 selector、依赖快照和作用域 import 改写。
+4. **本机 sandbox**：切换到 bundle/component 请求和独立子进程，分别落地执行审计与交互输入历史。
+5. **分享和导入**：在 SOURCE artifact 与依赖模型上实现固定版本分享和安全 `.uzc` 导入。
+6. **Docker sandbox**：实现 prepare/upload/execute 协议、节点缓存、容器租约和资源隔离。
+
+第一阶段完成本机 sandbox；Docker 的协议、缓存键和失败语义在第一阶段即固定，避免后续修改 bundle 和数据库契约。
+
+## 14. 验收场景
+
+### 14.1 workspace 与版本
+
+1. 新报告保存后只有 workspace，状态为 `unpublished`；构建 READY 后可预览，但不能引用或分享。
+2. 发布 `1.0.0` 后 latest 指向该版本；再次保存 workspace 不改变 latest。
+3. 发布 `1.1.0` 后新执行使用 `1.1.0`，旧 bundle 和活动会话仍使用原版本。
+4. latest 回退只移动指针；从版本恢复只修改 workspace。
+5. `latest.json` 丢失或损坏时可根据数据库重建。
+
+### 14.2 预插桩
+
+1. 保存立即返回 PENDING，后台成功转为 READY。
+2. 语法或插桩失败不丢失源码，但运行和发布返回结构化诊断。
+3. workspace 连续保存时，旧构建结果不能覆盖新 revision。
+4. 相同 SOURCE 和 toolchain 只生成一个派生产物。
+5. 工具链升级后 SOURCE 和业务版本不变，只重建执行 artifact。
+6. 代表性计算书的公式记录、错误行号和 HTML 结果与现有运行时插桩保持一致。
+
+### 14.3 多版本依赖
+
+1. 同一执行可以同时引用 dependency 的 latest、`v_1_0_0` 和 `v_1_1_0`。
+2. latest 在 bundle 创建后变化不影响该 bundle。
+3. 入口和传递依赖使用同名 alias 时，通过 artifact scope 得到各自目标。
+4. 未声明 selector、workspace selector、越权版本和循环依赖均被拒绝。
+5. 动态拼接 `calcdeps` import 在构建阶段被拒绝。
+
+### 14.4 缓存与执行
+
+1. 本机 bundle cache 命中时不重新组装 artifact。
+2. Docker artifact cache 命中时上传字节数为零。
+3. 单个 dependency 更新时不重传未变化 artifact。
+4. `continue` 不重新解析版本、传输 bundle 或执行插桩。
+5. GC 不删除活动 lease 引用内容。
+6. 进程、容器或节点丢失时执行历史得到明确终态。
+7. 用户代码无法访问 bundle manifest 未声明的报告、宿主目录或服务凭据。
+
+### 14.5 数据库约束
+
+1. SQLite 可在启用 foreign key 后完成 upgrade、downgrade 和再次 upgrade；PostgreSQL 离线 DDL 可生成。
+2. latest、dependency selector 和 execution resolved version 不能引用其他报告的版本。
+3. 每个 dependency 恰好一个 default selector，每个 bundle 恰好一个 entry component。
+4. artifact 与 artifact build 分离；READY build 必须存在 output artifact。
+5. 分享只能引用 APPROVED 版本，指定用户通过 recipient 外键表保存。
+6. 高频交互更新只修改 `user_input_history`，不会重写 bundle 或执行来源审计。
+7. schema 不再包含 `calc_report_archive`、`published_version` 和第二套 metadata。
+
+## 15. 关键结论
+
+- `CalcReport` 是唯一顶层领域对象，物理存储使用 report OID。
+- workspace 是可编辑 SOURCE，published version 是不可变 SOURCE，latest 是数据库指针。
+- 数据表按报告、不可变 artifact、构建任务、版本、依赖 selector、bundle component、执行审计和交互状态拆分。
+- 依赖声明随 SOURCE 固化，latest 在每次 bundle 构建时解析，历史执行永久固定结果。
+- 预插桩以 SOURCE 和 toolchain 为输入生成文件 artifact，托管运行时禁止临时插桩。
+- 本机和 Docker 共用 bundle、artifact、fingerprint、执行审计和交互状态契约。
+- 内容缓存与授权分离；缓存命中不能绕过报告、版本或分享权限。
