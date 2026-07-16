@@ -22,6 +22,7 @@ export interface WorkspaceDraftFile {
   sha256: string | null
   content: Blob | null
   text: string | null
+  originalText: string | null
   isText: boolean
   isDirty: boolean
   isNew: boolean
@@ -91,7 +92,7 @@ export function createDefaultWorkspaceFiles(): WorkspaceDraftFile[] {
 /** Create one unsaved text draft file. */
 function createTextDraftFile(path: string, text: string): WorkspaceDraftFile {
   const content = new Blob([text], { type: 'text/plain;charset=utf-8' })
-  return { path, originalPath: null, size: content.size, sha256: null, content, text, isText: true, isDirty: true, isNew: true }
+  return { path, originalPath: null, size: content.size, sha256: null, content, text, originalText: null, isText: true, isDirty: true, isNew: true }
 }
 
 /** Download a Blob with a browser-managed object URL. */
@@ -128,6 +129,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
       sha256: file.sha256,
       content: null,
       text: null,
+      originalText: null,
       isText: isWorkspaceTextFile(file.path),
       isDirty: false,
       isNew: false
@@ -147,14 +149,20 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
   /** Ensure one draft file has its current bytes loaded. */
   async function ensureFileLoaded(file: WorkspaceDraftFile): Promise<WorkspaceDraftFile> {
     if (file.content !== null) {
-      if (file.isText && file.text === null) file.text = await file.content.text()
+      if (file.isText && file.text === null) {
+        file.text = await file.content.text()
+        if (!file.isNew && !file.isDirty) file.originalText = file.text
+      }
       return file
     }
     isLoading.value = true
     try {
       file.content = await getWorkspaceFile(reportOid.value, file.originalPath || file.path)
       file.size = file.content.size
-      if (file.isText) file.text = await file.content.text()
+      if (file.isText) {
+        file.text = await file.content.text()
+        if (!file.isNew && !file.isDirty) file.originalText = file.text
+      }
       return file
     } finally {
       isLoading.value = false
@@ -174,6 +182,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
       sha256: null,
       content: blob,
       text: typeof content === 'string' ? content : null,
+      originalText: null,
       isText,
       isDirty: true,
       isNew: true
@@ -182,14 +191,14 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     return file
   }
 
-  /** Update one text file and mark it dirty. */
+  /** Update one text file and compare it with the last synchronized content. */
   function updateText(path: string, text: string): void {
     const file = files.value.find((candidate) => candidate.path === path)
     if (!file) return
     file.text = text
     file.content = new Blob([text], { type: 'text/plain;charset=utf-8' })
     file.size = file.content.size
-    file.isDirty = true
+    file.isDirty = file.isNew || file.path !== file.originalPath || text !== file.originalText
   }
 
   /** Rename one file or every file below a derived folder. */
@@ -206,7 +215,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
         throw new Error(`A file already exists at ${targetPath}`)
       }
       file.path = targetPath
-      file.isDirty = true
+      file.isDirty = file.isNew || file.path !== file.originalPath || (file.isText && file.text !== file.originalText)
     }
     if (entryPath.value === oldPath || entryPath.value.startsWith(`${oldPath}/`)) {
       setEntryPath(`${normalized}${entryPath.value.slice(oldPath.length)}`)
@@ -265,6 +274,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
       file.originalPath = file.path
       file.sha256 = persisted?.sha256 || null
       file.size = persisted?.size ?? file.size
+      file.originalText = file.isText ? file.text : null
       file.isDirty = false
       file.isNew = false
     })

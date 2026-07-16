@@ -1,6 +1,12 @@
 <template>
-  <div class="execution-pane column no-wrap">
+  <div v-if="$q.screen.lt.md" class="execution-unsupported column items-center justify-center full-height text-grey-7">
+    <q-icon name="desktop_windows" size="56px" />
+    <div class="text-subtitle1 q-mt-md">{{ t('calcWorkspace.desktopRequired') }}</div>
+  </div>
+  <div v-else class="execution-pane column no-wrap">
     <div class="execution-toolbar row items-center q-gutter-sm q-px-sm">
+      <q-btn flat round dense icon="arrow_back" @click="onBackToReports"><q-tooltip>{{
+        t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
       <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions"
         :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
       <q-select v-if="sourceType === 'version'" v-model="versionName" dense outlined emit-value map-options
@@ -52,6 +58,7 @@
 
 <script setup lang="ts">
 /** Run and continue managed calculations while showing immutable provenance. */
+defineOptions({ name: 'CalcReportExecution' })
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import ExecutionResultFrame from './ExecutionResultFrame.vue'
@@ -61,15 +68,19 @@ import { continueExecution, startExecution, terminateExecution, type ExecutionDe
 import { listVersions } from 'src/api/calc/versions'
 import { adaptExecutionFields } from './adaptExecutionFields'
 import { getWorkspaceBuild } from 'src/api/calc/workspace'
+import { getCalcReport } from 'src/api/calc/reports'
 import { CalcErrorCode } from 'src/api/calc/types'
 import { getApiFailure } from '../../shared/apiFailure'
 import { notifyError } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 
-const props = defineProps<{ reportOid: string; report: CalcReport | null }>()
 const route = useRoute()
+const router = useRouter()
+const $q = useQuasar()
+const reportOid = computed(() => String(route.params.reportOid || ''))
+const report = ref<CalcReport | null>(null)
 const versions = ref<CalcReportVersion[]>([])
-const sourceType = ref<ExecutionSourceType>((route.query.source as ExecutionSourceType) || (props.report?.latestVersionName ? 'latest' : 'workspace'))
+const sourceType = ref<ExecutionSourceType>('workspace')
 const versionName = ref<string | null>(null)
 const isSilent = ref(false)
 const isExecuting = ref(false)
@@ -80,16 +91,29 @@ const execution = ref<CalcExecution | null>(null)
 const { openSaveInstanceDialog } = useSaveInstanceDialog()
 const sourceOptions = computed(() => [
   { label: t('calcWorkspace.sourceWorkspace'), value: 'workspace' },
-  { label: t('calcWorkspace.sourceLatest'), value: 'latest', disable: !props.report?.latestVersionName },
+  { label: t('calcWorkspace.sourceLatest'), value: 'latest', disable: !report.value?.latestVersionName },
   { label: t('calcWorkspace.sourceVersion'), value: 'version', disable: versions.value.length === 0 }
 ])
 const versionOptions = computed(() => versions.value.map((version) => ({ label: version.versionName, value: version.versionName })))
 
-onMounted(async () => {
-  const response = await listVersions(props.reportOid)
-  versions.value = response.data || []
+/** Load report context and initialize a valid execution source for this route. */
+async function initializeExecutionPage(): Promise<void> {
+  const [reportResponse, versionResponse] = await Promise.all([getCalcReport(reportOid.value), listVersions(reportOid.value)])
+  report.value = reportResponse.data
+  versions.value = versionResponse.data || []
   versionName.value = versions.value.find((version) => version.isLatest)?.versionName || versions.value[0]?.versionName || null
-})
+  const requestedSource = Array.isArray(route.query.source) ? route.query.source[0] : route.query.source
+  if (requestedSource === 'latest' && report.value.latestVersionName) sourceType.value = 'latest'
+  else if (requestedSource === 'version' && versions.value.length > 0) sourceType.value = 'version'
+  else if (requestedSource === 'workspace') sourceType.value = 'workspace'
+  else sourceType.value = report.value.latestVersionName ? 'latest' : 'workspace'
+}
+watch(reportOid, initializeExecutionPage, { immediate: true })
+
+/** Return to the calculation-report list. */
+async function onBackToReports(): Promise<void> {
+  await router.push('/calc-report/list')
+}
 
 /** Collect current values from all returned input windows. */
 function collectDefaults(): ExecutionDefaults {
@@ -104,7 +128,7 @@ async function onStart(): Promise<void> {
   isExecuting.value = true
   try {
     const source = sourceType.value === 'version' ? { type: sourceType.value, versionName: versionName.value || undefined } : { type: sourceType.value }
-    const response = await startExecution({ reportOid: props.reportOid, source, isSilent: isSilent.value, defaults: execution.value ? collectDefaults() : {}, lastHtmlPath: execution.value?.htmlPath })
+    const response = await startExecution({ reportOid: reportOid.value, source, isSilent: isSilent.value, defaults: execution.value ? collectDefaults() : {}, lastHtmlPath: execution.value?.htmlPath })
     execution.value = adaptExecutionFields(response.data)
     buildMessage.value = ''
   } catch (error) {
@@ -127,7 +151,7 @@ function scheduleBuildPoll(): void {
 }
 /** Poll the configured runtime build until it is ready or failed. */
 async function pollWorkspaceBuild(): Promise<void> {
-  const response = await getWorkspaceBuild(props.reportOid)
+  const response = await getWorkspaceBuild(reportOid.value)
   if (response.data.buildStatus === 'ready') {
     isWaitingForBuild.value = false
     buildMessage.value = t('calcWorkspace.buildReady')
@@ -151,7 +175,7 @@ async function onTerminate(): Promise<void> { if (execution.value) { await termi
 /** Open instance metadata for the completed execution. */
 async function onOpenSaveInstanceDialog(): Promise<void> {
   if (!execution.value) return
-  await openSaveInstanceDialog(execution.value.executionId, props.report?.name || t('calcWorkspace.instanceName'))
+  await openSaveInstanceDialog(execution.value.executionId, report.value?.name || t('calcWorkspace.instanceName'))
 }
 onUnmounted(() => { if (buildPollTimer) clearTimeout(buildPollTimer) })
 </script>
@@ -182,6 +206,11 @@ onUnmounted(() => { if (buildPollTimer) clearTimeout(buildPollTimer) })
 .execution-input {
   width: 330px;
   min-width: 330px;
+}
+
+.execution-unsupported {
+  min-height: 520px;
+  background: #fff;
 }
 
 .execution-provenance {

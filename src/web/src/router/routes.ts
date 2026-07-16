@@ -87,18 +87,23 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         name: 'CalcReportRun',
         path: ':reportOid/run',
         meta: { icon: 'play_circle', label: 'calcWorkspace.run', noMenu: true, noCache: true },
-        component: () => import('pages/calcReport/workbench/CalcReportWorkbench.vue')
+        component: () => import('pages/calcReport/workbench/execution/ExecutionPane.vue')
       },
       {
         name: 'CalcReportVersions',
         path: ':reportOid/versions',
-        meta: { icon: 'history', label: 'calcWorkspace.versionsAndShares', noMenu: true, noCache: true },
-        component: () => import('pages/calcReport/workbench/CalcReportWorkbench.vue')
+        meta: { icon: 'history', label: 'calcWorkspace.versions', noMenu: true, noCache: true },
+        component: () => import('pages/calcReport/workbench/version/VersionPane.vue')
       },
       {
         name: 'CalcReportSharedImport',
         path: 'shared/:token/import',
-        meta: { icon: 'download', label: 'calcWorkspace.importSharedReport', noMenu: true, noCache: true },
+        meta: {
+          icon: 'download',
+          label: 'calcWorkspace.importSharedReport',
+          noMenu: true,
+          noCache: true
+        },
         component: () => import('pages/calcReport/shared/SharedImport.vue')
       }
     ]
@@ -126,7 +131,12 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
       {
         name: 'CalcReportInstanceDetail',
         path: ':instanceOid',
-        meta: { icon: 'description', label: 'calcWorkspace.instanceDetail', noMenu: true, noCache: true },
+        meta: {
+          icon: 'description',
+          label: 'calcWorkspace.instanceDetail',
+          noMenu: true,
+          noCache: true
+        },
         component: () => import('pages/calcReportInstance/InstanceDetail.vue')
       }
     ]
@@ -262,3 +272,4 @@ export const exceptionRoutes: ExtendedRouteRecordRaw[] = [
     component: () => import('pages/ErrorNotFound.vue')
   }
 ]
+

@@ -7,6 +7,7 @@ import { t } from 'src/i18n/helpers'
 export interface ReportContextActions {
   open: (report: CalcReport) => void | Promise<void>
   run: (report: CalcReport) => void | Promise<void>
+  versions: (report: CalcReport) => void | Promise<void>
   edit: (report: CalcReport) => void | Promise<void>
   copy: (report: CalcReport) => void | Promise<void>
   favorite: (report: CalcReport) => void | Promise<void>
@@ -21,6 +22,7 @@ export function useReportContextMenu(actions: ReportContextActions) {
   const items: IContextMenuItem<CalcReport>[] = [
     { name: 'open', label: t('calcWorkspace.openWorkspace'), icon: 'code', color: 'grey-9', onClick: actions.open },
     { name: 'run', label: t('calcWorkspace.runLatest'), icon: 'play_arrow', color: 'positive', vif: (report) => Boolean(report.latestVersionName), onClick: actions.run },
+    { name: 'versions', label: t('calcWorkspace.versions'), icon: 'history', color: 'grey-9', onClick: actions.versions },
     { name: 'edit', label: t('calcWorkspace.editMetadata'), icon: 'edit', color: 'grey-9', onClick: actions.edit },
     { name: 'favorite', label: t('calcWorkspace.toggleFavorite'), icon: 'star', color: 'warning', onClick: actions.favorite },
     { name: 'copy', label: t('calcWorkspace.copyReport'), icon: 'content_copy', color: 'grey-9', onClick: actions.copy },

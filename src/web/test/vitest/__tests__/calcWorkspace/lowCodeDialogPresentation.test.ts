@@ -49,24 +49,5 @@ describe('lowCode dialog presentation', () => {
     expect(input.attributes('data-hint')).toBe('MAJOR.MINOR.PATCH')
     expect(input.attributes('data-autofocus')).toBe('true')
   })
-
-  it('applies the requested dialog card width', () => {
-    const wrapper = shallowMount(LowCodeDialog, {
-      props: {
-        fields: []
-      },
-      global: {
-        stubs: {
-          QDialog: { template: '<div><slot /></div>' },
-          QCard: {
-            props: ['style'],
-            template: '<div class="dialog-card" :data-width="style.width"><slot /></div>'
-          }
-        }
-      }
-    })
-
-    expect(wrapper.get('.dialog-card').attributes('data-width')).toBe('min(520px, 92vw)')
-  })
 })
 

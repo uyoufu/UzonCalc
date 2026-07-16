@@ -55,6 +55,41 @@ describe('workspace draft', () => {
     expect(payload.uploads).toHaveLength(1)
   })
 
+  it('clears text dirty state when editor undo restores synchronized content', async () => {
+    getWorkspaceFileMock.mockResolvedValue(new Blob(['print(1)']))
+    const draft = useWorkspaceDraft(ref(snapshot.reportOid))
+    draft.initializeFromSnapshot(snapshot)
+    const source = draft.files.value.find((file) => file.path === 'src/main.py')!
+    await draft.ensureFileLoaded(source)
+
+    draft.updateText(source.path, 'print(2)')
+    expect(draft.hasUnsavedChanges.value).toBe(true)
+
+    draft.updateText(source.path, 'print(1)')
+    expect(source.isDirty).toBe(false)
+    expect(draft.hasUnsavedChanges.value).toBe(false)
+    expect(draft.buildSavePayload().uploads).toHaveLength(0)
+  })
+
+  it('uses newly saved text as the next undo baseline', async () => {
+    getWorkspaceFileMock.mockResolvedValue(new Blob(['print(1)']))
+    const draft = useWorkspaceDraft(ref(snapshot.reportOid))
+    draft.initializeFromSnapshot(snapshot)
+    const source = draft.files.value.find((file) => file.path === 'src/main.py')!
+    await draft.ensureFileLoaded(source)
+    draft.updateText(source.path, 'print(2)')
+    draft.markSaved({
+      ...snapshot,
+      workspaceRevision: 5,
+      files: snapshot.files.map((file) => file.path === source.path ? { ...file, size: source.size } : file)
+    })
+
+    draft.updateText(source.path, 'print(1)')
+    expect(source.isDirty).toBe(true)
+    draft.updateText(source.path, 'print(2)')
+    expect(source.isDirty).toBe(false)
+  })
+
   it('loads an unchanged binary before moving it to a new path', async () => {
     getWorkspaceFileMock.mockResolvedValue(new Blob([new Uint8Array([1, 2, 3])]))
     const draft = useWorkspaceDraft(ref(snapshot.reportOid))

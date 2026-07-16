@@ -80,6 +80,8 @@ async function onCreateReport(): Promise<void> {
 async function onOpenReport(report: CalcReport): Promise<void> { await router.push(`/calc-report/${report.reportOid}/workspace`) }
 /** Open latest execution for a report. */
 async function onRunReport(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/run`, query: { source: 'latest' } }) }
+/** Open immutable versions for a report. */
+async function onOpenVersions(report: CalcReport): Promise<void> { await router.push(`/calc-report/${report.reportOid}/versions`) }
 
 /** Open category metadata and persist a confirmed change. */
 async function onOpenCategoryDialog(category?: CalcReportCategory): Promise<void> {
@@ -137,14 +139,14 @@ async function onOpenImportDialog(): Promise<void> {
   await Promise.all([loadReports(), loadCategories()])
   notifySuccess(t('calcWorkspace.importComplete'))
 }
-/** Open the shared report-link manager from a row action. */
+/** Open share-link management in the existing report dialog. */
 async function onShareReport(report: CalcReport): Promise<void> {
   await openShareManagerDialog(report.reportOid, report.name)
 }
-
 const { items: contextMenuItems } = useReportContextMenu({
   open: onOpenReport,
   run: onRunReport,
+  versions: onOpenVersions,
   edit: (report) => onOpenReportDialog(report, 'edit'),
   copy: (report) => onOpenReportDialog(report, 'copy'),
   favorite: onToggleFavorite,

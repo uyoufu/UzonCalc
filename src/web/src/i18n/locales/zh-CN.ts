@@ -268,7 +268,7 @@ export default {
     uzcFile: '.uzc 文件',
     version: '版本',
     versionPublished: '版本已发布',
-    versionsAndShares: '版本与分享',
+    versions: '版本',
     workspace: '工作区',
     workspaceSaved: '工作区已保存'
   },
@@ -286,8 +286,7 @@ export default {
     modifyCategorySuccess: '修改分类成功',
     newCategory: '新增分类',
     newCategorySuccess: '新增分类成功',
-    onlyLettersNumbersUnderscoresAndCannotStartWithNumber:
-      '仅支持字母、数字、下划线，且不能以数字开头',
+    onlyLettersNumbersUnderscoresAndCannotStartWithNumber: '仅支持字母、数字、下划线，且不能以数字开头',
     youCanRightClickToAddNewCategory: '您可以右键单击以添加新分类'
   },
   collapseLeft: {
@@ -397,4 +396,3 @@ export default {
     totalItems: '... 等共 {count} {unit}'
   }
 }
-

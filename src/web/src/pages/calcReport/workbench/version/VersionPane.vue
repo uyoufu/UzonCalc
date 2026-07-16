@@ -1,8 +1,13 @@
 <template>
-  <div class="version-pane column no-wrap">
+  <div v-if="$q.screen.lt.md" class="version-unsupported column items-center justify-center full-height text-grey-7">
+    <q-icon name="desktop_windows" size="56px" />
+    <div class="text-subtitle1 q-mt-md">{{ t('calcWorkspace.desktopRequired') }}</div>
+  </div>
+  <div v-else class="version-pane column no-wrap">
     <div class="version-toolbar row items-center q-gutter-sm q-px-sm">
+      <q-btn flat round dense icon="arrow_back" @click="onBackToReports"><q-tooltip>{{
+        t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
       <CommonBtn icon="publish" :label="t('calcWorkspace.publishVersion')" @click="openPublishDialog" />
-      <CommonBtn icon="share" color="grey-8" :label="t('calcWorkspace.share')" @click="onOpenShareDialog" />
       <q-space /><q-btn flat round dense icon="refresh" @click="loadVersions"><q-tooltip>{{ t('calcWorkspace.refresh')
           }}</q-tooltip></q-btn>
     </div>
@@ -29,25 +34,25 @@
 </template>
 
 <script setup lang="ts">
-/** Version publication, latest selection, restore, review, and sharing. */
+/** Version publication, latest selection, restore, and review route page. */
+defineOptions({ name: 'CalcReportVersions' })
 import type { QTableColumn } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
-import type { CalcReport, CalcReportVersion, ReviewStatus } from 'src/api/calc/types'
+import type { CalcReportVersion, ReviewStatus } from 'src/api/calc/types'
 import { listVersions, publishVersion, restoreWorkspaceVersion, reviewVersion, setLatestVersion } from 'src/api/calc/versions'
 import { useUserInfoStore } from 'src/stores/user'
 import { confirmOperation, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 import { useVersionDialogs } from './useVersionDialogs'
-import { useShareManagerDialog } from '../../shared/useShareManagerDialog'
 
-const props = defineProps<{ reportOid: string; report: CalcReport | null }>()
-const emit = defineEmits<{ changed: []; restored: [] }>()
+const route = useRoute()
 const router = useRouter()
+const $q = useQuasar()
+const reportOid = computed(() => String(route.params.reportOid || ''))
 const userStore = useUserInfoStore()
 const versions = ref<CalcReportVersion[]>([])
 const isLoading = ref(false)
 const { openPublishDialog: showPublishDialog, openReviewDialog: showReviewDialog } = useVersionDialogs()
-const { openShareManagerDialog } = useShareManagerDialog()
 const columns: QTableColumn<CalcReportVersion>[] = [
   { name: 'versionName', label: t('calcWorkspace.version'), field: 'versionName', align: 'left' },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
@@ -56,37 +61,33 @@ const columns: QTableColumn<CalcReportVersion>[] = [
   { name: 'actions', label: '', field: 'versionOid', align: 'right' }
 ]
 /** Load all immutable versions for the report. */
-async function loadVersions(): Promise<void> { isLoading.value = true; try { const response = await listVersions(props.reportOid); versions.value = response.data || [] } finally { isLoading.value = false } }
-onMounted(loadVersions)
+async function loadVersions(): Promise<void> { isLoading.value = true; try { const response = await listVersions(reportOid.value); versions.value = response.data || [] } finally { isLoading.value = false } }
+watch(reportOid, loadVersions, { immediate: true })
+/** Return to the calculation-report list. */
+async function onBackToReports(): Promise<void> { await router.push('/calc-report/list') }
 /** Publish the current saved workspace from a validated dialog. */
 async function openPublishDialog(): Promise<void> {
   const isPublished = await showPublishDialog(versions.value, async (input) => {
-    await publishVersion(props.reportOid, input.versionName, input.description || null)
+    await publishVersion(reportOid.value, input.versionName, input.description || null)
   })
   if (!isPublished) return
   await loadVersions()
-  emit('changed')
   notifySuccess(t('calcWorkspace.versionPublished'))
 }
 /** Move latest without modifying the workspace. */
-async function onSetLatest(version: CalcReportVersion): Promise<void> { await setLatestVersion(props.reportOid, version.versionName); await loadVersions(); emit('changed') }
+async function onSetLatest(version: CalcReportVersion): Promise<void> { await setLatestVersion(reportOid.value, version.versionName); await loadVersions() }
 /** Restore a version into workspace after explicit confirmation. */
 async function onRestore(version: CalcReportVersion): Promise<void> {
   if (!await confirmOperation(t('calcWorkspace.restoreWorkspace'), version.versionName)) return
-  await restoreWorkspaceVersion(props.reportOid, version.versionName)
-  emit('restored')
-  await router.push(`/calc-report/${props.reportOid}/workspace`)
+  await restoreWorkspaceVersion(reportOid.value, version.versionName)
+  await router.push(`/calc-report/${reportOid.value}/workspace`)
 }
 /** Open administrator review controls and refresh the confirmed result. */
 async function openReviewDialog(version: CalcReportVersion): Promise<void> {
   const isReviewed = await showReviewDialog(version, async (input) => {
-    await reviewVersion(props.reportOid, version.versionName, input.status, input.comment || null)
+    await reviewVersion(reportOid.value, version.versionName, input.status, input.comment || null)
   })
   if (isReviewed) await loadVersions()
-}
-/** Open share-link management for the current report. */
-async function onOpenShareDialog(): Promise<void> {
-  await openShareManagerDialog(props.reportOid, props.report?.name || '')
 }
 /** Map review status to a semantic color. */
 function reviewColor(status: ReviewStatus): string { return ({ pending: 'grey-7', approved: 'positive', rejected: 'negative' })[status] }
@@ -104,5 +105,10 @@ function reviewLabel(status: ReviewStatus): string { return ({ pending: t('calcW
 
   .version-toolbar {
     min-height: 48px;
+  }
+
+  .version-unsupported {
+    min-height: 520px;
+    background: #fff;
   }
 </style>

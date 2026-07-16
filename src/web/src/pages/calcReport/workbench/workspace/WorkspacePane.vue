@@ -1,6 +1,20 @@
 <template>
   <div class="workspace-pane column no-wrap">
     <div class="workspace-toolbar row items-center q-gutter-xs q-px-sm">
+      <q-btn flat round dense icon="arrow_back" @click="onBackToReports"><q-tooltip>{{
+        t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
+      <template v-if="isNew">
+        <q-select v-model="createForm.categoryOid" dense outlined emit-value map-options :options="categoryOptions"
+          :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
+        <q-input v-model="createForm.name" dense outlined :label="t('calcWorkspace.reportName')"
+          class="workspace-toolbar__name" />
+      </template>
+      <template v-else>
+        <span class="workspace-toolbar__category-display text-caption text-grey-7 ellipsis">{{ reportCategoryName
+          }}</span>
+        <span class="workspace-toolbar__name-display text-subtitle2 ellipsis">{{ report?.name || '-' }}</span>
+      </template>
+      <q-separator vertical inset />
       <CommonBtn icon="save" :label="t('global.save')" :tooltip="t('calcWorkspace.saveWorkspace')"
         :loading="draft.isSaving.value" :disable="!draft.hasUnsavedChanges.value" @click="onSave" />
       <q-btn flat round dense icon="play_arrow" color="positive" @click="onRunWorkspace"><q-tooltip>{{
@@ -13,11 +27,11 @@
       </q-chip>
       <span class="text-caption text-grey-7">rev {{ draft.workspaceRevision.value }}</span>
       <q-space />
-      <template v-if="isNew">
-        <q-select v-model="createForm.categoryOid" dense outlined emit-value map-options :options="categoryOptions"
-          :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
-        <q-input v-model="createForm.name" dense outlined :label="t('calcWorkspace.reportName')"
-          class="workspace-toolbar__name" />
+      <template v-if="report">
+        <q-chip dense square :color="publishColor" text-color="white">{{
+          t(`calcWorkspace.publishStates.${report.publishState}`) }}</q-chip>
+        <q-chip dense square :color="buildColor" text-color="white">{{
+          t(`calcWorkspace.buildStates.${report.buildStatus}`) }}</q-chip>
       </template>
     </div>
     <q-separator />
@@ -76,6 +90,7 @@ import { t } from 'src/i18n/helpers'
 
 const props = defineProps<{ reportOid: string; report: CalcReport | null; isNew: boolean }>()
 const emit = defineEmits<{ saved: [reportOid: string] }>()
+const route = useRoute()
 const router = useRouter()
 const reportOidRef = computed(() => props.reportOid)
 const draft = useWorkspaceDraft(reportOidRef)
@@ -87,7 +102,10 @@ const { openWorkspaceConflictDialog } = useWorkspaceConflictDialog()
 const objectUrl = ref('')
 const selectedFile = computed(() => draft.files.value.find((file) => file.path === selectedPath.value) || null)
 const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
+const reportCategoryName = computed(() => categories.value.find((category) => category.categoryOid === props.report?.categoryOid)?.name || '-')
 const isImage = computed(() => Boolean(selectedFile.value && /\.(png|jpe?g|gif|webp|svg)$/i.test(selectedFile.value.path)))
+const publishColor = computed(() => ({ published: 'positive', unpublished: 'grey-7', unpublished_changes: 'warning', workspace_version_mismatch: 'deep-orange' })[props.report?.publishState || 'unpublished'])
+const buildColor = computed(() => ({ not_requested: 'grey-6', pending: 'blue-grey', building: 'info', ready: 'positive', failed: 'negative' })[props.report?.buildStatus || 'not_requested'])
 
 /** Initialize either a new local draft or an existing server workspace. */
 async function initialize(): Promise<void> {
@@ -95,7 +113,7 @@ async function initialize(): Promise<void> {
   categories.value = categoryResponse.data || []
   if (props.isNew) {
     draft.initializeNewWorkspace()
-    createForm.categoryOid = String(useRoute().query.categoryOid || categories.value[0]?.categoryOid || '')
+    createForm.categoryOid = String(route.query.categoryOid || categories.value[0]?.categoryOid || '')
     createForm.name = t('calcWorkspace.untitledReport')
   } else {
     const response = await getWorkspace(props.reportOid)
@@ -106,6 +124,11 @@ async function initialize(): Promise<void> {
 
 onMounted(initialize)
 watch(() => props.reportOid, initialize)
+
+/** Return to the report list while preserving the workspace leave guard. */
+async function onBackToReports(): Promise<void> {
+  await router.push('/calc-report/list')
+}
 
 /** Load and select one workspace file. */
 async function onSelectFile(path: string): Promise<void> {
@@ -222,8 +245,9 @@ onUnmounted(() => { window.removeEventListener('beforeunload', onBeforeUnload); 
 }
 
 .workspace-toolbar {
-  min-height: 48px;
+  min-height: 56px;
   background: #fff;
+  overflow-x: auto;
 }
 
 .workspace-toolbar__category {
@@ -232,6 +256,16 @@ onUnmounted(() => { window.removeEventListener('beforeunload', onBeforeUnload); 
 
 .workspace-toolbar__name {
   width: 220px;
+}
+
+.workspace-toolbar__category-display {
+  width: 140px;
+  min-width: 100px;
+}
+
+.workspace-toolbar__name-display {
+  width: 220px;
+  min-width: 140px;
 }
 
 .workspace-body {
