@@ -1,10 +1,12 @@
 <template>
-  <q-table class="report-table col" flat dense row-key="reportOid" :rows="reports" :columns="columns"
-    :loading="loading" :pagination="pagination" :rows-number="total" @request="onRequest">
+  <q-table class="report-table col" flat dense row-key="reportOid" :rows="reports" :columns="columns" :loading="loading"
+    :pagination="pagination" :rows-number="total" @request="onRequest">
     <template #top>
       <div class="row items-center full-width q-gutter-sm">
-        <CommonBtn icon="add" :label="t('global.new')" :tooltip="t('calcWorkspace.newReport')" @click="emit('create')" />
-        <CommonBtn icon="upload_file" color="grey-8" :label="t('global.import')" :tooltip="t('calcWorkspace.importUzc')" @click="emit('import')" />
+        <CommonBtn icon="add" :label="t('global.new')" :tooltip="t('calcWorkspace.newReport')"
+          @click="emit('create')" />
+        <CommonBtn icon="upload_file" color="grey-8" :label="t('global.import')" :tooltip="t('calcWorkspace.importUzc')"
+          @click="emit('import')" />
         <q-space />
         <q-input :model-value="query" dense outlined debounce="350" :placeholder="t('calcWorkspace.searchReports')"
           @update:model-value="emit('update:query', String($event || ''))">
@@ -15,8 +17,8 @@
     <template #body-cell-name="slotProps">
       <q-td :props="slotProps">
         <button class="report-link" type="button" @click="emit('open', slotProps.row)">{{ slotProps.row.name }}</button>
-        <ContextMenu :items="contextMenuItems" :value="slotProps.row" />
       </q-td>
+      <ContextMenu :items="contextMenuItems" :value="slotProps.row" />
     </template>
     <template #body-cell-state="slotProps">
       <q-td :props="slotProps" class="q-gutter-xs">
@@ -110,7 +112,21 @@ function buildLabel(state: BuildStatus): string {
 </script>
 
 <style scoped>
-.report-table { min-width: 0; height: 100%; }
-.report-link { border: 0; padding: 0; color: #1565c0; background: transparent; cursor: pointer; font: inherit; }
-.report-link:hover { text-decoration: underline; }
+.report-table {
+  min-width: 0;
+  height: 100%;
+}
+
+.report-link {
+  border: 0;
+  padding: 0;
+  color: #1565c0;
+  background: transparent;
+  cursor: pointer;
+  font: inherit;
+}
+
+.report-link:hover {
+  text-decoration: underline;
+}
 </style>
