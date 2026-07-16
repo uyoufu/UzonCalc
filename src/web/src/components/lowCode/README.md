@@ -129,7 +129,7 @@ if (result.ok) {
 | `fields`     | 字段配置数组                                        |
 | `validate`   | 全局校验函数                                        |
 | `persistent` | 是否阻止点击遮罩直接关闭，默认 `true`               |
-| `onOkMain`   | 确认前的最终业务逻辑                                |
+| `onOkMain`   | 确认前的最终业务逻辑, 一般不要承担提交逻辑          |
 | `oneColumn`  | 是否使用单列布局                                    |
 | `customBtns` | 自定义按钮列表                                      |
 | `onSetup`    | 表单初始化阶段回调，可访问 `fieldsModel` 和可见字段 |

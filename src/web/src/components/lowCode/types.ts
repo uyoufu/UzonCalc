@@ -88,6 +88,7 @@ export interface IPopupDialogParams {
   // 窗体保持
   persistent?: boolean
   // ok 最后执行的逻辑
+  // 返回 true 则关闭弹窗
   onOkMain?: (params: Record<string, any>) => Promise<void | boolean>
   // 只有一列
   oneColumn?: boolean

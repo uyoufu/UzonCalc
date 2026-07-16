@@ -3,8 +3,8 @@
     <ReportCategoryPanel v-model="selectedCategoryOid" :categories="categories" @create="onOpenCategoryDialog()"
       @edit="onOpenCategoryDialog" @delete="onDeleteCategory" @reorder="onReorderCategories" />
     <ReportTable v-model:filter="filter" v-model:pagination="pagination" :reports="reports" :loading="loading"
-      :context-menu-items="contextMenuItems" @request="onTableRequest"
-      @create="onCreateReport" @import="onOpenImportDialog" @open="onOpenReport" @favorite="onToggleFavorite" />
+      :context-menu-items="contextMenuItems" @request="onTableRequest" @create="onCreateReport"
+      @import="onOpenImportDialog" @open="onOpenReport" @favorite="onToggleFavorite" />
   </div>
 </template>
 
