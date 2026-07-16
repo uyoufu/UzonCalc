@@ -42,6 +42,40 @@ export default {
 
   // #endregion
 
+  calcWorkspace: {
+    categories: 'Report categories', newCategory: 'New category', editCategory: 'Edit category', categoryName: 'Category',
+    allReports: 'All reports', newReport: 'New report', untitledReport: 'Untitled report', reportName: 'Report name',
+    description: 'Description', searchReports: 'Search reports', latestVersion: 'Latest version', state: 'Status',
+    openWorkspace: 'Open workspace', runLatest: 'Run latest', editMetadata: 'Edit metadata', toggleFavorite: 'Toggle favorite',
+    copyReport: 'Copy report', share: 'Share', shareReport: 'Share report', showInExplorer: 'Show in file explorer',
+    importUzc: 'Import .uzc', uzcFile: '.uzc file', importComplete: 'Import complete', metadataRequired: 'Category and report name are required',
+    workspace: 'Workspace', run: 'Run', versionsAndShares: 'Versions and shares', backToReports: 'Back to reports', desktopRequired: 'Workspace editing requires a desktop viewport',
+    saveWorkspace: 'Save complete workspace', workspaceSaved: 'Workspace saved', saved: 'Saved', unsaved: 'Unsaved changes',
+    newFile: 'New file', uploadResources: 'Upload resources', dependencies: 'Dependencies', selectFile: 'Select a file to edit',
+    rename: 'Rename', setEntry: 'Set as entry', format: 'Format Python', download: 'Download', binaryResource: 'Binary resource',
+    runWorkspace: 'Save and run workspace', alias: 'Dependency alias', targetReport: 'Target report', selectors: 'Version selectors', defaultSelector: 'Default selector',
+    revisionConflict: 'Workspace revision conflict', revisionConflictMessage: 'The server workspace changed. Local content is still preserved.',
+    exportLocalZip: 'Export local ZIP', discardAndReload: 'Discard local changes and reload', leaveWithoutSaving: 'Unsaved changes will be lost when leaving.',
+    executionSource: 'Execution source', sourceWorkspace: 'Workspace', sourceLatest: 'Latest published version', sourceVersion: 'Explicit version',
+    silentRun: 'Run directly with defaults', startRun: 'Start', continueRun: 'Continue', terminate: 'Terminate',
+    runToPreview: 'Run to preview the result', noInputs: 'This step has no inputs', backend: 'Backend', startedAt: 'Started at',
+    buildWaiting: 'The execution artifact is building; retry when it is ready', buildReady: 'The execution artifact is ready', buildFailed: 'Execution artifact build failed',
+    saveInstance: 'Save instance', instanceName: 'Instance name', defaultInstanceCategory: 'Default category', instanceSaved: 'Instance saved',
+    publishVersion: 'Publish version', version: 'Version', versionPublished: 'Version published', publishedAt: 'Published at',
+    setLatest: 'Set latest', restoreWorkspace: 'Restore workspace', review: 'Review', reviewStatus: 'Review status', reviewComment: 'Review comment',
+    refresh: 'Refresh', accessType: 'Access', accessLink: 'Signed-in link holders', accessPublic: 'All signed-in users',
+    accessSpecified: 'Specified users', recipientUsernames: 'Recipient usernames', expiresAt: 'Expires at', maxUseCount: 'Maximum uses',
+    createLink: 'Create link', linkCopied: 'Share link copied; the token is shown only once', userNotFound: 'Username not found',
+    revoked: 'Revoked', active: 'Active', noShareLinks: 'No share links', sharedReport: 'Shared report', importName: 'Imported name',
+    importSharedReport: 'Import shared report', files: 'Files', totalSize: 'Total size',
+    instanceCategories: 'Instance categories', allInstances: 'All instances', savedInstances: 'Saved instances', searchInstances: 'Search instances',
+    editInstance: 'Edit instance', instanceDetail: 'Instance detail', recalculate: 'Recalculate', updateInstanceResult: 'Update instance result',
+    instanceUpdated: 'Instance result updated', executionHistory: 'Execution history',
+    publishStates: { unpublished: 'Unpublished', published: 'Published', unpublished_changes: 'Unpublished changes', workspace_version_mismatch: 'Workspace is another version' },
+    buildStates: { not_requested: 'Not built', pending: 'Pending', building: 'Building', ready: 'Ready', failed: 'Build failed' },
+    reviewStates: { pending: 'Pending', approved: 'Approved', rejected: 'Rejected' }
+  },
+
   // #region Components
   components: {
     clear: 'Clear',

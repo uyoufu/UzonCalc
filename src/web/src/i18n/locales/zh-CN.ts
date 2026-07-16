@@ -38,6 +38,40 @@ export default {
   },
   // #endregion
 
+  calcWorkspace: {
+    categories: '计算书分类', newCategory: '新建分类', editCategory: '编辑分类', categoryName: '分类',
+    allReports: '全部计算书', newReport: '新建计算书', untitledReport: '未命名计算书', reportName: '计算书名称',
+    description: '描述', searchReports: '搜索计算书', latestVersion: '最新版本', state: '状态',
+    openWorkspace: '打开工作区', runLatest: '运行最新版本', editMetadata: '编辑信息', toggleFavorite: '切换收藏',
+    copyReport: '复制计算书', share: '分享', shareReport: '分享计算书', showInExplorer: '在文件管理器中显示',
+    importUzc: '导入 .uzc', uzcFile: '.uzc 文件', importComplete: '导入完成', metadataRequired: '请填写分类和计算书名称',
+    workspace: '工作区', run: '运行', versionsAndShares: '版本与分享', backToReports: '返回计算书列表', desktopRequired: '工作区编辑仅支持桌面端',
+    saveWorkspace: '保存完整工作区', workspaceSaved: '工作区已保存', saved: '已保存', unsaved: '有未保存修改',
+    newFile: '新建文件', uploadResources: '上传资源', dependencies: '依赖', selectFile: '选择文件开始编辑',
+    rename: '重命名', setEntry: '设为入口', format: '格式化 Python', download: '下载', binaryResource: '二进制资源',
+    runWorkspace: '保存并运行工作区', alias: '依赖别名', targetReport: '目标计算书', selectors: '版本选择器', defaultSelector: '默认选择器',
+    revisionConflict: '工作区版本冲突', revisionConflictMessage: '服务器工作区已被其他请求修改。本地内容仍然保留。',
+    exportLocalZip: '导出本地 ZIP', discardAndReload: '放弃本地修改并重新加载', leaveWithoutSaving: '离开后未保存修改将丢失。',
+    executionSource: '执行来源', sourceWorkspace: '工作区', sourceLatest: '最新发布版本', sourceVersion: '指定版本',
+    silentRun: '使用默认值直接运行', startRun: '开始运行', continueRun: '继续运行', terminate: '终止执行',
+    runToPreview: '运行后在此预览结果', noInputs: '当前步骤没有输入项', backend: '执行后端', startedAt: '开始时间',
+    buildWaiting: '执行产物正在构建，完成后即可重试', buildReady: '执行产物已构建完成', buildFailed: '执行产物构建失败',
+    saveInstance: '保存计算实例', instanceName: '实例名称', defaultInstanceCategory: '默认分类', instanceSaved: '实例已保存',
+    publishVersion: '发布版本', version: '版本', versionPublished: '版本已发布', publishedAt: '发布时间',
+    setLatest: '设为 latest', restoreWorkspace: '恢复到工作区', review: '审核', reviewStatus: '审核状态', reviewComment: '审核意见',
+    refresh: '刷新', accessType: '访问范围', accessLink: '持有链接的已登录用户', accessPublic: '所有已登录用户',
+    accessSpecified: '指定用户', recipientUsernames: '接收者用户名', expiresAt: '过期时间', maxUseCount: '最大使用次数',
+    createLink: '创建链接', linkCopied: '分享链接已复制，token 仅显示本次', userNotFound: '未找到该用户名',
+    revoked: '已撤销', active: '有效', noShareLinks: '暂无分享链接', sharedReport: '共享计算书', importName: '导入后名称',
+    importSharedReport: '导入共享计算书', files: '文件数', totalSize: '总大小',
+    instanceCategories: '实例分类', allInstances: '全部实例', savedInstances: '计算实例', searchInstances: '搜索实例',
+    editInstance: '编辑实例', instanceDetail: '实例详情', recalculate: '重新计算', updateInstanceResult: '更新实例结果',
+    instanceUpdated: '实例结果已更新', executionHistory: '执行历史',
+    publishStates: { unpublished: '未发布', published: '已发布', unpublished_changes: '有未发布修改', workspace_version_mismatch: '工作区为其他版本' },
+    buildStates: { not_requested: '未构建', pending: '等待构建', building: '构建中', ready: '可运行', failed: '构建失败' },
+    reviewStates: { pending: '待审核', approved: '已通过', rejected: '已拒绝' }
+  },
+
   // #region components
   components: {
     // 清空
