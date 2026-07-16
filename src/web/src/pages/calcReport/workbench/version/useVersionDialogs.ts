@@ -20,14 +20,13 @@ const semanticVersionPattern = /^(0|[1-9]\d*)\.(0|[1-9]\d*)\.(0|[1-9]\d*)$/
 /**
  * Create version dialog openers.
  *
- * @returns Publication and review functions that resolve true after submission.
+ * @returns Publication and review functions that resolve input or null after cancellation.
  */
 export function useVersionDialogs() {
   /** Suggest the next patch version and open publication metadata. */
   async function openPublishDialog(
-    versions: CalcReportVersion[],
-    onSubmit: (input: PublishVersionInput) => Promise<void>
-  ): Promise<boolean> {
+    versions: CalcReportVersion[]
+  ): Promise<PublishVersionInput | null> {
     const latest = versions[0]?.versionName?.split('.').map(Number)
     const suggestedVersion =
       latest?.length === 3 ? `${latest[0]}.${latest[1]}.${(latest[2] || 0) + 1}` : '1.0.0'
@@ -57,22 +56,18 @@ export function useVersionDialogs() {
           type: LowCodeFieldType.textarea,
           value: ''
         }
-      ],
-      onOkMain: async (values) => {
-        await onSubmit({
-          versionName: String(values.versionName),
-          description: String(values.description || '')
-        })
-      }
+      ]
     })
-    return result.ok
+    if (!result.ok) return null
+
+    return {
+      versionName: String(result.data.versionName),
+      description: String(result.data.description || '')
+    }
   }
 
   /** Open administrator review controls for one immutable version. */
-  async function openReviewDialog(
-    version: CalcReportVersion,
-    onSubmit: (input: ReviewVersionInput) => Promise<void>
-  ): Promise<boolean> {
+  async function openReviewDialog(version: CalcReportVersion): Promise<ReviewVersionInput | null> {
     const result = await showDialog<ReviewVersionInput>({
       title: `${t('calcWorkspace.review')} · ${version.versionName}`,
       oneColumn: true,
@@ -100,17 +95,15 @@ export function useVersionDialogs() {
           type: LowCodeFieldType.textarea,
           value: version.reviewComment || ''
         }
-      ],
-      onOkMain: async (values) => {
-        await onSubmit({
-          status: values.status as ReviewStatus,
-          comment: String(values.comment || '')
-        })
-      }
+      ]
     })
-    return result.ok
+    if (!result.ok) return null
+
+    return {
+      status: result.data.status,
+      comment: String(result.data.comment || '')
+    }
   }
 
   return { openPublishDialog, openReviewDialog }
 }
-

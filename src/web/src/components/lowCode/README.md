@@ -59,12 +59,37 @@ const result = await showDialog<{ name: string; age: number }>({
   })
 })
 
-if (result.ok) {
-  console.log(result.data.name, result.data.age)
-}
+if (!result.ok) return
+
+await updateUser(result.data)
 ```
 
 取消或关闭弹窗时返回 `{ ok: false, data: {} }`。
+
+默认情况下不要传入 `onOkMain`。弹窗只负责收集和校验表单数据；调用方应等待 `showDialog` 返回，确认
+`result.ok` 后再执行后端提交。这样可以让弹窗职责和业务提交流程保持清晰。
+
+只有后端提交失败时必须保留当前弹窗、让用户继续修改表单的场景，才通过 `onOkMain` 提交。例如修改密码时，
+旧密码错误后需要保留弹窗：
+
+```ts
+const result = await showDialog<{ oldPassword: string; newPassword: string }>({
+  title: '修改密码',
+  fields: [
+    { name: 'oldPassword', label: '旧密码', type: LowCodeFieldType.password },
+    { name: 'newPassword', label: '新密码', type: LowCodeFieldType.password }
+  ],
+  onOkMain: async (values) => {
+    const response = await changeUserPassword(values.oldPassword, values.newPassword)
+    return response.data
+  }
+})
+
+if (!result.ok) return
+notifySuccess('密码修改成功')
+```
+
+`onOkMain` 返回 `false` 或抛出异常时不会确认关闭弹窗；成功完成且未返回 `false` 时才会关闭并返回表单数据。
 
 ## 字段配置
 
@@ -116,7 +141,7 @@ if (result.ok) {
 3. 若字段设置 `parser`，先用 `parser(value)` 转换字段值。
 4. 若字段设置 `validate`，调用 `validate(originalValue, parsedValue, allValues)`；返回 `{ ok: false, message }` 时提示错误并恢复该字段原值。
 5. 若弹窗设置全局 `validate`，调用 `validate(allValues)`。
-6. 若弹窗设置 `onOkMain`，调用 `onOkMain(allValues)`；返回 `false` 时阻止关闭弹窗。
+6. 若例外场景设置了 `onOkMain`，调用 `onOkMain(allValues)`；返回 `false` 或抛出异常时阻止确认关闭。
 7. 全部通过后返回 `{ ok: true, data: allValues }`。
 
 ## 布局和按钮
@@ -129,7 +154,7 @@ if (result.ok) {
 | `fields`     | 字段配置数组                                        |
 | `validate`   | 全局校验函数                                        |
 | `persistent` | 是否阻止点击遮罩直接关闭，默认 `true`               |
-| `onOkMain`   | 确认前的最终业务逻辑, 一般不要承担提交逻辑          |
+| `onOkMain`   | 仅用于提交失败时必须保留当前弹窗的例外场景          |
 | `oneColumn`  | 是否使用单列布局                                    |
 | `customBtns` | 自定义按钮列表                                      |
 | `onSetup`    | 表单初始化阶段回调，可访问 `fieldsModel` 和可见字段 |

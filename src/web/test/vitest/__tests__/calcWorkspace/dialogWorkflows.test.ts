@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CalcReportVersion } from 'src/api/calc/types'
+import type { CalcInstance, CalcReport, CalcReportVersion } from 'src/api/calc/types'
 import type { IPopupDialogParams } from 'src/components/lowCode/types'
+import { useInstanceListDialogs } from 'src/pages/calcReportInstance/list/compositions/useInstanceListDialogs'
 import { useCalcReportListDialogs } from 'src/pages/calcReport/list/compositions/useCalcReportListDialogs'
 import { useSaveInstanceDialog } from 'src/pages/calcReport/workbench/execution/useSaveInstanceDialog'
 import { useVersionDialogs } from 'src/pages/calcReport/workbench/version/useVersionDialogs'
@@ -11,15 +12,10 @@ const mocks = vi.hoisted(() => ({
   showDialog: vi.fn(),
   showComponentDialog: vi.fn(),
   listInstanceCategories: vi.fn(),
-  ensureDefaultInstanceCategory: vi.fn(),
-  createInstance: vi.fn(),
-  notifySuccess: vi.fn()
+  ensureDefaultInstanceCategory: vi.fn()
 }))
 
 vi.mock('src/i18n/helpers', () => ({ t: (key: string) => key, tButton: (key: string) => key }))
-vi.mock('src/utils/dialog', () => ({
-  notifySuccess: mocks.notifySuccess
-}))
 vi.mock('src/components/lowCode/PopupDialog', () => ({
   showDialog: mocks.showDialog,
   showComponentDialog: mocks.showComponentDialog
@@ -28,65 +24,158 @@ vi.mock('src/api/calc/categories', () => ({
   listInstanceCategories: mocks.listInstanceCategories,
   ensureDefaultInstanceCategory: mocks.ensureDefaultInstanceCategory
 }))
-vi.mock('src/api/calc/instances', () => ({ createInstance: mocks.createInstance }))
 
 describe('calculation workspace dialog workflows', () => {
   beforeEach(() => {
     vi.clearAllMocks()
   })
 
-  it('validates and submits report-category metadata inside the dialog', async () => {
-    const onSubmit = vi.fn().mockResolvedValue(undefined)
+  it('validates and returns normalized report-category metadata', async () => {
     mocks.showDialog.mockImplementation(async (params: IPopupDialogParams) => {
       const nameField = params.fields.find((field) => field.name === 'name')
       expect((await nameField?.validate?.('   ', '   ', {}))?.ok).toBe(false)
-      await params.onOkMain?.({ name: 'Category', description: 'Description' })
-      return { ok: true, data: {} }
+      expect(params.onOkMain).toBeUndefined()
+      return { ok: true, data: { name: 'Category', description: 'Description' } }
     })
 
     const { openCategoryDialog } = useCalcReportListDialogs()
-    await expect(openCategoryDialog(undefined, onSubmit)).resolves.toBe(true)
-    expect(onSubmit).toHaveBeenCalledWith({ name: 'Category', description: 'Description' })
+    await expect(openCategoryDialog(undefined)).resolves.toEqual({
+      name: 'Category',
+      description: 'Description'
+    })
   })
 
-  it('keeps semantic-version validation and submits a new version', async () => {
-    const versions = [{ versionName: '1.0.0' }] as CalcReportVersion[]
-    const onSubmit = vi.fn().mockResolvedValue(undefined)
-    mocks.showDialog.mockImplementation(async (params: IPopupDialogParams) => {
-      const versionField = params.fields.find((field) => field.name === 'versionName')
-      expect(versionField?.hint).toBe('MAJOR.MINOR.PATCH')
-      expect((await versionField?.validate?.('1.0.0', '1.0.0', {}))?.ok).toBe(false)
-      expect((await versionField?.validate?.('1.0.1', '1.0.1', {}))?.ok).toBe(true)
-      await params.onOkMain?.({ versionName: '1.0.1', description: '' })
-      return { ok: true, data: {} }
+  it('returns report metadata without a submission callback', async () => {
+    mocks.showDialog.mockResolvedValue({
+      ok: true,
+      data: { categoryOid: 'category-2', name: 'Updated report', description: 'Description' }
     })
 
-    const { openPublishDialog } = useVersionDialogs()
-    await expect(openPublishDialog(versions, onSubmit)).resolves.toBe(true)
-    expect(onSubmit).toHaveBeenCalledWith({ versionName: '1.0.1', description: '' })
+    const { openReportDialog } = useCalcReportListDialogs()
+    const report = {
+      categoryOid: 'category-1',
+      name: 'Report',
+      description: ''
+    } as CalcReport
+
+    await expect(
+      openReportDialog(report, 'edit', [{ label: 'Category', value: 'category-2' }])
+    ).resolves.toEqual({
+      categoryOid: 'category-2',
+      name: 'Updated report',
+      description: 'Description'
+    })
+    expect(mocks.showDialog.mock.calls[0]?.[0].onOkMain).toBeUndefined()
   })
 
-  it('creates a default category before saving an instance when none exist', async () => {
+  it('returns instance category and metadata after confirmation', async () => {
+    mocks.showDialog
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { name: 'Instances', description: 'Saved calculations' }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { categoryOid: 'category-2', name: 'Updated instance', description: '' }
+      })
+
+    const { openCategoryDialog, openInstanceDialog } = useInstanceListDialogs()
+    await expect(openCategoryDialog(undefined)).resolves.toEqual({
+      name: 'Instances',
+      description: 'Saved calculations'
+    })
+    await expect(
+      openInstanceDialog(
+        { categoryOid: 'category-1', name: 'Instance', description: '' } as CalcInstance,
+        [{ label: 'Category', value: 'category-2' }]
+      )
+    ).resolves.toEqual({
+      categoryOid: 'category-2',
+      name: 'Updated instance',
+      description: ''
+    })
+
+    expect(mocks.showDialog.mock.calls[0]?.[0].onOkMain).toBeUndefined()
+    expect(mocks.showDialog.mock.calls[1]?.[0].onOkMain).toBeUndefined()
+  })
+
+  it('keeps semantic-version validation and returns publication and review input', async () => {
+    const versions = [{ versionName: '1.0.0' }] as CalcReportVersion[]
+    mocks.showDialog
+      .mockImplementationOnce(async (params: IPopupDialogParams) => {
+        const versionField = params.fields.find((field) => field.name === 'versionName')
+        expect(versionField?.hint).toBe('MAJOR.MINOR.PATCH')
+        expect((await versionField?.validate?.('1.0.0', '1.0.0', {}))?.ok).toBe(false)
+        expect((await versionField?.validate?.('1.0.1', '1.0.1', {}))?.ok).toBe(true)
+        expect(params.onOkMain).toBeUndefined()
+        return { ok: true, data: { versionName: '1.0.1', description: '' } }
+      })
+      .mockResolvedValueOnce({
+        ok: true,
+        data: { status: 'approved', comment: 'Reviewed' }
+      })
+
+    const { openPublishDialog, openReviewDialog } = useVersionDialogs()
+    await expect(openPublishDialog(versions)).resolves.toEqual({
+      versionName: '1.0.1',
+      description: ''
+    })
+    await expect(
+      openReviewDialog({
+        versionName: '1.0.0',
+        reviewStatus: 'pending',
+        reviewComment: null
+      } as CalcReportVersion)
+    ).resolves.toEqual({ status: 'approved', comment: 'Reviewed' })
+
+    expect(mocks.showDialog.mock.calls[1]?.[0].onOkMain).toBeUndefined()
+  })
+
+  it('creates a default category before returning save-instance metadata', async () => {
     mocks.listInstanceCategories.mockResolvedValue({ data: [] })
     mocks.ensureDefaultInstanceCategory.mockResolvedValue({
       data: { categoryOid: 'category-1', name: 'Default' }
     })
-    mocks.createInstance.mockResolvedValue({ data: {} })
-    mocks.showDialog.mockImplementation(async (params: IPopupDialogParams) => {
-      await params.onOkMain?.({ categoryOid: 'category-1', name: 'Instance', description: '' })
-      return { ok: true, data: {} }
+    mocks.showDialog.mockImplementation((params: IPopupDialogParams) => {
+      expect(params.onOkMain).toBeUndefined()
+      return {
+        ok: true,
+        data: { categoryOid: 'category-1', name: 'Instance', description: '' }
+      }
     })
 
     const { openSaveInstanceDialog } = useSaveInstanceDialog()
-    await expect(openSaveInstanceDialog('execution-1', 'Instance')).resolves.toBe(true)
-    expect(mocks.ensureDefaultInstanceCategory).toHaveBeenCalledOnce()
-    expect(mocks.createInstance).toHaveBeenCalledWith({
-      executionId: 'execution-1',
+    await expect(openSaveInstanceDialog('Instance')).resolves.toEqual({
       categoryOid: 'category-1',
       name: 'Instance',
       description: ''
     })
-    expect(mocks.notifySuccess).toHaveBeenCalledOnce()
+    expect(mocks.ensureDefaultInstanceCategory).toHaveBeenCalledOnce()
+  })
+
+  it('returns UZC import input without passing a submission callback', async () => {
+    const archive = new File(['archive'], 'report.uzc')
+    mocks.showComponentDialog.mockResolvedValue({
+      ok: true,
+      data: { categoryOid: 'category-1', name: 'Imported report', archive }
+    })
+
+    const { openImportDialog } = useCalcReportListDialogs()
+    await expect(openImportDialog([{ label: 'Category', value: 'category-1' }])).resolves.toEqual({
+      categoryOid: 'category-1',
+      name: 'Imported report',
+      archive
+    })
+    expect(mocks.showComponentDialog.mock.calls[0]?.[1]).toEqual({
+      categoryOptions: [{ label: 'Category', value: 'category-1' }]
+    })
+  })
+
+  it('returns null after cancellation', async () => {
+    mocks.showDialog.mockResolvedValue({ ok: false, data: {} })
+
+    const { openCategoryDialog } = useCalcReportListDialogs()
+    await expect(openCategoryDialog(undefined)).resolves.toBeNull()
   })
 
   it('returns the selected workspace-conflict action and null after cancellation', async () => {
@@ -101,4 +190,3 @@ describe('calculation workspace dialog workflows', () => {
     await expect(openWorkspaceConflictDialog()).resolves.toBeNull()
   })
 })
-

@@ -10,7 +10,7 @@
       </q-card-section>
       <q-card-actions align="right">
         <CancelBtn @click="onDialogCancel" />
-        <OkBtn :loading="isImporting" :disable="!canImport" @click="onImport" />
+        <OkBtn :disable="!canImport" @click="onImport" />
       </q-card-actions>
     </q-card>
   </q-dialog>
@@ -30,9 +30,8 @@ interface ImportUzcInput {
   archive: File
 }
 
-const props = defineProps<{
+defineProps<{
   categoryOptions: DialogSelectOption[]
-  onSubmit: (input: ImportUzcInput) => Promise<void>
 }>()
 
 defineEmits([...useDialogPluginComponent.emits])
@@ -41,19 +40,17 @@ const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginC
 const categoryOid = ref('')
 const name = ref('')
 const archive = ref<File | null>(null)
-const isImporting = ref(false)
 const canImport = computed(() => Boolean(categoryOid.value && name.value.trim() && archive.value))
 
-/** Submit the selected archive and close only after a successful import. */
-async function onImport(): Promise<void> {
+/** Return the validated archive selection to the page entrypoint. */
+function onImport(): void {
   if (!archive.value || !canImport.value) return
-  isImporting.value = true
-  try {
-    await props.onSubmit({ categoryOid: categoryOid.value, name: name.value, archive: archive.value })
-    onDialogOK()
-  } finally {
-    isImporting.value = false
+  const input: ImportUzcInput = {
+    categoryOid: categoryOid.value,
+    name: name.value,
+    archive: archive.value
   }
+  onDialogOK(input)
 }
 </script>
 

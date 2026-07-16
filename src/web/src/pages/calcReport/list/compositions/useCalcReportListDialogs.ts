@@ -20,7 +20,7 @@ export interface ImportUzcDialogInput {
 /**
  * Create report-list dialog openers.
  *
- * @returns Functions that resolve true only after successful submission.
+ * @returns Functions that resolve normalized dialog input or null after cancellation.
  */
 export function useCalcReportListDialogs() {
   const requiredMessage = t('calcWorkspace.metadataRequired')
@@ -28,9 +28,8 @@ export function useCalcReportListDialogs() {
 
   /** Open report-category creation or editing. */
   async function openCategoryDialog(
-    category: CalcReportCategory | undefined,
-    onSubmit: (input: CategoryInput) => Promise<void>
-  ): Promise<boolean> {
+    category: CalcReportCategory | undefined
+  ): Promise<CategoryInput | null> {
     const result = await showDialog<CategoryInput>({
       title: category ? t('calcWorkspace.editCategory') : t('calcWorkspace.newCategory'),
       oneColumn: true,
@@ -51,21 +50,22 @@ export function useCalcReportListDialogs() {
           type: LowCodeFieldType.textarea,
           value: category?.description || ''
         }
-      ],
-      onOkMain: async (values) => {
-        await onSubmit({ name: String(values.name), description: String(values.description || '') })
-      }
+      ]
     })
-    return result.ok
+    if (!result.ok) return null
+
+    return {
+      name: String(result.data.name),
+      description: String(result.data.description || '')
+    }
   }
 
   /** Open report editing or copy metadata. */
   async function openReportDialog(
     report: CalcReport,
     mode: ReportDialogMode,
-    categoryOptions: DialogSelectOption[],
-    onSubmit: (input: ReportMetadataInput) => Promise<void>
-  ): Promise<boolean> {
+    categoryOptions: DialogSelectOption[]
+  ): Promise<ReportMetadataInput | null> {
     const result = await showDialog<ReportMetadataInput>({
       title: mode === 'copy' ? t('calcWorkspace.copyReport') : t('calcWorkspace.editMetadata'),
       oneColumn: true,
@@ -98,25 +98,31 @@ export function useCalcReportListDialogs() {
           type: LowCodeFieldType.textarea,
           value: report.description || ''
         }
-      ],
-      onOkMain: async (values) => {
-        await onSubmit({
-          categoryOid: String(values.categoryOid),
-          name: String(values.name),
-          description: String(values.description || '')
-        })
-      }
+      ]
     })
-    return result.ok
+    if (!result.ok) return null
+
+    return {
+      categoryOid: String(result.data.categoryOid),
+      name: String(result.data.name),
+      description: String(result.data.description || '')
+    }
   }
 
   /** Open the custom UZC file-import dialog. */
   async function openImportDialog(
-    categoryOptions: DialogSelectOption[],
-    onSubmit: (input: ImportUzcDialogInput) => Promise<void>
-  ): Promise<boolean> {
-    const result = await showComponentDialog(ImportUzcDialog, { categoryOptions, onSubmit })
-    return result.ok
+    categoryOptions: DialogSelectOption[]
+  ): Promise<ImportUzcDialogInput | null> {
+    const result = await showComponentDialog<ImportUzcDialogInput>(ImportUzcDialog, {
+      categoryOptions
+    })
+    if (!result.ok) return null
+
+    return {
+      categoryOid: String(result.data.categoryOid),
+      name: String(result.data.name),
+      archive: result.data.archive
+    }
   }
 
   return { openCategoryDialog, openReportDialog, openImportDialog }

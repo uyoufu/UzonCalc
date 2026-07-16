@@ -106,11 +106,12 @@ async function onOpenVersions(report: CalcReport): Promise<void> { await router.
 
 /** Open category metadata and persist a confirmed change. */
 async function onOpenCategoryDialog(category?: CalcReportCategory): Promise<void> {
-  const isSaved = await openCategoryDialog(category, async (input) => {
-    if (category) await updateReportCategory(category.categoryOid, input)
-    else await createReportCategory(input)
-  })
-  if (isSaved) await loadCategories()
+  const input = await openCategoryDialog(category)
+  if (!input) return
+
+  if (category) await updateReportCategory(category.categoryOid, input)
+  else await createReportCategory(input)
+  await loadCategories()
 }
 /** Delete an empty category after confirmation. */
 async function onDeleteCategory(category: CalcReportCategory): Promise<void> {
@@ -128,23 +129,20 @@ async function onReorderCategories(value: CalcReportCategory[]): Promise<void> {
 
 /** Open report metadata or copy controls and refresh confirmed changes. */
 async function onOpenReportDialog(report: CalcReport, mode: 'edit' | 'copy'): Promise<void> {
-  let updatedReport: CalcReport | null = null
-  const isSaved = await openReportDialog(report, mode, categoryOptions.value, async (input) => {
-    if (mode === 'copy') updatedReport = (await copyCalcReport(report.reportOid, input)).data
-    else {
-      const response = await updateCalcReport(report.reportOid, input)
-      updatedReport = response.data
-    }
-  })
-  if (!isSaved) return
+  const input = await openReportDialog(report, mode, categoryOptions.value)
+  if (!input) return
+
+  const updatedReport = mode === 'copy'
+    ? (await copyCalcReport(report.reportOid, input)).data
+    : (await updateCalcReport(report.reportOid, input)).data
   await loadCategories()
-  const hasCategoryMismatch = Boolean(selectedCategoryOid.value && updatedReport?.categoryOid !== selectedCategoryOid.value)
+  const hasCategoryMismatch = Boolean(selectedCategoryOid.value && updatedReport.categoryOid !== selectedCategoryOid.value)
   if (mode === 'copy' || filter.value || hasCategoryMismatch) {
     pagination.value.page = 1
     refreshTable()
     return
   }
-  if (updatedReport) updateExistOne(updatedReport, 'reportOid')
+  updateExistOne(updatedReport, 'reportOid')
 }
 /** Toggle favorite state and patch only the affected row. */
 async function onToggleFavorite(report: CalcReport): Promise<void> {
@@ -160,10 +158,10 @@ async function onDeleteReport(report: CalcReport): Promise<void> {
 }
 /** Import a UZC archive and refresh the report library after success. */
 async function onOpenImportDialog(): Promise<void> {
-  const isImported = await openImportDialog(categoryOptions.value, async (input) => {
-    await importUzcReport(input.categoryOid, input.name, input.archive)
-  })
-  if (!isImported) return
+  const input = await openImportDialog(categoryOptions.value)
+  if (!input) return
+
+  await importUzcReport(input.categoryOid, input.name, input.archive)
   await loadCategories()
   pagination.value.page = 1
   refreshTable()

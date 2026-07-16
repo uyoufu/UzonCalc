@@ -5,10 +5,10 @@
   </div>
   <div v-else class="version-pane column no-wrap">
     <div class="version-toolbar row items-center q-gutter-sm q-px-sm">
-      <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')"
-        @click="onBackToReports" />
+      <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')" @click="onBackToReports" />
       <CommonBtn icon="publish" :label="t('calcWorkspace.publishVersion')" @click="openPublishDialog" />
-      <q-space /><CommonBtn flat dense icon="refresh" :tooltip="t('calcWorkspace.refresh')" @click="loadVersions" />
+      <q-space />
+      <CommonBtn flat dense icon="refresh" :tooltip="t('calcWorkspace.refresh')" @click="loadVersions" />
     </div>
     <q-separator />
     <q-table flat dense class="col" row-key="versionOid" :rows="versions" :columns="columns" :loading="loading"
@@ -74,11 +74,10 @@ watch(reportOid, loadVersions, { immediate: true })
 async function onBackToReports(): Promise<void> { await router.push('/calc-report/list') }
 /** Publish the current saved workspace from a validated dialog. */
 async function openPublishDialog(): Promise<void> {
-  let publishedVersion: CalcReportVersion | null = null
-  const isPublished = await showPublishDialog(versions.value, async (input) => {
-    publishedVersion = (await publishVersion(reportOid.value, input.versionName, input.description || null)).data
-  })
-  if (!isPublished || !publishedVersion) return
+  const input = await showPublishDialog(versions.value)
+  if (!input) return
+
+  const publishedVersion = (await publishVersion(reportOid.value, input.versionName, input.description || null)).data
   replaceLatestVersion(publishedVersion)
   addNewRow(publishedVersion, 'versionOid')
   sortVersionsDescending()
@@ -94,11 +93,11 @@ async function onRestore(version: CalcReportVersion): Promise<void> {
 }
 /** Open administrator review controls and refresh the confirmed result. */
 async function openReviewDialog(version: CalcReportVersion): Promise<void> {
-  let reviewedVersion: CalcReportVersion | null = null
-  const isReviewed = await showReviewDialog(version, async (input) => {
-    reviewedVersion = (await reviewVersion(reportOid.value, version.versionName, input.status, input.comment || null)).data
-  })
-  if (isReviewed && reviewedVersion) updateExistOne(reviewedVersion, 'versionOid')
+  const input = await showReviewDialog(version)
+  if (!input) return
+
+  const reviewedVersion = (await reviewVersion(reportOid.value, version.versionName, input.status, input.comment || null)).data
+  updateExistOne(reviewedVersion, 'versionOid')
 }
 /** Mark the previous latest version as non-latest before applying a replacement. */
 function replaceLatestVersion(latestVersion: CalcReportVersion): void {
@@ -123,20 +122,19 @@ function reviewColor(status: ReviewStatus): string { return ({ pending: 'grey-7'
 function reviewLabel(status: ReviewStatus): string { return ({ pending: t('calcWorkspace.reviewStates.pending'), approved: t('calcWorkspace.reviewStates.approved'), rejected: t('calcWorkspace.reviewStates.rejected') })[status] }
 </script>
 
-<style
-  scoped>
-  .version-pane {
-    height: 100%;
-    min-height: 620px;
-    background: #fff;
-  }
+<style scoped>
+.version-pane {
+  height: 100%;
+  min-height: 620px;
+  background: #fff;
+}
 
-  .version-toolbar {
-    min-height: 48px;
-  }
+.version-toolbar {
+  min-height: 48px;
+}
 
-  .version-unsupported {
-    min-height: 520px;
-    background: #fff;
-  }
+.version-unsupported {
+  min-height: 520px;
+  background: #fff;
+}
 </style>

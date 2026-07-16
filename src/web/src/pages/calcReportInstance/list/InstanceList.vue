@@ -2,8 +2,8 @@
   <div class="instance-library row no-wrap full-height">
     <aside class="instance-categories column no-wrap">
       <div class="row items-center q-px-sm instance-categories__header">
-        <div class="text-subtitle2">{{ t('calcWorkspace.instanceCategories') }}</div><q-space /><CommonBtn flat dense
-          icon="add" @click="onOpenCategoryDialog()" />
+        <div class="text-subtitle2">{{ t('calcWorkspace.instanceCategories') }}</div><q-space />
+        <CommonBtn flat dense icon="add" @click="onOpenCategoryDialog()" />
       </div>
       <q-separator /><q-list dense class="col scroll">
         <q-item clickable :active="!selectedCategoryOid" @click="selectedCategoryOid = null"><q-item-section
@@ -12,7 +12,7 @@
         <q-item v-for="category in categories" :key="category.categoryOid" clickable
           :active="selectedCategoryOid === category.categoryOid" @click="selectedCategoryOid = category.categoryOid">
           <q-item-section avatar><q-icon name="folder" /></q-item-section><q-item-section>{{ category.name
-            }}</q-item-section><q-item-section side>{{ category.instanceCount }}</q-item-section>
+          }}</q-item-section><q-item-section side>{{ category.instanceCount }}</q-item-section>
           <ContextMenu :items="categoryMenuItems" :value="category" />
         </q-item>
       </q-list>
@@ -21,7 +21,8 @@
       v-model:pagination="pagination" :filter="filter" binary-state-sort @request="onTableRequest">
       <template #top>
         <div class="row full-width">
-          <div class="text-subtitle1">{{ t('calcWorkspace.savedInstances') }}</div><q-space /><SearchInput v-model="filter" />
+          <div class="text-subtitle1">{{ t('calcWorkspace.savedInstances') }}</div><q-space />
+          <SearchInput v-model="filter" />
         </div>
       </template>
       <template #body-cell-name="slotProps"><q-td :props="slotProps"><button class="instance-link"
@@ -112,11 +113,12 @@ watch(selectedCategoryOid, () => {
 })
 /** Open category metadata and persist a confirmed change. */
 async function onOpenCategoryDialog(category?: CalcInstanceCategory): Promise<void> {
-  const isSaved = await openCategoryDialog(category, async (input) => {
-    if (category) await updateInstanceCategory(category.categoryOid, input)
-    else await createInstanceCategory(input)
-  })
-  if (isSaved) await loadCategories()
+  const input = await openCategoryDialog(category)
+  if (!input) return
+
+  if (category) await updateInstanceCategory(category.categoryOid, input)
+  else await createInstanceCategory(input)
+  await loadCategories()
 }
 /** Delete one empty instance category. */
 async function removeCategory(category: CalcInstanceCategory): Promise<void> { if (!await confirmOperation(t('global.deleteConfirmation'), category.name)) return; await deleteInstanceCategory(category.categoryOid); await loadCategories() }
@@ -128,10 +130,11 @@ const categoryMenuItems: IContextMenuItem<CalcInstanceCategory>[] = [
 async function openInstance(instance: CalcInstance): Promise<void> { await router.push(`/calc-report-instance/${instance.instanceOid}`) }
 /** Open optimistic instance metadata editing and patch the confirmed row. */
 async function editInstance(instance: CalcInstance): Promise<void> {
-  await openInstanceDialog(instance, categoryOptions.value, async (input) => {
-    const response = await updateInstance(instance.instanceOid, { revision: instance.revision, ...input })
-    updateExistOne(response.data, 'instanceOid')
-  })
+  const input = await openInstanceDialog(instance, categoryOptions.value)
+  if (!input) return
+
+  const response = await updateInstance(instance.instanceOid, { revision: instance.revision, ...input })
+  updateExistOne(response.data, 'instanceOid')
 }
 /** Delete one saved instance. */
 async function removeInstance(instance: CalcInstance): Promise<void> { if (!await confirmOperation(t('global.deleteConfirmation'), instance.name)) return; await deleteInstance(instance.instanceOid); deleteRowById(instance.instanceOid, 'instanceOid'); await loadCategories() }

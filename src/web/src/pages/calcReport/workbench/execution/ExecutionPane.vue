@@ -5,8 +5,7 @@
   </div>
   <div v-else class="execution-pane column no-wrap">
     <div class="execution-toolbar row items-center q-gutter-sm q-px-sm">
-      <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')"
-        @click="onBackToReports" />
+      <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')" @click="onBackToReports" />
       <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions"
         :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
       <q-select v-if="sourceType === 'version'" v-model="versionName" dense outlined emit-value map-options
@@ -32,7 +31,7 @@
       <section class="execution-input column no-wrap">
         <div v-if="execution" class="execution-provenance q-pa-sm text-caption">
           <div>{{ execution.sourceType }}<span v-if="execution.resolvedVersion"> · {{ execution.resolvedVersion
-              }}</span>
+          }}</span>
           </div>
           <div class="ellipsis text-grey-7">{{ execution.backendMode }} · {{ execution.bundleHash }}</div>
         </div>
@@ -65,13 +64,14 @@ import ExecutionResultFrame from './ExecutionResultFrame.vue'
 import { useSaveInstanceDialog } from './useSaveInstanceDialog'
 import type { CalcExecution, CalcReport, CalcReportVersion, ExecutionSourceType } from 'src/api/calc/types'
 import { continueExecution, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
+import { createInstance } from 'src/api/calc/instances'
 import { listVersions } from 'src/api/calc/versions'
 import { adaptExecutionFields } from './adaptExecutionFields'
 import { getWorkspaceBuild } from 'src/api/calc/workspace'
 import { getCalcReport } from 'src/api/calc/reports'
 import { CalcErrorCode } from 'src/api/calc/types'
 import { getApiFailure } from '../../shared/apiFailure'
-import { notifyError } from 'src/utils/dialog'
+import { notifyError, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 
 const route = useRoute()
@@ -175,7 +175,12 @@ async function onTerminate(): Promise<void> { if (execution.value) { await termi
 /** Open instance metadata for the completed execution. */
 async function onOpenSaveInstanceDialog(): Promise<void> {
   if (!execution.value) return
-  await openSaveInstanceDialog(execution.value.executionId, report.value?.name || t('calcWorkspace.instanceName'))
+  const executionId = execution.value.executionId
+  const input = await openSaveInstanceDialog(report.value?.name || t('calcWorkspace.instanceName'))
+  if (!input) return
+
+  await createInstance({ executionId, ...input })
+  notifySuccess(t('calcWorkspace.instanceSaved'))
 }
 onUnmounted(() => { if (buildPollTimer) clearTimeout(buildPollTimer) })
 </script>

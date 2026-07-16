@@ -2,9 +2,7 @@
 
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { ensureDefaultInstanceCategory, listInstanceCategories } from 'src/api/calc/categories'
-import { createInstance } from 'src/api/calc/instances'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
-import { notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 import { createNonBlankValidator } from '../../shared/dialogForm'
 
@@ -17,16 +15,13 @@ interface SaveInstanceInput {
 /**
  * Create the completed-execution save dialog opener.
  *
- * @returns Function that lazily prepares categories and persists confirmed instances.
+ * @returns Function that lazily prepares categories and returns confirmed metadata.
  */
 export function useSaveInstanceDialog() {
   const validateNonBlank = createNonBlankValidator(t('calcWorkspace.metadataRequired'))
 
   /** Load category options and save the selected execution as an instance. */
-  async function openSaveInstanceDialog(
-    executionId: string,
-    suggestedName: string
-  ): Promise<boolean> {
+  async function openSaveInstanceDialog(suggestedName: string): Promise<SaveInstanceInput | null> {
     let categories = (await listInstanceCategories()).data || []
     if (categories.length === 0) {
       const response = await ensureDefaultInstanceCategory({
@@ -69,20 +64,16 @@ export function useSaveInstanceDialog() {
           type: LowCodeFieldType.textarea,
           value: ''
         }
-      ],
-      onOkMain: async (values) => {
-        await createInstance({
-          executionId,
-          categoryOid: String(values.categoryOid),
-          name: String(values.name),
-          description: String(values.description || '')
-        })
-      }
+      ]
     })
-    if (result.ok) notifySuccess(t('calcWorkspace.instanceSaved'))
-    return result.ok
+    if (!result.ok) return null
+
+    return {
+      categoryOid: String(result.data.categoryOid),
+      name: String(result.data.name),
+      description: String(result.data.description || '')
+    }
   }
 
   return { openSaveInstanceDialog }
 }
-

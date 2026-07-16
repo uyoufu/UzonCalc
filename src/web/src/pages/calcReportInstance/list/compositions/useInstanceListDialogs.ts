@@ -19,16 +19,15 @@ export interface InstanceMetadataInput {
 /**
  * Create saved-instance dialog openers.
  *
- * @returns Functions that resolve true only after successful submission.
+ * @returns Functions that resolve normalized dialog input or null after cancellation.
  */
 export function useInstanceListDialogs() {
   const validateNonBlank = createNonBlankValidator(t('calcWorkspace.metadataRequired'))
 
   /** Open instance-category creation or editing. */
   async function openCategoryDialog(
-    category: CalcInstanceCategory | undefined,
-    onSubmit: (input: CategoryInput) => Promise<void>
-  ): Promise<boolean> {
+    category: CalcInstanceCategory | undefined
+  ): Promise<CategoryInput | null> {
     const result = await showDialog<CategoryInput>({
       title: category ? t('calcWorkspace.editCategory') : t('calcWorkspace.newCategory'),
       oneColumn: true,
@@ -48,20 +47,21 @@ export function useInstanceListDialogs() {
           type: LowCodeFieldType.textarea,
           value: category?.description || ''
         }
-      ],
-      onOkMain: async (values) => {
-        await onSubmit({ name: String(values.name), description: String(values.description || '') })
-      }
+      ]
     })
-    return result.ok
+    if (!result.ok) return null
+
+    return {
+      name: String(result.data.name),
+      description: String(result.data.description || '')
+    }
   }
 
   /** Open instance metadata editing. */
   async function openInstanceDialog(
     instance: CalcInstance,
-    categoryOptions: DialogSelectOption[],
-    onSubmit: (input: InstanceMetadataInput) => Promise<void>
-  ): Promise<boolean> {
+    categoryOptions: DialogSelectOption[]
+  ): Promise<InstanceMetadataInput | null> {
     const result = await showDialog<InstanceMetadataInput>({
       title: t('calcWorkspace.editInstance'),
       oneColumn: true,
@@ -93,18 +93,16 @@ export function useInstanceListDialogs() {
           type: LowCodeFieldType.textarea,
           value: instance.description || ''
         }
-      ],
-      onOkMain: async (values) => {
-        await onSubmit({
-          categoryOid: String(values.categoryOid),
-          name: String(values.name),
-          description: String(values.description || '')
-        })
-      }
+      ]
     })
-    return result.ok
+    if (!result.ok) return null
+
+    return {
+      categoryOid: String(result.data.categoryOid),
+      name: String(result.data.name),
+      description: String(result.data.description || '')
+    }
   }
 
   return { openCategoryDialog, openInstanceDialog }
 }
-
