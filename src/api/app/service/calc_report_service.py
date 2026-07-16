@@ -3,7 +3,7 @@
 import datetime
 import json
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,10 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.controller.calc.calc_error import CalcErrorCode
 from app.controller.calc.calc_report_dto import (
     CalcReportCopyDTO,
-    CalcReportListResDTO,
+    CalcReportListFilterDTO,
     CalcReportResDTO,
     CalcReportUpdateDTO,
 )
+from app.controller.dto_base import PaginationDTO
 from app.db.models.calc_report import CalcReport, CalcReportOrigin
 from app.db.models.calc_report_artifact import (
     CalcReportArtifact,
@@ -37,39 +38,62 @@ from app.service.calc_report_workspace_service import get_owned_report
 from config import app_config, logger
 
 
+async def count_reports(
+    user_id: int,
+    filters: CalcReportListFilterDTO,
+    session: AsyncSession,
+) -> int:
+    """Count active owned reports matching the supplied filters."""
+    conditions = await _report_list_conditions(user_id, filters, session)
+    total = await session.scalar(select(func.count(CalcReport.id)).where(*conditions))
+    return total or 0
+
+
 async def list_reports(
     user_id: int,
+    filters: CalcReportListFilterDTO,
+    pagination: PaginationDTO,
     session: AsyncSession,
-    *,
-    category_oid: str | None = None,
-    query: str | None = None,
-    offset: int = 0,
-    limit: int = 20,
-) -> CalcReportListResDTO:
-    """List active owned reports with derived state and total count."""
-    conditions = [CalcReport.userId == user_id, CalcReport.deletedAt.is_(None)]
-    if category_oid:
-        category = await get_category(user_id, category_oid, session)
-        conditions.append(CalcReport.categoryId == category.id)
-    if query:
-        pattern = f"%{query.strip()}%"
-        conditions.append(
-            CalcReport.name.ilike(pattern) | CalcReport.description.ilike(pattern)
-        )
-    total = await session.scalar(select(func.count(CalcReport.id)).where(*conditions))
+) -> list[CalcReportResDTO]:
+    """List one sorted page of active owned reports."""
+    conditions = await _report_list_conditions(user_id, filters, session)
+    sort_columns = {
+        "id": CalcReport.id,
+        "name": CalcReport.name,
+        "createdAt": CalcReport.createdAt,
+        "updatedAt": CalcReport.updatedAt,
+    }
+    sort_column = sort_columns.get(pagination.sortBy, CalcReport.updatedAt)
+    sort_expression = sort_column.desc() if pagination.descending else sort_column.asc()
+    stable_sort = CalcReport.id.desc() if pagination.descending else CalcReport.id.asc()
     reports = (
         await session.scalars(
             select(CalcReport)
             .where(*conditions)
-            .order_by(CalcReport.updatedAt.desc(), CalcReport.id.desc())
-            .offset(offset)
-            .limit(limit)
+            .order_by(sort_expression, stable_sort)
+            .offset(pagination.skip)
+            .limit(pagination.limit)
         )
     ).all()
-    return CalcReportListResDTO(
-        items=[await _report_response(report, session) for report in reports],
-        total=total or 0,
-    )
+    return [await _report_response(report, session) for report in reports]
+
+
+async def _report_list_conditions(
+    user_id: int,
+    filters: CalcReportListFilterDTO,
+    session: AsyncSession,
+) -> list[Any]:
+    """Build the shared report predicates used by count and item queries."""
+    conditions = [CalcReport.userId == user_id, CalcReport.deletedAt.is_(None)]
+    if filters.categoryOid:
+        category = await get_category(user_id, filters.categoryOid, session)
+        conditions.append(CalcReport.categoryId == category.id)
+    if filters.query:
+        pattern = f"%{filters.query.strip()}%"
+        conditions.append(
+            CalcReport.name.ilike(pattern) | CalcReport.description.ilike(pattern)
+        )
+    return conditions
 
 
 async def get_report(

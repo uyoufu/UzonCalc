@@ -17,13 +17,11 @@
         </q-item>
       </q-list>
     </aside>
-    <q-table flat dense class="col" row-key="instanceOid" :rows="instances" :columns="columns" :loading="isLoading"
-      :pagination="pagination" :rows-number="total" @request="onRequest">
+    <q-table flat dense class="col" row-key="instanceOid" :rows="instances" :columns="columns" :loading="loading"
+      v-model:pagination="pagination" :filter="filter" binary-state-sort @request="onTableRequest">
       <template #top>
         <div class="row full-width">
-          <div class="text-subtitle1">{{ t('calcWorkspace.savedInstances') }}</div><q-space /><q-input v-model="query"
-            dense outlined debounce="350" :placeholder="t('calcWorkspace.searchInstances')"><template #prepend><q-icon
-                name="search" /></template></q-input>
+          <div class="text-subtitle1">{{ t('calcWorkspace.savedInstances') }}</div><q-space /><SearchInput v-model="filter" />
         </div>
       </template>
       <template #body-cell-name="slotProps"><q-td :props="slotProps"><button class="instance-link"
@@ -37,45 +35,81 @@
 <script setup lang="ts">
 /** Saved-instance library with category filtering and optimistic metadata editing. */
 defineOptions({ name: 'CalcReportInstanceList' })
-import type { QTableColumn, QTableProps } from 'quasar'
+import type { QTableColumn } from 'quasar'
 import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
+import SearchInput from 'src/components/searchInput/SearchInput.vue'
 import type { CalcInstance, CalcInstanceCategory } from 'src/api/calc/types'
 import { createInstanceCategory, deleteInstanceCategory, listInstanceCategories, updateInstanceCategory } from 'src/api/calc/categories'
-import { deleteInstance, listInstances, updateInstance } from 'src/api/calc/instances'
+import { countInstances, deleteInstance, listInstances, updateInstance } from 'src/api/calc/instances'
 import { useInstanceContextMenu } from './components/useInstanceContextMenu'
 import { useInstanceListDialogs } from './compositions/useInstanceListDialogs'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import { confirmOperation } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
+import { useQTable } from 'src/compositions/qTableUtils'
+import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
 
 const router = useRouter()
 const categories = ref<CalcInstanceCategory[]>([])
-const instances = ref<CalcInstance[]>([])
 const selectedCategoryOid = ref<string | null>(null)
-const query = ref('')
-const total = ref(0)
-const page = ref(1)
-const rowsPerPage = ref(20)
-const isLoading = ref(false)
-const pagination = computed(() => ({ page: page.value, rowsPerPage: rowsPerPage.value, rowsNumber: total.value }))
 const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
 const { openCategoryDialog, openInstanceDialog } = useInstanceListDialogs()
-const columns: QTableColumn<CalcInstance>[] = [
-  { name: 'name', label: t('calcWorkspace.instanceName'), field: 'name', align: 'left' },
-  { name: 'reportName', label: t('calcWorkspace.reportName'), field: (row) => row.reportName || '-', align: 'left' },
+const columns: ComputedRef<QTableColumn<CalcInstance>[]> = computed(() => [
+  { name: 'name', label: t('calcWorkspace.instanceName'), field: 'name', align: 'left', sortable: true },
+  { name: 'reportName', label: t('calcWorkspace.reportName'), field: (row) => row.reportName || '-', align: 'left', sortable: true },
   { name: 'sourceVersion', label: t('calcWorkspace.version'), field: (row) => row.sourceVersion || 'workspace', align: 'left' },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
-  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left' }
-]
+  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true }
+])
 
 /** Load categories and their derived counts. */
 async function loadCategories(): Promise<void> { const response = await listInstanceCategories(); categories.value = response.data || [] }
-/** Load one page of saved instances. */
-async function loadInstances(): Promise<void> { isLoading.value = true; try { const response = await listInstances({ categoryOid: selectedCategoryOid.value || undefined, query: query.value || undefined, offset: (page.value - 1) * rowsPerPage.value, limit: rowsPerPage.value }); instances.value = response.data?.items || []; total.value = response.data?.total || 0 } finally { isLoading.value = false } }
-onMounted(async () => { await Promise.all([loadCategories(), loadInstances()]) })
-watch([selectedCategoryOid, query], async () => { page.value = 1; await loadInstances() })
-/** Apply server-side pagination. */
-async function onRequest(request: Parameters<NonNullable<QTableProps['onRequest']>>[0]): Promise<void> { page.value = request.pagination.page; rowsPerPage.value = request.pagination.rowsPerPage; await loadInstances() }
+/** Convert table search and category state into API filters. */
+function createInstanceFilter(filterValue: string): TTableFilterObject {
+  const tableFilter: TTableFilterObject = { filter: filterValue }
+  if (selectedCategoryOid.value) tableFilter.categoryOid = selectedCategoryOid.value
+  return tableFilter
+}
+/** Return API filter parameters without the internal refresh counter. */
+function getInstanceApiFilters(tableFilter: TTableFilterObject): { categoryOid?: string; query?: string } {
+  return {
+    categoryOid: typeof tableFilter.categoryOid === 'string' ? tableFilter.categoryOid : undefined,
+    query: typeof tableFilter.filter === 'string' && tableFilter.filter ? tableFilter.filter : undefined
+  }
+}
+/** Count saved instances matching the active table filters. */
+async function getInstanceCount(tableFilter: TTableFilterObject): Promise<number> {
+  return (await countInstances(getInstanceApiFilters(tableFilter))).data || 0
+}
+/** Request one sorted saved-instance page. */
+async function requestInstanceItems(tableFilter: TTableFilterObject, pageRequest: IRequestPagination): Promise<CalcInstance[]> {
+  return (await listInstances({ ...getInstanceApiFilters(tableFilter), ...pageRequest })).data || []
+}
+const {
+  rows: instances,
+  pagination,
+  filter,
+  loading,
+  onTableRequest,
+  refreshTable,
+  updateExistOne,
+  deleteRowById
+} = useQTable<CalcInstance>({
+  sortBy: 'updatedAt',
+  descending: true,
+  rowsPerPage: 20,
+  filterFactor: createInstanceFilter,
+  getRowsNumberCount: getInstanceCount,
+  onRequest: requestInstanceItems
+})
+onMounted(loadCategories)
+watch(filter, () => {
+  pagination.value.page = 1
+}, { flush: 'sync' })
+watch(selectedCategoryOid, () => {
+  pagination.value.page = 1
+  refreshTable()
+})
 /** Open category metadata and persist a confirmed change. */
 async function onOpenCategoryDialog(category?: CalcInstanceCategory): Promise<void> {
   const isSaved = await openCategoryDialog(category, async (input) => {
@@ -96,11 +130,11 @@ async function openInstance(instance: CalcInstance): Promise<void> { await route
 async function editInstance(instance: CalcInstance): Promise<void> {
   await openInstanceDialog(instance, categoryOptions.value, async (input) => {
     const response = await updateInstance(instance.instanceOid, { revision: instance.revision, ...input })
-    Object.assign(instance, response.data)
+    updateExistOne(response.data, 'instanceOid')
   })
 }
 /** Delete one saved instance. */
-async function removeInstance(instance: CalcInstance): Promise<void> { if (!await confirmOperation(t('global.deleteConfirmation'), instance.name)) return; await deleteInstance(instance.instanceOid); instances.value = instances.value.filter((candidate) => candidate.instanceOid !== instance.instanceOid); total.value -= 1; await loadCategories() }
+async function removeInstance(instance: CalcInstance): Promise<void> { if (!await confirmOperation(t('global.deleteConfirmation'), instance.name)) return; await deleteInstance(instance.instanceOid); deleteRowById(instance.instanceOid, 'instanceOid'); await loadCategories() }
 const { items: instanceMenuItems } = useInstanceContextMenu({ open: openInstance, edit: editInstance, remove: removeInstance })
 </script>
 

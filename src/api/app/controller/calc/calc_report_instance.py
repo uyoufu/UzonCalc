@@ -2,17 +2,18 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_instance_dto import (
     CalcInstanceCreateDTO,
-    CalcInstanceListResDTO,
+    CalcInstanceListFilterDTO,
     CalcInstanceResDTO,
     CalcInstanceResultUpdateDTO,
     CalcInstanceUpdateDTO,
 )
 from app.controller.depends import get_session, get_token_payload
+from app.controller.dto_base import PaginationDTO
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_instance_service
 from utils.jwt_helper import TokenPayloads
@@ -20,24 +21,31 @@ from utils.jwt_helper import TokenPayloads
 router = APIRouter(prefix="/v1/calc-report-instance", tags=["calc-report-instance"])
 
 
-@router.get("")
-async def list_calc_report_instances(
-    categoryOid: str | None = None,
-    query: str | None = None,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+@router.get("/count")
+async def count_calc_report_instances(
+    filters: Annotated[CalcInstanceListFilterDTO, Depends()],
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcInstanceListResDTO]:
-    """List active saved calculation instances."""
+) -> ResponseResult[int]:
+    """Count active saved instances matching the filters."""
+    return ok(
+        data=await calc_report_instance_service.count_instances(
+            tokenPayloads.id, filters, session
+        )
+    )
+
+
+@router.get("/items")
+async def list_calc_report_instance_items(
+    filters: Annotated[CalcInstanceListFilterDTO, Depends()],
+    pagination: Annotated[PaginationDTO, Depends()],
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[list[CalcInstanceResDTO]]:
+    """List one sorted page of active saved instances."""
     return ok(
         data=await calc_report_instance_service.list_instances(
-            tokenPayloads.id,
-            session,
-            category_oid=categoryOid,
-            query=query,
-            offset=offset,
-            limit=limit,
+            tokenPayloads.id, filters, pagination, session
         )
     )
 

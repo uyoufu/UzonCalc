@@ -65,10 +65,3 @@ class CalcExecutionResDTO(BaseDTO):
     htmlContentPatch: str | None = None
     createdAt: datetime.datetime
     completedAt: datetime.datetime | None = None
-
-
-class CalcExecutionListResDTO(BaseDTO):
-    """Return a page of execution audit records."""
-
-    items: list[CalcExecutionResDTO]
-    total: int

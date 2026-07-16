@@ -3,7 +3,7 @@
 import datetime
 import shutil
 from pathlib import Path
-from typing import cast
+from typing import Any, cast
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,11 +11,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.controller.calc.calc_error import CalcErrorCode
 from app.controller.calc.calc_instance_dto import (
     CalcInstanceCreateDTO,
-    CalcInstanceListResDTO,
+    CalcInstanceListFilterDTO,
     CalcInstanceResDTO,
     CalcInstanceResultUpdateDTO,
     CalcInstanceUpdateDTO,
 )
+from app.controller.dto_base import PaginationDTO
 from app.db.models.calc_execution import CalcExecution, CalcExecutionBundle
 from app.db.models.calc_report import CalcReport
 from app.db.models.calc_report_instance import CalcReportInstance
@@ -67,46 +68,74 @@ async def get_instance(
     return await _response(instance, session)
 
 
-async def list_instances(
+async def count_instances(
     user_id: int,
+    filters: CalcInstanceListFilterDTO,
     session: AsyncSession,
-    *,
-    category_oid: str | None = None,
-    query: str | None = None,
-    offset: int = 0,
-    limit: int = 20,
-) -> CalcInstanceListResDTO:
-    """List active saved instances with total count."""
-    conditions = [
-        CalcReportInstance.userId == user_id,
-        CalcReportInstance.deletedAt.is_(None),
-    ]
-    if category_oid:
-        category = await get_category(user_id, category_oid, session)
-        conditions.append(CalcReportInstance.categoryId == category.id)
-    if query:
-        pattern = f"%{query.strip()}%"
-        conditions.append(
-            CalcReportInstance.name.ilike(pattern)
-            | CalcReportInstance.description.ilike(pattern)
-            | CalcReportInstance.reportName.ilike(pattern)
-        )
+) -> int:
+    """Count active saved instances matching the supplied filters."""
+    conditions = await _instance_list_conditions(user_id, filters, session)
     total = await session.scalar(
         select(func.count(CalcReportInstance.id)).where(*conditions)
+    )
+    return total or 0
+
+
+async def list_instances(
+    user_id: int,
+    filters: CalcInstanceListFilterDTO,
+    pagination: PaginationDTO,
+    session: AsyncSession,
+) -> list[CalcInstanceResDTO]:
+    """List one sorted page of active saved instances."""
+    conditions = await _instance_list_conditions(user_id, filters, session)
+    sort_columns = {
+        "id": CalcReportInstance.id,
+        "name": CalcReportInstance.name,
+        "reportName": CalcReportInstance.reportName,
+        "createdAt": CalcReportInstance.createdAt,
+        "updatedAt": CalcReportInstance.updatedAt,
+    }
+    sort_column = sort_columns.get(pagination.sortBy, CalcReportInstance.updatedAt)
+    sort_expression = sort_column.desc() if pagination.descending else sort_column.asc()
+    stable_sort = (
+        CalcReportInstance.id.desc()
+        if pagination.descending
+        else CalcReportInstance.id.asc()
     )
     instances = (
         await session.scalars(
             select(CalcReportInstance)
             .where(*conditions)
-            .order_by(CalcReportInstance.updatedAt.desc())
-            .offset(offset)
-            .limit(limit)
+            .order_by(sort_expression, stable_sort)
+            .offset(pagination.skip)
+            .limit(pagination.limit)
         )
     ).all()
-    return CalcInstanceListResDTO(
-        items=[await _response(instance, session) for instance in instances],
-        total=total or 0,
-    )
+    return [await _response(instance, session) for instance in instances]
+
+
+async def _instance_list_conditions(
+    user_id: int,
+    filters: CalcInstanceListFilterDTO,
+    session: AsyncSession,
+) -> list[Any]:
+    """Build shared saved-instance predicates for count and item queries."""
+    conditions = [
+        CalcReportInstance.userId == user_id,
+        CalcReportInstance.deletedAt.is_(None),
+    ]
+    if filters.categoryOid:
+        category = await get_category(user_id, filters.categoryOid, session)
+        conditions.append(CalcReportInstance.categoryId == category.id)
+    if filters.query:
+        pattern = f"%{filters.query.strip()}%"
+        conditions.append(
+            CalcReportInstance.name.ilike(pattern)
+            | CalcReportInstance.description.ilike(pattern)
+            | CalcReportInstance.reportName.ilike(pattern)
+        )
+    return conditions
 
 
 async def update_instance(

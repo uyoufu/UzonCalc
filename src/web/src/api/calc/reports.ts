@@ -1,7 +1,19 @@
 /** Typed HTTP functions for calculation-report metadata. */
 
 import { httpClient } from 'src/api/base/httpClient'
-import type { CalcReport, PaginatedResult, WorkspaceSnapshot } from './types'
+import type { CalcReport, WorkspaceSnapshot } from './types'
+
+export interface ReportListParams {
+  categoryOid?: string
+  query?: string
+}
+
+export interface ReportItemsParams extends ReportListParams {
+  skip: number
+  limit: number
+  sortBy: string
+  descending: boolean
+}
 
 export interface ReportMetadataInput {
   categoryOid: string
@@ -10,9 +22,14 @@ export interface ReportMetadataInput {
   cover?: string | null
 }
 
-/** List reports owned by the current user. */
-export function listCalcReports(params: { categoryOid?: string; query?: string; offset?: number; limit?: number }) {
-  return httpClient.get<PaginatedResult<CalcReport>>('/calc-report', { params })
+/** Count reports owned by the current user. */
+export function countCalcReports(params: ReportListParams) {
+  return httpClient.get<number>('/calc-report/count', { params })
+}
+
+/** List one page of reports owned by the current user. */
+export function listCalcReports(params: ReportItemsParams) {
+  return httpClient.get<CalcReport[]>('/calc-report/items', { params })
 }
 
 /** Load one report by OID. */

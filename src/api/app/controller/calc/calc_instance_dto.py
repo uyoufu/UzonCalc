@@ -68,8 +68,8 @@ class CalcInstanceResDTO(BaseDTO):
     updatedAt: datetime.datetime
 
 
-class CalcInstanceListResDTO(BaseDTO):
-    """Return one page of saved calculation instances."""
+class CalcInstanceListFilterDTO(BaseDTO):
+    """Filter saved instances for count and item queries."""
 
-    items: list[CalcInstanceResDTO]
-    total: int
+    categoryOid: str | None = None
+    query: str | None = None

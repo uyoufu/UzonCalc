@@ -7,7 +7,7 @@ export type addNewRowType<T = Record<string, any>> = (newRow: T, idField?: strin
 
 export type updateExistOneType<T = Record<string, any>> = (newData: T, idField?: string) => boolean
 
-export type deleteRowByIdType = (id?: number, idField?: string) => void
+export type deleteRowByIdType = (id?: string | number, idField?: string) => void
 
 export type getSelectedRowsType = (cursorData: Record<string, any>) => {
   rows: Record<string, any>[]
@@ -63,28 +63,30 @@ export interface ITableRequestProp {
  * @param initParams
  * @returns
  */
-export function useQTable(initParams: IQTableInitParams) {
+export function useQTable<T extends object = Record<string, any>>(initParams: IQTableInitParams<T>) {
   // 分页
   const pagination: Ref<IQTablePagination> = ref({
     sortBy: initParams.sortBy || 'id',
     descending: initParams.descending !== undefined ? initParams.descending : true,
     page: 1,
-    rowsPerPage: 10,
-    rowsNumber: 10
+    rowsPerPage: initParams.rowsPerPage ?? 10,
+    rowsNumber: 0
   })
 
   // 过滤
   const filter = ref('')
   const filterCache = ref('')
+  /** Build the current business filter and refresh-cache key. */
   async function getFilterObject(filter: string): Promise<TTableFilterObject> {
-    let filterObj: TTableFilterObject = { filter, refreshCounter: refreshCounter.value }
+    let filterObj: TTableFilterObject = { filter }
     if (initParams.filterFactor) {
       filterObj = await initParams.filterFactor(filter)
     }
-    return filterObj
+    return { ...filterObj, refreshCounter: refreshCounter.value }
   }
 
   // 通过缓存实现的数据总数请求
+  /** Return the cached or freshly requested matching row count. */
   async function getRowsNumberCount(filter: string): Promise<number> {
     if (!initParams.getRowsNumberCount) return 0
 
@@ -104,7 +106,8 @@ export function useQTable(initParams: IQTableInitParams) {
 
   // 表格数据请求
   const loading = ref(false)
-  const rows: Ref<Record<string, any>[]> = ref([])
+  const rows = ref([]) as Ref<T[]>
+  /** Fetch one server-side page and synchronize table pagination state. */
   async function onTableRequest(qTableProps: ITableRequestProp) {
     if (refreshCounter.value < 0) return
     if (!initParams.onRequest) return
@@ -116,14 +119,14 @@ export function useQTable(initParams: IQTableInitParams) {
     try {
       loading.value = true
       const totalCount = await getRowsNumberCount(filter)
-      let data: object[] = []
+      let requestedRows: T[] = []
       if (totalCount > 0) {
         // get all rows if "All" (0) is selected
         const fetchCount = rowsPerPage === 0 ? totalCount : rowsPerPage
         // calculate starting row of data
         const startRow = (page - 1) * rowsPerPage
         const filterObj = await getFilterObject(filter)
-        data = await initParams.onRequest(filterObj, {
+        requestedRows = await initParams.onRequest(filterObj, {
           sortBy,
           descending,
           skip: startRow,
@@ -132,7 +135,7 @@ export function useQTable(initParams: IQTableInitParams) {
       }
 
       // 更新数据
-      rows.value = data
+      rows.value = requestedRows
 
       // don't forget to update local pagination object
       pagination.value.rowsNumber = totalCount
@@ -154,6 +157,7 @@ export function useQTable(initParams: IQTableInitParams) {
   }
 
   // 增减行数
+  /** Adjust the cached total after a confirmed local row mutation. */
   function increaseRowsNumber(count: number) {
     pagination.value.rowsNumber += count
   }
@@ -161,6 +165,7 @@ export function useQTable(initParams: IQTableInitParams) {
   // 刷新表格
   const refreshCounter = ref(0)
   // 通过增加refreshCounter的值来触发表格刷新
+  /** Refresh the current page and invalidate the cached total. */
   function refreshTable() {
     refreshCounter.value++
   }
@@ -186,9 +191,10 @@ export function useQTable(initParams: IQTableInitParams) {
    * @param idField
    * @returns
    */
-  function addNewRow(newRow: Record<string, any>, idField: string = 'id') {
+  function addNewRow(newRow: T, idField: string = 'id') {
     // 查找是否存在
-    const found = rows.value.find((x) => x[idField] === newRow[idField])
+    const newRowIdentity = (newRow as Record<string, unknown>)[idField]
+    const found = rows.value.find((row) => (row as Record<string, unknown>)[idField] === newRowIdentity)
     if (found) {
       // 更新
       Object.assign(found, newRow)
@@ -205,9 +211,10 @@ export function useQTable(initParams: IQTableInitParams) {
    * @param idField
    * @returns
    */
-  function updateExistOne(newData: Record<string, any>, idField: string = 'id') {
+  function updateExistOne(newData: T, idField: string = 'id') {
     // 查找是否存在
-    const found = rows.value.find((x) => x[idField] === newData[idField])
+    const newRowIdentity = (newData as Record<string, unknown>)[idField]
+    const found = rows.value.find((row) => (row as Record<string, unknown>)[idField] === newRowIdentity)
     if (!found) return false
 
     // 更新
@@ -215,24 +222,24 @@ export function useQTable(initParams: IQTableInitParams) {
     return true
   }
 
-  // 删除行
-  function deleteRowById(id?: number, idField: string = 'id') {
-    if (!id) return
+  /** Delete one confirmed row by its public identity. */
+  function deleteRowById(id?: string | number, idField: string = 'id') {
+    if (id === undefined || id === null || id === '') return
 
-    rows.value = rows.value.filter((x) => x[idField] !== id)
+    rows.value = rows.value.filter((row) => (row as Record<string, unknown>)[idField] !== id)
     increaseRowsNumber(-1)
   }
 
-  const selectedRows = ref<Record<string, any>[]>([])
+  const selectedRows = ref([]) as Ref<T[]>
 
   /**
    * 获取选中的行
    * @param cursorData
    * @returns { rows, selectedRows }, rows 是当前选中的行，selectedRows 是选中的行的容器
    */
-  function getSelectedRows(cursorData: Record<string, any>): {
-    rows: Record<string, any>[]
-    selectedRows: Ref<Record<string, any>[]>
+  function getSelectedRows(cursorData: T): {
+    rows: T[]
+    selectedRows: Ref<T[]>
   } {
     let rows = [cursorData]
     if (selectedRows.value.length > 0) {
@@ -258,6 +265,7 @@ export function useQTable(initParams: IQTableInitParams) {
   }
 }
 
+/** Return the shared row-index column and renderer component. */
 export function useQTableIndex() {
   // 序号
   const indexColumn: QTableColumn = {

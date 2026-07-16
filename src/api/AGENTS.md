@@ -2,6 +2,16 @@
 
 为 uzoncalc web 端提供 api 接口，开发时需要遵循以下要求：
 
+## 列表分页接口
+
+- 服务端分页列表统一提供同一路由前缀下的 `GET /count` 和 `GET /items`，不要返回同时包含总数和行数据的组合分页对象。
+- `/count` 只接收业务筛选条件并返回 `ResponseResult[int]`，不接收分页参数。
+- `/items` 接收与 `/count` 完全相同的业务筛选条件，并通过 FastAPI 依赖注入复用 `app.controller.dto_base.PaginationDTO`，返回 `ResponseResult[list[DTO]]`。
+- Controller 和 service 不得重复声明 `skip`、`limit`、`sortBy`、`descending`；需要分页时直接传递 `PaginationDTO`。
+- `/count` 和 `/items` 必须复用筛选 DTO 或筛选条件构造函数，确保用户隔离、软删除、分类和关键字等条件保持一致。
+- `sortBy` 必须通过资源级白名单映射为 ORM 字段，禁止将请求字符串直接拼入 SQL；未知字段回退到资源默认排序，并追加唯一字段作为稳定次排序。
+- 列表接口测试至少覆盖筛选一致性、分页边界、升降序、未知排序回退，以及静态 `/count`、`/items` 路由不会被动态对象路由捕获。
+
 ## 多语言
 
 controller 和 service 层中，对前端返回的用户可见文案都应进行多语言适配，使用

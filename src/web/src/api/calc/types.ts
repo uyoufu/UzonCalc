@@ -58,11 +58,6 @@ export interface CalcReport {
   updatedAt: string
 }
 
-export interface PaginatedResult<T> {
-  items: T[]
-  total: number
-}
-
 export interface DependencySelector {
   selectorKey: string
   versionName: string | null

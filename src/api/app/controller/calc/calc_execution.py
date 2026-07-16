@@ -2,16 +2,16 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_execution_dto import (
     CalcExecutionContinueDTO,
-    CalcExecutionListResDTO,
     CalcExecutionResDTO,
     CalcExecutionStartDTO,
 )
 from app.controller.depends import get_session, get_token_payload
+from app.controller.dto_base import PaginationDTO
 from app.response.response_result import ResponseResult, ok
 from app.sandbox.core.execution_result import ExecutionResult
 from app.service import calc_execution_service
@@ -55,16 +55,26 @@ async def continue_calc_execution(
     return ok(data=response)
 
 
-@router.get("")
-async def list_calc_executions(
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+@router.get("/count")
+async def count_calc_executions(
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcExecutionListResDTO]:
-    """List persisted execution audit records."""
-    oids, total = await calc_execution_service.list_execution_oids(
-        session, tokenPayloads.id, offset=offset, limit=limit
+) -> ResponseResult[int]:
+    """Count persisted execution audit records for the current user."""
+    return ok(
+        data=await calc_execution_service.count_executions(session, tokenPayloads.id)
+    )
+
+
+@router.get("/items")
+async def list_calc_execution_items(
+    pagination: Annotated[PaginationDTO, Depends()],
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[list[CalcExecutionResDTO]]:
+    """List one sorted page of persisted execution audit records."""
+    oids = await calc_execution_service.list_execution_oids(
+        session, tokenPayloads.id, pagination
     )
     items = [
         _step_response(
@@ -74,7 +84,7 @@ async def list_calc_executions(
         )
         for oid in oids
     ]
-    return ok(data=CalcExecutionListResDTO(items=items, total=total))
+    return ok(data=items)
 
 
 @router.get("/{executionId}")

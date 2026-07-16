@@ -1,6 +1,6 @@
 <template>
   <q-table class="report-table col" flat dense row-key="reportOid" :rows="reports" :columns="columns" :loading="loading"
-    :pagination="pagination" :rows-number="total" @request="onRequest">
+    v-model:pagination="pagination" :filter="filter" binary-state-sort @request="emit('request', $event)">
     <template #top>
       <div class="row items-center full-width q-gutter-sm">
         <CommonBtn icon="add" :label="t('global.new')" :tooltip="t('calcWorkspace.newReport')"
@@ -8,10 +8,7 @@
         <CommonBtn icon="upload_file" color="grey-8" :label="t('global.import')" :tooltip="t('calcWorkspace.importUzc')"
           @click="emit('import')" />
         <q-space />
-        <q-input :model-value="query" dense outlined debounce="350" :placeholder="t('calcWorkspace.searchReports')"
-          @update:model-value="emit('update:query', String($event || ''))">
-          <template #prepend><q-icon name="search" /></template>
-        </q-input>
+        <SearchInput v-model="filter" />
       </div>
     </template>
     <template #body-cell-name="slotProps">
@@ -45,41 +42,34 @@ import type { QTableColumn, QTableProps } from 'quasar'
 import type { BuildStatus, CalcReport, PublishState } from 'src/api/calc/types'
 import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
+import SearchInput from 'src/components/searchInput/SearchInput.vue'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
+import type { IQTablePagination } from 'src/compositions/types'
 import { t } from 'src/i18n/helpers'
 
-const props = defineProps<{
+defineProps<{
   reports: CalcReport[]
   loading: boolean
-  total: number
-  page: number
-  rowsPerPage: number
-  query: string
   contextMenuItems: IContextMenuItem<CalcReport>[]
 }>()
+const pagination = defineModel<IQTablePagination>('pagination', { required: true })
+const filter = defineModel<string>('filter', { required: true })
 const emit = defineEmits<{
-  request: [page: number, rowsPerPage: number]
-  'update:query': [value: string]
+  request: [request: Parameters<NonNullable<QTableProps['onRequest']>>[0]]
   create: []
   import: []
   open: [report: CalcReport]
   favorite: [report: CalcReport]
 }>()
 
-const pagination = computed(() => ({ page: props.page, rowsPerPage: props.rowsPerPage, rowsNumber: props.total }))
-const columns: QTableColumn<CalcReport>[] = [
-  { name: 'name', label: t('calcWorkspace.reportName'), field: 'name', align: 'left' },
+const columns: ComputedRef<QTableColumn<CalcReport>[]> = computed(() => [
+  { name: 'name', label: t('calcWorkspace.reportName'), field: 'name', align: 'left', sortable: true },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
   { name: 'latestVersionName', label: t('calcWorkspace.latestVersion'), field: (row) => row.latestVersionName || '-', align: 'left' },
   { name: 'state', label: t('calcWorkspace.state'), field: 'publishState', align: 'left' },
-  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left' },
+  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true },
   { name: 'favorite', label: '', field: 'isFavorite', align: 'center' }
-]
-
-/** Forward Quasar pagination requests. */
-function onRequest(request: Parameters<NonNullable<QTableProps['onRequest']>>[0]): void {
-  emit('request', request.pagination.page, request.pagination.rowsPerPage)
-}
+])
 /** Map publish state to a restrained status color. */
 function publishColor(state: PublishState): string {
   return ({ published: 'positive', unpublished: 'grey-7', unpublished_changes: 'warning', workspace_version_mismatch: 'deep-orange' })[state]

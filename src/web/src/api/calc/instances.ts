@@ -1,10 +1,24 @@
 /** Typed APIs for saved calculation instances. */
 
 import { httpClient } from 'src/api/base/httpClient'
-import type { CalcInstance, PaginatedResult } from './types'
+import type { CalcInstance } from './types'
 
-/** List saved calculation instances. */
-export function listInstances(params: { categoryOid?: string; query?: string; offset?: number; limit?: number }) { return httpClient.get<PaginatedResult<CalcInstance>>('/calc-report-instance', { params }) }
+export interface InstanceListParams {
+  categoryOid?: string
+  query?: string
+}
+
+export interface InstanceItemsParams extends InstanceListParams {
+  skip: number
+  limit: number
+  sortBy: string
+  descending: boolean
+}
+
+/** Count saved calculation instances. */
+export function countInstances(params: InstanceListParams) { return httpClient.get<number>('/calc-report-instance/count', { params }) }
+/** List one page of saved calculation instances. */
+export function listInstances(params: InstanceItemsParams) { return httpClient.get<CalcInstance[]>('/calc-report-instance/items', { params }) }
 /** Create an instance from a completed execution. */
 export function createInstance(data: { categoryOid: string; executionId: string; name: string; description?: string | null }) { return httpClient.post<CalcInstance>('/calc-report-instance', { data }) }
 /** Load one saved instance. */

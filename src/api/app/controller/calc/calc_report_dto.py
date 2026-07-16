@@ -44,11 +44,11 @@ class CalcReportResDTO(BaseDTO):
     updatedAt: datetime.datetime
 
 
-class CalcReportListResDTO(BaseDTO):
-    """Return one page of report metadata."""
+class CalcReportListFilterDTO(BaseDTO):
+    """Filter calculation reports for count and item queries."""
 
-    items: list[CalcReportResDTO]
-    total: int
+    categoryOid: str | None = None
+    query: str | None = None
 
 
 class CalcReportCategoryReqDTO(BaseDTO):

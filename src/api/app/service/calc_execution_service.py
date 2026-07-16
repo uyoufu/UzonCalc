@@ -12,6 +12,7 @@ from sqlalchemy.orm.attributes import flag_modified
 
 from app.controller.calc.calc_error import CalcErrorCode
 from app.controller.calc.calc_execution_dto import CalcExecutionStartDTO
+from app.controller.dto_base import PaginationDTO
 from app.db.models.calc_execution import CalcExecution, CalcExecutionBundle
 from app.db.models.calc_report import CalcReport
 from app.db.models.calc_report_artifact import CalcReportArtifact
@@ -268,27 +269,41 @@ async def get_execution_step(
     )
 
 
+async def count_executions(session: AsyncSession, user_id: int) -> int:
+    """Count persisted execution audits owned by one user."""
+    total = await session.scalar(
+        select(func.count(CalcExecution.id)).where(CalcExecution.userId == user_id)
+    )
+    return total or 0
+
+
 async def list_execution_oids(
     session: AsyncSession,
     user_id: int,
-    *,
-    offset: int,
-    limit: int,
-) -> tuple[list[str], int]:
-    """List execution OIDs in reverse chronological order with total count."""
-    total = await session.scalar(
-        select(func.count(CalcExecution.id)).where(CalcExecution.userId == user_id)
+    pagination: PaginationDTO,
+) -> list[str]:
+    """List one sorted page of execution audit OIDs."""
+    sort_columns = {
+        "id": CalcExecution.id,
+        "createdAt": CalcExecution.createdAt,
+        "status": CalcExecution.status,
+        "sourceType": CalcExecution.sourceType,
+    }
+    sort_column = sort_columns.get(pagination.sortBy, CalcExecution.createdAt)
+    sort_expression = sort_column.desc() if pagination.descending else sort_column.asc()
+    stable_sort = (
+        CalcExecution.id.desc() if pagination.descending else CalcExecution.id.asc()
     )
     oids = (
         await session.scalars(
             select(CalcExecution.oid)
             .where(CalcExecution.userId == user_id)
-            .order_by(CalcExecution.createdAt.desc())
-            .offset(offset)
-            .limit(limit)
+            .order_by(sort_expression, stable_sort)
+            .offset(pagination.skip)
+            .limit(pagination.limit)
         )
     ).all()
-    return list(oids), total or 0
+    return list(oids)
 
 
 async def expire_orphaned_executions(session: AsyncSession) -> int:

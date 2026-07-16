@@ -2,16 +2,17 @@
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_report_dto import (
     CalcReportCopyDTO,
-    CalcReportListResDTO,
+    CalcReportListFilterDTO,
     CalcReportResDTO,
     CalcReportUpdateDTO,
 )
 from app.controller.depends import get_session, get_token_payload
+from app.controller.dto_base import PaginationDTO
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_service
 from utils.jwt_helper import TokenPayloads
@@ -19,25 +20,31 @@ from utils.jwt_helper import TokenPayloads
 router = APIRouter(prefix="/v1/calc-report", tags=["calc-report"])
 
 
-@router.get("")
-async def list_calc_reports(
-    categoryOid: str | None = None,
-    query: str | None = None,
-    offset: Annotated[int, Query(ge=0)] = 0,
-    limit: Annotated[int, Query(ge=1, le=100)] = 20,
+@router.get("/count")
+async def count_calc_reports(
+    filters: Annotated[CalcReportListFilterDTO, Depends()],
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcReportListResDTO]:
-    """List current user's active reports."""
-    result = await calc_report_service.list_reports(
-        tokenPayloads.id,
-        session,
-        category_oid=categoryOid,
-        query=query,
-        offset=offset,
-        limit=limit,
+) -> ResponseResult[int]:
+    """Count current user's active reports matching the filters."""
+    return ok(
+        data=await calc_report_service.count_reports(tokenPayloads.id, filters, session)
     )
-    return ok(data=result)
+
+
+@router.get("/items")
+async def list_calc_report_items(
+    filters: Annotated[CalcReportListFilterDTO, Depends()],
+    pagination: Annotated[PaginationDTO, Depends()],
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[list[CalcReportResDTO]]:
+    """List one sorted page of the current user's active reports."""
+    return ok(
+        data=await calc_report_service.list_reports(
+            tokenPayloads.id, filters, pagination, session
+        )
+    )
 
 
 @router.get("/{reportOid}")

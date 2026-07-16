@@ -1,8 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { continueExecution, startExecution } from 'src/api/calc/executions'
+import { continueExecution, countExecutions, listExecutions, startExecution } from 'src/api/calc/executions'
+import { countCalcReports, listCalcReports } from 'src/api/calc/reports'
+import { countInstances, listInstances } from 'src/api/calc/instances'
 import { saveWorkspace } from 'src/api/calc/workspace'
 
-const httpClientMock = vi.hoisted(() => ({ post: vi.fn(), put: vi.fn() }))
+const httpClientMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }))
 vi.mock('src/api/base/httpClient', () => ({ httpClient: httpClientMock }))
 
 describe('calculation APIs', () => {
@@ -35,5 +37,34 @@ describe('calculation APIs', () => {
     expect(serializedSnapshot).toMatchObject({ workspaceRevision: 3 })
     expect(formData.get('files')).toBeInstanceOf(Blob)
     expect(serializedSnapshot.files[0]?.path).toBe('src/main.py')
+  })
+
+  it('uses explicit count and items routes with PaginationDTO fields', async () => {
+    const pagination = { skip: 20, limit: 20, sortBy: 'updatedAt', descending: true }
+
+    await countCalcReports({ categoryOid: 'report-category', query: 'beam' })
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc-report/count', {
+      params: { categoryOid: 'report-category', query: 'beam' }
+    })
+    await listCalcReports({ categoryOid: 'report-category', query: 'beam', ...pagination })
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc-report/items', {
+      params: { categoryOid: 'report-category', query: 'beam', ...pagination }
+    })
+
+    await countInstances({ categoryOid: 'instance-category' })
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc-report-instance/count', {
+      params: { categoryOid: 'instance-category' }
+    })
+    await listInstances({ categoryOid: 'instance-category', ...pagination })
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc-report-instance/items', {
+      params: { categoryOid: 'instance-category', ...pagination }
+    })
+
+    await countExecutions()
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/count')
+    await listExecutions({ ...pagination, sortBy: 'createdAt' })
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/items', {
+      params: { ...pagination, sortBy: 'createdAt' }
+    })
   })
 })
