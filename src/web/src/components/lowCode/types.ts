@@ -28,6 +28,8 @@ export interface ILowCodeField {
   name: string // 用于返回值的字段名
   label: string // 显示的名称
   placeholder?: string // 占位内容
+  hint?: string // 输入控件底部的辅助说明
+  autofocus?: boolean // 弹窗打开后是否自动聚焦该字段
   value?: any // 默认值
   options?: Array<Record<string, any>> | string[] | [] // 多选或单选时的选项
   optionLabel?: string // 选项的显示字段
@@ -100,3 +102,4 @@ export interface IPopupDialogParams {
 export interface IDialogResult<T = Record<string, any>> extends IFunctionResult {
   data: T
 }
+

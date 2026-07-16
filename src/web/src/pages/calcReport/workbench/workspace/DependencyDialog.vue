@@ -1,31 +1,46 @@
 <template>
-  <q-dialog v-model="isOpen" persistent>
+  <q-dialog ref="dialogRef" @hide="onDialogHide" persistent>
     <q-card class="dependency-dialog">
-      <q-card-section class="row items-center"><div class="text-subtitle1">{{ t('calcWorkspace.dependencies') }}</div><q-space /><q-btn flat round dense icon="close" @click="isOpen = false" /></q-card-section>
+      <q-card-section class="row items-center">
+        <div class="text-subtitle1">{{ t('calcWorkspace.dependencies') }}</div><q-space /><q-btn flat round dense
+          icon="close" @click="onDialogCancel" />
+      </q-card-section>
       <q-separator />
       <q-card-section class="q-gutter-md">
         <div class="row q-col-gutter-sm">
           <q-input v-model="alias" class="col" dense outlined :label="t('calcWorkspace.alias')" />
-          <q-select v-model="targetReportOid" class="col" dense outlined emit-value map-options :options="reportOptions" :label="t('calcWorkspace.targetReport')" @update:model-value="onTargetChanged" />
+          <q-select v-model="targetReportOid" class="col" dense outlined emit-value map-options :options="reportOptions"
+            :label="t('calcWorkspace.targetReport')" @update:model-value="onTargetChanged" />
         </div>
-        <q-select v-model="selectedSelectors" dense outlined multiple use-chips emit-value map-options :options="selectorOptions" :label="t('calcWorkspace.selectors')" />
-        <q-select v-model="defaultSelector" dense outlined emit-value map-options :options="selectedSelectorOptions" :label="t('calcWorkspace.defaultSelector')" />
-        <div class="row justify-end"><CommonBtn icon="add" :label="t('global.add')" :disable="!canAdd" @click="onAdd" /></div>
+        <q-select v-model="selectedSelectors" dense outlined multiple use-chips emit-value map-options
+          :options="selectorOptions" :label="t('calcWorkspace.selectors')" />
+        <q-select v-model="defaultSelector" dense outlined emit-value map-options :options="selectedSelectorOptions"
+          :label="t('calcWorkspace.defaultSelector')" />
+        <div class="row justify-end">
+          <CommonBtn icon="add" :label="t('global.add')" :disable="!canAdd" @click="onAdd" />
+        </div>
       </q-card-section>
       <q-separator />
       <q-list separator class="dependency-dialog__list">
         <q-item v-for="dependency in draftDependencies" :key="dependency.alias">
-          <q-item-section><q-item-label>{{ dependency.alias }}</q-item-label><q-item-label caption>{{ reportName(dependency.targetReportOid) }} · {{ dependency.selectors.map((selector) => selector.selectorKey).join(', ') }}</q-item-label></q-item-section>
-          <q-item-section side><q-btn flat round dense icon="delete" color="negative" @click="removeDependency(dependency.alias)" /></q-item-section>
+          <q-item-section><q-item-label>{{ dependency.alias }}</q-item-label><q-item-label caption>{{
+            reportName(dependency.targetReportOid) }} · {{dependency.selectors.map((selector) =>
+                selector.selectorKey).join(', ') }}</q-item-label></q-item-section>
+          <q-item-section side><q-btn flat round dense icon="delete" color="negative"
+              @click="removeDependency(dependency.alias)" /></q-item-section>
         </q-item>
       </q-list>
-      <q-card-actions align="right"><CancelBtn @click="isOpen = false" /><OkBtn @click="onApply" /></q-card-actions>
+      <q-card-actions align="right">
+        <CancelBtn @click="onDialogCancel" />
+        <OkBtn @click="onApply" />
+      </q-card-actions>
     </q-card>
   </q-dialog>
 </template>
 
 <script setup lang="ts">
 /** Edit report dependency aliases and version selectors as one atomic value. */
+import { useDialogPluginComponent } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import CancelBtn from 'src/components/quasarWrapper/buttons/CancelBtn.vue'
 import OkBtn from 'src/components/quasarWrapper/buttons/OkBtn.vue'
@@ -34,9 +49,9 @@ import { listCalcReports } from 'src/api/calc/reports'
 import { listVersions } from 'src/api/calc/versions'
 import { t } from 'src/i18n/helpers'
 
-const props = defineProps<{ modelValue: boolean; reportOid: string; dependencies: ReportDependency[] }>()
-const emit = defineEmits<{ 'update:modelValue': [value: boolean]; apply: [dependencies: ReportDependency[]] }>()
-const isOpen = computed({ get: () => props.modelValue, set: (value) => emit('update:modelValue', value) })
+const props = defineProps<{ reportOid: string; dependencies: ReportDependency[] }>()
+defineEmits([...useDialogPluginComponent.emits])
+const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent()
 const reports = ref<CalcReport[]>([])
 const draftDependencies = ref<ReportDependency[]>([])
 const alias = ref('')
@@ -48,12 +63,13 @@ const reportOptions = computed(() => reports.value.filter((report) => report.rep
 const selectedSelectorOptions = computed(() => selectorOptions.value.filter((option) => selectedSelectors.value.includes(option.value)))
 const canAdd = computed(() => /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(alias.value) && Boolean(targetReportOid.value) && selectedSelectors.value.length > 0 && selectedSelectors.value.includes(defaultSelector.value) && !draftDependencies.value.some((dependency) => dependency.alias === alias.value))
 
-watch(() => props.modelValue, async (open) => {
-  if (!open) return
+/** Initialize a detached dependency draft and its report choices. */
+async function initializeDialog(): Promise<void> {
   draftDependencies.value = structuredClone(props.dependencies)
   const response = await listCalcReports({ offset: 0, limit: 100 })
   reports.value = response.data?.items || []
-}, { immediate: true })
+}
+onMounted(initializeDialog)
 
 /** Load explicit version selector options for the selected dependency report. */
 async function onTargetChanged(reportOid: string | null): Promise<void> {
@@ -81,8 +97,19 @@ function onAdd(): void {
 function removeDependency(value: string): void { draftDependencies.value = draftDependencies.value.filter((dependency) => dependency.alias !== value) }
 /** Resolve a report OID into its display name. */
 function reportName(reportOid: string): string { return reports.value.find((report) => report.reportOid === reportOid)?.name || reportOid }
-/** Apply the dependency draft to the parent workspace. */
-function onApply(): void { emit('apply', structuredClone(draftDependencies.value)); isOpen.value = false }
+/** Return a detached dependency draft to the calling workspace. */
+function onApply(): void { onDialogOK(structuredClone(draftDependencies.value)) }
 </script>
 
-<style scoped>.dependency-dialog { width: min(780px, 92vw); max-width: 780px; }.dependency-dialog__list { max-height: 300px; overflow: auto; }</style>
+<style
+  scoped>
+  .dependency-dialog {
+    width: min(780px, 92vw);
+    max-width: 780px;
+  }
+
+  .dependency-dialog__list {
+    max-height: 300px;
+    overflow: auto;
+  }
+</style>

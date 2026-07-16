@@ -72,7 +72,7 @@ export function parseCliArgs(argv) {
 }
 
 /**
- * Reads a locale default export from either an object literal or an executable Bun module.
+ * Reads a locale file exported as `export default { ... }`.
  * @param {string} filePath Locale file path.
  * @returns {Record<string, unknown>} Parsed locale object.
  */
@@ -80,29 +80,11 @@ export function readLocaleFile(filePath) {
   const sourceText = fs.readFileSync(filePath, 'utf8')
   const objectText = sourceText.replace(/^\s*export\s+default\s+/, '').trim()
 
-  if (objectText.startsWith('{') && objectText.endsWith('}')) {
-    return Function(`"use strict"; return (${objectText});`)()
+  if (!objectText.startsWith('{') || !objectText.endsWith('}')) {
+    throw new Error(`Locale file must use "export default { ... }": ${filePath}`)
   }
 
-  if (typeof Bun === 'undefined') {
-    throw new Error(`Locale file must use "export default { ... }" outside Bun: ${filePath}`)
-  }
-
-  // Locale modules may assign the object to a typed constant before exporting it.
-  // Let Bun evaluate that module shape while keeping all locale access inside this script.
-  const importResult = Bun.spawnSync({
-    cmd: [
-      'bun',
-      '-e',
-      `import locale from ${JSON.stringify(pathToFileURL(filePath).href)}; console.log(JSON.stringify(locale))`
-    ],
-    stdout: 'pipe',
-    stderr: 'pipe'
-  })
-  if (importResult.exitCode !== 0) {
-    throw new Error(`Failed to load locale module ${filePath}: ${importResult.stderr.toString().trim()}`)
-  }
-  return JSON.parse(importResult.stdout.toString())
+  return Function(`"use strict"; return (${objectText});`)()
 }
 
 /**
@@ -112,7 +94,11 @@ export function readLocaleFile(filePath) {
  * @returns {void}
  */
 export function writeLocaleFile(filePath, localeData) {
-  fs.writeFileSync(filePath, `export default ${formatLocaleValue(sortLocaleObject(localeData), 0)}\n`, 'utf8')
+  fs.writeFileSync(
+    filePath,
+    `export default ${formatLocaleValue(sortLocaleObject(localeData), 0)}\n`,
+    'utf8'
+  )
 }
 
 /**
@@ -134,7 +120,9 @@ export function upsertLocaleValue(localeData, dottedKey, translation) {
     if (currentValue === undefined) {
       currentObject[keyPart] = {}
     } else if (!isPlainObject(currentValue)) {
-      throw new Error(`Cannot create nested key "${dottedKey}" because "${keyPart}" is already a string value.`)
+      throw new Error(
+        `Cannot create nested key "${dottedKey}" because "${keyPart}" is already a string value.`
+      )
     }
 
     currentObject = currentObject[keyPart]
@@ -351,7 +339,10 @@ export function formatLocaleValue(value, indentLevel) {
 
   const currentIndent = '  '.repeat(indentLevel)
   const childIndent = '  '.repeat(indentLevel + 1)
-  const lines = keys.map((key) => `${childIndent}${formatObjectKey(key)}: ${formatLocaleValue(value[key], indentLevel + 1)}`)
+  const lines = keys.map(
+    (key) =>
+      `${childIndent}${formatObjectKey(key)}: ${formatLocaleValue(value[key], indentLevel + 1)}`
+  )
 
   return `{\n${lines.join(',\n')}\n${currentIndent}}`
 }
@@ -400,9 +391,14 @@ export function runCli(argv) {
   const args = parseCliArgs(argv)
   const deleteKeys = getCliDeleteKeys(args)
   if (deleteKeys.length > 0) {
-    const writtenFiles = deleteI18nTranslationKeys({ keys: deleteKeys, localesDir: args.localesDir })
+    const writtenFiles = deleteI18nTranslationKeys({
+      keys: deleteKeys,
+      localesDir: args.localesDir
+    })
 
-    console.log(`Deleted ${deleteKeys.length} translation key(s). Updated ${writtenFiles.length} locale file(s).`)
+    console.log(
+      `Deleted ${deleteKeys.length} translation key(s). Updated ${writtenFiles.length} locale file(s).`
+    )
     writtenFiles.forEach((filePath) => console.log(filePath))
     return
   }
@@ -410,7 +406,9 @@ export function runCli(argv) {
   const entries = getCliTranslationEntries(args)
   const writtenFiles = upsertI18nTranslationEntries({ entries, localesDir: args.localesDir })
 
-  console.log(`Updated ${writtenFiles.length} locale files for ${entries.length} translation key(s).`)
+  console.log(
+    `Updated ${writtenFiles.length} locale files for ${entries.length} translation key(s).`
+  )
   writtenFiles.forEach((filePath) => console.log(filePath))
 }
 
@@ -422,7 +420,8 @@ export function runCli(argv) {
 export function getCliTranslationEntries(args) {
   const pairEntries = args.pairs
   const hasPairEntries = Array.isArray(pairEntries) && pairEntries.length > 0
-  const hasSingleEntryArgs = args.key !== undefined || args['zh-CN'] !== undefined || args['en-US'] !== undefined
+  const hasSingleEntryArgs =
+    args.key !== undefined || args['zh-CN'] !== undefined || args['en-US'] !== undefined
   const hasDeleteArgs = hasCliDeleteKeys(args)
 
   if (hasDeleteArgs && (hasPairEntries || hasSingleEntryArgs)) {
@@ -464,7 +463,10 @@ export function getCliDeleteKeys(args) {
   }
 
   const hasUpsertArgs =
-    args.key !== undefined || args['zh-CN'] !== undefined || args['en-US'] !== undefined || hasCliPairEntries(args)
+    args.key !== undefined ||
+    args['zh-CN'] !== undefined ||
+    args['en-US'] !== undefined ||
+    hasCliPairEntries(args)
   if (hasUpsertArgs) {
     throw new Error('Do not mix --delete with --pair, --key, --zh-CN or --en-US.')
   }
@@ -500,3 +502,4 @@ if (isCliEntrypoint) {
     process.exitCode = 1
   }
 }
+

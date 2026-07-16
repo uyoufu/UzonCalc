@@ -76,6 +76,8 @@ if (result.ok) {
 | `label`           | 表单显示名称，必填                                             |
 | `type`            | 字段类型；未传入时 `showDialog` 会补为 `LowCodeFieldType.text` |
 | `placeholder`     | 输入占位内容                                                   |
+| `hint`            | 输入控件底部的辅助说明                                         |
+| `autofocus`       | 弹窗打开后是否自动聚焦该字段                                   |
 | `value`           | 初始值                                                         |
 | `options`         | `selectOne` / `selectMany` 的候选项                            |
 | `optionLabel`     | 选项对象中用于显示的字段名，默认按组件逻辑读取 `label`         |

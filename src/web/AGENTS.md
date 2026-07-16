@@ -61,7 +61,7 @@
 - 表单弹窗优先使用 `src/components/lowCode`
 - 长耗时操作使用 `notifyUntil` 包裹，以提供执行进度反馈
 - 优先使用 `src/utils/dialog.ts` 中的提示工具，尤其是 `notifySuccess`、`notifyError`、`notifyWarning` 和 `confirmOperation`
-- 若要使用 q-dialog, 在单独的组件中使用 `src/components/quasarWrapper/PopupDialogExample.vue` 模板定义组件，然后在独立的composable 组件中调用 `showComponentDialog` 函数显示弹窗。
+- 需要原生 q-dialog 的复杂交互时, 使用 `src/components/quasarWrapper/PopupDialogExample.vue` 模板定义成页面私有组件，然后在独立的composable 组件中调用 `showComponentDialog` 函数显示弹窗。
 
 ## 组合式 API
 

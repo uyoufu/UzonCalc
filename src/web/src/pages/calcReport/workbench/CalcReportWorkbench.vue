@@ -1,25 +1,36 @@
 <template>
   <div v-if="$q.screen.lt.md" class="workbench-unsupported column items-center justify-center full-height text-grey-7">
-    <q-icon name="desktop_windows" size="56px" /><div class="text-subtitle1 q-mt-md">{{ t('calcWorkspace.desktopRequired') }}</div>
+    <q-icon name="desktop_windows" size="56px" />
+    <div class="text-subtitle1 q-mt-md">{{ t('calcWorkspace.desktopRequired') }}</div>
   </div>
   <div v-else class="report-workbench column no-wrap full-height">
     <header class="workbench-header row items-center q-px-md">
-      <q-btn flat round dense icon="arrow_back" @click="router.push('/calc-report/list')"><q-tooltip>{{ t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
-      <div class="q-ml-sm"><div class="text-subtitle1">{{ report?.name || t('calcWorkspace.newReport') }}</div><div class="text-caption text-grey-7">{{ reportOid }}</div></div>
+      <q-btn flat round dense icon="arrow_back" @click="router.push('/calc-report/list')"><q-tooltip>{{
+        t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
+      <div class="q-ml-sm">
+        <div class="text-subtitle1">{{ report?.name || t('calcWorkspace.newReport') }}</div>
+        <div class="text-caption text-grey-7">{{ reportOid }}</div>
+      </div>
       <q-space />
       <template v-if="report">
-        <q-chip dense square :color="publishColor" text-color="white">{{ t(`calcWorkspace.publishStates.${report.publishState}`) }}</q-chip>
-        <q-chip dense square :color="buildColor" text-color="white">{{ t(`calcWorkspace.buildStates.${report.buildStatus}`) }}</q-chip>
+        <q-chip dense square :color="publishColor" text-color="white">{{
+          t(`calcWorkspace.publishStates.${report.publishState}`) }}</q-chip>
+        <q-chip dense square :color="buildColor" text-color="white">{{
+          t(`calcWorkspace.buildStates.${report.buildStatus}`) }}</q-chip>
       </template>
     </header>
     <q-tabs v-if="!isNew" :model-value="activeTab" dense align="left" indicator-color="primary" class="workbench-tabs">
-      <q-route-tab name="workspace" icon="code" :label="t('calcWorkspace.workspace')" :to="`/calc-report/${reportOid}/workspace`" />
-      <q-route-tab name="run" icon="play_circle" :label="t('calcWorkspace.run')" :to="`/calc-report/${reportOid}/run`" />
-      <q-route-tab name="versions" icon="history" :label="t('calcWorkspace.versionsAndShares')" :to="`/calc-report/${reportOid}/versions`" />
+      <q-route-tab name="workspace" icon="code" :label="t('calcWorkspace.workspace')"
+        :to="`/calc-report/${reportOid}/workspace`" />
+      <q-route-tab name="run" icon="play_circle" :label="t('calcWorkspace.run')"
+        :to="`/calc-report/${reportOid}/run`" />
+      <q-route-tab name="versions" icon="history" :label="t('calcWorkspace.versionsAndShares')"
+        :to="`/calc-report/${reportOid}/versions`" />
     </q-tabs>
     <q-separator />
     <section class="col workbench-content">
-      <WorkspacePane v-if="activeTab === 'workspace'" :report-oid="reportOid" :report="report" :is-new="isNew" @saved="onWorkspaceSaved" />
+      <WorkspacePane v-if="activeTab === 'workspace'" :report-oid="reportOid" :report="report" :is-new="isNew"
+        @saved="onWorkspaceSaved" />
       <ExecutionPane v-else-if="activeTab === 'run'" :report-oid="reportOid" :report="report" />
       <VersionPane v-else :report-oid="reportOid" :report="report" @changed="loadReport" @restored="loadReport" />
     </section>
@@ -56,5 +67,27 @@ async function onWorkspaceSaved(): Promise<void> { await nextTick(); if (!isNew.
 </script>
 
 <style scoped>
-.report-workbench { min-height: 680px; background: #fff; overflow: hidden; }.workbench-header { min-height: 58px; }.workbench-tabs { min-height: 38px; }.workbench-content { min-height: 0; overflow: hidden; }.workbench-unsupported { min-height: 520px; background: #fff; }
+.report-workbench {
+  min-height: 680px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.workbench-header {
+  min-height: 58px;
+}
+
+.workbench-tabs {
+  min-height: 38px;
+}
+
+.workbench-content {
+  min-height: 0;
+  overflow: hidden;
+}
+
+.workbench-unsupported {
+  min-height: 520px;
+  background: #fff;
+}
 </style>

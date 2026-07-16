@@ -1,15 +1,17 @@
 <template>
   <aside class="workspace-tree column no-wrap">
     <div class="workspace-tree__toolbar row items-center q-px-xs">
-      <q-btn flat round dense icon="note_add" @click="onCreateFile"><q-tooltip>{{ t('calcWorkspace.newFile') }}</q-tooltip></q-btn>
-      <q-btn flat round dense icon="upload_file" @click="fileInput?.click()"><q-tooltip>{{ t('calcWorkspace.uploadResources') }}</q-tooltip></q-btn>
+      <q-btn flat round dense icon="note_add" @click="onCreateFile"><q-tooltip>{{ t('calcWorkspace.newFile')
+      }}</q-tooltip></q-btn>
+      <q-btn flat round dense icon="upload_file" @click="fileInput?.click()"><q-tooltip>{{
+        t('calcWorkspace.uploadResources') }}</q-tooltip></q-btn>
       <input ref="fileInput" class="hidden" type="file" multiple @change="onFilesSelected">
-      <q-space /><q-btn flat round dense icon="account_tree" @click="emit('dependencies')"><q-tooltip>{{ t('calcWorkspace.dependencies') }}</q-tooltip></q-btn>
+      <q-space /><q-btn flat round dense icon="account_tree" @click="emit('dependencies')"><q-tooltip>{{
+        t('calcWorkspace.dependencies') }}</q-tooltip></q-btn>
     </div>
     <q-separator />
-    <DraggableTree class="col scroll" :data="nodes as never[]" node-key="id" draggable
-      :allow-drag="allowDrag" :allow-drop="allowDrop" :context-menu-items="contextItems"
-      @node-click="onNodeClick" @node-drop="onNodeDrop">
+    <DraggableTree class="col scroll" :data="nodes as never[]" node-key="id" draggable :allow-drag="allowDrag"
+      :allow-drop="allowDrop" :context-menu-items="contextItems" @node-click="onNodeClick" @node-drop="onNodeDrop">
       <template #default="{ data }">
         <q-icon :name="data.kind === 'folder' ? 'folder' : iconForPath(data.path)" class="q-mr-xs" />
         <span class="ellipsis" :class="{ 'text-weight-bold': data.path === entryPath }">{{ data.label }}</span>
@@ -21,10 +23,11 @@
 
 <script setup lang="ts">
 /** File-tree controls for a complete workspace draft. */
-import { Dialog } from 'quasar'
 import DraggableTree from 'src/components/draggableTree/DraggableTree.vue'
 import type { DraggableTreeContextValue, TreeDropType } from 'src/components/draggableTree/types'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
+import { showDialog } from 'src/components/lowCode/PopupDialog'
+import { LowCodeFieldType } from 'src/components/lowCode/types'
 import type { WorkspaceTreeNode } from './useWorkspaceDraft'
 import { t } from 'src/i18n/helpers'
 import type { TreeNodeData } from 'element-plus/es/components/tree/src/tree.type'
@@ -52,15 +55,37 @@ function asWorkspaceNode(data: TreeNodeData): WorkspaceTreeNode { return data as
 
 /** Select file nodes while folder clicks only expand the tree. */
 function onNodeClick(data: TreeNodeData): void { const node = asWorkspaceNode(data); if (node.kind === 'file') emit('select', node.path) }
-/** Open the path prompt for a new file. */
-function onCreateFile(): void {
-  Dialog.create({ title: t('calcWorkspace.newFile'), prompt: { model: 'src/', type: 'text' }, cancel: true })
-    .onOk((path: string) => emit('create', path))
+/** Open the configured path form and emit a confirmed new-file path. */
+async function onCreateFile(): Promise<void> {
+  const result = await showDialog<{ path: string }>({
+    title: t('calcWorkspace.newFile'),
+    fields: [{
+      name: 'path',
+      label: t('calcWorkspace.newFile'),
+      type: LowCodeFieldType.text,
+      value: 'src/',
+      autofocus: true
+    }],
+    oneColumn: true,
+    persistent: false
+  })
+  if (result.ok) emit('create', result.data.path)
 }
-/** Open the rename prompt for one file or derived folder. */
-function onRename(node: WorkspaceTreeNode): void {
-  Dialog.create({ title: t('calcWorkspace.rename'), prompt: { model: node.path, type: 'text' }, cancel: true })
-    .onOk((path: string) => emit('rename', node.path, path))
+/** Open the configured path form and emit a confirmed rename. */
+async function onRename(node: WorkspaceTreeNode): Promise<void> {
+  const result = await showDialog<{ path: string }>({
+    title: t('calcWorkspace.rename'),
+    fields: [{
+      name: 'path',
+      label: t('calcWorkspace.rename'),
+      type: LowCodeFieldType.text,
+      value: node.path,
+      autofocus: true
+    }],
+    oneColumn: true,
+    persistent: false
+  })
+  if (result.ok) emit('rename', node.path, result.data.path)
 }
 /** Forward selected local files into the resources folder. */
 function onFilesSelected(event: Event): void {
@@ -92,6 +117,14 @@ function iconForPath(path: string): string {
 </script>
 
 <style scoped>
-.workspace-tree { width: 250px; min-width: 250px; border-right: 1px solid #e4e7ec; background: #fff; }
-.workspace-tree__toolbar { min-height: 40px; }
+.workspace-tree {
+  width: 250px;
+  min-width: 250px;
+  border-right: 1px solid #e4e7ec;
+  background: #fff;
+}
+
+.workspace-tree__toolbar {
+  min-height: 40px;
+}
 </style>

@@ -3,8 +3,10 @@
     <div class="workspace-toolbar row items-center q-gutter-xs q-px-sm">
       <CommonBtn icon="save" :label="t('global.save')" :tooltip="t('calcWorkspace.saveWorkspace')"
         :loading="draft.isSaving.value" :disable="!draft.hasUnsavedChanges.value" @click="onSave" />
-      <q-btn flat round dense icon="play_arrow" color="positive" @click="onRunWorkspace"><q-tooltip>{{ t('calcWorkspace.runWorkspace') }}</q-tooltip></q-btn>
-      <q-btn flat round dense icon="format_align_left" :disable="!selectedFile?.path.endsWith('.py')" @click="onFormatFile"><q-tooltip>{{ t('calcWorkspace.format') }}</q-tooltip></q-btn>
+      <q-btn flat round dense icon="play_arrow" color="positive" @click="onRunWorkspace"><q-tooltip>{{
+        t('calcWorkspace.runWorkspace') }}</q-tooltip></q-btn>
+      <q-btn flat round dense icon="format_align_left" :disable="!selectedFile?.path.endsWith('.py')"
+        @click="onFormatFile"><q-tooltip>{{ t('calcWorkspace.format') }}</q-tooltip></q-btn>
       <q-separator vertical inset />
       <q-chip dense square :color="draft.hasUnsavedChanges.value ? 'warning' : 'positive'" text-color="white">
         {{ draft.hasUnsavedChanges.value ? t('calcWorkspace.unsaved') : t('calcWorkspace.saved') }}
@@ -12,15 +14,17 @@
       <span class="text-caption text-grey-7">rev {{ draft.workspaceRevision.value }}</span>
       <q-space />
       <template v-if="isNew">
-        <q-select v-model="createForm.categoryOid" dense outlined emit-value map-options :options="categoryOptions" :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
-        <q-input v-model="createForm.name" dense outlined :label="t('calcWorkspace.reportName')" class="workspace-toolbar__name" />
+        <q-select v-model="createForm.categoryOid" dense outlined emit-value map-options :options="categoryOptions"
+          :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
+        <q-input v-model="createForm.name" dense outlined :label="t('calcWorkspace.reportName')"
+          class="workspace-toolbar__name" />
       </template>
     </div>
     <q-separator />
     <div class="row no-wrap col workspace-body">
-      <WorkspaceTreePanel :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value"
-        @select="onSelectFile" @create="onCreateFile" @upload="onUploadResources" @rename="onRenamePath"
-        @delete="onDeletePath" @entry="draft.setEntryPath" @dependencies="isDependencyDialogOpen = true" />
+      <WorkspaceTreePanel :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value" @select="onSelectFile"
+        @create="onCreateFile" @upload="onUploadResources" @rename="onRenamePath" @delete="onDeletePath"
+        @entry="draft.setEntryPath" @dependencies="onOpenDependencyDialog" />
       <main class="col workspace-main">
         <template v-if="selectedFile">
           <div class="workspace-filebar row items-center q-px-sm">
@@ -32,35 +36,42 @@
           <WorkspaceCodeEditor v-if="selectedFile.isText && selectedFile.text !== null" class="col"
             :path="selectedFile.path" :content="selectedFile.text" @change="draft.updateText" />
           <div v-else-if="isImage && objectUrl" class="col column items-center justify-center resource-preview">
-            <img :src="objectUrl" :alt="selectedFile.path"><CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')" @click="onDownloadSelected" />
+            <img :src="objectUrl" :alt="selectedFile.path">
+            <CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')"
+              @click="onDownloadSelected" />
           </div>
           <div v-else class="col column items-center justify-center text-grey-7">
-            <q-icon name="drafts" size="48px" /><div class="q-mt-sm">{{ t('calcWorkspace.binaryResource') }}</div>
-            <CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')" @click="onDownloadSelected" />
+            <q-icon name="drafts" size="48px" />
+            <div class="q-mt-sm">{{ t('calcWorkspace.binaryResource') }}</div>
+            <CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')"
+              @click="onDownloadSelected" />
           </div>
         </template>
-        <div v-else class="full-height column items-center justify-center text-grey-6"><q-icon name="code" size="48px" /><div>{{ t('calcWorkspace.selectFile') }}</div></div>
+        <div v-else class="full-height column items-center justify-center text-grey-6"><q-icon name="code"
+            size="48px" />
+          <div>{{ t('calcWorkspace.selectFile') }}</div>
+        </div>
       </main>
     </div>
-    <DependencyDialog v-model="isDependencyDialogOpen" :report-oid="reportOid" :dependencies="draft.dependencies.value" @apply="draft.setDependencies" />
   </div>
 </template>
 
 <script setup lang="ts">
 /** Complete multi-file workspace editor with atomic explicit saves. */
-import { Dialog } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import WorkspaceTreePanel from './WorkspaceTreePanel.vue'
 import WorkspaceCodeEditor from './WorkspaceCodeEditor.vue'
-import DependencyDialog from './DependencyDialog.vue'
 import { useWorkspaceDraft, type WorkspaceDraftFile } from './useWorkspaceDraft'
+import { useDependencyDialog } from './useDependencyDialog'
+import { useWorkspaceConflictDialog } from './useWorkspaceConflictDialog'
+import { WorkspaceConflictResolution } from './workspaceConflict'
 import type { CalcReport, CalcReportCategory } from 'src/api/calc/types'
 import { CalcErrorCode } from 'src/api/calc/types'
 import { getWorkspace, saveWorkspace } from 'src/api/calc/workspace'
 import { listReportCategories } from 'src/api/calc/categories'
 import { formatPythonByBlack } from 'src/api/codeFormat'
 import { getApiFailure } from '../../shared/apiFailure'
-import { notifyError, notifySuccess } from 'src/utils/dialog'
+import { confirmOperation, notifyError, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 
 const props = defineProps<{ reportOid: string; report: CalcReport | null; isNew: boolean }>()
@@ -71,7 +82,8 @@ const draft = useWorkspaceDraft(reportOidRef)
 const selectedPath = ref('')
 const categories = ref<CalcReportCategory[]>([])
 const createForm = reactive({ categoryOid: '', name: '', description: '' })
-const isDependencyDialogOpen = ref(false)
+const { openDependencyDialog } = useDependencyDialog()
+const { openWorkspaceConflictDialog } = useWorkspaceConflictDialog()
 const objectUrl = ref('')
 const selectedFile = computed(() => draft.files.value.find((file) => file.path === selectedPath.value) || null)
 const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
@@ -118,6 +130,11 @@ function onUploadResources(localFiles: File[]): void {
     try { draft.addFile(`resources/${file.name}`, file) } catch (error) { notifyError(getApiFailure(error).message) }
   })
 }
+/** Open dependency editing and apply only a confirmed detached result. */
+async function onOpenDependencyDialog(): Promise<void> {
+  const dependencies = await openDependencyDialog(props.reportOid, draft.dependencies.value)
+  if (dependencies) draft.setDependencies(dependencies)
+}
 /** Rename a file/folder and keep the current selection aligned. */
 async function onRenamePath(oldPath: string, newPath: string): Promise<void> {
   try {
@@ -151,28 +168,24 @@ async function onSave(): Promise<boolean> {
     return true
   } catch (error) {
     const failure = getApiFailure(error)
-    if (failure.errorCode === CalcErrorCode.WorkspaceRevisionConflict) showConflictDialog()
+    if (failure.errorCode === CalcErrorCode.WorkspaceRevisionConflict) await showConflictDialog()
     else notifyError(failure.message)
     return false
   } finally { draft.isSaving.value = false }
 }
 
-/** Present non-destructive recovery choices for an optimistic-save conflict. */
-function showConflictDialog(): void {
-  Dialog.create({
-    title: t('calcWorkspace.revisionConflict'),
-    message: t('calcWorkspace.revisionConflictMessage'),
-    options: { type: 'radio', model: 'export', items: [
-      { label: t('calcWorkspace.exportLocalZip'), value: 'export' },
-      { label: t('calcWorkspace.discardAndReload'), value: 'reload' }
-    ] },
-    cancel: true
-  }).onOk((choice: string) => { void onConflictChoice(choice) })
+/** Present recovery choices and execute only a confirmed action. */
+async function showConflictDialog(): Promise<void> {
+  const resolution = await openWorkspaceConflictDialog()
+  if (resolution) await onConflictChoice(resolution)
 }
 /** Execute the selected revision-conflict recovery action. */
-async function onConflictChoice(choice: string): Promise<void> {
-  if (choice === 'export') await draft.exportLocalZip(`${createForm.name || props.report?.name || 'workspace'}-conflict.zip`)
-  if (choice === 'reload') await initialize()
+async function onConflictChoice(resolution: WorkspaceConflictResolution): Promise<void> {
+  if (resolution === WorkspaceConflictResolution.ExportLocalZip) {
+    await draft.exportLocalZip(`${createForm.name || props.report?.name || 'workspace'}-conflict.zip`)
+    return
+  }
+  await initialize()
 }
 /** Save dirty workspace state before running the workspace source. */
 async function onRunWorkspace(): Promise<void> {
@@ -189,9 +202,10 @@ function onDownloadSelected(): void {
 function formatBytes(size: number): string { return size < 1024 ? `${size} B` : size < 1048576 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1048576).toFixed(1)} MB` }
 
 /** Confirm navigation while the current workspace has local changes. */
-onBeforeRouteLeave(async () => !draft.hasUnsavedChanges.value || await new Promise<boolean>((resolve) => {
-  Dialog.create({ title: t('calcWorkspace.unsaved'), message: t('calcWorkspace.leaveWithoutSaving'), cancel: true }).onOk(() => resolve(true)).onCancel(() => resolve(false)).onDismiss(() => resolve(false))
-}))
+onBeforeRouteLeave(async () => !draft.hasUnsavedChanges.value || await confirmOperation(
+  t('calcWorkspace.unsaved'),
+  t('calcWorkspace.leaveWithoutSaving')
+))
 /** Prevent browser-level navigation from silently discarding local edits. */
 function onBeforeUnload(event: BeforeUnloadEvent): void { if (draft.hasUnsavedChanges.value) event.preventDefault() }
 /** Register the explicit save shortcut. */
@@ -201,9 +215,46 @@ onUnmounted(() => { window.removeEventListener('beforeunload', onBeforeUnload); 
 </script>
 
 <style scoped>
-.workspace-pane { height: 100%; min-height: 620px; background: #f8fafc; }
-.workspace-toolbar { min-height: 48px; background: #fff; }
-.workspace-toolbar__category { width: 180px; }.workspace-toolbar__name { width: 220px; }
-.workspace-body { min-height: 0; }.workspace-main { min-width: 0; background: #fff; }
-.workspace-filebar { min-height: 34px; background: #f8fafc; }.resource-preview { overflow: auto; }.resource-preview img { max-width: 90%; max-height: 75%; object-fit: contain; }
+.workspace-pane {
+  height: 100%;
+  min-height: 620px;
+  background: #f8fafc;
+}
+
+.workspace-toolbar {
+  min-height: 48px;
+  background: #fff;
+}
+
+.workspace-toolbar__category {
+  width: 180px;
+}
+
+.workspace-toolbar__name {
+  width: 220px;
+}
+
+.workspace-body {
+  min-height: 0;
+}
+
+.workspace-main {
+  min-width: 0;
+  background: #fff;
+}
+
+.workspace-filebar {
+  min-height: 34px;
+  background: #f8fafc;
+}
+
+.resource-preview {
+  overflow: auto;
+}
+
+.resource-preview img {
+  max-width: 90%;
+  max-height: 75%;
+  object-fit: contain;
+}
 </style>

@@ -12,7 +12,8 @@
     "dev": "quasar dev",
     "build": "quasar build",
     "test:unit": "vitest",
-    "test:unit:ci": "vitest run"
+    "test:unit:ci": "vitest run",
+    "i18n:upsert": "bun scripts/upsert_i18n.js"
   },
   "dependencies": {
     "@microsoft/signalr": "^8.0.7",

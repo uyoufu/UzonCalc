@@ -1,24 +1,33 @@
 <template>
   <div class="execution-pane column no-wrap">
     <div class="execution-toolbar row items-center q-gutter-sm q-px-sm">
-      <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions" :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
-      <q-select v-if="sourceType === 'version'" v-model="versionName" dense outlined emit-value map-options :options="versionOptions" :label="t('calcWorkspace.version')" class="execution-toolbar__version" />
+      <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions"
+        :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
+      <q-select v-if="sourceType === 'version'" v-model="versionName" dense outlined emit-value map-options
+        :options="versionOptions" :label="t('calcWorkspace.version')" class="execution-toolbar__version" />
       <q-toggle v-model="isSilent" :label="t('calcWorkspace.silentRun')" />
-      <CommonBtn v-if="!execution || execution.isCompleted" icon="play_arrow" :label="t('calcWorkspace.startRun')" :loading="isExecuting" @click="onStart" />
-      <CommonBtn v-else icon="skip_next" :label="t('calcWorkspace.continueRun')" :loading="isExecuting" @click="onContinue" />
-      <q-btn v-if="execution && !execution.isCompleted" flat round dense icon="stop" color="negative" @click="onTerminate"><q-tooltip>{{ t('calcWorkspace.terminate') }}</q-tooltip></q-btn>
+      <CommonBtn v-if="!execution || execution.isCompleted" icon="play_arrow" :label="t('calcWorkspace.startRun')"
+        :loading="isExecuting" @click="onStart" />
+      <CommonBtn v-else icon="skip_next" :label="t('calcWorkspace.continueRun')" :loading="isExecuting"
+        @click="onContinue" />
+      <q-btn v-if="execution && !execution.isCompleted" flat round dense icon="stop" color="negative"
+        @click="onTerminate"><q-tooltip>{{ t('calcWorkspace.terminate') }}</q-tooltip></q-btn>
       <q-space />
-      <CommonBtn v-if="execution?.isCompleted" icon="save_as" color="grey-8" :label="t('calcWorkspace.saveInstance')" @click="isInstanceDialogOpen = true" />
+      <CommonBtn v-if="execution?.isCompleted" icon="save_as" color="grey-8" :label="t('calcWorkspace.saveInstance')"
+        @click="onOpenSaveInstanceDialog" />
     </div>
     <q-separator />
     <q-banner v-if="buildMessage" dense class="bg-blue-grey-1 text-blue-grey-10">
-      <template #avatar><q-spinner v-if="isWaitingForBuild" color="primary" /><q-icon v-else name="error" color="negative" /></template>
+      <template #avatar><q-spinner v-if="isWaitingForBuild" color="primary" /><q-icon v-else name="error"
+          color="negative" /></template>
       {{ buildMessage }}
     </q-banner>
     <div class="row no-wrap col execution-body">
       <section class="execution-input column no-wrap">
         <div v-if="execution" class="execution-provenance q-pa-sm text-caption">
-          <div>{{ execution.sourceType }}<span v-if="execution.resolvedVersion"> · {{ execution.resolvedVersion }}</span></div>
+          <div>{{ execution.sourceType }}<span v-if="execution.resolvedVersion"> · {{ execution.resolvedVersion
+              }}</span>
+          </div>
           <div class="ellipsis text-grey-7">{{ execution.backendMode }} · {{ execution.bundleHash }}</div>
         </div>
         <q-separator />
@@ -34,40 +43,27 @@
         </q-scroll-area>
       </section>
       <q-separator vertical />
-      <section class="col"><ExecutionResultFrame :execution="execution" /></section>
+      <section class="col">
+        <ExecutionResultFrame :execution="execution" />
+      </section>
     </div>
-
-    <q-dialog v-model="isInstanceDialogOpen">
-      <q-card class="instance-dialog">
-        <q-card-section class="text-subtitle1">{{ t('calcWorkspace.saveInstance') }}</q-card-section>
-        <q-card-section class="q-gutter-md">
-          <q-select v-model="instanceForm.categoryOid" dense outlined emit-value map-options :options="instanceCategoryOptions" :label="t('calcWorkspace.categoryName')" />
-          <q-input v-model="instanceForm.name" dense outlined :label="t('calcWorkspace.instanceName')" />
-          <q-input v-model="instanceForm.description" dense outlined type="textarea" :label="t('calcWorkspace.description')" />
-        </q-card-section>
-        <q-card-actions align="right"><CancelBtn v-close-popup /><OkBtn :disable="!instanceForm.categoryOid || !instanceForm.name.trim()" @click="onSaveInstance" /></q-card-actions>
-      </q-card>
-    </q-dialog>
   </div>
 </template>
 
 <script setup lang="ts">
 /** Run and continue managed calculations while showing immutable provenance. */
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
-import CancelBtn from 'src/components/quasarWrapper/buttons/CancelBtn.vue'
-import OkBtn from 'src/components/quasarWrapper/buttons/OkBtn.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import ExecutionResultFrame from './ExecutionResultFrame.vue'
+import { useSaveInstanceDialog } from './useSaveInstanceDialog'
 import type { CalcExecution, CalcReport, CalcReportVersion, ExecutionSourceType } from 'src/api/calc/types'
 import { continueExecution, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
 import { listVersions } from 'src/api/calc/versions'
-import { createInstance } from 'src/api/calc/instances'
-import { ensureDefaultInstanceCategory, listInstanceCategories } from 'src/api/calc/categories'
 import { adaptExecutionFields } from './adaptExecutionFields'
 import { getWorkspaceBuild } from 'src/api/calc/workspace'
 import { CalcErrorCode } from 'src/api/calc/types'
 import { getApiFailure } from '../../shared/apiFailure'
-import { notifyError, notifySuccess } from 'src/utils/dialog'
+import { notifyError } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 
 const props = defineProps<{ reportOid: string; report: CalcReport | null }>()
@@ -81,16 +77,13 @@ const isWaitingForBuild = ref(false)
 const buildMessage = ref('')
 let buildPollTimer: ReturnType<typeof setTimeout> | null = null
 const execution = ref<CalcExecution | null>(null)
-const isInstanceDialogOpen = ref(false)
-const instanceCategories = ref<Awaited<ReturnType<typeof listInstanceCategories>>['data']>([])
-const instanceForm = reactive({ categoryOid: '', name: props.report?.name || '', description: '' })
+const { openSaveInstanceDialog } = useSaveInstanceDialog()
 const sourceOptions = computed(() => [
   { label: t('calcWorkspace.sourceWorkspace'), value: 'workspace' },
   { label: t('calcWorkspace.sourceLatest'), value: 'latest', disable: !props.report?.latestVersionName },
   { label: t('calcWorkspace.sourceVersion'), value: 'version', disable: versions.value.length === 0 }
 ])
 const versionOptions = computed(() => versions.value.map((version) => ({ label: version.versionName, value: version.versionName })))
-const instanceCategoryOptions = computed(() => (instanceCategories.value || []).map((category) => ({ label: category.name, value: category.categoryOid })))
 
 onMounted(async () => {
   const response = await listVersions(props.reportOid)
@@ -155,26 +148,43 @@ async function onContinue(): Promise<void> {
 }
 /** Terminate the active execution idempotently. */
 async function onTerminate(): Promise<void> { if (execution.value) { await terminateExecution(execution.value.executionId); execution.value.status = 'cancelled' } }
-/** Load categories when the save-instance dialog opens. */
-watch(isInstanceDialogOpen, async (open) => {
-  if (!open) return
-  let response = await listInstanceCategories()
-  if (!response.data?.length) response = await ensureDefaultInstanceCategory({ name: t('calcWorkspace.defaultInstanceCategory') }).then((created) => ({ ...created, data: [created.data] }))
-  instanceCategories.value = response.data
-  instanceForm.categoryOid = response.data?.[0]?.categoryOid || ''
-  instanceForm.name = props.report?.name || t('calcWorkspace.instanceName')
-})
-/** Persist a completed execution as an instance. */
-async function onSaveInstance(): Promise<void> {
+/** Open instance metadata for the completed execution. */
+async function onOpenSaveInstanceDialog(): Promise<void> {
   if (!execution.value) return
-  await createInstance({ ...instanceForm, executionId: execution.value.executionId })
-  isInstanceDialogOpen.value = false
-  notifySuccess(t('calcWorkspace.instanceSaved'))
+  await openSaveInstanceDialog(execution.value.executionId, props.report?.name || t('calcWorkspace.instanceName'))
 }
 onUnmounted(() => { if (buildPollTimer) clearTimeout(buildPollTimer) })
 </script>
 
 <style scoped>
-.execution-pane { height: 100%; min-height: 620px; background: #fff; }.execution-toolbar { min-height: 48px; }.execution-toolbar__source { width: 180px; }.execution-toolbar__version { width: 150px; }
-.execution-body { min-height: 0; }.execution-input { width: 330px; min-width: 330px; }.execution-provenance { min-height: 54px; }.instance-dialog { width: min(520px, 92vw); max-width: 520px; }
+.execution-pane {
+  height: 100%;
+  min-height: 620px;
+  background: #fff;
+}
+
+.execution-toolbar {
+  min-height: 48px;
+}
+
+.execution-toolbar__source {
+  width: 180px;
+}
+
+.execution-toolbar__version {
+  width: 150px;
+}
+
+.execution-body {
+  min-height: 0;
+}
+
+.execution-input {
+  width: 330px;
+  min-width: 330px;
+}
+
+.execution-provenance {
+  min-height: 54px;
+}
 </style>
