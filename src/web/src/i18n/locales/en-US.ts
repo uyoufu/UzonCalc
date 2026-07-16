@@ -200,6 +200,7 @@ export default {
     linkCopied: 'Share link copied; the token is shown only once',
     maxUseCount: 'Maximum uses',
     metadataRequired: 'Category and report name are required',
+    myFavorites: 'My Favorites',
     newCategory: 'New category',
     newFile: 'New file',
     newReport: 'New report',

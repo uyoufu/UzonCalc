@@ -1,12 +1,7 @@
 <template>
-  <div v-if="$q.screen.lt.md" class="version-unsupported column items-center justify-center full-height text-grey-7">
-    <q-icon name="desktop_windows" size="56px" />
-    <div class="text-subtitle1 q-mt-md">{{ t('calcWorkspace.desktopRequired') }}</div>
-  </div>
-  <div v-else class="version-pane column no-wrap">
+  <div class="version-pane column no-wrap">
     <div class="version-toolbar row items-center q-gutter-sm q-px-sm">
       <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')" @click="onBackToReports" />
-      <CommonBtn icon="publish" :label="t('calcWorkspace.publishVersion')" @click="openPublishDialog" />
       <q-space />
       <CommonBtn flat dense icon="refresh" :tooltip="t('calcWorkspace.refresh')" @click="loadVersions" />
     </div>
@@ -34,24 +29,23 @@
 </template>
 
 <script setup lang="ts">
-/** Version publication, latest selection, restore, and review route page. */
+/** Version listing, latest selection, restore, and review route page. */
 defineOptions({ name: 'CalcReportVersions' })
 import type { QTableColumn } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import type { CalcReportVersion, ReviewStatus } from 'src/api/calc/types'
-import { listVersions, publishVersion, restoreWorkspaceVersion, reviewVersion, setLatestVersion } from 'src/api/calc/versions'
+import { listVersions, restoreWorkspaceVersion, reviewVersion, setLatestVersion } from 'src/api/calc/versions'
 import { useUserInfoStore } from 'src/stores/user'
-import { confirmOperation, notifySuccess } from 'src/utils/dialog'
+import { confirmOperation } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
-import { useVersionDialogs } from './useVersionDialogs'
+import { useVersionReviewDialog } from './useVersionReviewDialog'
 import { useQTable } from 'src/compositions/qTableUtils'
 
 const route = useRoute()
 const router = useRouter()
-const $q = useQuasar()
 const reportOid = computed(() => String(route.params.reportOid || ''))
 const userStore = useUserInfoStore()
-const { openPublishDialog: showPublishDialog, openReviewDialog: showReviewDialog } = useVersionDialogs()
+const { openVersionReviewDialog } = useVersionReviewDialog()
 const columns: ComputedRef<QTableColumn<CalcReportVersion>[]> = computed(() => [
   { name: 'versionName', label: t('calcWorkspace.version'), field: 'versionName', align: 'left', sortable: true },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
@@ -64,7 +58,6 @@ const {
   pagination,
   filter,
   loading,
-  addNewRow,
   updateExistOne
 } = useQTable<CalcReportVersion>({ preventRequestWhenMounted: true })
 /** Load all immutable versions for the report. */
@@ -72,17 +65,6 @@ async function loadVersions(): Promise<void> { loading.value = true; try { const
 watch(reportOid, loadVersions, { immediate: true })
 /** Return to the calculation-report list. */
 async function onBackToReports(): Promise<void> { await router.push('/calc-report/list') }
-/** Publish the current saved workspace from a validated dialog. */
-async function openPublishDialog(): Promise<void> {
-  const input = await showPublishDialog(versions.value)
-  if (!input) return
-
-  const publishedVersion = (await publishVersion(reportOid.value, input.versionName, input.description || null)).data
-  replaceLatestVersion(publishedVersion)
-  addNewRow(publishedVersion, 'versionOid')
-  sortVersionsDescending()
-  notifySuccess(t('calcWorkspace.versionPublished'))
-}
 /** Move latest without modifying the workspace. */
 async function onSetLatest(version: CalcReportVersion): Promise<void> { const response = await setLatestVersion(reportOid.value, version.versionName); replaceLatestVersion(response.data); updateExistOne(response.data, 'versionOid') }
 /** Restore a version into workspace after explicit confirmation. */
@@ -93,7 +75,7 @@ async function onRestore(version: CalcReportVersion): Promise<void> {
 }
 /** Open administrator review controls and refresh the confirmed result. */
 async function openReviewDialog(version: CalcReportVersion): Promise<void> {
-  const input = await showReviewDialog(version)
+  const input = await openVersionReviewDialog(version)
   if (!input) return
 
   const reviewedVersion = (await reviewVersion(reportOid.value, version.versionName, input.status, input.comment || null)).data
@@ -103,18 +85,6 @@ async function openReviewDialog(version: CalcReportVersion): Promise<void> {
 function replaceLatestVersion(latestVersion: CalcReportVersion): void {
   const previousLatest = versions.value.find((version) => version.isLatest && version.versionOid !== latestVersion.versionOid)
   if (previousLatest) updateExistOne({ ...previousLatest, isLatest: false }, 'versionOid')
-}
-/** Keep locally inserted versions in the server's semantic-version order. */
-function sortVersionsDescending(): void {
-  versions.value.sort((left, right) => {
-    const leftParts = left.versionName.split('.').map(Number)
-    const rightParts = right.versionName.split('.').map(Number)
-    for (let index = 0; index < 3; index += 1) {
-      const difference = (rightParts[index] || 0) - (leftParts[index] || 0)
-      if (difference !== 0) return difference
-    }
-    return 0
-  })
 }
 /** Map review status to a semantic color. */
 function reviewColor(status: ReviewStatus): string { return ({ pending: 'grey-7', approved: 'positive', rejected: 'negative' })[status] }
@@ -133,8 +103,4 @@ function reviewLabel(status: ReviewStatus): string { return ({ pending: t('calcW
   min-height: 48px;
 }
 
-.version-unsupported {
-  min-height: 520px;
-  background: #fff;
-}
 </style>

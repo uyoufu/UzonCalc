@@ -88,6 +88,11 @@ async def _report_list_conditions(
     if filters.categoryOid:
         category = await get_category(user_id, filters.categoryOid, session)
         conditions.append(CalcReport.categoryId == category.id)
+    if filters.favoriteOnly:
+        favorite_report_ids = select(FavoriteCalcReport.reportId).where(
+            FavoriteCalcReport.userId == user_id
+        )
+        conditions.append(CalcReport.id.in_(favorite_report_ids))
     if filters.query:
         pattern = f"%{filters.query.strip()}%"
         conditions.append(

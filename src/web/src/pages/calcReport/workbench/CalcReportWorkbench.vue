@@ -1,5 +1,5 @@
 <template>
-  <div v-if="$q.screen.lt.md" class="workbench-unsupported column items-center justify-center full-height text-grey-7">
+  <div v-if="!Platform.is.desktop" class="workbench-unsupported column items-center justify-center full-height text-grey-7">
     <q-icon name="desktop_windows" size="56px" />
     <div class="text-subtitle1 q-mt-md">{{ t('calcWorkspace.desktopRequired') }}</div>
   </div>
@@ -11,13 +11,13 @@
 /** Route page for creating and editing one calculation-report workspace. */
 defineOptions({ name: 'CalcReportWorkbench' })
 import WorkspacePane from './workspace/WorkspacePane.vue'
+import { Platform } from 'quasar'
 import type { CalcReport } from 'src/api/calc/types'
 import { getCalcReport } from 'src/api/calc/reports'
 import { objectId } from 'src/utils/objectId'
 import { t } from 'src/i18n/helpers'
 
 const route = useRoute()
-const $q = useQuasar()
 const newReportOid = ref(objectId())
 const isNew = computed(() => route.name === 'CalcReportNew')
 const reportOid = computed(() => isNew.value ? newReportOid.value : String(route.params.reportOid || ''))

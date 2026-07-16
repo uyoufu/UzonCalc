@@ -18,7 +18,7 @@ export interface IRequestPagination {
  */
 export type TTableFilterObject = {
   filter?: string
-} & Record<string, string | object | number>
+} & Record<string, string | object | number | boolean>
 
 /**
  * 初始化表格的参数

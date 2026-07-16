@@ -8,7 +8,7 @@
 </template>
 
 <script setup lang="ts">
-/** Render cached calculation HTML and apply partial content patches. */
+/** Render cached calculation HTML for the report-run page and apply partial content patches. */
 import type { CalcExecution } from 'src/api/calc/types'
 import { HtmlUpdateType } from 'src/api/calc/types'
 import { useConfig } from 'src/config'

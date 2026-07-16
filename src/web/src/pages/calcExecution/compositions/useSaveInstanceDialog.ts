@@ -1,10 +1,10 @@
-/** Save-instance dialog workflow for completed managed executions. */
+/** Save-instance dialog workflow for completed report executions. */
 
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { ensureDefaultInstanceCategory, listInstanceCategories } from 'src/api/calc/categories'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { t } from 'src/i18n/helpers'
-import { createNonBlankValidator } from '../../shared/dialogForm'
+import { createNonBlankValidator } from '../../calcReport/shared/dialogForm'
 
 interface SaveInstanceInput {
   categoryOid: string

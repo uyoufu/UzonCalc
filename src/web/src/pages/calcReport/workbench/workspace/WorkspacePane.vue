@@ -4,25 +4,25 @@
       <CommonBtn flat dense icon="arrow_back" @click="onBackToReports" :tooltip="t('calcWorkspace.backToReports')">
       </CommonBtn>
       <template v-if="isNew">
-        <q-select v-model="createForm.categoryOid" dense outlined emit-value map-options :options="categoryOptions"
-          :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
+        <q-select v-model="createForm.categoryOid" dense options-dense outlined emit-value map-options
+          :options="categoryOptions" :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
         <q-input v-model="createForm.name" dense outlined :label="t('calcWorkspace.reportName')"
           class="workspace-toolbar__name" />
       </template>
       <template v-else>
-        <span class="text-caption text-grey-7 ellipsis">{{ reportCategoryName
-        }} / </span>
-        <span class="text-subtitle2 ellipsis">{{ report?.name || '-' }}</span>
+        <div class="q-mx-md">
+          <span class="text-caption text-grey-7 ellipsis">{{ reportCategoryName }} / </span>
+          <span class="text-subtitle2 ellipsis">{{ report?.name || '-' }}</span>
+        </div>
       </template>
 
       <CommonBtn icon="save" flat :tooltip="t('calcWorkspace.saveWorkspace')" :loading="draft.isSaving.value"
         :disable="!draft.hasUnsavedChanges.value" @click="onSave" />
       <CommonBtn flat dense icon="play_arrow" color="positive" @click="onRunWorkspace"
-        :tooltip="t('calcWorkspace.runWorkspace')">
-      </CommonBtn>
+        :tooltip="t('calcWorkspace.runWorkspace')" />
       <CommonBtn flat dense icon="format_align_left" :disable="!selectedFile?.path.endsWith('.py')"
-        @click="onFormatFile" :tooltip="t('calcWorkspace.format')">
-      </CommonBtn>
+        @click="onFormatFile" :tooltip="t('calcWorkspace.format')" />
+
       <q-chip dense square :color="draft.hasUnsavedChanges.value ? 'warning' : 'positive'" text-color="white">
         {{ draft.hasUnsavedChanges.value ? t('calcWorkspace.unsaved') : t('calcWorkspace.saved') }}
       </q-chip>

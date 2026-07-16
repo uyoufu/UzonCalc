@@ -3,8 +3,9 @@ import type { CalcInstance, CalcReport, CalcReportVersion } from 'src/api/calc/t
 import type { IPopupDialogParams } from 'src/components/lowCode/types'
 import { useInstanceListDialogs } from 'src/pages/calcReportInstance/list/compositions/useInstanceListDialogs'
 import { useCalcReportListDialogs } from 'src/pages/calcReport/list/compositions/useCalcReportListDialogs'
-import { useSaveInstanceDialog } from 'src/pages/calcReport/workbench/execution/useSaveInstanceDialog'
-import { useVersionDialogs } from 'src/pages/calcReport/workbench/version/useVersionDialogs'
+import { useSaveInstanceDialog } from 'src/pages/calcExecution/compositions/useSaveInstanceDialog'
+import { usePublishVersionDialog } from 'src/pages/calcReport/list/compositions/usePublishVersionDialog'
+import { useVersionReviewDialog } from 'src/pages/calcReport/version/useVersionReviewDialog'
 import { useWorkspaceConflictDialog } from 'src/pages/calcReport/workbench/workspace/useWorkspaceConflictDialog'
 import { WorkspaceConflictResolution } from 'src/pages/calcReport/workbench/workspace/workspaceConflict'
 
@@ -115,13 +116,14 @@ describe('calculation workspace dialog workflows', () => {
         data: { status: 'approved', comment: 'Reviewed' }
       })
 
-    const { openPublishDialog, openReviewDialog } = useVersionDialogs()
-    await expect(openPublishDialog(versions)).resolves.toEqual({
+    const { openPublishVersionDialog } = usePublishVersionDialog()
+    const { openVersionReviewDialog } = useVersionReviewDialog()
+    await expect(openPublishVersionDialog(versions)).resolves.toEqual({
       versionName: '1.0.1',
       description: ''
     })
     await expect(
-      openReviewDialog({
+      openVersionReviewDialog({
         versionName: '1.0.0',
         reviewStatus: 'pending',
         reviewComment: null

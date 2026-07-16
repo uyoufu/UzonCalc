@@ -21,6 +21,7 @@ from app.db.models import (
     CalcReportCategory,
     CalcReportInstance,
     CalcReportInstanceCategory,
+    FavoriteCalcReport,
     User,
 )
 from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorType
@@ -76,10 +77,15 @@ def test_calc_list_openapi_reuses_pagination_dto_on_items_only() -> None:
             for parameter in schema_paths[path]["get"].get("parameters", [])
         ]
 
-    assert parameter_names("/v1/calc-report/count") == ["categoryOid", "query"]
+    assert parameter_names("/v1/calc-report/count") == [
+        "categoryOid",
+        "query",
+        "favoriteOnly",
+    ]
     assert parameter_names("/v1/calc-report/items") == [
         "categoryOid",
         "query",
+        "favoriteOnly",
         "skip",
         "limit",
         "sortBy",
@@ -164,6 +170,9 @@ def test_pagination_services_split_counts_from_sorted_items() -> None:
                 )
                 session.add_all([alpha_report, beta_report])
                 await session.flush()
+                session.add(
+                    FavoriteCalcReport(userId=user.id, reportId=alpha_report.id)
+                )
                 bundle = CalcExecutionBundle(
                     bundleHash="c" * 64,
                     runtimeFingerprint="pagination-runtime",
@@ -241,6 +250,25 @@ def test_pagination_services_split_counts_from_sorted_items() -> None:
                     session,
                 )
                 assert [report.name for report in report_items] == ["Beta report"]
+
+                favorite_filter = CalcReportListFilterDTO(
+                    favoriteOnly=True, query="report"
+                )
+                assert (
+                    await calc_report_service.count_reports(
+                        user.id, favorite_filter, session
+                    )
+                    == 1
+                )
+                favorite_items = await calc_report_service.list_reports(
+                    user.id,
+                    favorite_filter,
+                    PaginationDTO(
+                        skip=0, limit=10, sortBy="updatedAt", descending=True
+                    ),
+                    session,
+                )
+                assert [report.name for report in favorite_items] == ["Alpha report"]
 
                 instance_filter = CalcInstanceListFilterDTO(
                     categoryOid=instance_category.oid, query="Alpha"

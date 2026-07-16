@@ -16,23 +16,27 @@ import ReportCategoryPanel from './components/ReportCategoryPanel.vue'
 import ReportTable from './components/ReportTable.vue'
 import type { CalcReport, CalcReportCategory } from 'src/api/calc/types'
 import { createReportCategory, deleteReportCategory, listReportCategories, reorderReportCategories, updateReportCategory } from 'src/api/calc/categories'
-import { copyCalcReport, countCalcReports, deleteCalcReport, importUzcReport, listCalcReports, setCalcReportFavorite, updateCalcReport } from 'src/api/calc/reports'
+import { copyCalcReport, countCalcReports, deleteCalcReport, getCalcReport, importUzcReport, listCalcReports, setCalcReportFavorite, updateCalcReport, type ReportListParams } from 'src/api/calc/reports'
+import { listVersions, publishVersion } from 'src/api/calc/versions'
 import { showCalcReportInExplorer } from 'src/api/desktop'
 import { useReportContextMenu } from './components/useReportContextMenu'
 import { useCalcReportListDialogs } from './compositions/useCalcReportListDialogs'
+import { usePublishVersionDialog } from './compositions/usePublishVersionDialog'
 import { useShareManagerDialog } from '../shared/useShareManagerDialog'
 import { useSystemInfo } from 'src/stores/system'
 import { confirmOperation, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 import { useQTable } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
+import { FixedReportCategoryFilter, type ReportCategorySelection } from './components/reportCategoryFilter'
 
 const router = useRouter()
 const systemInfo = useSystemInfo()
 const categories = ref<CalcReportCategory[]>([])
-const selectedCategoryOid = ref<string | null>(null)
+const selectedCategoryOid = ref<ReportCategorySelection>(null)
 const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
 const { openCategoryDialog, openReportDialog, openImportDialog } = useCalcReportListDialogs()
+const { openPublishVersionDialog } = usePublishVersionDialog()
 const { openShareManagerDialog } = useShareManagerDialog()
 
 /** Refresh report categories and their derived counts. */
@@ -44,15 +48,17 @@ async function loadCategories(): Promise<void> {
 /** Convert table search and category state into API filters. */
 function createReportFilter(filterValue: string): TTableFilterObject {
   const tableFilter: TTableFilterObject = { filter: filterValue }
-  if (selectedCategoryOid.value) tableFilter.categoryOid = selectedCategoryOid.value
+  if (selectedCategoryOid.value === FixedReportCategoryFilter.Favorites) tableFilter.favoriteOnly = true
+  else if (selectedCategoryOid.value) tableFilter.categoryOid = selectedCategoryOid.value
   return tableFilter
 }
 
 /** Return API filter parameters without the internal refresh counter. */
-function getReportApiFilters(tableFilter: TTableFilterObject): { categoryOid?: string; query?: string } {
+function getReportApiFilters(tableFilter: TTableFilterObject): ReportListParams {
   return {
     categoryOid: typeof tableFilter.categoryOid === 'string' ? tableFilter.categoryOid : undefined,
-    query: typeof tableFilter.filter === 'string' && tableFilter.filter ? tableFilter.filter : undefined
+    query: typeof tableFilter.filter === 'string' && tableFilter.filter ? tableFilter.filter : undefined,
+    favoriteOnly: tableFilter.favoriteOnly === true ? true : undefined
   }
 }
 
@@ -95,14 +101,28 @@ watch(selectedCategoryOid, () => {
 
 /** Navigate to a preallocated new workspace. */
 async function onCreateReport(): Promise<void> {
-  await router.push({ path: '/calc-report/new', query: { categoryOid: selectedCategoryOid.value || categories.value[0]?.categoryOid } })
+  const selectedPersistedCategoryOid = selectedCategoryOid.value === FixedReportCategoryFilter.Favorites
+    ? undefined
+    : selectedCategoryOid.value
+  await router.push({ path: '/calc-report/new', query: { categoryOid: selectedPersistedCategoryOid || categories.value[0]?.categoryOid } })
 }
 /** Open a report workspace. */
-async function onOpenReport(report: CalcReport): Promise<void> { await router.push(`/calc-report/${report.reportOid}/workspace`) }
-/** Open latest execution for a report. */
-async function onRunReport(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/run`, query: { source: 'latest' } }) }
+async function onOpenReport(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/workspace`, query: { tagName: `${report.name} · ${t('calcWorkspace.workspace')}` } }) }
+/** Open workspace execution for a report. */
+async function onRunReport(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/run`, query: { source: 'workspace', tagName: `${report.name} · ${t('calcWorkspace.run')}` } }) }
 /** Open immutable versions for a report. */
-async function onOpenVersions(report: CalcReport): Promise<void> { await router.push(`/calc-report/${report.reportOid}/versions`) }
+async function onOpenVersions(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/versions`, query: { tagName: `${report.name} · ${t('calcWorkspace.versions')}` } }) }
+
+/** Publish the selected report workspace and patch its authoritative list state. */
+async function onPublishVersion(report: CalcReport): Promise<void> {
+  const versions = (await listVersions(report.reportOid)).data || []
+  const input = await openPublishVersionDialog(versions)
+  if (!input) return
+
+  await publishVersion(report.reportOid, input.versionName, input.description || null)
+  updateExistOne((await getCalcReport(report.reportOid)).data, 'reportOid')
+  notifySuccess(t('calcWorkspace.versionPublished'))
+}
 
 /** Open category metadata and persist a confirmed change. */
 async function onOpenCategoryDialog(category?: CalcReportCategory): Promise<void> {
@@ -147,6 +167,10 @@ async function onOpenReportDialog(report: CalcReport, mode: 'edit' | 'copy'): Pr
 /** Toggle favorite state and patch only the affected row. */
 async function onToggleFavorite(report: CalcReport): Promise<void> {
   const response = await setCalcReportFavorite(report.reportOid, !report.isFavorite)
+  if (selectedCategoryOid.value === FixedReportCategoryFilter.Favorites && !response.data.isFavorite) {
+    deleteRowById(report.reportOid, 'reportOid')
+    return
+  }
   updateExistOne(response.data, 'reportOid')
 }
 /** Delete a report and refresh its category count. */
@@ -174,6 +198,7 @@ async function onShareReport(report: CalcReport): Promise<void> {
 const { items: contextMenuItems } = useReportContextMenu({
   open: onOpenReport,
   run: onRunReport,
+  publish: onPublishVersion,
   versions: onOpenVersions,
   edit: (report) => onOpenReportDialog(report, 'edit'),
   copy: (report) => onOpenReportDialog(report, 'copy'),

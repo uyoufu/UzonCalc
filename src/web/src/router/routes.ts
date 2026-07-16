@@ -87,13 +87,13 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         name: 'CalcReportRun',
         path: ':reportOid/run',
         meta: { icon: 'play_circle', label: 'calcWorkspace.run', noMenu: true, noCache: true },
-        component: () => import('pages/calcReport/workbench/execution/ExecutionPane.vue')
+        component: () => import('pages/calcExecution/CalcReportRun.vue')
       },
       {
         name: 'CalcReportVersions',
         path: ':reportOid/versions',
         meta: { icon: 'history', label: 'calcWorkspace.versions', noMenu: true, noCache: true },
-        component: () => import('pages/calcReport/workbench/version/VersionPane.vue')
+        component: () => import('pages/calcReport/version/CalcReportVersions.vue')
       },
       {
         name: 'CalcReportSharedImport',

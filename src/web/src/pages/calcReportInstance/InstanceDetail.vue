@@ -17,11 +17,11 @@
 /** View a saved result and recalculate it from the closest supported source. */
 defineOptions({ name: 'CalcReportInstanceDetail' })
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
-import ExecutionResultFrame from '../calcReport/workbench/execution/ExecutionResultFrame.vue'
+import ExecutionResultFrame from '../calcExecution/components/ExecutionResultFrame.vue'
 import type { CalcExecution, CalcInstance } from 'src/api/calc/types'
 import { getInstance, updateInstanceResult } from 'src/api/calc/instances'
 import { startExecution } from 'src/api/calc/executions'
-import { adaptExecutionFields } from '../calcReport/workbench/execution/adaptExecutionFields'
+import { adaptExecutionFields } from '../calcExecution/utils/adaptExecutionFields'
 import { useConfig } from 'src/config'
 import { notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'

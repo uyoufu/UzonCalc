@@ -42,13 +42,13 @@ describe('calculation APIs', () => {
   it('uses explicit count and items routes with PaginationDTO fields', async () => {
     const pagination = { skip: 20, limit: 20, sortBy: 'updatedAt', descending: true }
 
-    await countCalcReports({ categoryOid: 'report-category', query: 'beam' })
+    await countCalcReports({ categoryOid: 'report-category', query: 'beam', favoriteOnly: true })
     expect(httpClientMock.get).toHaveBeenCalledWith('/calc-report/count', {
-      params: { categoryOid: 'report-category', query: 'beam' }
+      params: { categoryOid: 'report-category', query: 'beam', favoriteOnly: true }
     })
-    await listCalcReports({ categoryOid: 'report-category', query: 'beam', ...pagination })
+    await listCalcReports({ categoryOid: 'report-category', query: 'beam', favoriteOnly: true, ...pagination })
     expect(httpClientMock.get).toHaveBeenCalledWith('/calc-report/items', {
-      params: { categoryOid: 'report-category', query: 'beam', ...pagination }
+      params: { categoryOid: 'report-category', query: 'beam', favoriteOnly: true, ...pagination }
     })
 
     await countInstances({ categoryOid: 'instance-category' })

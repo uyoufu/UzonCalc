@@ -1,9 +1,5 @@
 <template>
-  <div v-if="$q.screen.lt.md" class="execution-unsupported column items-center justify-center full-height text-grey-7">
-    <q-icon name="desktop_windows" size="56px" />
-    <div class="text-subtitle1 q-mt-md">{{ t('calcWorkspace.desktopRequired') }}</div>
-  </div>
-  <div v-else class="execution-pane column no-wrap">
+  <div class="execution-pane column no-wrap">
     <div class="execution-toolbar row items-center q-gutter-sm q-px-sm">
       <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')" @click="onBackToReports" />
       <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions"
@@ -31,7 +27,7 @@
       <section class="execution-input column no-wrap">
         <div v-if="execution" class="execution-provenance q-pa-sm text-caption">
           <div>{{ execution.sourceType }}<span v-if="execution.resolvedVersion"> · {{ execution.resolvedVersion
-          }}</span>
+              }}</span>
           </div>
           <div class="ellipsis text-grey-7">{{ execution.backendMode }} · {{ execution.bundleHash }}</div>
         </div>
@@ -47,7 +43,7 @@
           <div v-else class="q-pa-md text-grey-6">{{ t('calcWorkspace.noInputs') }}</div>
         </q-scroll-area>
       </section>
-      <q-separator vertical />
+      <q-separator vertical class="execution-divider" />
       <section class="col">
         <ExecutionResultFrame :execution="execution" />
       </section>
@@ -57,26 +53,25 @@
 
 <script setup lang="ts">
 /** Run and continue managed calculations while showing immutable provenance. */
-defineOptions({ name: 'CalcReportExecution' })
+defineOptions({ name: 'CalcReportRun' })
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
-import ExecutionResultFrame from './ExecutionResultFrame.vue'
-import { useSaveInstanceDialog } from './useSaveInstanceDialog'
+import ExecutionResultFrame from './components/ExecutionResultFrame.vue'
+import { useSaveInstanceDialog } from './compositions/useSaveInstanceDialog'
 import type { CalcExecution, CalcReport, CalcReportVersion, ExecutionSourceType } from 'src/api/calc/types'
 import { continueExecution, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
 import { createInstance } from 'src/api/calc/instances'
 import { listVersions } from 'src/api/calc/versions'
-import { adaptExecutionFields } from './adaptExecutionFields'
+import { adaptExecutionFields } from './utils/adaptExecutionFields'
 import { getWorkspaceBuild } from 'src/api/calc/workspace'
 import { getCalcReport } from 'src/api/calc/reports'
 import { CalcErrorCode } from 'src/api/calc/types'
-import { getApiFailure } from '../../shared/apiFailure'
+import { getApiFailure } from '../calcReport/shared/apiFailure'
 import { notifyError, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 
 const route = useRoute()
 const router = useRouter()
-const $q = useQuasar()
 const reportOid = computed(() => String(route.params.reportOid || ''))
 const report = ref<CalcReport | null>(null)
 const versions = ref<CalcReportVersion[]>([])
@@ -213,12 +208,41 @@ onUnmounted(() => { if (buildPollTimer) clearTimeout(buildPollTimer) })
   min-width: 330px;
 }
 
-.execution-unsupported {
-  min-height: 520px;
-  background: #fff;
-}
-
 .execution-provenance {
   min-height: 54px;
+}
+
+@media (max-width: 900px) {
+  .execution-pane {
+    overflow: auto;
+  }
+
+  .execution-toolbar {
+    flex-wrap: wrap;
+  }
+
+  .execution-toolbar__source,
+  .execution-toolbar__version {
+    width: min(100%, 240px);
+  }
+
+  .execution-body {
+    flex: none;
+    flex-direction: column;
+  }
+
+  .execution-input {
+    width: 100%;
+    min-width: 0;
+    min-height: 360px;
+  }
+
+  .execution-divider {
+    display: none;
+  }
+
+  .execution-body > section:last-child {
+    min-height: 520px;
+  }
 }
 </style>

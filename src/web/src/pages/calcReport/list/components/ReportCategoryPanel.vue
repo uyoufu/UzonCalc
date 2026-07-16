@@ -6,6 +6,11 @@
     </div>
     <q-separator />
     <q-list dense class="col scroll">
+      <q-item clickable :active="modelValue === FixedReportCategoryFilter.Favorites"
+        @click="emit('update:modelValue', FixedReportCategoryFilter.Favorites)">
+        <q-item-section avatar><q-icon name="star" color="warning" /></q-item-section>
+        <q-item-section>{{ t('calcWorkspace.myFavorites') }}</q-item-section>
+      </q-item>
       <q-item clickable :active="modelValue === null" @click="emit('update:modelValue', null)">
         <q-item-section avatar><q-icon name="all_inbox" /></q-item-section>
         <q-item-section>{{ t('calcWorkspace.allReports') }}</q-item-section>
@@ -35,10 +40,11 @@ import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import type { CalcReportCategory } from 'src/api/calc/types'
 import { t } from 'src/i18n/helpers'
+import { FixedReportCategoryFilter, type ReportCategorySelection } from './reportCategoryFilter'
 
-defineProps<{ categories: CalcReportCategory[]; modelValue: string | null }>()
+defineProps<{ categories: CalcReportCategory[]; modelValue: ReportCategorySelection }>()
 const emit = defineEmits<{
-  'update:modelValue': [value: string | null]
+  'update:modelValue': [value: ReportCategorySelection]
   create: []
   edit: [category: CalcReportCategory]
   delete: [category: CalcReportCategory]

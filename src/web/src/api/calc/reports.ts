@@ -6,6 +6,7 @@ import type { CalcReport, WorkspaceSnapshot } from './types'
 export interface ReportListParams {
   categoryOid?: string
   query?: string
+  favoriteOnly?: boolean
 }
 
 export interface ReportItemsParams extends ReportListParams {

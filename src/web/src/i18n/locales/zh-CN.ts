@@ -200,6 +200,7 @@ export default {
     linkCopied: '分享链接已复制，token 仅显示本次',
     maxUseCount: '最大使用次数',
     metadataRequired: '请填写分类和计算书名称',
+    myFavorites: '我的收藏',
     newCategory: '新建分类',
     newFile: '新建文件',
     newReport: '新建计算书',

@@ -49,6 +49,7 @@ class CalcReportListFilterDTO(BaseDTO):
 
     categoryOid: str | None = None
     query: str | None = None
+    favoriteOnly: bool = False
 
 
 class CalcReportCategoryReqDTO(BaseDTO):

@@ -1,4 +1,4 @@
-/** Convert trusted calculation field callbacks into runtime functions. */
+/** Convert trusted report-execution field callbacks into runtime functions. */
 
 import type { CalcExecution } from 'src/api/calc/types'
 import type { ILowCodeField } from 'src/components/lowCode/types'

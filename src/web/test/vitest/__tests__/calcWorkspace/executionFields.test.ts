@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { CalcExecution } from 'src/api/calc/types'
-import { adaptExecutionFields } from 'src/pages/calcReport/workbench/execution/adaptExecutionFields'
+import { adaptExecutionFields } from 'src/pages/calcExecution/utils/adaptExecutionFields'
 import logger from 'loglevel'
 
 /** Build a minimal execution response for field-adapter tests. */
