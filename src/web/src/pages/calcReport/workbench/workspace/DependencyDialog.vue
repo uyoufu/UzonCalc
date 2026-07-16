@@ -2,7 +2,7 @@
   <q-dialog ref="dialogRef" @hide="onDialogHide" persistent>
     <q-card class="dependency-dialog">
       <q-card-section class="row items-center">
-        <div class="text-subtitle1">{{ t('calcWorkspace.dependencies') }}</div><q-space /><q-btn flat round dense
+        <div class="text-subtitle1">{{ t('calcWorkspace.dependencies') }}</div><q-space /><CommonBtn flat dense
           icon="close" @click="onDialogCancel" />
       </q-card-section>
       <q-separator />
@@ -26,7 +26,7 @@
           <q-item-section><q-item-label>{{ dependency.alias }}</q-item-label><q-item-label caption>{{
             reportName(dependency.targetReportOid) }} · {{dependency.selectors.map((selector) =>
                 selector.selectorKey).join(', ') }}</q-item-label></q-item-section>
-          <q-item-section side><q-btn flat round dense icon="delete" color="negative"
+          <q-item-section side><CommonBtn flat dense icon="delete" color="negative"
               @click="removeDependency(dependency.alias)" /></q-item-section>
         </q-item>
       </q-list>

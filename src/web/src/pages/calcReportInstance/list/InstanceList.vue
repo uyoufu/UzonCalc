@@ -2,7 +2,7 @@
   <div class="instance-library row no-wrap full-height">
     <aside class="instance-categories column no-wrap">
       <div class="row items-center q-px-sm instance-categories__header">
-        <div class="text-subtitle2">{{ t('calcWorkspace.instanceCategories') }}</div><q-space /><q-btn flat round dense
+        <div class="text-subtitle2">{{ t('calcWorkspace.instanceCategories') }}</div><q-space /><CommonBtn flat dense
           icon="add" @click="onOpenCategoryDialog()" />
       </div>
       <q-separator /><q-list dense class="col scroll">

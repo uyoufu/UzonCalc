@@ -1,4 +1,3 @@
-
 import type { QNotifyCreateOptions } from 'quasar'
 import { Notify, Dialog } from 'quasar'
 import { i18n } from 'src/boot/i18n'
@@ -8,11 +7,13 @@ const { t } = i18n.global
  * 错误
  * @param opts
  */
-export function notifyError (opts: QNotifyCreateOptions | string | undefined): void {
+export function notifyError(opts: QNotifyCreateOptions | string | undefined): void {
   if (!opts) return
 
   let inputOptions = opts
-  if (typeof opts === 'string') { inputOptions = { message: t(opts) } }
+  if (typeof opts === 'string') {
+    inputOptions = { message: t(opts) }
+  }
 
   const appNotifyOptions: QNotifyCreateOptions = {
     color: 'negative',
@@ -28,11 +29,13 @@ export function notifyError (opts: QNotifyCreateOptions | string | undefined): v
  * 通知成功
  * @param opts
  */
-export function notifySuccess (opts: QNotifyCreateOptions | string | undefined): void {
+export function notifySuccess(opts: QNotifyCreateOptions | string | undefined): void {
   if (!opts) return
 
   let inputOptions = opts
-  if (typeof opts === 'string') { inputOptions = { message: t(opts) } }
+  if (typeof opts === 'string') {
+    inputOptions = { message: t(opts) }
+  }
 
   const appNotifyOptions: QNotifyCreateOptions = {
     color: 'positive',
@@ -49,11 +52,13 @@ export function notifySuccess (opts: QNotifyCreateOptions | string | undefined):
  * @param opts
  * @returns
  */
-export function notifyWarning (opts: QNotifyCreateOptions | string | undefined): void {
+export function notifyWarning(opts: QNotifyCreateOptions | string | undefined): void {
   if (!opts) return
 
   let inputOptions = opts
-  if (typeof opts === 'string') { inputOptions = { message: t(opts) } }
+  if (typeof opts === 'string') {
+    inputOptions = { message: t(opts) }
+  }
 
   const appNotifyOptions: QNotifyCreateOptions = {
     color: 'warning',
@@ -70,7 +75,7 @@ export function notifyWarning (opts: QNotifyCreateOptions | string | undefined):
  * @param opts
  * @returns
  */
-export function notifyAny (opts: QNotifyCreateOptions | string | undefined): void {
+export function notifyAny(opts: QNotifyCreateOptions | string | undefined): void {
   if (!opts) return
   if (typeof opts === 'string') opts = { message: t(opts), type: 'success' }
 
@@ -91,7 +96,7 @@ export function notifyAny (opts: QNotifyCreateOptions | string | undefined): voi
  * @param title
  * @param message
  */
-export async function confirmOperation (title: string, message: string): Promise<boolean> {
+export async function confirmOperation(title: string, message: string): Promise<boolean> {
   return new Promise((resolve) => {
     Dialog.create({
       title,
@@ -110,15 +115,19 @@ export async function confirmOperation (title: string, message: string): Promise
         label: t('global.cancel'),
         tooltip: t('global.cancelOperation'),
         size: 'md',
-        dense: true
+        dense: true,
+        flat: true
       }
-    }).onOk(() => {
-      resolve(true)
-    }).onCancel(() => {
-      resolve(false)
-    }).onDismiss(() => {
-      resolve(false)
     })
+      .onOk(() => {
+        resolve(true)
+      })
+      .onCancel(() => {
+        resolve(false)
+      })
+      .onDismiss(() => {
+        resolve(false)
+      })
   })
 }
 
@@ -128,7 +137,7 @@ export async function confirmOperation (title: string, message: string): Promise
  * @param html
  * @returns
  */
-export function showHtmlDialog (title: string, html: string) {
+export function showHtmlDialog(title: string, html: string) {
   return new Promise((resolve) => {
     Dialog.create({
       title,
@@ -137,22 +146,29 @@ export function showHtmlDialog (title: string, html: string) {
       ok: {
         dense: true
       },
-      persistent: true,
-    }).onOk(() => {
-      resolve(true)
-    }).onCancel(() => {
-      resolve(false)
-    }).onDismiss(() => {
-      resolve(false)
+      persistent: true
     })
+      .onOk(() => {
+        resolve(true)
+      })
+      .onCancel(() => {
+        resolve(false)
+      })
+      .onDismiss(() => {
+        resolve(false)
+      })
   })
 }
 
 // #region 对 components/popupDialog/PopupDialog.ts 进行导出，统一弹窗调用位置
-export { showDialog, showComponentDialog, showHtmlDialog2 } from 'src/components/lowCode/PopupDialog'
+export {
+  showDialog,
+  showComponentDialog,
+  showHtmlDialog2
+} from 'src/components/lowCode/PopupDialog'
 // #endregion
 
-export function useIndeterminateProgressNotify (message: string, caption: string = '') {
+export function useIndeterminateProgressNotify(message: string, caption: string = '') {
   const notify = Notify.create({
     group: false, // required to be updatable
     timeout: 0, // we want to be in control when it gets dismissed
@@ -172,20 +188,19 @@ export function useIndeterminateProgressNotify (message: string, caption: string
     })
   }, 1000)
 
-  function stop () {
+  function stop() {
     clearInterval(intervalId)
     notify({
       timeout: 1
     })
   }
 
-  function generateCaption (caption: string) {
+  function generateCaption(caption: string) {
     return `${caption} ${Math.round((Date.now() - startDate) / 1000)} s`
   }
 
-  function update (caption?: string, message?: string) {
-    const notifyOptions: Record<string, string> = {
-    }
+  function update(caption?: string, message?: string) {
+    const notifyOptions: Record<string, string> = {}
     if (message !== undefined) notifyOptions.message = message
     if (caption !== undefined) {
       notifyOptions.caption = generateCaption(caption)
@@ -205,7 +220,7 @@ export function useIndeterminateProgressNotify (message: string, caption: string
  * @param message
  * @param caption
  */
-export function useProgressNotify (message: string, caption: string = '') {
+export function useProgressNotify(message: string, caption: string = '') {
   console.log(message, caption)
 }
 
@@ -218,8 +233,11 @@ export type NotifyUntilUpdate = (caption?: string, message?: string) => void
  * @param caption 小标题
  * @returns
  */
-export async function notifyUntil<T> (runFunc: (update: NotifyUntilUpdate) => Promise<T>
-  , message: string, caption: string = ''): Promise<T | null> {
+export async function notifyUntil<T>(
+  runFunc: (update: NotifyUntilUpdate) => Promise<T>,
+  message: string,
+  caption: string = ''
+): Promise<T | null> {
   if (typeof runFunc !== 'function') return null
   const { stop, update } = useIndeterminateProgressNotify(message, caption)
   try {
@@ -228,3 +246,4 @@ export async function notifyUntil<T> (runFunc: (update: NotifyUntilUpdate) => Pr
     stop()
   }
 }
+

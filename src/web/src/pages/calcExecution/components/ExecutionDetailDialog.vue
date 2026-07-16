@@ -4,7 +4,7 @@
       <q-card-section class="row items-center">
         <div class="text-subtitle1">{{ execution.executionId }}</div>
         <q-space />
-        <q-btn flat round dense icon="close" @click="onDialogCancel" />
+        <CommonBtn flat dense icon="close" @click="onDialogCancel" />
       </q-card-section>
       <q-separator />
       <q-card-section class="execution-detail-dialog__content">

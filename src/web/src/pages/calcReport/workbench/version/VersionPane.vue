@@ -5,11 +5,10 @@
   </div>
   <div v-else class="version-pane column no-wrap">
     <div class="version-toolbar row items-center q-gutter-sm q-px-sm">
-      <q-btn flat round dense icon="arrow_back" @click="onBackToReports"><q-tooltip>{{
-        t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
+      <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')"
+        @click="onBackToReports" />
       <CommonBtn icon="publish" :label="t('calcWorkspace.publishVersion')" @click="openPublishDialog" />
-      <q-space /><q-btn flat round dense icon="refresh" @click="loadVersions"><q-tooltip>{{ t('calcWorkspace.refresh')
-          }}</q-tooltip></q-btn>
+      <q-space /><CommonBtn flat dense icon="refresh" :tooltip="t('calcWorkspace.refresh')" @click="loadVersions" />
     </div>
     <q-separator />
     <q-table flat dense class="col" row-key="versionOid" :rows="versions" :columns="columns" :loading="loading"
@@ -22,12 +21,12 @@
               reviewLabel(slotProps.row.reviewStatus) }}</q-chip></q-td></template>
       <template #body-cell-actions="slotProps">
         <q-td :props="slotProps" class="q-gutter-xs">
-          <q-btn flat round dense icon="bookmark" :disable="slotProps.row.isLatest"
-            @click="onSetLatest(slotProps.row)"><q-tooltip>{{ t('calcWorkspace.setLatest') }}</q-tooltip></q-btn>
-          <q-btn flat round dense icon="restore" @click="onRestore(slotProps.row)"><q-tooltip>{{
-            t('calcWorkspace.restoreWorkspace') }}</q-tooltip></q-btn>
-          <q-btn v-if="userStore.isAdmin" flat round dense icon="fact_check"
-            @click="openReviewDialog(slotProps.row)"><q-tooltip>{{ t('calcWorkspace.review') }}</q-tooltip></q-btn>
+          <CommonBtn flat dense icon="bookmark" :disable="slotProps.row.isLatest"
+            :tooltip="t('calcWorkspace.setLatest')" @click="onSetLatest(slotProps.row)" />
+          <CommonBtn flat dense icon="restore" :tooltip="t('calcWorkspace.restoreWorkspace')"
+            @click="onRestore(slotProps.row)" />
+          <CommonBtn v-if="userStore.isAdmin" flat dense icon="fact_check" :tooltip="t('calcWorkspace.review')"
+            @click="openReviewDialog(slotProps.row)" />
         </q-td>
       </template>
     </q-table>

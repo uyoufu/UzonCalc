@@ -5,8 +5,8 @@
   </div>
   <div v-else class="execution-pane column no-wrap">
     <div class="execution-toolbar row items-center q-gutter-sm q-px-sm">
-      <q-btn flat round dense icon="arrow_back" @click="onBackToReports"><q-tooltip>{{
-        t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
+      <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')"
+        @click="onBackToReports" />
       <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions"
         :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
       <q-select v-if="sourceType === 'version'" v-model="versionName" dense outlined emit-value map-options
@@ -16,8 +16,8 @@
         :loading="isExecuting" @click="onStart" />
       <CommonBtn v-else icon="skip_next" :label="t('calcWorkspace.continueRun')" :loading="isExecuting"
         @click="onContinue" />
-      <q-btn v-if="execution && !execution.isCompleted" flat round dense icon="stop" color="negative"
-        @click="onTerminate"><q-tooltip>{{ t('calcWorkspace.terminate') }}</q-tooltip></q-btn>
+      <CommonBtn v-if="execution && !execution.isCompleted" flat dense icon="stop" color="negative"
+        :tooltip="t('calcWorkspace.terminate')" @click="onTerminate" />
       <q-space />
       <CommonBtn v-if="execution?.isCompleted" icon="save_as" color="grey-8" :label="t('calcWorkspace.saveInstance')"
         @click="onOpenSaveInstanceDialog" />

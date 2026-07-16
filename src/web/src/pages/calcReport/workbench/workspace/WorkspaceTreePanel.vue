@@ -1,13 +1,12 @@
 <template>
   <aside class="workspace-tree column no-wrap">
     <div class="workspace-tree__toolbar row items-center q-px-xs">
-      <q-btn flat round dense icon="note_add" @click="onCreateFile"><q-tooltip>{{ t('calcWorkspace.newFile')
-      }}</q-tooltip></q-btn>
-      <q-btn flat round dense icon="upload_file" @click="fileInput?.click()"><q-tooltip>{{
-        t('calcWorkspace.uploadResources') }}</q-tooltip></q-btn>
+      <CommonBtn flat dense icon="note_add" :tooltip="t('calcWorkspace.newFile')" @click="onCreateFile" />
+      <CommonBtn flat dense icon="upload_file" :tooltip="t('calcWorkspace.uploadResources')"
+        @click="fileInput?.click()" />
       <input ref="fileInput" class="hidden" type="file" multiple @change="onFilesSelected">
-      <q-space /><q-btn flat round dense icon="account_tree" @click="emit('dependencies')"><q-tooltip>{{
-        t('calcWorkspace.dependencies') }}</q-tooltip></q-btn>
+      <q-space /><CommonBtn flat dense icon="account_tree" :tooltip="t('calcWorkspace.dependencies')"
+        @click="emit('dependencies')" />
     </div>
     <q-separator />
     <DraggableTree class="col scroll" :data="nodes as never[]" node-key="id" draggable :allow-drag="allowDrag"

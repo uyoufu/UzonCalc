@@ -3,15 +3,15 @@
     <q-table flat dense class="full-height" row-key="executionId" :rows="executions" :columns="columns"
       :loading="loading" v-model:pagination="pagination" :filter="filter" binary-state-sort @request="onTableRequest">
       <template #top>
-        <div class="text-subtitle1">{{ t('calcWorkspace.executionHistory') }}</div><q-space /><q-btn flat round dense
+        <div class="text-subtitle1">{{ t('calcWorkspace.executionHistory') }}</div><q-space /><CommonBtn flat dense
           icon="refresh" @click="refreshTable" />
       </template>
       <template #body-cell-status="slotProps"><q-td :props="slotProps"><q-chip dense square
             :color="statusColor(slotProps.row.status)" text-color="white">{{ slotProps.row.status
             }}</q-chip></q-td></template>
-      <template #body-cell-actions="slotProps"><q-td :props="slotProps"><q-btn flat round dense icon="info"
-            @click="openExecutionDetailDialog(slotProps.row)" /><q-btn
-            v-if="['pending', 'running'].includes(slotProps.row.status)" flat round dense icon="stop" color="negative"
+      <template #body-cell-actions="slotProps"><q-td :props="slotProps"><CommonBtn flat dense icon="info"
+            @click="openExecutionDetailDialog(slotProps.row)" /><CommonBtn
+            v-if="['pending', 'running'].includes(slotProps.row.status)" flat dense icon="stop" color="negative"
             @click="onTerminate(slotProps.row)" /></q-td></template>
     </q-table>
   </div>

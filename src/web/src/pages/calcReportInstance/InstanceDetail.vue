@@ -1,7 +1,7 @@
 <template>
   <div class="instance-detail column no-wrap full-height">
     <header class="instance-detail__header row items-center q-gutter-sm q-px-md">
-      <q-btn flat round dense icon="arrow_back" @click="router.push('/calc-report-instance/list')" />
+      <CommonBtn flat dense icon="arrow_back" @click="router.push('/calc-report-instance/list')" />
       <div><div class="text-subtitle1">{{ instance?.name }}</div><div class="text-caption text-grey-7">{{ instance?.reportName }} · {{ instance?.sourceVersion || 'workspace' }}</div></div>
       <q-space /><CommonBtn icon="refresh" :label="t('calcWorkspace.recalculate')" :loading="isExecuting" @click="onRecalculate" /><CommonBtn v-if="execution?.isCompleted" icon="save" color="grey-8" :label="t('calcWorkspace.updateInstanceResult')" @click="onUpdateResult" />
     </header>

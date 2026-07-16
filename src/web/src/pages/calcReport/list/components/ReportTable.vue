@@ -29,7 +29,7 @@
     </template>
     <template #body-cell-favorite="slotProps">
       <q-td :props="slotProps">
-        <q-btn flat round dense :icon="slotProps.row.isFavorite ? 'star' : 'star_border'"
+        <CommonBtn flat dense :icon="slotProps.row.isFavorite ? 'star' : 'star_border'"
           :color="slotProps.row.isFavorite ? 'warning' : 'grey-6'" @click="emit('favorite', slotProps.row)" />
       </q-td>
     </template>

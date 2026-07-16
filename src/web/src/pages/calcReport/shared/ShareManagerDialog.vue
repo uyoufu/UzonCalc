@@ -3,7 +3,7 @@
     <q-card class="share-dialog">
       <q-card-section class="row items-center">
         <div class="text-subtitle1">{{ t('calcWorkspace.shareReport') }} · {{ reportName }}</div>
-        <q-space /><q-btn flat round dense icon="close" @click="onDialogCancel" />
+        <q-space /><CommonBtn flat dense icon="close" @click="onDialogCancel" />
       </q-card-section>
       <q-separator />
       <q-card-section class="q-gutter-md">
@@ -34,7 +34,7 @@
             <q-item-label caption>{{ link.useCount }} / {{ link.maxUseCount ?? '∞' }} · {{ link.revokedAt ?
               t('calcWorkspace.revoked') : t('calcWorkspace.active') }}</q-item-label>
           </q-item-section>
-          <q-item-section side><q-btn flat round dense icon="link_off" color="negative"
+          <q-item-section side><CommonBtn flat dense icon="link_off" color="negative"
               :disable="Boolean(link.revokedAt)" @click="onRevoke(link)" /></q-item-section>
         </q-item>
         <q-item v-if="links.length === 0"><q-item-section class="text-grey-6">{{ t('calcWorkspace.noShareLinks')

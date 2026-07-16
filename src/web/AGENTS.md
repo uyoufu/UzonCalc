@@ -46,7 +46,10 @@
 1. 通用表格展示先读取 src/components/tableComponents/README.md，再以 src/components/tableComponents/tableExample.vue 为初始化模板，复用 src/compositions/qTableUtils
 2. 右键菜单组件，读取 src/components/contextMenu/README.md 使用说明进行复用
 3. 若要使用弹窗，读取 src/components/lowCode/README.md 使用说明进行复用
-4. 对于按钮，优先复用 src/components/quasarWrapper/buttons/ 下对 q-btn 二次封装的组件，不需要导入，直接使用，当前包含的组件有: `CancelBtn`、`CreateBtn`、`CommonBtn`、`DeleteBtn`、`OkBtn`、`ExportBtn`、`ImportBtn`, 其它按钮使用 `CommonBtn` 进行复用。
+4. 对于按钮，优先复用 `src/web/src/components/quasarWrapper/buttons/` 下实际存在的语义按钮组件；没有合适的语义按钮时使用 `CommonBtn`，不要在页面中直接新增 `q-btn`。
+5. 将既有 `q-btn` 重构为 `CommonBtn` 时，若按钮内包含 `q-tooltip`，删除嵌套的 `q-tooltip`，并将提示内容通过 `CommonBtn` 的 `:tooltip` 属性传入。
+6. `src/web/src/components/quasarWrapper/buttons/` 下的按钮组件已自动注册，在模板中直接使用，不需要手动导入。
+7. `src/web/src/pages/login/loginIndex.vue` 中的登录按钮是保留原 `q-btn` 实现的明确例外。
 
 ## 数据请求与更新
 

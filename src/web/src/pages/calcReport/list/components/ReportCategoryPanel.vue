@@ -2,9 +2,7 @@
   <aside class="report-categories column no-wrap">
     <div class="report-categories__header row items-center justify-between q-px-sm">
       <div class="text-subtitle2">{{ t('calcWorkspace.categories') }}</div>
-      <q-btn flat round dense icon="add" @click="emit('create')">
-        <q-tooltip>{{ t('calcWorkspace.newCategory') }}</q-tooltip>
-      </q-btn>
+      <CommonBtn flat dense icon="add" :tooltip="t('calcWorkspace.newCategory')" @click="emit('create')" />
     </div>
     <q-separator />
     <q-list dense class="col scroll">

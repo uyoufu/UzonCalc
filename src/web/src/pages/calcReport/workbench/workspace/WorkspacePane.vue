@@ -1,8 +1,8 @@
 <template>
   <div class="workspace-pane column no-wrap">
     <div class="workspace-toolbar row items-center q-gutter-xs q-px-sm">
-      <q-btn flat round dense icon="arrow_back" @click="onBackToReports"><q-tooltip>{{
-        t('calcWorkspace.backToReports') }}</q-tooltip></q-btn>
+      <CommonBtn flat dense icon="arrow_back" @click="onBackToReports" :tooltip="t('calcWorkspace.backToReports')">
+      </CommonBtn>
       <template v-if="isNew">
         <q-select v-model="createForm.categoryOid" dense outlined emit-value map-options :options="categoryOptions"
           :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
@@ -10,18 +10,19 @@
           class="workspace-toolbar__name" />
       </template>
       <template v-else>
-        <span class="workspace-toolbar__category-display text-caption text-grey-7 ellipsis">{{ reportCategoryName
-          }}</span>
-        <span class="workspace-toolbar__name-display text-subtitle2 ellipsis">{{ report?.name || '-' }}</span>
+        <span class="text-caption text-grey-7 ellipsis">{{ reportCategoryName
+        }} / </span>
+        <span class="text-subtitle2 ellipsis">{{ report?.name || '-' }}</span>
       </template>
-      <q-separator vertical inset />
-      <CommonBtn icon="save" :label="t('global.save')" :tooltip="t('calcWorkspace.saveWorkspace')"
-        :loading="draft.isSaving.value" :disable="!draft.hasUnsavedChanges.value" @click="onSave" />
-      <q-btn flat round dense icon="play_arrow" color="positive" @click="onRunWorkspace"><q-tooltip>{{
-        t('calcWorkspace.runWorkspace') }}</q-tooltip></q-btn>
-      <q-btn flat round dense icon="format_align_left" :disable="!selectedFile?.path.endsWith('.py')"
-        @click="onFormatFile"><q-tooltip>{{ t('calcWorkspace.format') }}</q-tooltip></q-btn>
-      <q-separator vertical inset />
+
+      <CommonBtn icon="save" flat :tooltip="t('calcWorkspace.saveWorkspace')" :loading="draft.isSaving.value"
+        :disable="!draft.hasUnsavedChanges.value" @click="onSave" />
+      <CommonBtn flat dense icon="play_arrow" color="positive" @click="onRunWorkspace"
+        :tooltip="t('calcWorkspace.runWorkspace')">
+      </CommonBtn>
+      <CommonBtn flat dense icon="format_align_left" :disable="!selectedFile?.path.endsWith('.py')"
+        @click="onFormatFile" :tooltip="t('calcWorkspace.format')">
+      </CommonBtn>
       <q-chip dense square :color="draft.hasUnsavedChanges.value ? 'warning' : 'positive'" text-color="white">
         {{ draft.hasUnsavedChanges.value ? t('calcWorkspace.unsaved') : t('calcWorkspace.saved') }}
       </q-chip>
@@ -256,16 +257,6 @@ onUnmounted(() => { window.removeEventListener('beforeunload', onBeforeUnload); 
 
 .workspace-toolbar__name {
   width: 220px;
-}
-
-.workspace-toolbar__category-display {
-  width: 140px;
-  min-width: 100px;
-}
-
-.workspace-toolbar__name-display {
-  width: 220px;
-  min-width: 140px;
 }
 
 .workspace-body {
