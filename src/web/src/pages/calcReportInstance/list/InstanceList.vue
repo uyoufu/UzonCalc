@@ -26,7 +26,7 @@
         </div>
       </template>
       <template #body-cell-name="slotProps"><q-td :props="slotProps"><button class="instance-link"
-            @click="openInstance(slotProps.row)">{{ slotProps.row.name }}</button>
+            @click="onOpenInstance(slotProps.row)">{{ slotProps.row.name }}</button>
           <ContextMenu :items="instanceMenuItems" :value="slotProps.row" />
         </q-td></template>
     </q-table>
@@ -41,7 +41,7 @@ import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import SearchInput from 'src/components/searchInput/SearchInput.vue'
 import { ExecutionSourceType, type CalcInstance, type CalcInstanceCategory } from 'src/api/calc/types'
 import { createInstanceCategory, deleteInstanceCategory, listInstanceCategories, updateInstanceCategory } from 'src/api/calc/categories'
-import { countInstances, deleteInstance, listInstances, updateInstance } from 'src/api/calc/instances'
+import { countInstances, listInstances } from 'src/api/calc/instances'
 import { useInstanceContextMenu } from './components/useInstanceContextMenu'
 import { useInstanceListDialogs } from './compositions/useInstanceListDialogs'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
@@ -50,11 +50,9 @@ import { t } from 'src/i18n/helpers'
 import { useQTable } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
 
-const router = useRouter()
 const categories = ref<CalcInstanceCategory[]>([])
 const selectedCategoryOid = ref<string | null>(null)
-const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
-const { openCategoryDialog, openInstanceDialog } = useInstanceListDialogs()
+const { openCategoryDialog } = useInstanceListDialogs()
 const columns: ComputedRef<QTableColumn<CalcInstance>[]> = computed(() => [
   { name: 'name', label: t('calcWorkspace.instanceName'), field: 'name', align: 'left', sortable: true },
   { name: 'reportName', label: t('calcWorkspace.reportName'), field: (row) => row.reportName || '-', align: 'left', sortable: true },
@@ -126,19 +124,14 @@ const categoryMenuItems: IContextMenuItem<CalcInstanceCategory>[] = [
   { name: 'edit', label: t('global.edit'), icon: 'edit', color: 'grey-9', onClick: onOpenCategoryDialog },
   { name: 'delete', label: t('global.delete'), icon: 'delete', color: 'negative', onClick: removeCategory }
 ]
-/** Navigate to an instance detail. */
-async function openInstance(instance: CalcInstance): Promise<void> { await router.push(`/calc-report-instance/${instance.instanceOid}`) }
-/** Open optimistic instance metadata editing and patch the confirmed row. */
-async function editInstance(instance: CalcInstance): Promise<void> {
-  const input = await openInstanceDialog(instance, categoryOptions.value)
-  if (!input) return
-
-  const response = await updateInstance(instance.instanceOid, { revision: instance.revision, ...input })
-  updateExistOne(response.data, 'instanceOid')
-}
-/** Delete one saved instance. */
-async function removeInstance(instance: CalcInstance): Promise<void> { if (!await confirmOperation(t('global.deleteConfirmation'), instance.name)) return; await deleteInstance(instance.instanceOid); deleteRowById(instance.instanceOid, 'instanceOid'); await loadCategories() }
-const { items: instanceMenuItems } = useInstanceContextMenu({ open: openInstance, edit: editInstance, remove: removeInstance })
+const {
+  items: instanceMenuItems,
+  onOpenInstance
+} = useInstanceContextMenu({
+  categories,
+  updateInstanceRow: updateExistOne,
+  deleteInstanceRow: deleteRowById
+})
 </script>
 
 <style scoped>

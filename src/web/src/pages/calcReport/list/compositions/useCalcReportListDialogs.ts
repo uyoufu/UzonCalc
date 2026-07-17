@@ -9,7 +9,12 @@ import { showComponentDialog, showDialog } from 'src/components/lowCode/PopupDia
 import { t } from 'src/i18n/helpers'
 import { createNonBlankValidator, type DialogSelectOption } from '../../shared/dialogForm'
 
-export type ReportDialogMode = 'edit' | 'copy'
+export const ReportDialogMode = {
+  Edit: 'edit',
+  Copy: 'copy'
+} as const
+
+export type ReportDialogMode = typeof ReportDialogMode[keyof typeof ReportDialogMode]
 
 export interface ImportUzcDialogInput {
   categoryOid: string
@@ -67,7 +72,7 @@ export function useCalcReportListDialogs() {
     categoryOptions: DialogSelectOption[]
   ): Promise<ReportMetadataInput | null> {
     const result = await showDialog<ReportMetadataInput>({
-      title: mode === 'copy' ? t('calcWorkspace.copyReport') : t('calcWorkspace.editMetadata'),
+      title: mode === ReportDialogMode.Copy ? t('calcWorkspace.copyReport') : t('calcWorkspace.editMetadata'),
       oneColumn: true,
       persistent: false,
       fields: [
@@ -87,7 +92,7 @@ export function useCalcReportListDialogs() {
           name: 'name',
           label: t('calcWorkspace.reportName'),
           type: LowCodeFieldType.text,
-          value: mode === 'copy' ? `${report.name} - Copy` : report.name,
+          value: mode === ReportDialogMode.Copy ? `${report.name} - Copy` : report.name,
           required: true,
           autofocus: true,
           validate: validateNonBlank

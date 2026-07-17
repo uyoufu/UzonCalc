@@ -1,7 +1,6 @@
 import { shallowMount } from '@vue/test-utils'
 import { computed, onMounted, ref, toRefs, watch } from 'vue'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
-import LowCodeDialog from 'src/components/lowCode/LowCodeDialog.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 

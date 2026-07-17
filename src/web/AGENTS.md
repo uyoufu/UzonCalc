@@ -49,6 +49,42 @@ const Status = {
 type Status = typeof Status[keyof typeof Status]
 ```
 
+## 函数位置与回调边界
+
+- 函数应声明在能够完整承担其职责的最窄作用域中，并尽量靠近首次直接调用位置；不要为了让页面集中展示所有动作而将实现提升到更外层
+- 若函数仅被一个页面私有组件或 composable 使用，且由该组件或 composable 决定调用时机和业务语义，则函数应内聚在该组件或 composable 中
+- 禁止纯透传回调：不要在外层声明业务函数后，仅通过 `Actions`、`Callbacks` 对象或单独参数传入，再原样赋给 `onClick`、事件监听器或其它接口；改成单独传入函数也不能解决职责错位
+- 是否传入函数取决于调用方是否需要选择行为：固定业务行为由被调用模块实现；只有调用方需要提供可替换算法、策略或能力时，才使用函数参数
+- 页面私有 composable 可以直接使用稳定的 router、store、API 和 dialog 依赖；优先传入必要的数据、ref 或配置，不要让页面组装整套业务动作
+- 若被调用模块必须修改调用方私有状态，可以传入一个职责明确的最小能力回调；不要因此引入覆盖整个模块操作面的回调集合
+- 通用基础设施的策略参数、Vue 组件的 props/emits、框架事件回调，以及确有多种实现的依赖接口，不受纯透传限制。例如 `useQTable` 的 `onRequest` 是由调用方提供查询策略，属于合理的函数参数
+- 合理的一次性回调应内联或紧邻调用位置声明；当框架可能传入额外参数时，使用箭头函数显式转发所需参数，避免依赖隐含的签名兼容
+- 若函数内聚后使组件或 composable 同时承担多个无关职责，应继续按业务关注点拆分模块，而不是恢复为大量回调注入
+
+```TypeScript
+// 不推荐：页面只声明动作，再由 composable 原样转交
+/** 在页面层打开报告工作区。 */
+async function onOpenReport(report: CalcReport): Promise<void> {
+  await router.push(`/calc-report/${report.reportOid}/workspace`)
+}
+
+const { items } = useReportContextMenu({ open: onOpenReport })
+
+// 推荐：菜单 composable 拥有固定的“打开报告”行为
+/** 创建报告右键菜单并内聚菜单的固定业务行为。 */
+export function useReportContextMenu() {
+  const router = useRouter()
+
+  /** 打开报告工作区。 */
+  async function onOpenReport(report: CalcReport): Promise<void> {
+    await router.push(`/calc-report/${report.reportOid}/workspace`)
+  }
+
+  const items = [{ name: 'open', label: t('calcWorkspace.openWorkspace'), onClick: onOpenReport }]
+  return { items }
+}
+```
+
 ## 组件设计
 
 - 将视图拆分为职责聚焦的子组件，每个组件只负责一个清晰关注点
@@ -88,7 +124,6 @@ type Status = typeof Status[keyof typeof Status]
 - 每个 composable 只聚焦一个职责
 - 将相关状态和处理函数放在一起，例如 `onSaveXxx`、`isSaving`、`canSaveXxx`
 - 解构 `const { xxx } = useXxx()` 时，暴露字段应保持精简；超过约 10 个字段时，优先拆分 composable，而不是包装返回值
-- 为了保持调用链清晰，不要将函数通过对象的方式间接传入其它接口，可以直接传入
 
 ## 命名
 
