@@ -1,5 +1,5 @@
-from core.uzoncalc.handcalc.post_handlers.format_url import FormatUrl
-from core.uzoncalc.handcalc.post_handlers.dom_utils import (
+from uzoncalc.handcalc.post_handlers.format_url import FormatUrl
+from uzoncalc.handcalc.post_handlers.dom_utils import (
     PostHandlerNode,
     parse_html_fragment,
     serialize_html_fragment,

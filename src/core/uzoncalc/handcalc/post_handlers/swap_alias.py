@@ -2,13 +2,9 @@
 
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Optional
-
+from ...handler_protocols import HandlerContext
 from .base_post_handler import BasePostHandler
 from .dom_utils import PostHandlerNode
-
-if TYPE_CHECKING:
-    from ...context import CalcContext
 
 
 class SwapAlias(BasePostHandler):
@@ -23,7 +19,7 @@ class SwapAlias(BasePostHandler):
     priority = 10
 
     def handle(
-        self, post_node: PostHandlerNode, ctx: Optional[CalcContext] = None
+        self, post_node: PostHandlerNode, ctx: HandlerContext | None = None
     ) -> None:
         if ctx is None:
             return

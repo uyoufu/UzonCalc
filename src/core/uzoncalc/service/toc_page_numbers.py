@@ -12,11 +12,9 @@ import re
 import threading
 from dataclasses import dataclass
 from html.parser import HTMLParser
-from typing import Coroutine, TypeVar
+from typing import Any, Coroutine, TypeVar, cast
 
-import fitz
-
-from .playwright_service import get_playwright_service
+from ..optional_dependencies import missing_optional_dependency
 
 TOC_PAGE_NUMBERS_ROUTE = "/api/v1/calc/toc-page-numbers"
 TOC_HEADING_MARKER_PREFIX = "UZONCALC_TOC_HEADING:"
@@ -43,11 +41,17 @@ def render_heading_marker(heading_id: str) -> str:
 
 def parse_toc_page_numbers_from_pdf(pdf_bytes: bytes) -> dict[str, int]:
     """从 PDF 字节中解析标题 marker 所在 1-based 页码。"""
+    try:
+        import fitz
+    except ImportError as exc:
+        raise missing_optional_dependency("toc", exc) from exc
+
     page_numbers: dict[str, int] = {}
     document = fitz.open(stream=pdf_bytes, filetype="pdf")
     try:
-        for page_index, page in enumerate(document):
-            text = page.get_text()
+        for page_index in range(document.page_count):
+            page = document.load_page(page_index)
+            text = cast(str, page.get_text())
             for match in _MARKER_PATTERN.finditer(text):
                 heading_id = match.group(1)
                 page_numbers.setdefault(heading_id, page_index + 1)
@@ -58,6 +62,11 @@ def parse_toc_page_numbers_from_pdf(pdf_bytes: bytes) -> dict[str, int]:
 
 async def calculate_toc_page_numbers(document_url: str) -> dict[str, int]:
     """按真实打印路径生成 PDF，并返回标题 id 到页码的映射。"""
+    try:
+        from .playwright_service import get_playwright_service
+    except ImportError as exc:
+        raise missing_optional_dependency("toc", exc) from exc
+
     pdf_bytes = await get_playwright_service().render_pdf_from_url(document_url)
     return parse_toc_page_numbers_from_pdf(pdf_bytes)
 
@@ -67,7 +76,7 @@ def calculate_toc_page_numbers_sync(document_url: str) -> dict[str, int]:
     return _run_coroutine_sync(calculate_toc_page_numbers(document_url))
 
 
-def _run_coroutine_sync(coroutine):
+def _run_coroutine_sync(coroutine: Coroutine[Any, Any, _T]) -> _T:
     """在同步调用方中执行协程；已处于事件循环时提示改用 async API。"""
     try:
         asyncio.get_running_loop()

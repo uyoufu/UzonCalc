@@ -1,6 +1,6 @@
 """Helper functions used by ``tests.test_uzon_calc_func``."""
 
-from core.uzoncalc import uzon_calc_func
+from uzoncalc import uzon_calc_func
 
 
 @uzon_calc_func

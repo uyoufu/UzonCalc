@@ -80,12 +80,11 @@ def _is_main_guard_node(node: ast.stmt) -> bool:
     if not isinstance(node, ast.If):
         return False
     test = node.test
-    is_single_compare = (
-        isinstance(test, ast.Compare)
-        and len(test.ops) == 1
-        and len(test.comparators) == 1
-    )
-    if not is_single_compare or not isinstance(test.ops[0], ast.Eq):
+    if not isinstance(test, ast.Compare):
+        return False
+    if len(test.ops) != 1 or len(test.comparators) != 1:
+        return False
+    if not isinstance(test.ops[0], ast.Eq):
         return False
     left = test.left
     right = test.comparators[0]

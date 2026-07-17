@@ -1,7 +1,7 @@
-from core.uzoncalc.context import CalcContext
-from core.uzoncalc.handcalc.post_handlers.comparison_symbol import ComparisonSymbol
-from core.uzoncalc.handcalc.post_handlers.script_notation import ScriptNotation
-from core.uzoncalc.handcalc.post_handlers.swap_symbol import SwapSymbol
+from uzoncalc.context import CalcContext
+from uzoncalc.handcalc.post_handlers.comparison_symbol import ComparisonSymbol
+from uzoncalc.handcalc.post_handlers.script_notation import ScriptNotation
+from uzoncalc.handcalc.post_handlers.swap_symbol import SwapSymbol
 
 
 def test_context_post_handlers_convert_plain_text_content():

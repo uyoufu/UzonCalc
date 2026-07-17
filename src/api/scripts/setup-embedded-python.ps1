@@ -6,7 +6,7 @@
 # ============================================
 
 param(
-    [string]$PythonVersion = "3.11.9",
+    [string]$PythonVersion = "3.13.14",
     [string]$TargetDir = "dist\python-embedded",
     [string]$CacheRoot
 )
@@ -289,7 +289,7 @@ else {
         $requirementsContent = Get-Content -LiteralPath $requirementsFile |
             Where-Object {
                 $_ -notmatch '^\s*-e\s+file:' -and
-                $_ -notmatch '^\s*uzoncalc\s*(?:[#;].*)?$'
+                $_ -notmatch '^\s*uzoncalc(?:\[[^]]+\])?\s*(?:[#;].*)?$'
             }
 
         $requirementsContent | Set-Content -LiteralPath $filteredRequirementsFile -Encoding UTF8
@@ -316,7 +316,7 @@ else {
 
     try {
         Write-Info "安装核心包第三方依赖..."
-        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", $CORE_PROJECT_ROOT)
+        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "${CORE_PROJECT_ROOT}[all]")
         Assert-LastCommandSucceeded -Message "核心包依赖安装命令执行失败。"
 
         & $pythonExe -m pip uninstall -y uzoncalc

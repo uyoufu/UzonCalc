@@ -15,6 +15,10 @@ from typing import Callable, Optional, Set
 CallFilterFunction = Callable[[ast.Call], bool]
 
 
+class CallFilterError(RuntimeError):
+    """Wrap a custom call-filter failure with source location context."""
+
+
 class CallFilterRegistry:
     """函数调用过滤器注册表"""
 
@@ -87,9 +91,11 @@ class CallFilterRegistry:
             try:
                 if filter_func(node):
                     return True
-            except Exception:
-                # 过滤器异常时不隐藏，保证安全
-                continue
+            except Exception as exc:
+                location = f"line {getattr(node, 'lineno', '?')}, column {getattr(node, 'col_offset', '?')}"
+                raise CallFilterError(
+                    f"Call filter {filter_func!r} failed at {location}"
+                ) from exc
 
         return False
 
@@ -118,6 +124,20 @@ class CallFilterRegistry:
             函数名列表
         """
         return list(self._simple_filters)
+
+    def snapshot(self) -> "CallFilterRegistry":
+        """Create an isolated registry snapshot for one instrumentation run.
+
+        Returns:
+            Registry containing copies of the current simple and advanced filters.
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
+        snapshot = object.__new__(CallFilterRegistry)
+        snapshot._simple_filters = set(self._simple_filters)
+        snapshot._advanced_filters = list(self._advanced_filters)
+        return snapshot
 
 
 # 全局函数调用过滤器注册表实例

@@ -27,7 +27,7 @@ class Td:
         # 复用通用 HTML 渲染函数，避免属性拼接逻辑重复。
         from .elements import h
 
-        return h("td", children=self.value, classes=self.classes)
+        return h("td", children=_render_cell_value(self.value), classes=self.classes)
 
 
 @dataclass
@@ -136,7 +136,7 @@ def th(
 
     return h(
         "th",
-        children=str(value),
+        children=_render_cell_value(value),
         classes=classes,
         props=props(rowspan=rowspan, colspan=colspan),
     )
@@ -190,9 +190,46 @@ def _render_body_cell(value: TableCellValue | Td) -> str:
     return Td(value=value).to_html()
 
 
+def _render_cell_value(value: TableCellValue) -> str:
+    """Render a table value while preserving explicitly trusted HTML.
+
+    Args:
+        value: Value stored in a table cell.
+
+    Returns:
+        Escaped, precision-aware text or the original trusted HTML fragment.
+
+    Raises:
+        No exceptions are intentionally raised.
+    """
+    from ..handcalc.rendering.value_renderer import (
+        render_html_fragment,
+        render_value_text,
+    )
+
+    html_fragment = render_html_fragment(value)
+    if html_fragment is not None:
+        return html_fragment
+    return render_value_text(value)
+
+
 def _wrap_header_cell(value: Any) -> str:
     """兼容已渲染 th HTML 与普通表头值。"""
     text = str(value)
     if text.startswith("<th"):
         return text
     return th(text)
+
+
+__all__ = [
+    "Table",
+    "TableBodyRows",
+    "TableCellValue",
+    "TableHeaderRows",
+    "Td",
+    "Tr",
+    "table",
+    "td",
+    "th",
+    "tr",
+]

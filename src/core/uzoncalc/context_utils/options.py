@@ -145,3 +145,21 @@ def table_prefix(prefix: str = "Table"):
 
 
 # endregion
+
+
+__all__ = [
+    "alias",
+    "decimal",
+    "disable_formula_expression",
+    "disable_fstring_equation",
+    "disable_substitution",
+    "enable_formula_expression",
+    "enable_fstring_equation",
+    "enable_substitution",
+    "end_inline",
+    "figure_prefix",
+    "hide",
+    "inline",
+    "show",
+    "table_prefix",
+]

@@ -1,15 +1,7 @@
 import html
 import re
 from dataclasses import dataclass
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-try:
-    from core.uzoncalc import run_sync, unit, uzon_calc
-except ImportError:
-    from src.uzoncalc.uzoncalc import run_sync, unit, uzon_calc
+from uzoncalc import run_sync, unit, uzon_calc
 
 
 @dataclass(slots=True)

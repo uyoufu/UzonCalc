@@ -1,5 +1,5 @@
-from core.uzoncalc.context_options import ContextOptions
-from core.uzoncalc.template.utils import render_html_template
+from uzoncalc.context_options import ContextOptions
+from uzoncalc.template.utils import render_html_template
 
 
 def test_rendered_template_sets_body_font_variable_from_page_options():

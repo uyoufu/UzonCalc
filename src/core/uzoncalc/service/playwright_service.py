@@ -12,14 +12,19 @@ from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import AsyncIterator
 
-from playwright.async_api import (
-    Browser,
-    BrowserContext,
-    Error as PlaywrightError,
-    Page,
-    Playwright,
-    async_playwright,
-)
+try:
+    from playwright.async_api import (
+        Browser,
+        BrowserContext,
+        Error as PlaywrightError,
+        Page,
+        Playwright,
+        async_playwright,
+    )
+except ImportError as exc:
+    from ..optional_dependencies import missing_optional_dependency
+
+    raise missing_optional_dependency("toc", exc) from exc
 
 logger = logging.getLogger(__name__)
 _default_services: dict[asyncio.AbstractEventLoop, "PlaywrightService"] = {}

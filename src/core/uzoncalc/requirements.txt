@@ -1,23 +1,17 @@
-# Core dependencies
+# Base dependencies
 pint
+lxml
+markdown-it-pyrs
+
+# scientific extra
 numpy
-
-# For Excel file handling
-openpyxl
-xlwings
-
-# For plot
 matplotlib
 svg-py
 
-# Testing dependencies
-pytest
-astpretty
+# excel extra
+openpyxl
+xlwings
 
-# for markdown processing
-markdown-it-pyrs
-
-# for pdf generation
+# toc extra
 pymupdf
 playwright
-

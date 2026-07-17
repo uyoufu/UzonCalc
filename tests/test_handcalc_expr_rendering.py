@@ -3,7 +3,7 @@
 import html
 import re
 
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 _record_once_call_count = 0

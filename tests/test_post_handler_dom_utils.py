@@ -1,6 +1,6 @@
 from lxml import etree
 
-from core.uzoncalc.handcalc.post_handlers.dom_utils import (
+from uzoncalc.handcalc.post_handlers.dom_utils import (
     FRAGMENT_ROOT_TAG,
     PostHandlerNode,
     parse_html_fragment,

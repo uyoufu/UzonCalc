@@ -1,10 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from typing import TYPE_CHECKING, Optional
-
-if TYPE_CHECKING:
-    from ..context import CalcContext
+from ..handler_protocols import HandlerContext
 
 
 class BaseContextResultHandler(ABC):
@@ -13,5 +10,5 @@ class BaseContextResultHandler(ABC):
     priority: int = 100
 
     @abstractmethod
-    def handle(self, html: str, ctx: Optional[CalcContext] = None) -> str:
+    def handle(self, html: str, ctx: HandlerContext | None = None) -> str:
         """处理完整 HTML 正文片段。"""

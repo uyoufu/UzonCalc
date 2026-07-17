@@ -1,5 +1,5 @@
-from core.uzoncalc.context import CalcContext
-from core.uzoncalc.context_utils import doc
+from uzoncalc.context import CalcContext
+from uzoncalc.context_utils import doc
 
 
 def test_html_content_generates_toc_from_placeholder():

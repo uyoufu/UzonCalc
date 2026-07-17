@@ -1,8 +1,8 @@
-from core.uzoncalc.context import CalcContext
-from core.uzoncalc.context_options import ContextOptions
-from core.uzoncalc.context_utils.elements import LaTex, laTex
-from core.uzoncalc.globals import _calc_instance
-from core.uzoncalc.template.utils import render_html_template
+from uzoncalc.context import CalcContext
+from uzoncalc.context_options import ContextOptions
+from uzoncalc.context_utils.elements import LaTex, laTex
+from uzoncalc.globals import _calc_instance
+from uzoncalc.template.utils import render_html_template
 
 
 def test_latex_element_renders_dedicated_tag_with_escaped_content():

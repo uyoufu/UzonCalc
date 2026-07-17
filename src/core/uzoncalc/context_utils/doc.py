@@ -105,3 +105,6 @@ def toc(title: str = "Table of Contents"):
 </div>
 """
     ctx.append_content(toc_html)
+
+
+__all__ = ["doc_title", "font_family", "head", "page_size", "style", "toc"]

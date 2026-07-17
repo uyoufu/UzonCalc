@@ -242,7 +242,9 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
       icon: 'publish',
       color: 'primary',
       vif: (report) =>
-        [PublishState.Unpublished, PublishState.UnpublishedChanges].includes(report.publishState),
+        ([PublishState.Unpublished, PublishState.UnpublishedChanges] as PublishState[]).includes(
+          report.publishState
+        ),
       onClick: onPublishVersion
     },
     {
@@ -299,4 +301,3 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
 
   return { items, onOpenReport, onToggleFavorite }
 }
-

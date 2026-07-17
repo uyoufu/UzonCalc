@@ -5,7 +5,7 @@ from .field_names import FieldNames
 from .recording_state import RecordingState
 from .ast_to_step_converter import AstToStepConverter
 from .recording_injector import RecordingInjector
-from .call_filters import should_hide_call
+from .call_filters import CallFilterRegistry, get_call_filter_registry
 from . import ir
 
 # description:
@@ -14,11 +14,24 @@ from . import ir
 
 
 class AstNodeVisitor(ast.NodeTransformer):
-    def __init__(self) -> None:
+    def __init__(self, call_filter_registry: CallFilterRegistry | None = None) -> None:
+        """Initialize an AST visitor with a stable call-filter snapshot.
+
+        Args:
+            call_filter_registry: Optional registry to snapshot for this traversal.
+
+        Returns:
+            None.
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
         super().__init__()
         self._state = RecordingState()
         self._converter = AstToStepConverter()
         self._injector = RecordingInjector()
+        registry = call_filter_registry or get_call_filter_registry()
+        self._call_filter_registry = registry.snapshot()
 
     def _visit_body_scope(self, node: ast.AST, body_attr: str = "body") -> ast.AST:
         """通用的作用域访问方法，处理带有 body 的节点"""
@@ -259,11 +272,11 @@ class AstNodeVisitor(ast.NodeTransformer):
         # 处理 await 表达式: await UI(...)
         if isinstance(rhs, ast.Await):
             if isinstance(rhs.value, ast.Call):
-                return should_hide_call(rhs.value)
+                return self._call_filter_registry.should_hide_call(rhs.value)
         
         # 处理普通调用: UI(...)
         if isinstance(rhs, ast.Call):
-            return should_hide_call(rhs)
+            return self._call_filter_registry.should_hide_call(rhs)
         
         return False
     

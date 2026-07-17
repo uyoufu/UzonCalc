@@ -5,8 +5,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Iterable, TypeAlias
 
-from lxml import etree
-from lxml import html as lxml_html
+import lxml.etree as etree
+import lxml.html as lxml_html
 
 HtmlPart: TypeAlias = str | etree._Element
 FRAGMENT_ROOT_TAG = "uzoncalc-post-root"
@@ -297,7 +297,10 @@ def parse_html_fragment(content: str) -> etree._Element:
     if content == "":
         return lxml_html.Element(FRAGMENT_ROOT_TAG)
     try:
-        return lxml_html.fragment_fromstring(content, create_parent=FRAGMENT_ROOT_TAG)
+        return lxml_html.fragment_fromstring(
+            content,
+            create_parent=FRAGMENT_ROOT_TAG,  # type: ignore[reportArgumentType]
+        )
     except (etree.ParserError, ValueError):
         root = lxml_html.Element(FRAGMENT_ROOT_TAG)
         root.text = content
@@ -319,4 +322,3 @@ def serialize_html_fragment(root: etree._Element) -> str:
     ):
         return serialized_root[len(open_wrapper) : -len(close_wrapper)]
     return serialized_root
-

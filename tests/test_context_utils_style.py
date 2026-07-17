@@ -1,8 +1,8 @@
 """Tests for inline style helpers in context_utils.style."""
 
-from core.uzoncalc.context import CalcContext
-from core.uzoncalc.context_utils import Bold, Italic, bold, italic
-from core.uzoncalc.globals import _calc_instance
+from uzoncalc.context import CalcContext
+from uzoncalc.context_utils import Bold, Italic, bold, italic
+from uzoncalc.globals import _calc_instance
 
 
 def test_lowercase_style_helpers_return_html_string():
@@ -26,4 +26,4 @@ def test_uppercase_style_helpers_persist_html_to_current_context():
     finally:
         _calc_instance.reset(token)
 
-    assert context.contents == ["<b>重要</b>", "<i>说明</i>"]
+    assert context.contents == ["<p><b>重要</b></p>", "<p><i>说明</i></p>"]

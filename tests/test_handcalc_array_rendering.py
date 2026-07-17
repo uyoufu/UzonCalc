@@ -6,9 +6,9 @@ from pathlib import Path
 
 import numpy as np
 
-from core.uzoncalc import run_sync, unit, uzon_calc
-from core.uzoncalc.handcalc.ast_to_ir import expr_to_ir
-from core.uzoncalc.handcalc.rendering.value_renderer import value_to_ir
+from uzoncalc import run_sync, unit, uzon_calc
+from uzoncalc.handcalc.ast_to_ir import expr_to_ir
+from uzoncalc.handcalc.rendering.value_renderer import value_to_ir
 
 MATHML_NAMESPACE = {"m": "http://www.w3.org/1998/Math/MathML"}
 PROJECT_ROOT = Path(__file__).resolve().parents[1]

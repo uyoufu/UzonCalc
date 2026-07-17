@@ -1,11 +1,9 @@
 import asyncio
 import sys
 import threading
-from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/core"))
 
 from uzoncalc.http_server import HtmlPreviewState, create_html_server
 from uzoncalc.service.toc_page_numbers import (
@@ -157,8 +155,14 @@ def test_parse_toc_page_numbers_from_pdf_uses_pymupdf(monkeypatch):
             ]
             self.close_count = 0
 
-        def __iter__(self):
-            return iter(self.pages)
+        @property
+        def page_count(self):
+            """返回模拟 PDF 页数。"""
+            return len(self.pages)
+
+        def load_page(self, page_index: int):
+            """按页索引返回模拟页面。"""
+            return self.pages[page_index]
 
         def close(self):
             """记录 PDF 文档已关闭。"""
@@ -172,7 +176,7 @@ def test_parse_toc_page_numbers_from_pdf_uses_pymupdf(monkeypatch):
         assert filetype == "pdf"
         return fake_document
 
-    monkeypatch.setattr("uzoncalc.service.toc_page_numbers.fitz.open", fake_open)
+    monkeypatch.setitem(sys.modules, "fitz", SimpleNamespace(open=fake_open))
 
     page_numbers = parse_toc_page_numbers_from_pdf(b"pdf-bytes")
 
@@ -189,8 +193,12 @@ def test_parse_toc_page_numbers_stops_before_adjacent_heading_text(monkeypatch):
             return "UZONCALC_TOC_HEADING:heading-1|Windows 平台说明"
 
     class FakeDocument:
-        def __iter__(self):
-            return iter([FakePage()])
+        page_count = 1
+
+        def load_page(self, page_index: int):
+            """返回唯一的模拟页面。"""
+            assert page_index == 0
+            return FakePage()
 
         def close(self):
             """模拟关闭 PDF 文档。"""
@@ -199,7 +207,7 @@ def test_parse_toc_page_numbers_stops_before_adjacent_heading_text(monkeypatch):
         """模拟 PyMuPDF 打开 PDF。"""
         return FakeDocument()
 
-    monkeypatch.setattr("uzoncalc.service.toc_page_numbers.fitz.open", fake_open)
+    monkeypatch.setitem(sys.modules, "fitz", SimpleNamespace(open=fake_open))
 
     assert parse_toc_page_numbers_from_pdf(b"pdf-bytes") == {"heading-1": 1}
 
@@ -213,8 +221,12 @@ def test_parse_toc_page_numbers_ignores_unterminated_marker(monkeypatch):
             return "UZONCALC_TOC_HEADING:heading-1Windows 平台说明"
 
     class FakeDocument:
-        def __iter__(self):
-            return iter([FakePage()])
+        page_count = 1
+
+        def load_page(self, page_index: int):
+            """返回唯一的模拟页面。"""
+            assert page_index == 0
+            return FakePage()
 
         def close(self):
             """模拟关闭 PDF 文档。"""
@@ -223,7 +235,7 @@ def test_parse_toc_page_numbers_ignores_unterminated_marker(monkeypatch):
         """模拟 PyMuPDF 打开 PDF。"""
         return FakeDocument()
 
-    monkeypatch.setattr("uzoncalc.service.toc_page_numbers.fitz.open", fake_open)
+    monkeypatch.setitem(sys.modules, "fitz", SimpleNamespace(open=fake_open))
 
     assert parse_toc_page_numbers_from_pdf(b"pdf-bytes") == {}
 

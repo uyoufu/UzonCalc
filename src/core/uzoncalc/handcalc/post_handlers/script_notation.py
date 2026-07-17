@@ -2,7 +2,7 @@ import re
 from dataclasses import dataclass
 from typing import Callable
 
-from lxml import etree
+import lxml.etree as etree
 
 from .base_post_handler import BasePostHandler
 from .dom_utils import (

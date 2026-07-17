@@ -1,14 +1,14 @@
-from core.uzoncalc.context import CalcContext
-from core.uzoncalc.context_utils.elements import (
+from uzoncalc.context import CalcContext
+from uzoncalc.context_utils.elements import (
     HtmlFragment,
     Img,
     LabelKind,
     Plot,
     create_auto_label,
 )
-from core.uzoncalc.context_utils.options import figure_prefix
-from core.uzoncalc.extension.echarts import EChart
-from core.uzoncalc.globals import _calc_instance
+from uzoncalc.context_utils.options import figure_prefix
+from uzoncalc.extension.echarts import EChart
+from uzoncalc.globals import _calc_instance
 
 
 class FakeFigure:

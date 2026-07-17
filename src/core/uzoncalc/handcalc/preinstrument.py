@@ -166,11 +166,12 @@ def _inject_runtime_imports(tree: ast.Module) -> None:
         and isinstance(tree.body[0].value.value, str)
     ):
         insert_at = 1
-    while (
-        insert_at < len(tree.body)
-        and isinstance(tree.body[insert_at], ast.ImportFrom)
-        and tree.body[insert_at].module == "__future__"
-    ):
+    while insert_at < len(tree.body):
+        statement = tree.body[insert_at]
+        if not isinstance(statement, ast.ImportFrom):
+            break
+        if statement.module != "__future__":
+            break
         insert_at += 1
     tree.body[insert_at:insert_at] = imports
 

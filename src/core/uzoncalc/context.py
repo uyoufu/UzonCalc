@@ -1,3 +1,5 @@
+"""Calculation context state and user-facing document operations."""
+
 from typing import Any, Callable, Optional
 import os
 
@@ -5,10 +7,7 @@ from .template.utils import render_html_template
 from .context_options import ContextOptions
 from .cache.json_db import JsonDB
 from .interaction import InteractionState
-from .service.toc_page_numbers import (
-    calculate_toc_page_numbers_sync,
-    fill_toc_page_numbers,
-)
+from .exporting import DocumentExporter, HtmlDocumentExporter
 from .handcalc.post_handlers.dom_utils import (
     PostHandlerNode,
     parse_html_fragment,
@@ -17,6 +16,8 @@ from .handcalc.post_handlers.dom_utils import (
 
 
 class CalcContext:
+    """Own calculation state, recorded content, options, and interactions."""
+
     def __init__(
         self,
         *,
@@ -24,7 +25,23 @@ class CalcContext:
         file_path: str | None = None,
         is_silent: bool = True,
         ctx_hook_created: Optional[Callable[["CalcContext"], Any]] = None,
-    ):
+        document_exporter: DocumentExporter | None = None,
+    ) -> None:
+        """Initialize an isolated calculation context.
+
+        Args:
+            name: Optional display name for the context.
+            file_path: Source calculation file used for relative storage.
+            is_silent: Whether UI calls should return defaults immediately.
+            ctx_hook_created: Callback invoked after context initialization.
+            document_exporter: Export strategy used by :meth:`save`.
+
+        Returns:
+            None.
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
         # 序列号，每次获取时增加 1
         self.serial_number = 0
 
@@ -52,6 +69,7 @@ class CalcContext:
 
         # UI 交互相关状态
         self.interaction = InteractionState()
+        self._document_exporter = document_exporter or HtmlDocumentExporter()
 
         # 收集所有的 UI 定义（用于静默模式下返回所有 UI 定义）
         self.ui_windows: list[Any] = []
@@ -92,18 +110,41 @@ class CalcContext:
         return serialize_html_fragment(root)
 
     def start_inline(self, separator: str = " "):
-        self.__inline_separator = separator
+        """Start collecting subsequent content into one paragraph.
+
+        Args:
+            separator: Text inserted between collected fragments.
+
+        Returns:
+            None.
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
         if self.__inline_values is not None:
             return
 
+        self.__inline_separator = separator
         self.__inline_values = []
 
     def end_inline(self):
-        if self.__inline_values:
-            combined = self.__inline_separator.join(self.__inline_values)
-            # 将整行内容包装在 <p> 标签中
+        """Finish inline collection and restore normal content recording.
+
+        Returns:
+            None.
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
+        if self.__inline_values is None:
+            return
+
+        inline_values = self.__inline_values
+        self.__inline_values = None
+        if inline_values:
+            combined = self.__inline_separator.join(inline_values)
+            # Inline fragments are already post-processed when appended.
             self.__contents.append(f"<p>{combined}</p>")
-            self.__inline_values = None
 
     @property
     def is_inline_mode(self) -> bool:
@@ -127,18 +168,20 @@ class CalcContext:
         """
         return render_html_template(self.html_content(), self.options)
 
-    def save(self, path: str):
-        """将 HTML 内容保存到指定路径"""
-        html = self.html()
-        with open(path, "w", encoding="utf-8") as f:
-            f.write(html)
-        if 'data-page-placeholder="true"' in html:
-            page_numbers = calculate_toc_page_numbers_sync(
-                f"file://{os.path.abspath(path)}"
-            )
-            html = fill_toc_page_numbers(html, page_numbers)
-            with open(path, "w", encoding="utf-8") as f:
-                f.write(html)
+    def save(self, path: str) -> None:
+        """Save the complete HTML document through the configured exporter.
+
+        Args:
+            path: Destination HTML path.
+
+        Returns:
+            None.
+
+        Raises:
+            OSError: If the destination cannot be written.
+            ImportError: If ToC placeholders require unavailable dependencies.
+        """
+        self._document_exporter.export(self.html(), path)
         print(f"Document saved to (open with browser): file:///{path}")
 
     # endregion

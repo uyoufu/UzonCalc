@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import re
 
-from lxml import etree
+import lxml.etree as etree
 
 from .base_post_handler import BasePostHandler
 from .dom_utils import (

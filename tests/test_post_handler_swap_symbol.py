@@ -1,10 +1,10 @@
-from core.uzoncalc.handcalc.post_handlers.swap_symbol import SwapSymbol
-from core.uzoncalc.handcalc.post_handlers.dom_utils import (
+from uzoncalc.handcalc.post_handlers.swap_symbol import SwapSymbol
+from uzoncalc.handcalc.post_handlers.dom_utils import (
     PostHandlerNode,
     parse_html_fragment,
     serialize_html_fragment,
 )
-from core.uzoncalc.context_utils.markdown import get_markdown
+from uzoncalc.context_utils.markdown import get_markdown
 
 
 def render_with_handler(handler, html: str) -> str:

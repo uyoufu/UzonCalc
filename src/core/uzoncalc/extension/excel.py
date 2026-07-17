@@ -1,6 +1,6 @@
 from typing import Any, Optional
-from openpyxl import load_workbook
-import xlwings as xw
+
+from ..optional_dependencies import missing_optional_dependency
 from ..startup import get_current_instance
 
 
@@ -41,6 +41,11 @@ def get_excel_table(
 
     # 使用 xlwings 更新值并计算公式
     if values:
+        try:
+            import xlwings as xw
+        except ImportError as exc:
+            raise missing_optional_dependency("excel", exc) from exc
+
         # Linux 等无 Excel 引擎环境中，xlwings 无法创建 App。
         if xw.engines.active is None:
             return "No Excel/xlwings engine available. Please install Excel/xlwings and try again."
@@ -107,6 +112,11 @@ class ExcelProcessor:
             sheet_name: 工作表名称，如果为 None 则使用第一个工作表
             data_only: 如果为 True，则读取公式的计算值；如果为 False，则读取公式本身
         """
+        try:
+            from openpyxl import load_workbook
+        except ImportError as exc:
+            raise missing_optional_dependency("excel", exc) from exc
+
         self.workbook = load_workbook(self.excel_path, data_only=data_only)
         if sheet_name:
             self.worksheet = self.workbook[sheet_name]

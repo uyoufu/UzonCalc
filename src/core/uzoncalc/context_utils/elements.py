@@ -5,12 +5,19 @@ from dataclasses import replace
 import html
 import inspect
 import io
-from typing import Any, List
-import svg as svg_lib
+from typing import Any, List, Protocol
 
 from ..globals import get_current_instance
 from .element_models import AutoLabel, HtmlFragment, ISavefig, LabelKind, Props
 from .markdown import get_markdown
+
+
+class _StringRenderable(Protocol):
+    """Structural type for figure content that can render itself as text."""
+
+    def __str__(self) -> str:
+        """Return the HTML or text representation."""
+        ...
 
 
 def create_auto_label(kind: LabelKind) -> AutoLabel:
@@ -288,7 +295,7 @@ def Row(content: str | List[str], *, props: Props | None = None, tag: str = "div
 
 
 def Figure(
-    content: str | List[str] | svg_lib.SVG,
+    content: str | List[str] | _StringRenderable,
     caption: str | None = None,
 ) -> str:
     label = create_auto_label(LabelKind.FIGURE)
@@ -296,8 +303,7 @@ def Figure(
     if caption:
         caption_children.append(caption)
 
-    # 转化为 html 字符串
-    if isinstance(content, svg_lib.SVG):
+    if not isinstance(content, (str, list)):
         content = str(content)
 
     h(
@@ -479,3 +485,56 @@ def _children_to_html(children: str | List[str] | None) -> str:
     if isinstance(children, list):
         return "".join(str(child) for child in children)
     return str(children)
+
+
+__all__ = [
+    "AutoLabel",
+    "Br",
+    "Code",
+    "Div",
+    "Figure",
+    "H",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HtmlFragment",
+    "Img",
+    "Info",
+    "Input",
+    "ISavefig",
+    "LabelKind",
+    "LaTex",
+    "Markdown",
+    "P",
+    "Plot",
+    "Props",
+    "Row",
+    "Span",
+    "Subtitle",
+    "Title",
+    "br",
+    "code",
+    "div",
+    "h",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "img",
+    "info",
+    "input",
+    "laTex",
+    "markdown",
+    "p",
+    "plot",
+    "props",
+    "row",
+    "span",
+    "subtitle",
+    "title",
+]

@@ -1,13 +1,10 @@
 import socket
-import sys
 import threading
 from pathlib import Path
 from urllib.error import HTTPError
 from urllib.request import Request
 from urllib.request import urlopen
 
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "src/core"))
 
 from uzoncalc import cli, startup
 from uzoncalc.http_server import (

@@ -1,6 +1,6 @@
 import ast
 
-from core.uzoncalc.handcalc.ast_to_ir import expr_to_ir
+from uzoncalc.handcalc.ast_to_ir import expr_to_ir
 
 
 def _render_expression_mathml(expression: str) -> str:

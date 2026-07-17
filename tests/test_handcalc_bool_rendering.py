@@ -3,8 +3,8 @@
 import html
 import re
 
-from core.uzoncalc import *
-from core.uzoncalc.handcalc.rendering.value_renderer import (
+from uzoncalc import *
+from uzoncalc.handcalc.rendering.value_renderer import (
     should_render_runtime_value,
     value_to_ir,
 )

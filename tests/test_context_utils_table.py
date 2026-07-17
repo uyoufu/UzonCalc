@@ -1,12 +1,12 @@
 from importlib import import_module
 from typing import Any, get_type_hints
 
-from core.uzoncalc.context import CalcContext
-from core.uzoncalc.context_utils.table import Table, Td, Tr, table, td, th
-from core.uzoncalc.globals import _calc_instance
-from core.uzoncalc.units import unit
+from uzoncalc.context import CalcContext
+from uzoncalc.context_utils.table import Table, Td, Tr, table, td, th
+from uzoncalc.globals import _calc_instance
+from uzoncalc.units import unit
 
-table_module = import_module("core.uzoncalc.context_utils.table")
+table_module = import_module("uzoncalc.context_utils.table")
 
 
 def render_table_in_context(*args, **kwargs) -> str:

@@ -186,11 +186,14 @@ def _is_rectangular_two_dimensional_sequence(elements: list[ast.expr]) -> bool:
     """判断 AST 序列是否为可矩阵化的二维矩形数组。"""
     if not elements:
         return False
-    if not all(_is_ast_sequence(row) for row in elements):
+    first_row = elements[0]
+    if not isinstance(first_row, (ast.List, ast.Tuple)):
         return False
 
-    first_row_length = len(elements[0].elts)
+    first_row_length = len(first_row.elts)
     for row in elements:
+        if not isinstance(row, (ast.List, ast.Tuple)):
+            return False
         if len(row.elts) != first_row_length:
             return False
         if any(_is_ast_sequence(cell) for cell in row.elts):
@@ -200,11 +203,15 @@ def _is_rectangular_two_dimensional_sequence(elements: list[ast.expr]) -> bool:
 
 def _sequence_to_matrix_array(elements: list[ast.expr]) -> ir.MathNode:
     """将二维矩形 AST 序列渲染为 MathML 矩阵。"""
-    rows = [
-        ir.mtr([ir.mtd([_expr_to_ir_with_context(cell)]) for cell in row.elts])
-        for row in elements
-    ]
-    return ir.mrow_array([ir.mo("["), ir.mtable(rows), ir.mo("]")])
+    rows: list[ir.MTr] = []
+    for row in elements:
+        if not isinstance(row, (ast.List, ast.Tuple)):
+            raise ValueError("Matrix rows must be list or tuple expressions")
+        rows.append(
+            ir.mtr([ir.mtd([_expr_to_ir_with_context(cell)]) for cell in row.elts])
+        )
+    children: list[ir.MathNode] = [ir.mo("["), ir.mtable(rows), ir.mo("]")]
+    return ir.mrow_array(children)
 
 
 def _is_ast_sequence(node: ast.expr) -> bool:

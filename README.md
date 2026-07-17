@@ -39,7 +39,7 @@ Combined with AI, UzonCalc helps you work much more efficiently.
 pip install uzoncalc
 ```
 
-> UzonCalc requires Python 3.10+.
+> UzonCalc requires Python 3.13+.
 
 ---
 

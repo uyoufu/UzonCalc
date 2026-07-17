@@ -2,7 +2,7 @@ import ast
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
-from core.uzoncalc.handcalc.ast_to_ir import expr_to_ir
+from uzoncalc.handcalc.ast_to_ir import expr_to_ir
 
 PROJECT_ROOT = Path(__file__).resolve().parents[1]
 MATH_STYLE_PATH = PROJECT_ROOT / "src/core/uzoncalc/template/js/src/styles/math.css"

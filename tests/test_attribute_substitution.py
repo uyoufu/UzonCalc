@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from core.uzoncalc import enable_substitution, hide, run_sync, show, unit, uzon_calc
+from uzoncalc import enable_substitution, hide, run_sync, show, unit, uzon_calc
 
 
 @dataclass(frozen=True)

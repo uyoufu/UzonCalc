@@ -2,8 +2,9 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from ...handler_protocols import HandlerContext
+
 if TYPE_CHECKING:
-    from ...context import CalcContext
     from .dom_utils import PostHandlerNode
 
 
@@ -17,6 +18,6 @@ class BasePostHandler:
     priority: int = 100
 
     def handle(
-        self, post_node: "PostHandlerNode", ctx: "CalcContext | None" = None
+        self, post_node: "PostHandlerNode", ctx: HandlerContext | None = None
     ) -> None:
         raise NotImplementedError()

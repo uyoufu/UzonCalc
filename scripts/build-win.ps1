@@ -11,7 +11,7 @@
 param(
     [string]$OutputDir,
     [string]$ApiOutputName = "UzonCalc-Portable",
-    [string]$PythonVersion = "3.11.9",
+    [string]$PythonVersion = "3.13.14",
     [string]$PythonCacheRoot
 )
 

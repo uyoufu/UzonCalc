@@ -8,8 +8,8 @@ import html
 
 import pytest
 
-from core.uzoncalc import run_sync, uzon_calc, uzon_calc_func
-from core.uzoncalc.handcalc.instrument_cache import InstrumentCache
+from uzoncalc import run_sync, uzon_calc, uzon_calc_func
+from uzoncalc.handcalc.instrument_cache import InstrumentCache
 from tests.fixtures import uzon_calc_func_helpers as helpers
 
 

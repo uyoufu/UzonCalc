@@ -126,4 +126,4 @@ watchfiles==1.1.1
 websockets==16.0
 xlwings==0.33.20
 zipp==3.23.0
-uzoncalc
+uzoncalc[all]

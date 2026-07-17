@@ -1,10 +1,10 @@
-from core.uzoncalc.handcalc.post_handlers.comparison_symbol import ComparisonSymbol
-from core.uzoncalc.handcalc.post_handlers.dom_utils import (
+from uzoncalc.handcalc.post_handlers.comparison_symbol import ComparisonSymbol
+from uzoncalc.handcalc.post_handlers.dom_utils import (
     PostHandlerNode,
     parse_html_fragment,
     serialize_html_fragment,
 )
-from core.uzoncalc.handcalc.post_handlers.post_pipeline import get_default_post_handlers
+from uzoncalc.handcalc.post_handlers.post_pipeline import get_default_post_handlers
 
 
 def render_with_handler(handler, html: str) -> str:

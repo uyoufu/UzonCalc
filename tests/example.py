@@ -1,12 +1,5 @@
-from pathlib import Path
-import sys
 import numpy as np
-
-# Ensure project root is on sys.path so `import core` works when running
-# this script from the `core` folder.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 @uzon_calc()

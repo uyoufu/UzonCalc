@@ -1,7 +1,7 @@
 import html
 import re
 
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 def get_xi_limit(concrete_name: str, tension_kind: str) -> float:

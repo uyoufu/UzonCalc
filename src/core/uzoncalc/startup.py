@@ -1,8 +1,9 @@
 import asyncio
+from collections.abc import Awaitable, Callable
 from contextlib import asynccontextmanager
 from functools import wraps
 import inspect
-from typing import Any, Callable, Optional, TypeVar
+from typing import Any, ParamSpec, TypeVar, cast, overload
 
 from .context import CalcContext
 from .handcalc.ast_instrument import instrument_function
@@ -15,6 +16,8 @@ _PARAM_DEFAULTS = "defaults"
 _PARAM_UNIT = "unit"
 _MARKER_CALC_ENTRY = "_uzon_calc_entry"
 _MARKER_CALC_FUNC = "_uzon_calc_func"
+_P = ParamSpec("_P")
+_R = TypeVar("_R")
 
 
 @asynccontextmanager
@@ -22,7 +25,7 @@ async def uzon_calc_core(
     ctx_name: str | None = None,
     file_path: str | None = None,
     is_silent: bool = True,
-    ctx_hook_created: Optional[Callable[[CalcContext], Any]] = None,
+    ctx_hook_created: Callable[[CalcContext], Any] | None = None,
 ):
     # 生成一个上下文实例
     inst = CalcContext(
@@ -233,7 +236,7 @@ def _mark_as_entry(func: Callable) -> Callable:
     return func
 
 
-def _mark_as_calc_func(func: Callable[..., Any]) -> Callable[..., Any]:
+def _mark_as_calc_func(func: Callable[_P, _R]) -> Callable[_P, _R]:
     """标记函数被 uzon_calc_func 装饰。
 
     Args:
@@ -252,8 +255,17 @@ def _mark_as_calc_func(func: Callable[..., Any]) -> Callable[..., Any]:
 
 # 装饰器形式使用 uzon_calc
 # 只支持异步函数
-def uzon_calc(name: str | None = None):
-    def deco(fn: Callable[..., Any]):
+def uzon_calc(
+    name: str | None = None,
+) -> Callable[
+    [Callable[_P, Awaitable[_R]]],
+    Callable[_P, Awaitable[CalcContext | _R]],
+]:
+    """Decorate an async calculation entry while preserving its parameters."""
+
+    def deco(
+        fn: Callable[_P, Awaitable[_R]],
+    ) -> Callable[_P, Awaitable[CalcContext | _R]]:
         # 获取函数所在文件的路径
         file_path = inspect.getfile(fn)
 
@@ -265,9 +277,14 @@ def uzon_calc(name: str | None = None):
             raise TypeError(f"Function {fn.__name__} must be async")
 
         @wraps(fn)
-        async def async_wrapper(*args, **kwargs):
-            is_silent = kwargs.pop("is_silent", True)
-            ctx_hook_created = kwargs.pop("ctx_hook_created", None)
+        async def async_wrapper(
+            *args: _P.args, **kwargs: _P.kwargs
+        ) -> CalcContext | _R:
+            is_silent = cast(bool, kwargs.pop("is_silent", True))
+            ctx_hook_created = cast(
+                Callable[[CalcContext], Any] | None,
+                kwargs.pop("ctx_hook_created", None),
+            )
 
             current_ctx = _get_current_instance_or_none()
             if current_ctx is not None:
@@ -298,12 +315,24 @@ def uzon_calc(name: str | None = None):
                 )
                 return ctx
 
-        return _mark_as_entry(async_wrapper)
+        return _mark_as_entry(async_wrapper)  # type: ignore[return-value]
 
     return deco
 
 
-def uzon_calc_func(func: Callable[..., Any] | None = None):
+@overload
+def uzon_calc_func(func: Callable[_P, _R]) -> Callable[_P, _R]: ...
+
+
+@overload
+def uzon_calc_func(
+    func: None = None,
+) -> Callable[[Callable[_P, _R]], Callable[_P, _R]]: ...
+
+
+def uzon_calc_func(
+    func: Callable[..., Any] | None = None,
+) -> Callable[..., Any]:
     """装饰可在计算入口内部复用的纯插桩函数。
 
     Args:
@@ -405,12 +434,12 @@ def uzon_calc_func(func: Callable[..., Any] | None = None):
 
 
 async def run(
-    func: Callable,
-    *args,
-    defaults: Optional[dict] = None,
+    func: Callable[..., Any],
+    *args: Any,
+    defaults: dict[str, dict[str, Any]] | None = None,
     is_silent: bool = True,
-    ctx_hook_created: Optional[Callable[[CalcContext], Any]] = None,
-    **kwargs,
+    ctx_hook_created: Callable[[CalcContext], Any] | None = None,
+    **kwargs: Any,
 ) -> CalcContext:
     """
     异步函数运行器
@@ -442,7 +471,10 @@ async def run(
 
 
 def run_sync(
-    func: Callable, *args, defaults: Optional[dict] = None, **kwargs
+    func: Callable[..., Any],
+    *args: Any,
+    defaults: dict[str, dict[str, Any]] | None = None,
+    **kwargs: Any,
 ) -> CalcContext:
     """
     同步执行异步函数（静默模式）
@@ -465,11 +497,11 @@ def run_sync(
 
 
 def view(
-    func: Callable,
-    *args,
-    defaults: Optional[dict] = None,
+    func: Callable[..., Any],
+    *args: Any,
+    defaults: dict[str, dict[str, Any]] | None = None,
     preferred_port: int = 0,
-    **kwargs,
+    **kwargs: Any,
 ) -> None:
     from .http_server import DEFAULT_SERVER_PORT, serve_static_html
     from .template.utils import render_html_template

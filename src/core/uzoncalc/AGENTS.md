@@ -17,14 +17,11 @@ uv sync --package uzoncalc --group test
 运行核心测试时优先使用目标测试文件或目标用例：
 
 ```bash
-PYTHONPATH=src uv run pytest tests/<test_file>.py -q
-```
-
-需要按 core 包环境验证时使用：
-
-```bash
 uv run --package uzoncalc --group test pytest tests/<test_file>.py -q
 ```
+
+核心测试统一从已安装的发布包名 `uzoncalc` 导入，不使用 `core.uzoncalc`、
+`PYTHONPATH=src` 或测试内 `sys.path` 注入。
 
 修改 `template/js` 后在 `src/core/uzoncalc/template/js` 下运行：
 

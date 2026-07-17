@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 import html
-from typing import Any, Mapping, Protocol
+from collections.abc import Mapping, Sequence
+from typing import Any, Protocol
 
 from ...context import CalcContext
 from .. import ir
@@ -15,17 +16,44 @@ from .value_renderer import (
 
 
 class FStringSegmentLike(Protocol):
-    kind: str
-    text: str
-    expr: ir.MathNode | None
-    lhs: ir.MathNode | None
-    rhs: ir.MathNode | None
-    value_var: str
-    format_spec: str
+    @property
+    def kind(self) -> str:
+        """Return the segment discriminator."""
+        ...
+
+    @property
+    def text(self) -> str:
+        """Return literal segment text."""
+        ...
+
+    @property
+    def expr(self) -> ir.MathNode | None:
+        """Return the expression node when present."""
+        ...
+
+    @property
+    def lhs(self) -> ir.MathNode | None:
+        """Return the named-expression left side when present."""
+        ...
+
+    @property
+    def rhs(self) -> ir.MathNode | None:
+        """Return the named-expression right side when present."""
+        ...
+
+    @property
+    def value_var(self) -> str:
+        """Return the runtime capture variable name."""
+        ...
+
+    @property
+    def format_spec(self) -> str:
+        """Return the original f-string format specification."""
+        ...
 
 
 def render_fstring_segments(
-    segments: list[FStringSegmentLike],
+    segments: Sequence[FStringSegmentLike],
     ctx: CalcContext,
     locals_map: Mapping[str, Any],
 ) -> str:
