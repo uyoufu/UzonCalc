@@ -1,10 +1,10 @@
 """DTOs for approved-version sharing and receiver-owned imports."""
 
 import datetime
-from typing import Literal
 
 from pydantic import Field, model_validator
 
+from app.controller.calc.calc_state import ShareAccessType
 from app.controller.dto_base import BaseDTO
 
 
@@ -12,7 +12,7 @@ class ShareLinkCreateDTO(BaseDTO):
     """Describe a revocable share link for one approved version."""
 
     versionName: str
-    accessType: Literal["link", "public", "specified_users"] = "link"
+    accessType: ShareAccessType = ShareAccessType.LINK
     recipientUserOids: list[str] = Field(default_factory=list)
     expiresAt: datetime.datetime | None = None
     maxUseCount: int | None = Field(default=None, ge=1)
@@ -27,9 +27,15 @@ class ShareLinkCreateDTO(BaseDTO):
         Raises:
             ValueError: If recipients do not match the access mode.
         """
-        if self.accessType == "specified_users" and not self.recipientUserOids:
+        if (
+            self.accessType is ShareAccessType.SPECIFIED_USERS
+            and not self.recipientUserOids
+        ):
             raise ValueError("specified_users requires at least one recipient")
-        if self.accessType != "specified_users" and self.recipientUserOids:
+        if (
+            self.accessType is not ShareAccessType.SPECIFIED_USERS
+            and self.recipientUserOids
+        ):
             raise ValueError("recipients are only valid for specified_users")
         if len(self.recipientUserOids) != len(set(self.recipientUserOids)):
             raise ValueError("recipientUserOids must be unique")
@@ -42,7 +48,7 @@ class ShareLinkResDTO(BaseDTO):
     shareOid: str
     reportOid: str
     versionName: str
-    accessType: str
+    accessType: ShareAccessType
     expiresAt: datetime.datetime | None
     revokedAt: datetime.datetime | None
     maxUseCount: int | None

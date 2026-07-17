@@ -1,10 +1,14 @@
 """DTOs for calculation-report workspaces and dependencies."""
 
-from typing import Literal
-
 from pydantic import Field, StringConstraints, model_validator
 from typing_extensions import Annotated
 
+from app.controller.calc.calc_state import (
+    BuildStatus,
+    PublishState,
+    ReservedDependencySelectorKey,
+    WorkspaceFileSource,
+)
 from app.controller.dto_base import BaseDTO
 
 Sha256Text = Annotated[str, StringConstraints(pattern=r"^(sha256:)?[0-9a-f]{64}$")]
@@ -24,7 +28,7 @@ class WorkspaceFileDTO(BaseDTO):
 
     path: str
     sha256: Sha256Text | None = None
-    source: Literal["upload", "current"] = "upload"
+    source: WorkspaceFileSource = WorkspaceFileSource.UPLOAD
 
 
 class DependencySelectorDTO(BaseDTO):
@@ -44,9 +48,15 @@ class DependencySelectorDTO(BaseDTO):
         Raises:
             ValueError: If selector fields describe an invalid target.
         """
-        if self.selectorKey == "latest" and self.versionName is not None:
+        if (
+            self.selectorKey == ReservedDependencySelectorKey.LATEST
+            and self.versionName is not None
+        ):
             raise ValueError("latest selector cannot specify versionName")
-        if self.selectorKey != "latest" and self.versionName is None:
+        if (
+            self.selectorKey != ReservedDependencySelectorKey.LATEST
+            and self.versionName is None
+        ):
             raise ValueError("explicit selector requires versionName")
         return self
 
@@ -105,7 +115,7 @@ class WorkspaceBuildResDTO(BaseDTO):
 
     sourceArtifactHash: str
     runtimeFingerprint: str | None = None
-    buildStatus: str
+    buildStatus: BuildStatus
     diagnostics: dict | None = None
 
 
@@ -119,5 +129,5 @@ class WorkspaceResDTO(BaseDTO):
     formatVersion: int
     files: list[WorkspaceFileResDTO]
     dependencies: list[ReportDependencyDTO]
-    buildStatus: str
-    publishState: str
+    buildStatus: BuildStatus
+    publishState: PublishState

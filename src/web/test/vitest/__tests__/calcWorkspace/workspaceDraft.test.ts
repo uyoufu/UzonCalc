@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-import type { WorkspaceSnapshot } from 'src/api/calc/types'
+import { BuildStatus, PublishState, type WorkspaceSnapshot } from 'src/api/calc/types'
 import {
   buildWorkspaceTree,
   createDefaultWorkspaceFiles,
@@ -23,8 +23,8 @@ const snapshot: WorkspaceSnapshot = {
     { path: 'resources/logo.png', size: 3, sha256: `sha256:${'4'.repeat(64)}` }
   ],
   dependencies: [],
-  buildStatus: 'not_requested',
-  publishState: 'unpublished'
+  buildStatus: BuildStatus.NotRequested,
+  publishState: PublishState.Unpublished
 }
 
 describe('workspace draft', () => {

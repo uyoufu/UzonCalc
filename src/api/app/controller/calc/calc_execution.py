@@ -10,9 +10,20 @@ from app.controller.calc.calc_execution_dto import (
     CalcExecutionResDTO,
     CalcExecutionStartDTO,
 )
+from app.controller.calc.calc_state import (
+    ExecutionSourceType,
+    ExecutionStatus,
+    ExecutorType,
+)
 from app.controller.depends import get_session, get_token_payload
 from app.controller.dto_base import PaginationDTO
+from app.db.models.enums import (
+    ExecutionSourceType as DbExecutionSourceType,
+    ExecutionStatus as DbExecutionStatus,
+    ExecutorType as DbExecutorType,
+)
 from app.response.response_result import ResponseResult, ok
+from app.sandbox.core.backend_types import SandboxBackendMode
 from app.sandbox.core.execution_result import ExecutionResult
 from app.service import calc_execution_service
 from app.service.calc_execution_service import ExecutionStep
@@ -142,22 +153,22 @@ def _step_response(step: ExecutionStep) -> CalcExecutionResDTO:
         if step.resolved_version is not None
         else None
     )
-    from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorType
-
     return CalcExecutionResDTO(
         executionId=step.execution.oid,
         reportOid=step.report.oid,
-        sourceType=ExecutionSourceType(step.execution.sourceType).name.lower(),
+        sourceType=ExecutionSourceType[
+            DbExecutionSourceType(step.execution.sourceType).name
+        ],
         resolvedVersion=resolved_version,
         sourceArtifactHash=f"sha256:{step.source_artifact.contentHash}",
         executionArtifactHash=f"sha256:{step.execution_artifact.contentHash}",
         bundleHash=f"sha256:{step.bundle.bundleHash}",
         runtimeFingerprint=step.bundle.runtimeFingerprint,
-        executorType=ExecutorType(step.execution.executorType).name.lower(),
-        backendMode=(step.execution.metrics or {}).get(
-            "backend", step.runtime.mode.value
+        executorType=ExecutorType[DbExecutorType(step.execution.executorType).name],
+        backendMode=SandboxBackendMode(
+            (step.execution.metrics or {}).get("backend", step.runtime.mode)
         ),
-        status=ExecutionStatus(step.execution.status).name.lower(),
+        status=ExecutionStatus[DbExecutionStatus(step.execution.status).name],
         isCompleted=step.result.isCompleted,
         windows=step.result.windows,
         htmlPath=step.execution.resultPath or "",

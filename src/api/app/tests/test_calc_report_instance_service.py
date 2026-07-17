@@ -124,6 +124,7 @@ def test_create_instance_derives_provenance_and_copies_cached_result(
                 )
 
                 assert result.resultPath.startswith("public/calc-instances/1/")
+                assert result.instanceOid in result.resultPath
                 saved_html = tmp_path / "data" / result.resultPath
                 assert saved_html.exists()
                 assert (saved_html.parent / "images/image_1.png").exists()

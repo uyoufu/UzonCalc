@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import type { CalcInstance, CalcReport, CalcReportVersion } from 'src/api/calc/types'
+import { ReviewStatus, type CalcInstance, type CalcReport, type CalcReportVersion } from 'src/api/calc/types'
 import type { IPopupDialogParams } from 'src/components/lowCode/types'
 import { useInstanceListDialogs } from 'src/pages/calcReportInstance/list/compositions/useInstanceListDialogs'
 import { useCalcReportListDialogs } from 'src/pages/calcReport/list/compositions/useCalcReportListDialogs'
@@ -113,7 +113,7 @@ describe('calculation workspace dialog workflows', () => {
       })
       .mockResolvedValueOnce({
         ok: true,
-        data: { status: 'approved', comment: 'Reviewed' }
+        data: { status: ReviewStatus.Approved, comment: 'Reviewed' }
       })
 
     const { openPublishVersionDialog } = usePublishVersionDialog()
@@ -125,10 +125,10 @@ describe('calculation workspace dialog workflows', () => {
     await expect(
       openVersionReviewDialog({
         versionName: '1.0.0',
-        reviewStatus: 'pending',
+        reviewStatus: ReviewStatus.Pending,
         reviewComment: null
       } as CalcReportVersion)
-    ).resolves.toEqual({ status: 'approved', comment: 'Reviewed' })
+    ).resolves.toEqual({ status: ReviewStatus.Approved, comment: 'Reviewed' })
 
     expect(mocks.showDialog.mock.calls[1]?.[0].onOkMain).toBeUndefined()
   })

@@ -3,6 +3,7 @@ import { continueExecution, countExecutions, listExecutions, startExecution } fr
 import { countCalcReports, listCalcReports } from 'src/api/calc/reports'
 import { countInstances, listInstances } from 'src/api/calc/instances'
 import { saveWorkspace } from 'src/api/calc/workspace'
+import { ExecutionSourceType, WorkspaceFileSource } from 'src/api/calc/types'
 
 const httpClientMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }))
 vi.mock('src/api/base/httpClient', () => ({ httpClient: httpClientMock }))
@@ -11,9 +12,9 @@ describe('calculation APIs', () => {
   beforeEach(() => vi.clearAllMocks())
 
   it('posts the selected immutable execution source to the current route', async () => {
-    await startExecution({ reportOid: 'report-oid', source: { type: 'version', versionName: '1.2.3' }, defaults: {}, isSilent: false })
+    await startExecution({ reportOid: 'report-oid', source: { type: ExecutionSourceType.Version, versionName: '1.2.3' }, defaults: {}, isSilent: false })
     expect(httpClientMock.post).toHaveBeenCalledWith('/calc/execution', {
-      data: { reportOid: 'report-oid', source: { type: 'version', versionName: '1.2.3' }, defaults: {}, isSilent: false }
+      data: { reportOid: 'report-oid', source: { type: ExecutionSourceType.Version, versionName: '1.2.3' }, defaults: {}, isSilent: false }
     })
 
     await continueExecution('execution-oid', { input: { length: 4 } }, 'public/calcs/old.html')
@@ -25,7 +26,7 @@ describe('calculation APIs', () => {
   it('serializes a complete workspace snapshot and preserves upload paths', async () => {
     await saveWorkspace('report-oid', {
       workspaceRevision: 3,
-      files: [{ path: 'src/main.py', source: 'upload' }, { path: 'resources/logo.png', source: 'current', sha256: 'sha256:value' }],
+      files: [{ path: 'src/main.py', source: WorkspaceFileSource.Upload }, { path: 'resources/logo.png', source: WorkspaceFileSource.Current, sha256: 'sha256:value' }],
       dependencies: []
     }, [{ path: 'src/main.py', content: new Blob(['print(1)']) }])
 

@@ -14,7 +14,7 @@ defineOptions({ name: 'CalcReportList' })
 
 import ReportCategoryPanel from './components/ReportCategoryPanel.vue'
 import ReportTable from './components/ReportTable.vue'
-import type { CalcReport, CalcReportCategory } from 'src/api/calc/types'
+import { ExecutionSourceType, type CalcReport, type CalcReportCategory } from 'src/api/calc/types'
 import { createReportCategory, deleteReportCategory, listReportCategories, reorderReportCategories, updateReportCategory } from 'src/api/calc/categories'
 import { copyCalcReport, countCalcReports, deleteCalcReport, getCalcReport, importUzcReport, listCalcReports, setCalcReportFavorite, updateCalcReport, type ReportListParams } from 'src/api/calc/reports'
 import { listVersions, publishVersion } from 'src/api/calc/versions'
@@ -109,7 +109,7 @@ async function onCreateReport(): Promise<void> {
 /** Open a report workspace. */
 async function onOpenReport(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/workspace`, query: { tagName: `${report.name} · ${t('calcWorkspace.workspace')}` } }) }
 /** Open workspace execution for a report. */
-async function onRunReport(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/run`, query: { source: 'workspace', tagName: `${report.name} · ${t('calcWorkspace.run')}` } }) }
+async function onRunReport(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/run`, query: { source: ExecutionSourceType.Workspace, tagName: `${report.name} · ${t('calcWorkspace.run')}` } }) }
 /** Open immutable versions for a report. */
 async function onOpenVersions(report: CalcReport): Promise<void> { await router.push({ path: `/calc-report/${report.reportOid}/versions`, query: { tagName: `${report.name} · ${t('calcWorkspace.versions')}` } }) }
 

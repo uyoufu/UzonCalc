@@ -13,6 +13,7 @@ from app.controller.calc.calc_workspace_dto import (
     WorkspaceFileDTO,
     WorkspaceSaveDTO,
 )
+from app.controller.calc.calc_state import BuildStatus, WorkspaceFileSource
 from app.db.models import Base, CalcReportCategory, User
 from app.exception.custom_exception import CustomException
 from app.service.calc_report_workspace_service import get_workspace, save_workspace
@@ -37,7 +38,9 @@ async def _create_session_factory():
     return engine, async_sessionmaker(engine, expire_on_commit=False)
 
 
-def _snapshot(revision: int, *, source: str = "upload") -> WorkspaceSaveDTO:
+def _snapshot(
+    revision: int, *, source: WorkspaceFileSource = WorkspaceFileSource.UPLOAD
+) -> WorkspaceSaveDTO:
     """Build a minimal complete workspace request."""
     return WorkspaceSaveDTO(
         workspaceRevision=revision,
@@ -94,14 +97,18 @@ def test_first_save_creates_report_and_current_files_can_be_reused(
                 user.id, "c" * 24, _snapshot(0), uploads, session
             )
             reused = await save_workspace(
-                user.id, "c" * 24, _snapshot(1, source="current"), {}, session
+                user.id,
+                "c" * 24,
+                _snapshot(1, source=WorkspaceFileSource.CURRENT),
+                {},
+                session,
             )
             loaded = await get_workspace(user.id, "c" * 24, session)
 
             assert first.workspaceRevision == 1
             assert reused.workspaceRevision == 2
             assert loaded.sourceArtifactHash == first.sourceArtifactHash
-            assert loaded.buildStatus == "not_requested"
+            assert loaded.buildStatus is BuildStatus.NOT_REQUESTED
         await engine.dispose()
 
     _run(scenario())

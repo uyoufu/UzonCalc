@@ -4,7 +4,7 @@
       <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')" @click="onBackToReports" />
       <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions"
         :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
-      <q-select v-if="sourceType === 'version'" v-model="versionName" dense outlined emit-value map-options
+      <q-select v-if="sourceType === ExecutionSourceType.Version" v-model="versionName" dense outlined emit-value map-options
         :options="versionOptions" :label="t('calcWorkspace.version')" class="execution-toolbar__version" />
       <q-toggle v-model="isSilent" :label="t('calcWorkspace.silentRun')" />
       <CommonBtn v-if="!execution || execution.isCompleted" icon="play_arrow" :label="t('calcWorkspace.startRun')"
@@ -58,14 +58,21 @@ import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import ExecutionResultFrame from './components/ExecutionResultFrame.vue'
 import { useSaveInstanceDialog } from './compositions/useSaveInstanceDialog'
-import type { CalcExecution, CalcReport, CalcReportVersion, ExecutionSourceType } from 'src/api/calc/types'
+import {
+  BuildStatus,
+  CalcErrorCode,
+  ExecutionSourceType,
+  ExecutionStatus,
+  type CalcExecution,
+  type CalcReport,
+  type CalcReportVersion
+} from 'src/api/calc/types'
 import { continueExecution, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
 import { createInstance } from 'src/api/calc/instances'
 import { listVersions } from 'src/api/calc/versions'
 import { adaptExecutionFields } from './utils/adaptExecutionFields'
 import { getWorkspaceBuild } from 'src/api/calc/workspace'
 import { getCalcReport } from 'src/api/calc/reports'
-import { CalcErrorCode } from 'src/api/calc/types'
 import { getApiFailure } from '../calcReport/shared/apiFailure'
 import { notifyError, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
@@ -75,7 +82,7 @@ const router = useRouter()
 const reportOid = computed(() => String(route.params.reportOid || ''))
 const report = ref<CalcReport | null>(null)
 const versions = ref<CalcReportVersion[]>([])
-const sourceType = ref<ExecutionSourceType>('workspace')
+const sourceType = ref<ExecutionSourceType>(ExecutionSourceType.Workspace)
 const versionName = ref<string | null>(null)
 const isSilent = ref(false)
 const isExecuting = ref(false)
@@ -85,9 +92,9 @@ let buildPollTimer: ReturnType<typeof setTimeout> | null = null
 const execution = ref<CalcExecution | null>(null)
 const { openSaveInstanceDialog } = useSaveInstanceDialog()
 const sourceOptions = computed(() => [
-  { label: t('calcWorkspace.sourceWorkspace'), value: 'workspace' },
-  { label: t('calcWorkspace.sourceLatest'), value: 'latest', disable: !report.value?.latestVersionName },
-  { label: t('calcWorkspace.sourceVersion'), value: 'version', disable: versions.value.length === 0 }
+  { label: t('calcWorkspace.sourceWorkspace'), value: ExecutionSourceType.Workspace },
+  { label: t('calcWorkspace.sourceLatest'), value: ExecutionSourceType.Latest, disable: !report.value?.latestVersionName },
+  { label: t('calcWorkspace.sourceVersion'), value: ExecutionSourceType.Version, disable: versions.value.length === 0 }
 ])
 const versionOptions = computed(() => versions.value.map((version) => ({ label: version.versionName, value: version.versionName })))
 
@@ -98,10 +105,10 @@ async function initializeExecutionPage(): Promise<void> {
   versions.value = versionResponse.data || []
   versionName.value = versions.value.find((version) => version.isLatest)?.versionName || versions.value[0]?.versionName || null
   const requestedSource = Array.isArray(route.query.source) ? route.query.source[0] : route.query.source
-  if (requestedSource === 'latest' && report.value.latestVersionName) sourceType.value = 'latest'
-  else if (requestedSource === 'version' && versions.value.length > 0) sourceType.value = 'version'
-  else if (requestedSource === 'workspace') sourceType.value = 'workspace'
-  else sourceType.value = report.value.latestVersionName ? 'latest' : 'workspace'
+  if (requestedSource === ExecutionSourceType.Latest && report.value.latestVersionName) sourceType.value = ExecutionSourceType.Latest
+  else if (requestedSource === ExecutionSourceType.Version && versions.value.length > 0) sourceType.value = ExecutionSourceType.Version
+  else if (requestedSource === ExecutionSourceType.Workspace) sourceType.value = ExecutionSourceType.Workspace
+  else sourceType.value = report.value.latestVersionName ? ExecutionSourceType.Latest : ExecutionSourceType.Workspace
 }
 watch(reportOid, initializeExecutionPage, { immediate: true })
 
@@ -122,7 +129,7 @@ function collectDefaults(): ExecutionDefaults {
 async function onStart(): Promise<void> {
   isExecuting.value = true
   try {
-    const source = sourceType.value === 'version' ? { type: sourceType.value, versionName: versionName.value || undefined } : { type: sourceType.value }
+    const source = sourceType.value === ExecutionSourceType.Version ? { type: sourceType.value, versionName: versionName.value || undefined } : { type: sourceType.value }
     const response = await startExecution({ reportOid: reportOid.value, source, isSilent: isSilent.value, defaults: execution.value ? collectDefaults() : {}, lastHtmlPath: execution.value?.htmlPath })
     execution.value = adaptExecutionFields(response.data)
     buildMessage.value = ''
@@ -147,12 +154,12 @@ function scheduleBuildPoll(): void {
 /** Poll the configured runtime build until it is ready or failed. */
 async function pollWorkspaceBuild(): Promise<void> {
   const response = await getWorkspaceBuild(reportOid.value)
-  if (response.data.buildStatus === 'ready') {
+  if (response.data.buildStatus === BuildStatus.Ready) {
     isWaitingForBuild.value = false
     buildMessage.value = t('calcWorkspace.buildReady')
     return
   }
-  if (response.data.buildStatus === 'failed') {
+  if (response.data.buildStatus === BuildStatus.Failed) {
     isWaitingForBuild.value = false
     buildMessage.value = `${t('calcWorkspace.buildFailed')}: ${JSON.stringify(response.data.diagnostics || {})}`
     return
@@ -166,7 +173,7 @@ async function onContinue(): Promise<void> {
   try { const response = await continueExecution(execution.value.executionId, collectDefaults(), execution.value.htmlPath); execution.value = adaptExecutionFields(response.data) } finally { isExecuting.value = false }
 }
 /** Terminate the active execution idempotently. */
-async function onTerminate(): Promise<void> { if (execution.value) { await terminateExecution(execution.value.executionId); execution.value.status = 'cancelled' } }
+async function onTerminate(): Promise<void> { if (execution.value) { await terminateExecution(execution.value.executionId); execution.value.status = ExecutionStatus.Cancelled } }
 /** Open instance metadata for the completed execution. */
 async function onOpenSaveInstanceDialog(): Promise<void> {
   if (!execution.value) return

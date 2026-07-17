@@ -11,7 +11,7 @@
             }}</q-chip></q-td></template>
       <template #body-cell-actions="slotProps"><q-td :props="slotProps"><CommonBtn flat dense icon="info"
             @click="openExecutionDetailDialog(slotProps.row)" /><CommonBtn
-            v-if="['pending', 'running'].includes(slotProps.row.status)" flat dense icon="stop" color="negative"
+            v-if="activeExecutionStatuses.has(slotProps.row.status)" flat dense icon="stop" color="negative"
             @click="onTerminate(slotProps.row)" /></q-td></template>
     </q-table>
   </div>
@@ -21,7 +21,7 @@
 /** Paginated managed-execution audit and termination page. */
 defineOptions({ name: 'CalcExecutionHistory' })
 import type { QTableColumn } from 'quasar'
-import type { CalcExecution, ExecutionStatus } from 'src/api/calc/types'
+import { ExecutionStatus, type CalcExecution } from 'src/api/calc/types'
 import { countExecutions, listExecutions, terminateExecution } from 'src/api/calc/executions'
 import { t } from 'src/i18n/helpers'
 import { useExecutionDetailDialog } from './compositions/useExecutionDetailDialog'
@@ -29,6 +29,7 @@ import { useQTable } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
 
 const { openExecutionDetailDialog } = useExecutionDetailDialog()
+const activeExecutionStatuses = new Set<ExecutionStatus>([ExecutionStatus.Pending, ExecutionStatus.Running])
 const columns: ComputedRef<QTableColumn<CalcExecution>[]> = computed(() => [
   { name: 'createdAt', label: t('calcWorkspace.startedAt'), field: 'createdAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true },
   { name: 'reportOid', label: 'Report OID', field: 'reportOid', align: 'left' },
@@ -61,9 +62,18 @@ const {
   onRequest: requestExecutionItems
 })
 /** Terminate one active execution and patch its local state. */
-async function onTerminate(execution: CalcExecution): Promise<void> { await terminateExecution(execution.executionId); updateExistOne({ ...execution, status: 'cancelled' }, 'executionId') }
+async function onTerminate(execution: CalcExecution): Promise<void> { await terminateExecution(execution.executionId); updateExistOne({ ...execution, status: ExecutionStatus.Cancelled }, 'executionId') }
 /** Map execution status to semantic color. */
-function statusColor(status: ExecutionStatus): string { return ({ pending: 'grey-7', running: 'info', succeeded: 'positive', failed: 'negative', cancelled: 'warning', expired: 'deep-orange' })[status] }
+function statusColor(status: ExecutionStatus): string {
+  return ({
+    [ExecutionStatus.Pending]: 'grey-7',
+    [ExecutionStatus.Running]: 'info',
+    [ExecutionStatus.Succeeded]: 'positive',
+    [ExecutionStatus.Failed]: 'negative',
+    [ExecutionStatus.Cancelled]: 'warning',
+    [ExecutionStatus.Expired]: 'deep-orange'
+  } satisfies Record<ExecutionStatus, string>)[status]
+}
 </script>
 
 <style scoped>

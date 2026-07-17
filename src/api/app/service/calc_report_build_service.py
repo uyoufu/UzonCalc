@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_state import BuildStatus
 from app.sandbox.core.backend_types import SandboxBackendMode, configured_backend_mode
 from app.db.models.calc_report_artifact import (
     CalcReportArtifact,
@@ -143,7 +144,7 @@ async def get_build_state(
     source_artifact_id: int,
     runtime_fingerprint: str,
     session: AsyncSession,
-) -> tuple[str, dict | None]:
+) -> tuple[BuildStatus, dict | None]:
     """Return selected-runtime build state without creating a task."""
     build = await session.scalar(
         select(CalcReportArtifactBuild).where(
@@ -152,8 +153,9 @@ async def get_build_state(
         )
     )
     if build is None:
-        return "not_requested", None
-    return ArtifactBuildStatus(build.status).name.lower(), build.diagnostics
+        return BuildStatus.NOT_REQUESTED, None
+    status = ArtifactBuildStatus(build.status)
+    return BuildStatus[status.name], build.diagnostics
 
 
 async def _get_or_create_build(

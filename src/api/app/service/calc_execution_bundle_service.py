@@ -15,6 +15,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_state import (
+    ExecutionSourceType as ApiExecutionSourceType,
+    ReservedDependencySelectorKey,
+)
 from app.db.models.calc_execution import (
     CalcExecutionBundle,
     CalcExecutionBundleComponent,
@@ -60,20 +64,13 @@ class _ResolvedComponent:
 async def resolve_execution_source(
     user_id: int,
     report_oid: str,
-    source_type: str,
+    source_type: ApiExecutionSourceType,
     version_name: str | None,
     session: AsyncSession,
 ) -> ResolvedExecutionSource:
     """Resolve workspace/latest/version into one explicit immutable SOURCE."""
     report = await get_owned_report(user_id, report_oid, session)
-    source_type_map = {
-        "workspace": ExecutionSourceType.WORKSPACE,
-        "latest": ExecutionSourceType.LATEST,
-        "version": ExecutionSourceType.VERSION,
-    }
-    if source_type not in source_type_map:
-        raise_ex("Execution source type is invalid", code=400)
-    resolved_type = source_type_map[source_type]
+    resolved_type = ExecutionSourceType[source_type.name]
     version = None
     artifact_id = report.workspaceArtifactId
     if resolved_type is ExecutionSourceType.LATEST:
@@ -307,7 +304,7 @@ async def _resolve_dependency_version(
     report: CalcReport, selector: dict, session: AsyncSession
 ) -> CalcReportVersion:
     """Resolve a latest or explicit immutable dependency version."""
-    if selector["selectorKey"] == "latest":
+    if selector["selectorKey"] == ReservedDependencySelectorKey.LATEST:
         version = (
             await session.get(CalcReportVersion, report.latestVersionId)
             if report.latestVersionId is not None

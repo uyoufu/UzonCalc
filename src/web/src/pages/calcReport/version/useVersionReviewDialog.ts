@@ -1,7 +1,7 @@
 /** Administrator review dialog workflow for immutable calculation-report versions. */
 
 import { LowCodeFieldType } from 'src/components/lowCode/types'
-import type { CalcReportVersion, ReviewStatus } from 'src/api/calc/types'
+import { ReviewStatus, type CalcReportVersion } from 'src/api/calc/types'
 import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { t } from 'src/i18n/helpers'
 
@@ -29,9 +29,9 @@ export function useVersionReviewDialog() {
           type: LowCodeFieldType.selectOne,
           value: version.reviewStatus,
           options: [
-            { label: t('calcWorkspace.reviewStates.pending'), value: 'pending' },
-            { label: t('calcWorkspace.reviewStates.approved'), value: 'approved' },
-            { label: t('calcWorkspace.reviewStates.rejected'), value: 'rejected' }
+            { label: t('calcWorkspace.reviewStates.pending'), value: ReviewStatus.Pending },
+            { label: t('calcWorkspace.reviewStates.approved'), value: ReviewStatus.Approved },
+            { label: t('calcWorkspace.reviewStates.rejected'), value: ReviewStatus.Rejected }
           ],
           optionLabel: 'label',
           optionValue: 'value',

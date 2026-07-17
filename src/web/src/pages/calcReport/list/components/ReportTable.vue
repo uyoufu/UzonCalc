@@ -39,7 +39,7 @@
 <script setup lang="ts">
 /** Dense report table with server-side pagination and row actions. */
 import type { QTableColumn, QTableProps } from 'quasar'
-import type { BuildStatus, CalcReport, PublishState } from 'src/api/calc/types'
+import { BuildStatus, PublishState, type CalcReport } from 'src/api/calc/types'
 import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import SearchInput from 'src/components/searchInput/SearchInput.vue'
@@ -72,30 +72,41 @@ const columns: ComputedRef<QTableColumn<CalcReport>[]> = computed(() => [
 ])
 /** Map publish state to a restrained status color. */
 function publishColor(state: PublishState): string {
-  return ({ published: 'positive', unpublished: 'grey-7', unpublished_changes: 'warning', workspace_version_mismatch: 'deep-orange' })[state]
+  return ({
+    [PublishState.Published]: 'positive',
+    [PublishState.Unpublished]: 'grey-7',
+    [PublishState.UnpublishedChanges]: 'warning',
+    [PublishState.WorkspaceVersionMismatch]: 'deep-orange'
+  } satisfies Record<PublishState, string>)[state]
 }
 /** Map build state to a restrained status color. */
 function buildColor(state: BuildStatus): string {
-  return ({ not_requested: 'grey-6', pending: 'blue-grey', building: 'info', ready: 'positive', failed: 'negative' })[state]
+  return ({
+    [BuildStatus.NotRequested]: 'grey-6',
+    [BuildStatus.Pending]: 'blue-grey',
+    [BuildStatus.Building]: 'info',
+    [BuildStatus.Ready]: 'positive',
+    [BuildStatus.Failed]: 'negative'
+  } satisfies Record<BuildStatus, string>)[state]
 }
 /** Return the translated publish-state label. */
 function publishLabel(state: PublishState): string {
   const labels: Record<PublishState, string> = {
-    unpublished: t('calcWorkspace.publishStates.unpublished'),
-    published: t('calcWorkspace.publishStates.published'),
-    unpublished_changes: t('calcWorkspace.publishStates.unpublished_changes'),
-    workspace_version_mismatch: t('calcWorkspace.publishStates.workspace_version_mismatch')
+    [PublishState.Unpublished]: t('calcWorkspace.publishStates.unpublished'),
+    [PublishState.Published]: t('calcWorkspace.publishStates.published'),
+    [PublishState.UnpublishedChanges]: t('calcWorkspace.publishStates.unpublished_changes'),
+    [PublishState.WorkspaceVersionMismatch]: t('calcWorkspace.publishStates.workspace_version_mismatch')
   }
   return labels[state]
 }
 /** Return the translated build-state label. */
 function buildLabel(state: BuildStatus): string {
   const labels: Record<BuildStatus, string> = {
-    not_requested: t('calcWorkspace.buildStates.not_requested'),
-    pending: t('calcWorkspace.buildStates.pending'),
-    building: t('calcWorkspace.buildStates.building'),
-    ready: t('calcWorkspace.buildStates.ready'),
-    failed: t('calcWorkspace.buildStates.failed')
+    [BuildStatus.NotRequested]: t('calcWorkspace.buildStates.not_requested'),
+    [BuildStatus.Pending]: t('calcWorkspace.buildStates.pending'),
+    [BuildStatus.Building]: t('calcWorkspace.buildStates.building'),
+    [BuildStatus.Ready]: t('calcWorkspace.buildStates.ready'),
+    [BuildStatus.Failed]: t('calcWorkspace.buildStates.failed')
   }
   return labels[state]
 }

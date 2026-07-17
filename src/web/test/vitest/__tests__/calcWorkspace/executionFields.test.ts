@@ -1,14 +1,14 @@
 import { describe, expect, it, vi } from 'vitest'
-import type { CalcExecution } from 'src/api/calc/types'
+import { ExecutionSourceType, ExecutionStatus, ExecutorType, SandboxBackendMode, type CalcExecution } from 'src/api/calc/types'
 import { adaptExecutionFields } from 'src/pages/calcExecution/utils/adaptExecutionFields'
 import logger from 'loglevel'
 
 /** Build a minimal execution response for field-adapter tests. */
 function executionWithField(field: Record<string, unknown>): CalcExecution {
   return {
-    executionId: 'execution', reportOid: 'report', sourceType: 'workspace', resolvedVersion: null,
+    executionId: 'execution', reportOid: 'report', sourceType: ExecutionSourceType.Workspace, resolvedVersion: null,
     sourceArtifactHash: 'source', executionArtifactHash: 'execution', bundleHash: 'bundle', runtimeFingerprint: 'runtime',
-    executorType: 'local', backendMode: 'bubblewrap', status: 'running', isCompleted: false,
+    executorType: ExecutorType.Local, backendMode: SandboxBackendMode.Bubblewrap, status: ExecutionStatus.Running, isCompleted: false,
     windows: [{ title: 'input', fields: [field as never] }], htmlPath: '', updateType: 1, htmlContentPatch: null,
     createdAt: new Date().toISOString(), completedAt: null
   }

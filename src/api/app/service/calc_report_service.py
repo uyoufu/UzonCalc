@@ -9,6 +9,7 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_state import BuildStatus, PublishState
 from app.controller.calc.calc_report_dto import (
     CalcReportCopyDTO,
     CalcReportListFilterDTO,
@@ -17,23 +18,24 @@ from app.controller.calc.calc_report_dto import (
 )
 from app.controller.dto_base import PaginationDTO
 from app.db.models.calc_report import CalcReport, CalcReportOrigin
-from app.db.models.calc_report_artifact import (
-    CalcReportArtifact,
-    CalcReportArtifactBuild,
-)
+from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_category import CalcReportCategory
 from app.db.models.calc_report_dependency import (
     CalcReportDependency,
     CalcReportDependencySelector,
 )
 from app.db.models.calc_report_version import CalcReportVersion
-from app.db.models.enums import ArtifactBuildStatus, ReportOriginType
+from app.db.models.enums import ReportOriginType
 from app.db.models.favorite_calc_report import FavoriteCalcReport
 from app.db.models.object_id import ObjectId
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_artifact_service import artifact_store, public_hash
 from app.service.calc_report_category_service import get_category
-from app.service.calc_report_build_service import configured_runtime_fingerprint_hint
+from app.service.calc_report_build_service import (
+    configured_runtime_fingerprint_hint,
+    get_build_state,
+)
+from app.service.calc_report_state_service import resolve_publish_state
 from app.service.calc_report_workspace_service import get_owned_report
 from config import app_config, logger
 
@@ -283,36 +285,17 @@ async def _report_response(
         if latest is not None
         else None
     )
-    build = None
     runtime_fingerprint = configured_runtime_fingerprint_hint()
-    if workspace_artifact is not None and runtime_fingerprint is not None:
-        build = await session.scalar(
-            select(CalcReportArtifactBuild).where(
-                CalcReportArtifactBuild.sourceArtifactId == workspace_artifact.id,
-                CalcReportArtifactBuild.runtimeFingerprint == runtime_fingerprint,
-            )
-        )
     build_status = (
-        ArtifactBuildStatus(build.status).name.lower()
-        if build is not None
-        else "not_requested"
+        (await get_build_state(workspace_artifact.id, runtime_fingerprint, session))[0]
+        if workspace_artifact is not None and runtime_fingerprint is not None
+        else BuildStatus.NOT_REQUESTED
     )
-    publish_state = "unpublished"
-    if latest is not None and workspace_artifact is not None:
-        if latest.sourceArtifactId == workspace_artifact.id:
-            publish_state = "published"
-        else:
-            matches_version = await session.scalar(
-                select(CalcReportVersion.id).where(
-                    CalcReportVersion.reportId == report.id,
-                    CalcReportVersion.sourceArtifactId == workspace_artifact.id,
-                )
-            )
-            publish_state = (
-                "workspace_version_mismatch"
-                if matches_version is not None
-                else "unpublished_changes"
-            )
+    publish_state = (
+        await resolve_publish_state(report, workspace_artifact, session)
+        if workspace_artifact is not None
+        else PublishState.UNPUBLISHED
+    )
     is_favorite = (
         await session.get(FavoriteCalcReport, (report.userId, report.id)) is not None
     )

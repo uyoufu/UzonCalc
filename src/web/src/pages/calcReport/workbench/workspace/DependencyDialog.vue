@@ -44,7 +44,7 @@ import { useDialogPluginComponent } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import CancelBtn from 'src/components/quasarWrapper/buttons/CancelBtn.vue'
 import OkBtn from 'src/components/quasarWrapper/buttons/OkBtn.vue'
-import type { CalcReport, ReportDependency } from 'src/api/calc/types'
+import { ReservedDependencySelectorKey, type CalcReport, type ReportDependency } from 'src/api/calc/types'
 import { listCalcReports } from 'src/api/calc/reports'
 import { listVersions } from 'src/api/calc/versions'
 import { t } from 'src/i18n/helpers'
@@ -56,9 +56,9 @@ const reports = ref<CalcReport[]>([])
 const draftDependencies = ref<ReportDependency[]>([])
 const alias = ref('')
 const targetReportOid = ref<string | null>(null)
-const selectedSelectors = ref<string[]>(['latest'])
-const defaultSelector = ref('latest')
-const selectorOptions = ref<Array<{ label: string; value: string; versionName: string | null }>>([{ label: 'latest', value: 'latest', versionName: null }])
+const selectedSelectors = ref<string[]>([ReservedDependencySelectorKey.Latest])
+const defaultSelector = ref(ReservedDependencySelectorKey.Latest)
+const selectorOptions = ref<Array<{ label: string; value: string; versionName: string | null }>>([{ label: ReservedDependencySelectorKey.Latest, value: ReservedDependencySelectorKey.Latest, versionName: null }])
 const reportOptions = computed(() => reports.value.filter((report) => report.reportOid !== props.reportOid && report.latestVersionName).map((report) => ({ label: report.name, value: report.reportOid })))
 const selectedSelectorOptions = computed(() => selectorOptions.value.filter((option) => selectedSelectors.value.includes(option.value)))
 const canAdd = computed(() => /^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(alias.value) && Boolean(targetReportOid.value) && selectedSelectors.value.length > 0 && selectedSelectors.value.includes(defaultSelector.value) && !draftDependencies.value.some((dependency) => dependency.alias === alias.value))
@@ -73,9 +73,9 @@ onMounted(initializeDialog)
 
 /** Load explicit version selector options for the selected dependency report. */
 async function onTargetChanged(reportOid: string | null): Promise<void> {
-  selectedSelectors.value = ['latest']
-  defaultSelector.value = 'latest'
-  selectorOptions.value = [{ label: 'latest', value: 'latest', versionName: null }]
+  selectedSelectors.value = [ReservedDependencySelectorKey.Latest]
+  defaultSelector.value = ReservedDependencySelectorKey.Latest
+  selectorOptions.value = [{ label: ReservedDependencySelectorKey.Latest, value: ReservedDependencySelectorKey.Latest, versionName: null }]
   if (!reportOid) return
   const response = await listVersions(reportOid)
   selectorOptions.value.push(...(response.data || []).map((version) => ({ label: version.importSegment, value: version.importSegment, versionName: version.versionName })))

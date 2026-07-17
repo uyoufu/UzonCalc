@@ -33,7 +33,7 @@
 defineOptions({ name: 'CalcReportVersions' })
 import type { QTableColumn } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
-import type { CalcReportVersion, ReviewStatus } from 'src/api/calc/types'
+import { ReviewStatus, type CalcReportVersion } from 'src/api/calc/types'
 import { listVersions, restoreWorkspaceVersion, reviewVersion, setLatestVersion } from 'src/api/calc/versions'
 import { useUserInfoStore } from 'src/stores/user'
 import { confirmOperation } from 'src/utils/dialog'
@@ -87,9 +87,9 @@ function replaceLatestVersion(latestVersion: CalcReportVersion): void {
   if (previousLatest) updateExistOne({ ...previousLatest, isLatest: false }, 'versionOid')
 }
 /** Map review status to a semantic color. */
-function reviewColor(status: ReviewStatus): string { return ({ pending: 'grey-7', approved: 'positive', rejected: 'negative' })[status] }
+function reviewColor(status: ReviewStatus): string { return ({ [ReviewStatus.Pending]: 'grey-7', [ReviewStatus.Approved]: 'positive', [ReviewStatus.Rejected]: 'negative' })[status] }
 /** Return the translated review-state label. */
-function reviewLabel(status: ReviewStatus): string { return ({ pending: t('calcWorkspace.reviewStates.pending'), approved: t('calcWorkspace.reviewStates.approved'), rejected: t('calcWorkspace.reviewStates.rejected') })[status] }
+function reviewLabel(status: ReviewStatus): string { return ({ [ReviewStatus.Pending]: t('calcWorkspace.reviewStates.pending'), [ReviewStatus.Approved]: t('calcWorkspace.reviewStates.approved'), [ReviewStatus.Rejected]: t('calcWorkspace.reviewStates.rejected') })[status] }
 </script>
 
 <style scoped>

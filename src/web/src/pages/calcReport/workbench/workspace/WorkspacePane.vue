@@ -80,8 +80,7 @@ import { useWorkspaceDraft, type WorkspaceDraftFile } from './useWorkspaceDraft'
 import { useDependencyDialog } from './useDependencyDialog'
 import { useWorkspaceConflictDialog } from './useWorkspaceConflictDialog'
 import { WorkspaceConflictResolution } from './workspaceConflict'
-import type { CalcReport, CalcReportCategory } from 'src/api/calc/types'
-import { CalcErrorCode } from 'src/api/calc/types'
+import { BuildStatus, CalcErrorCode, ExecutionSourceType, PublishState, type CalcReport, type CalcReportCategory } from 'src/api/calc/types'
 import { getWorkspace, saveWorkspace } from 'src/api/calc/workspace'
 import { listReportCategories } from 'src/api/calc/categories'
 import { formatPythonByBlack } from 'src/api/codeFormat'
@@ -105,8 +104,19 @@ const selectedFile = computed(() => draft.files.value.find((file) => file.path =
 const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
 const reportCategoryName = computed(() => categories.value.find((category) => category.categoryOid === props.report?.categoryOid)?.name || '-')
 const isImage = computed(() => Boolean(selectedFile.value && /\.(png|jpe?g|gif|webp|svg)$/i.test(selectedFile.value.path)))
-const publishColor = computed(() => ({ published: 'positive', unpublished: 'grey-7', unpublished_changes: 'warning', workspace_version_mismatch: 'deep-orange' })[props.report?.publishState || 'unpublished'])
-const buildColor = computed(() => ({ not_requested: 'grey-6', pending: 'blue-grey', building: 'info', ready: 'positive', failed: 'negative' })[props.report?.buildStatus || 'not_requested'])
+const publishColor = computed(() => ({
+  [PublishState.Published]: 'positive',
+  [PublishState.Unpublished]: 'grey-7',
+  [PublishState.UnpublishedChanges]: 'warning',
+  [PublishState.WorkspaceVersionMismatch]: 'deep-orange'
+})[props.report?.publishState || PublishState.Unpublished])
+const buildColor = computed(() => ({
+  [BuildStatus.NotRequested]: 'grey-6',
+  [BuildStatus.Pending]: 'blue-grey',
+  [BuildStatus.Building]: 'info',
+  [BuildStatus.Ready]: 'positive',
+  [BuildStatus.Failed]: 'negative'
+})[props.report?.buildStatus || BuildStatus.NotRequested])
 
 /** Initialize either a new local draft or an existing server workspace. */
 async function initialize(): Promise<void> {
@@ -214,7 +224,7 @@ async function onConflictChoice(resolution: WorkspaceConflictResolution): Promis
 /** Save dirty workspace state before running the workspace source. */
 async function onRunWorkspace(): Promise<void> {
   if (draft.hasUnsavedChanges.value && !await onSave()) return
-  await router.push({ path: `/calc-report/${props.reportOid}/run`, query: { source: 'workspace' } })
+  await router.push({ path: `/calc-report/${props.reportOid}/run`, query: { source: ExecutionSourceType.Workspace } })
 }
 /** Download the active binary resource. */
 function onDownloadSelected(): void {

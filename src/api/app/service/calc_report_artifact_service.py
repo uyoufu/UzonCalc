@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterable
 
+from app.controller.calc.calc_state import ArtifactManifestKind
 from config import app_config
 
 _ZIP_TIMESTAMP = (1980, 1, 1, 0, 0, 0)
@@ -121,7 +122,7 @@ class ArtifactStore:
         ]
         manifest = {
             "formatVersion": 1,
-            "artifactKind": "source",
+            "artifactKind": ArtifactManifestKind.SOURCE,
             "calcbook": calcbook,
             "dependencies": dependencies,
             "files": file_manifest,
@@ -198,7 +199,7 @@ class ArtifactStore:
         ]
         manifest = {
             "formatVersion": 1,
-            "artifactKind": "instrumented",
+            "artifactKind": ArtifactManifestKind.INSTRUMENTED,
             "sourceArtifactHash": source_hash,
             "runtimeFingerprint": runtime_fingerprint,
             "sourceMaps": source_maps,

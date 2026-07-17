@@ -12,6 +12,10 @@ from sqlalchemy import select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_state import (
+    ReservedDependencySelectorKey,
+    ShareAccessType,
+)
 from app.controller.calc.calc_share_dto import (
     ShareImportDTO,
     ShareImportResDTO,
@@ -32,7 +36,7 @@ from app.db.models.calc_report_version import CalcReportVersion
 from app.db.models.enums import (
     ArtifactKind,
     ReportOriginType,
-    ShareAccessType,
+    ShareAccessType as DbShareAccessType,
     VersionReviewStatus,
 )
 from app.db.models.object_id import ObjectId
@@ -77,7 +81,7 @@ async def create_share_link(
     await _collect_approved_closure(report, version, session)
     recipients = await _resolve_recipients(request.recipientUserOids, session)
     token = secrets.token_urlsafe(32)
-    access_type = ShareAccessType[request.accessType.upper()]
+    access_type = DbShareAccessType[request.accessType.name]
     link = CalcReportShareLink(
         versionId=version.id,
         tokenHash=_token_hash(token),
@@ -348,7 +352,7 @@ async def _resolve_shared_selector(
     report: CalcReport, selector: dict, session: AsyncSession
 ) -> CalcReportVersion:
     """Resolve a latest or explicit selector to one immutable version."""
-    if selector["selectorKey"] == "latest":
+    if selector["selectorKey"] == ReservedDependencySelectorKey.LATEST:
         version = await session.get(CalcReportVersion, report.latestVersionId)
     else:
         major, minor, patch = parse_version_name(selector["versionName"])
@@ -387,7 +391,7 @@ async def _authorize_share(
             code=409,
             error_code=CalcErrorCode.SHARE_NOT_ALLOWED,
         )
-    if link.accessType == ShareAccessType.SPECIFIED_USERS.value:
+    if link.accessType == DbShareAccessType.SPECIFIED_USERS.value:
         recipient = await session.get(CalcReportShareRecipient, (link.id, user_id))
         if recipient is None:
             raise_ex(
@@ -553,7 +557,7 @@ def _share_link_response(
         shareOid=link.oid,
         reportOid=report.oid,
         versionName=_version_name(version),
-        accessType=ShareAccessType(link.accessType).name.lower(),
+        accessType=ShareAccessType[DbShareAccessType(link.accessType).name],
         expiresAt=link.expiresAt,
         revokedAt=link.revokedAt,
         maxUseCount=link.maxUseCount,

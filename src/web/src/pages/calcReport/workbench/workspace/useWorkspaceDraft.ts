@@ -1,11 +1,12 @@
 /** Own the complete client-side draft for a calculation-report workspace. */
 
 import { strToU8, zipSync } from 'fflate'
-import type {
-  ReportDependency,
-  WorkspaceFileDescriptor,
-  WorkspaceSaveRequest,
-  WorkspaceSnapshot
+import {
+  WorkspaceFileSource,
+  type ReportDependency,
+  type WorkspaceFileDescriptor,
+  type WorkspaceSaveRequest,
+  type WorkspaceSnapshot
 } from 'src/api/calc/types'
 import { getWorkspaceFile, type WorkspaceUpload } from 'src/api/calc/workspace'
 import type { TreeNodeData } from 'element-plus/es/components/tree/src/tree.type'
@@ -254,10 +255,10 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     files.value.forEach((file) => {
       if (file.isDirty || file.isNew || file.path !== file.originalPath) {
         if (!file.content) throw new Error(`Dirty file is not loaded: ${file.path}`)
-        descriptors.push({ path: file.path, source: 'upload' })
+        descriptors.push({ path: file.path, source: WorkspaceFileSource.Upload })
         uploads.push({ path: file.path, content: file.content })
       } else {
-        descriptors.push({ path: file.path, source: 'current', sha256: file.sha256 || undefined })
+        descriptors.push({ path: file.path, source: WorkspaceFileSource.Current, sha256: file.sha256 || undefined })
       }
     })
     return {

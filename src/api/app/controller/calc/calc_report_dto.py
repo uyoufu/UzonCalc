@@ -1,10 +1,10 @@
 """DTOs for report metadata, categories, versions, and favorites."""
 
 import datetime
-from typing import Literal
 
 from pydantic import Field
 
+from app.controller.calc.calc_state import BuildStatus, PublishState, ReviewStatus
 from app.controller.dto_base import BaseDTO
 
 
@@ -37,8 +37,8 @@ class CalcReportResDTO(BaseDTO):
     workspaceArtifactHash: str | None
     latestVersionName: str | None
     latestArtifactHash: str | None
-    buildStatus: str
-    publishState: str
+    buildStatus: BuildStatus
+    publishState: PublishState
     isFavorite: bool
     createdAt: datetime.datetime
     updatedAt: datetime.datetime
@@ -86,7 +86,7 @@ class CalcReportVersionCreateDTO(BaseDTO):
 class CalcReportVersionReviewDTO(BaseDTO):
     """Set an administrator review outcome for an immutable version."""
 
-    reviewStatus: Literal["pending", "approved", "rejected"]
+    reviewStatus: ReviewStatus
     reviewComment: str | None = None
 
 
@@ -98,7 +98,7 @@ class CalcReportVersionResDTO(BaseDTO):
     importSegment: str
     sourceArtifactHash: str
     description: str | None
-    reviewStatus: str
+    reviewStatus: ReviewStatus
     reviewedAt: datetime.datetime | None
     reviewComment: str | None
     isLatest: bool

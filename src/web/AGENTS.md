@@ -33,6 +33,22 @@
 - 页面入口组件中，不包含具体业务逻辑，仅对所有的组件和 composable 进行初始化和聚合
 - 页面中不使用 q-page 作为根元素，已经在 layout 中使用了 q-page
 
+## 代码风格
+
+TS 中，使用 `as const` 定义常量, 禁止使用字符串联合类型，示例如下：
+
+```TypeScript
+  // 定义状态常量, 代替枚举
+const Status = {
+  Pending: 'PENDING',
+  Fulfilled: 'FULFILLED',
+  Rejected: 'REJECTED',
+  } as const
+
+// 定义类型
+type Status = typeof Status[keyof typeof Status]
+```
+
 ## 组件设计
 
 - 将视图拆分为职责聚焦的子组件，每个组件只负责一个清晰关注点

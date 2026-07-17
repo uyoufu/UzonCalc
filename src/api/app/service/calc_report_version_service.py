@@ -9,6 +9,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_state import ReservedDependencySelectorKey, ReviewStatus
 from app.controller.calc.calc_report_dto import (
     CalcReportVersionCreateDTO,
     CalcReportVersionResDTO,
@@ -173,12 +174,7 @@ async def review_version(
             error_code=CalcErrorCode.REPORT_NOT_FOUND,
         )
     version = await _get_version(report, version_name, session)
-    statuses = {
-        "pending": VersionReviewStatus.PENDING,
-        "approved": VersionReviewStatus.APPROVED,
-        "rejected": VersionReviewStatus.REJECTED,
-    }
-    status = statuses[request.reviewStatus]
+    status = VersionReviewStatus[request.reviewStatus.name]
     version.reviewStatus = status.value
     version.reviewComment = request.reviewComment
     if status is VersionReviewStatus.PENDING:
@@ -257,7 +253,9 @@ def _validate_calcdeps_module(
             data={"module": module_name},
             error_code=CalcErrorCode.DEPENDENCY_INVALID,
         )
-    if len(parts) >= 3 and (parts[2] == "latest" or parts[2].startswith("v_")):
+    if len(parts) >= 3 and (
+        parts[2] == ReservedDependencySelectorKey.LATEST or parts[2].startswith("v_")
+    ):
         if parts[2] not in declarations[parts[1]]:
             raise_ex(
                 "calcdeps import uses an undeclared selector",
@@ -321,7 +319,7 @@ def _version_response(
         importSegment=f"v_{version.major}_{version.minor}_{version.patch}",
         sourceArtifactHash=public_hash(artifact.contentHash),
         description=version.description,
-        reviewStatus=VersionReviewStatus(version.reviewStatus).name.lower(),
+        reviewStatus=ReviewStatus[VersionReviewStatus(version.reviewStatus).name],
         reviewedAt=version.reviewedAt,
         reviewComment=version.reviewComment,
         isLatest=is_latest,

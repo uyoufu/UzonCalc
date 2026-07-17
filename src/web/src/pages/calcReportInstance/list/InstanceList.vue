@@ -39,7 +39,7 @@ defineOptions({ name: 'CalcReportInstanceList' })
 import type { QTableColumn } from 'quasar'
 import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import SearchInput from 'src/components/searchInput/SearchInput.vue'
-import type { CalcInstance, CalcInstanceCategory } from 'src/api/calc/types'
+import { ExecutionSourceType, type CalcInstance, type CalcInstanceCategory } from 'src/api/calc/types'
 import { createInstanceCategory, deleteInstanceCategory, listInstanceCategories, updateInstanceCategory } from 'src/api/calc/categories'
 import { countInstances, deleteInstance, listInstances, updateInstance } from 'src/api/calc/instances'
 import { useInstanceContextMenu } from './components/useInstanceContextMenu'
@@ -58,7 +58,7 @@ const { openCategoryDialog, openInstanceDialog } = useInstanceListDialogs()
 const columns: ComputedRef<QTableColumn<CalcInstance>[]> = computed(() => [
   { name: 'name', label: t('calcWorkspace.instanceName'), field: 'name', align: 'left', sortable: true },
   { name: 'reportName', label: t('calcWorkspace.reportName'), field: (row) => row.reportName || '-', align: 'left', sortable: true },
-  { name: 'sourceVersion', label: t('calcWorkspace.version'), field: (row) => row.sourceVersion || 'workspace', align: 'left' },
+  { name: 'sourceVersion', label: t('calcWorkspace.version'), field: (row) => row.sourceVersion || ExecutionSourceType.Workspace, align: 'left' },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
   { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true }
 ])

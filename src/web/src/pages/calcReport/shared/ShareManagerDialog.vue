@@ -13,7 +13,7 @@
           <q-select v-model="accessType" class="col" dense outlined emit-value map-options
             :label="t('calcWorkspace.accessType')" :options="accessOptions" />
         </div>
-        <q-select v-if="accessType === 'specified_users'" v-model="recipients" use-input use-chips multiple dense
+        <q-select v-if="accessType === ShareAccessType.SpecifiedUsers" v-model="recipients" use-input use-chips multiple dense
           outlined :label="t('calcWorkspace.recipientUsernames')" :options="[]" @new-value="onRecipientAdded" />
         <div class="row q-col-gutter-sm">
           <q-input v-model="expiresAt" class="col" dense outlined type="datetime-local"
@@ -48,7 +48,7 @@
 /** Manage approved-version share links for a report. */
 import { useDialogPluginComponent } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
-import type { CalcReportVersion, ShareAccessType, ShareLink } from 'src/api/calc/types'
+import { ReviewStatus, ShareAccessType, type CalcReportVersion, type ShareLink } from 'src/api/calc/types'
 import { createShareLink, listShareLinks, revokeShareLink } from 'src/api/calc/shares'
 import { listVersions } from 'src/api/calc/versions'
 import { getUserInfo } from 'src/api/user'
@@ -61,17 +61,17 @@ const { dialogRef, onDialogHide, onDialogCancel } = useDialogPluginComponent()
 const versions = ref<CalcReportVersion[]>([])
 const links = ref<ShareLink[]>([])
 const versionName = ref<string | null>(null)
-const accessType = ref<ShareAccessType>('link')
+const accessType = ref<ShareAccessType>(ShareAccessType.Link)
 const recipients = ref<Array<{ label: string; value: string }>>([])
 const expiresAt = ref('')
 const maxUseCount = ref<number | null>(null)
 const isCreating = ref(false)
 
-const approvedVersionOptions = computed(() => versions.value.filter((version) => version.reviewStatus === 'approved').map((version) => ({ label: version.versionName, value: version.versionName })))
+const approvedVersionOptions = computed(() => versions.value.filter((version) => version.reviewStatus === ReviewStatus.Approved).map((version) => ({ label: version.versionName, value: version.versionName })))
 const accessOptions = computed(() => [
-  { label: t('calcWorkspace.accessLink'), value: 'link' },
-  { label: t('calcWorkspace.accessPublic'), value: 'public' },
-  { label: t('calcWorkspace.accessSpecified'), value: 'specified_users' }
+  { label: t('calcWorkspace.accessLink'), value: ShareAccessType.Link },
+  { label: t('calcWorkspace.accessPublic'), value: ShareAccessType.Public },
+  { label: t('calcWorkspace.accessSpecified'), value: ShareAccessType.SpecifiedUsers }
 ])
 
 /** Load approved versions and existing links when the dialog is created. */

@@ -11,6 +11,11 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_state import (
+    BuildStatus,
+    ReservedDependencySelectorKey,
+    WorkspaceFileSource,
+)
 from app.controller.calc.calc_workspace_dto import (
     ReportDependencyDTO,
     WorkspaceDependenciesUpdateDTO,
@@ -20,17 +25,14 @@ from app.controller.calc.calc_workspace_dto import (
     WorkspaceSaveDTO,
 )
 from app.db.models.calc_report import CalcReport
-from app.db.models.calc_report_artifact import (
-    CalcReportArtifact,
-    CalcReportArtifactBuild,
-)
+from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_category import CalcReportCategory
 from app.db.models.calc_report_dependency import (
     CalcReportDependency,
     CalcReportDependencySelector,
 )
 from app.db.models.calc_report_version import CalcReportVersion
-from app.db.models.enums import ArtifactBuildStatus, ArtifactKind
+from app.db.models.enums import ArtifactKind
 from app.db.models.object_id import ObjectId
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_artifact_service import (
@@ -41,7 +43,11 @@ from app.service.calc_report_artifact_service import (
     public_hash,
     sha256_text,
 )
-from app.service.calc_report_build_service import configured_runtime_fingerprint_hint
+from app.service.calc_report_build_service import (
+    configured_runtime_fingerprint_hint,
+    get_build_state,
+)
+from app.service.calc_report_state_service import resolve_publish_state
 from config import app_config, logger
 
 
@@ -329,7 +335,7 @@ async def replace_workspace_dependencies(
         WorkspaceFileDTO(
             path=file_info["path"],
             sha256=public_hash(file_info["sha256"]),
-            source="current",
+            source=WorkspaceFileSource.CURRENT,
         )
         for file_info in artifact.manifest.get("files", [])
     ]
@@ -404,7 +410,7 @@ def _resolve_snapshot_files(
                 error_code=CalcErrorCode.WORKSPACE_INVALID,
             )
         descriptor_paths.add(path)
-        if descriptor.source == "upload":
+        if descriptor.source is WorkspaceFileSource.UPLOAD:
             if path not in uploaded_files:
                 raise_ex(
                     "Workspace upload is missing a declared file",
@@ -544,7 +550,7 @@ async def _resolve_dependencies(
         normalized_selectors: list[dict] = []
         for selector in dependency.selectors:
             target_version_id = None
-            if selector.selectorKey == "latest":
+            if selector.selectorKey == ReservedDependencySelectorKey.LATEST:
                 if target.latestVersionId is None:
                     raise_ex(
                         "Dependency latest version is not published",
@@ -717,38 +723,12 @@ async def _workspace_response(
 ) -> WorkspaceResDTO:
     """Build the public workspace response with derived states."""
     runtime_fingerprint = configured_runtime_fingerprint_hint()
-    build = (
-        await session.scalar(
-            select(CalcReportArtifactBuild).where(
-                CalcReportArtifactBuild.sourceArtifactId == artifact.id,
-                CalcReportArtifactBuild.runtimeFingerprint == runtime_fingerprint,
-            )
-        )
-        if runtime_fingerprint is not None
-        else None
-    )
     build_status = (
-        ArtifactBuildStatus(build.status).name.lower()
-        if build is not None
-        else "not_requested"
+        (await get_build_state(artifact.id, runtime_fingerprint, session))[0]
+        if runtime_fingerprint is not None
+        else BuildStatus.NOT_REQUESTED
     )
-    publish_state = "unpublished"
-    if report.latestVersionId is not None:
-        latest = await session.get(CalcReportVersion, report.latestVersionId)
-        if latest is not None and latest.sourceArtifactId == artifact.id:
-            publish_state = "published"
-        else:
-            matching_version = await session.scalar(
-                select(CalcReportVersion.id).where(
-                    CalcReportVersion.reportId == report.id,
-                    CalcReportVersion.sourceArtifactId == artifact.id,
-                )
-            )
-            publish_state = (
-                "workspace_version_mismatch"
-                if matching_version is not None
-                else "unpublished_changes"
-            )
+    publish_state = await resolve_publish_state(report, artifact, session)
     files = [
         WorkspaceFileResDTO(
             path=file_info["path"],

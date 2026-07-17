@@ -22,6 +22,7 @@ from app.db.models.calc_report import CalcReport
 from app.db.models.calc_report_instance import CalcReportInstance
 from app.db.models.calc_report_instance_category import CalcReportInstanceCategory
 from app.db.models.calc_report_version import CalcReportVersion
+from app.db.models.object_id import ObjectId
 from app.db.models.user_input_history import UserInputHistory
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_instance_category_service import get_category
@@ -39,7 +40,10 @@ async def create_instance(
     category = await get_category(user_id, request.categoryOid, session)
     if not execution.resultPath:
         raise_ex("Execution has no cached result", code=409)
+    instance_oid = ObjectId().to_hex()
+    result_path = _persist_result(user_id, instance_oid, execution.resultPath)
     instance = CalcReportInstance(
+        oid=instance_oid,
         userId=user_id,
         categoryId=category.id,
         reportId=report.id,
@@ -50,12 +54,10 @@ async def create_instance(
         name=request.name.strip(),
         description=request.description,
         defaults=history.defaults,
-        resultPath="pending",
+        resultPath=result_path,
         revision=1,
     )
     session.add(instance)
-    await session.flush()
-    instance.resultPath = _persist_result(user_id, instance.oid, execution.resultPath)
     await session.commit()
     return await _response(instance, session)
 

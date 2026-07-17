@@ -2,32 +2,97 @@
 
 import type { ILowCodeField } from 'src/components/lowCode/types'
 
-export type PublishState = 'unpublished' | 'published' | 'unpublished_changes' | 'workspace_version_mismatch'
-export type BuildStatus = 'not_requested' | 'pending' | 'building' | 'ready' | 'failed'
-export type ReviewStatus = 'pending' | 'approved' | 'rejected'
-export type ExecutionSourceType = 'workspace' | 'latest' | 'version'
-export type ExecutionStatus = 'pending' | 'running' | 'succeeded' | 'failed' | 'cancelled' | 'expired'
-export type ShareAccessType = 'link' | 'public' | 'specified_users'
+export const PublishState = {
+  Unpublished: 'unpublished',
+  Published: 'published',
+  UnpublishedChanges: 'unpublished_changes',
+  WorkspaceVersionMismatch: 'workspace_version_mismatch'
+} as const
+export type PublishState = typeof PublishState[keyof typeof PublishState]
 
-export enum CalcErrorCode {
-  InvalidObjectId = 'INVALID_OBJECT_ID',
-  ReportNotFound = 'REPORT_NOT_FOUND',
-  CategoryNotFound = 'CATEGORY_NOT_FOUND',
-  WorkspaceNotFound = 'WORKSPACE_NOT_FOUND',
-  WorkspaceRevisionConflict = 'WORKSPACE_REVISION_CONFLICT',
-  WorkspaceInvalid = 'WORKSPACE_INVALID',
-  VersionNotFound = 'VERSION_NOT_FOUND',
-  VersionAlreadyExists = 'VERSION_ALREADY_EXISTS',
-  DependencyInvalid = 'DEPENDENCY_INVALID',
-  DependencyCycle = 'DEPENDENCY_CYCLE',
-  ExecutionArtifactNotReady = 'EXECUTION_ARTIFACT_NOT_READY',
-  ExecutionArtifactBuildFailed = 'EXECUTION_ARTIFACT_BUILD_FAILED',
-  ExecutionNotFound = 'EXECUTION_NOT_FOUND',
-  ExecutionProcessLost = 'EXECUTION_PROCESS_LOST',
-  ShareNotFound = 'SHARE_NOT_FOUND',
-  ShareNotAllowed = 'SHARE_NOT_ALLOWED',
-  ArchiveInvalid = 'ARCHIVE_INVALID'
-}
+export const BuildStatus = {
+  NotRequested: 'not_requested',
+  Pending: 'pending',
+  Building: 'building',
+  Ready: 'ready',
+  Failed: 'failed'
+} as const
+export type BuildStatus = typeof BuildStatus[keyof typeof BuildStatus]
+
+export const ReviewStatus = {
+  Pending: 'pending',
+  Approved: 'approved',
+  Rejected: 'rejected'
+} as const
+export type ReviewStatus = typeof ReviewStatus[keyof typeof ReviewStatus]
+
+export const ExecutionSourceType = {
+  Workspace: 'workspace',
+  Latest: 'latest',
+  Version: 'version'
+} as const
+export type ExecutionSourceType = typeof ExecutionSourceType[keyof typeof ExecutionSourceType]
+
+export const ExecutionStatus = {
+  Pending: 'pending',
+  Running: 'running',
+  Succeeded: 'succeeded',
+  Failed: 'failed',
+  Cancelled: 'cancelled',
+  Expired: 'expired'
+} as const
+export type ExecutionStatus = typeof ExecutionStatus[keyof typeof ExecutionStatus]
+
+export const ShareAccessType = {
+  Link: 'link',
+  Public: 'public',
+  SpecifiedUsers: 'specified_users'
+} as const
+export type ShareAccessType = typeof ShareAccessType[keyof typeof ShareAccessType]
+
+export const WorkspaceFileSource = {
+  Upload: 'upload',
+  Current: 'current'
+} as const
+export type WorkspaceFileSource = typeof WorkspaceFileSource[keyof typeof WorkspaceFileSource]
+
+export const ExecutorType = {
+  Local: 'local',
+  Docker: 'docker'
+} as const
+export type ExecutorType = typeof ExecutorType[keyof typeof ExecutorType]
+
+export const SandboxBackendMode = {
+  InProcess: 'in_process',
+  Bubblewrap: 'bubblewrap',
+  Docker: 'docker'
+} as const
+export type SandboxBackendMode = typeof SandboxBackendMode[keyof typeof SandboxBackendMode]
+
+export const ReservedDependencySelectorKey = {
+  Latest: 'latest'
+} as const
+
+export const CalcErrorCode = {
+  InvalidObjectId: 'INVALID_OBJECT_ID',
+  ReportNotFound: 'REPORT_NOT_FOUND',
+  CategoryNotFound: 'CATEGORY_NOT_FOUND',
+  WorkspaceNotFound: 'WORKSPACE_NOT_FOUND',
+  WorkspaceRevisionConflict: 'WORKSPACE_REVISION_CONFLICT',
+  WorkspaceInvalid: 'WORKSPACE_INVALID',
+  VersionNotFound: 'VERSION_NOT_FOUND',
+  VersionAlreadyExists: 'VERSION_ALREADY_EXISTS',
+  DependencyInvalid: 'DEPENDENCY_INVALID',
+  DependencyCycle: 'DEPENDENCY_CYCLE',
+  ExecutionArtifactNotReady: 'EXECUTION_ARTIFACT_NOT_READY',
+  ExecutionArtifactBuildFailed: 'EXECUTION_ARTIFACT_BUILD_FAILED',
+  ExecutionNotFound: 'EXECUTION_NOT_FOUND',
+  ExecutionProcessLost: 'EXECUTION_PROCESS_LOST',
+  ShareNotFound: 'SHARE_NOT_FOUND',
+  ShareNotAllowed: 'SHARE_NOT_ALLOWED',
+  ArchiveInvalid: 'ARCHIVE_INVALID'
+} as const
+export type CalcErrorCode = typeof CalcErrorCode[keyof typeof CalcErrorCode]
 
 export interface CalcReportCategory {
   categoryOid: string
@@ -98,7 +163,7 @@ export interface WorkspaceBuild {
 export interface WorkspaceFileDescriptor {
   path: string
   sha256?: string
-  source: 'upload' | 'current'
+  source: WorkspaceFileSource
 }
 
 export interface WorkspaceSaveRequest {
@@ -175,8 +240,8 @@ export interface CalcExecution {
   executionArtifactHash: string
   bundleHash: string
   runtimeFingerprint: string
-  executorType: string
-  backendMode: string
+  executorType: ExecutorType
+  backendMode: SandboxBackendMode
   status: ExecutionStatus
   isCompleted: boolean
   windows: CalcInputWindow[]

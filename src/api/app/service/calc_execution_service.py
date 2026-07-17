@@ -21,7 +21,7 @@ from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorTy
 from app.db.models.user_input_history import InputCache, UserInputHistory
 from app.exception.custom_exception import raise_ex
 from app.sandbox.core.backend_factory import get_sandbox_executor
-from app.sandbox.core.backend_types import RuntimeDescriptor
+from app.sandbox.core.backend_types import RuntimeDescriptor, SandboxBackendMode
 from app.sandbox.core.execution_result import ExecutionResult
 from app.service.calc_execution_bundle_service import (
     ResolvedExecutionSource,
@@ -238,8 +238,9 @@ async def get_execution_step(
     )
     if source_artifact is None or execution_artifact is None:
         raise_ex("Execution artifacts not found", code=500)
-    backend_name = (execution.metrics or {}).get("backend", "in_process")
-    from app.sandbox.core.backend_types import SandboxBackendMode
+    backend_name = (execution.metrics or {}).get(
+        "backend", SandboxBackendMode.IN_PROCESS
+    )
 
     runtime = RuntimeDescriptor(
         mode=SandboxBackendMode(backend_name),
