@@ -4,6 +4,7 @@ import { BuildStatus, PublishState, type WorkspaceSnapshot } from 'src/api/calc/
 import {
   buildWorkspaceTree,
   createDefaultWorkspaceFiles,
+  normalizeWorkspaceDirectoryPath,
   normalizeWorkspacePath,
   useWorkspaceDraft
 } from 'src/pages/calcReport/workbench/workspace/useWorkspaceDraft'
@@ -38,6 +39,40 @@ describe('workspace draft', () => {
     const tree = buildWorkspaceTree(createDefaultWorkspaceFiles())
     expect(tree.map((node) => node.path)).toEqual(['calcbook.json', 'src', 'src/main.py'])
     expect(tree.find((node) => node.path === 'src')?.kind).toBe('folder')
+  })
+
+  it('shows session directories without serializing them into the workspace snapshot', () => {
+    expect(normalizeWorkspaceDirectoryPath('/src/helpers/')).toBe('src/helpers')
+    expect(() => normalizeWorkspaceDirectoryPath('helpers')).toThrow()
+
+    const draft = useWorkspaceDraft(ref(snapshot.reportOid))
+    draft.initializeFromSnapshot(snapshot)
+    draft.addDirectory('src/helpers')
+
+    expect(draft.treeNodes.value.find((node) => node.path === 'src/helpers')?.kind).toBe('folder')
+    expect(draft.hasUnsavedChanges.value).toBe(false)
+    expect(draft.buildSavePayload().snapshot.files.some((file) => file.path === 'src/helpers')).toBe(false)
+  })
+
+  it('renames and deletes session-only directories with their descendants', async () => {
+    const draft = useWorkspaceDraft(ref(snapshot.reportOid))
+    draft.initializeFromSnapshot(snapshot)
+    draft.addDirectory('src/helpers/internal')
+
+    await draft.renamePath('src/helpers', 'src/shared')
+    expect(draft.directories.value).toEqual(['src/shared/internal'])
+
+    draft.deletePath('src/shared')
+    expect(draft.directories.value).toEqual([])
+  })
+
+  it('rejects file and directory path collisions before saving', () => {
+    const draft = useWorkspaceDraft(ref(snapshot.reportOid))
+    draft.initializeFromSnapshot(snapshot)
+    draft.addDirectory('src/helpers')
+
+    expect(() => draft.addFile('src/helpers', '')).toThrow()
+    expect(() => draft.addDirectory('src/main.py/child')).toThrow()
   })
 
   it('builds current descriptors for unchanged files and uploads changed files', async () => {

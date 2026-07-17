@@ -1,8 +1,9 @@
 <template>
   <div class="workspace-pane column no-wrap">
     <div class="workspace-toolbar row items-center q-gutter-xs q-px-sm">
-      <CommonBtn flat dense icon="arrow_back" @click="onBackToReports" :tooltip="t('calcWorkspace.backToReports')">
-      </CommonBtn>
+      <CommonBtn flat dense icon="arrow_back" @click="onBackToReports" :tooltip="t('calcWorkspace.backToReports')" />
+      <CommonBtn flat dense :icon="isTreeVisible ? 'menu_open' : 'menu'" @click="isTreeVisible = !isTreeVisible"
+        :tooltip="t(isTreeVisible ? 'calcWorkspace.collapseTree' : 'calcWorkspace.expandTree')" />
       <template v-if="isNew">
         <q-select v-model="createForm.categoryOid" dense options-dense outlined emit-value map-options
           :options="categoryOptions" :label="t('calcWorkspace.categoryName')" class="workspace-toolbar__category" />
@@ -18,9 +19,9 @@
 
       <CommonBtn icon="save" flat :tooltip="t('calcWorkspace.saveWorkspace')" :loading="draft.isSaving.value"
         :disable="!draft.hasUnsavedChanges.value" @click="onSave" />
-      <CommonBtn flat dense icon="play_arrow" color="positive" @click="onRunWorkspace"
+      <CommonBtn flat dense icon="play_arrow" color="positive" :loading="isActivatingRunTab" @click="onRunWorkspace"
         :tooltip="t('calcWorkspace.runWorkspace')" />
-      <CommonBtn flat dense icon="format_align_left" :disable="!selectedFile?.path.endsWith('.py')"
+      <CommonBtn flat dense icon="format_align_left" :disable="!activeFile?.path.endsWith('.py')"
         @click="onFormatFile" :tooltip="t('calcWorkspace.format')" />
 
       <q-chip dense square :color="draft.hasUnsavedChanges.value ? 'warning' : 'positive'" text-color="white">
@@ -29,42 +30,53 @@
       <span class="text-caption text-grey-7">rev {{ draft.workspaceRevision.value }}</span>
       <q-space />
       <template v-if="report">
-        <q-chip dense square :color="publishColor" text-color="white">{{
-          t(`calcWorkspace.publishStates.${report.publishState}`) }}</q-chip>
-        <q-chip dense square :color="buildColor" text-color="white">{{
-          t(`calcWorkspace.buildStates.${report.buildStatus}`) }}</q-chip>
+        <q-chip dense square :color="publishColor" text-color="white">
+          {{ t(`calcWorkspace.publishStates.${report.publishState}`) }}
+        </q-chip>
+        <q-chip dense square :color="buildColor" text-color="white">
+          {{ t(`calcWorkspace.buildStates.${report.buildStatus}`) }}
+        </q-chip>
       </template>
     </div>
     <q-separator />
     <div class="row no-wrap col workspace-body">
-      <WorkspaceTreePanel :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value" @select="onSelectFile"
-        @create="onCreateFile" @upload="onUploadResources" @rename="onRenamePath" @delete="onDeletePath"
+      <WorkspaceTreePanel v-show="isTreeVisible" v-model:expanded-paths="expandedPaths"
+        v-model:current-path="selectedPath" :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value"
+        @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory"
+        @upload="onUploadResources" @rename="onRenamePath" @delete="onDeletePath"
         @entry="draft.setEntryPath" @dependencies="onOpenDependencyDialog" />
-      <main class="col workspace-main">
-        <template v-if="selectedFile">
-          <div class="workspace-filebar row items-center q-px-sm">
-            <q-icon :name="selectedFile.isText ? 'description' : 'attach_file'" class="q-mr-xs" />
-            <span class="text-caption ellipsis">{{ selectedFile.path }}</span>
-            <q-space /><span class="text-caption text-grey-6">{{ formatBytes(selectedFile.size) }}</span>
+      <main class="col workspace-main column no-wrap">
+        <WorkspaceTabs :tabs="workspaceTabs.tabs.value" :active-tab-id="workspaceTabs.activeTabId.value"
+          :dirty-paths="dirtyPaths" @activate="onActivateTab" @close="onCloseTab" />
+        <div class="col workspace-tab-content">
+          <div v-if="selectedFile" v-show="isFileTabActive" class="full-height column no-wrap">
+            <div class="workspace-filebar row items-center q-px-sm">
+              <q-icon :name="selectedFile.isText ? 'description' : 'attach_file'" class="q-mr-xs" />
+              <span class="text-caption ellipsis">{{ selectedFile.path }}</span>
+              <q-space /><span class="text-caption text-grey-6">{{ formatBytes(selectedFile.size) }}</span>
+            </div>
+            <q-separator />
+            <WorkspaceCodeEditor v-if="selectedFile.isText && selectedFile.text !== null" class="col"
+              :path="selectedFile.path" :content="selectedFile.text" :open-paths="workspaceTabs.openFilePaths.value"
+              @change="draft.updateText" />
+            <div v-else-if="isImage && objectUrl" class="col column items-center justify-center resource-preview">
+              <img :src="objectUrl" :alt="selectedFile.path">
+              <CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')"
+                @click="onDownloadSelected" />
+            </div>
+            <div v-else class="col column items-center justify-center text-grey-7">
+              <q-icon name="drafts" size="48px" />
+              <div class="q-mt-sm">{{ t('calcWorkspace.binaryResource') }}</div>
+              <CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')"
+                @click="onDownloadSelected" />
+            </div>
           </div>
-          <q-separator />
-          <WorkspaceCodeEditor v-if="selectedFile.isText && selectedFile.text !== null" class="col"
-            :path="selectedFile.path" :content="selectedFile.text" @change="draft.updateText" />
-          <div v-else-if="isImage && objectUrl" class="col column items-center justify-center resource-preview">
-            <img :src="objectUrl" :alt="selectedFile.path">
-            <CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')"
-              @click="onDownloadSelected" />
+          <ExecutionPane v-if="workspaceTabs.hasRunTab.value" v-show="isRunTabActive" ref="executionPaneRef"
+            class="full-height" :report-oid="reportOid" workspace-only :refresh-token="runRefreshToken" />
+          <div v-if="!workspaceTabs.activeTab.value" class="full-height column items-center justify-center text-grey-6">
+            <q-icon name="tab" size="48px" />
+            <div>{{ t('calcWorkspace.selectFile') }}</div>
           </div>
-          <div v-else class="col column items-center justify-center text-grey-7">
-            <q-icon name="drafts" size="48px" />
-            <div class="q-mt-sm">{{ t('calcWorkspace.binaryResource') }}</div>
-            <CommonBtn class="q-mt-md" icon="download" color="grey-8" :label="t('calcWorkspace.download')"
-              @click="onDownloadSelected" />
-          </div>
-        </template>
-        <div v-else class="full-height column items-center justify-center text-grey-6"><q-icon name="code"
-            size="48px" />
-          <div>{{ t('calcWorkspace.selectFile') }}</div>
         </div>
       </main>
     </div>
@@ -72,15 +84,19 @@
 </template>
 
 <script setup lang="ts">
-/** Complete multi-file workspace editor with atomic explicit saves. */
+/** Complete multi-file workspace editor with document and execution tabs. */
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
+import ExecutionPane from 'src/pages/calcExecution/components/ExecutionPane.vue'
 import WorkspaceTreePanel from './WorkspaceTreePanel.vue'
 import WorkspaceCodeEditor from './WorkspaceCodeEditor.vue'
+import WorkspaceTabs from './WorkspaceTabs.vue'
 import { useWorkspaceDraft, type WorkspaceDraftFile } from './useWorkspaceDraft'
+import { useWorkspaceTabs, WorkspaceTabKind, WORKSPACE_RUN_TAB_ID } from './useWorkspaceTabs'
+import { useWorkspaceViewState } from './useWorkspaceViewState'
 import { useDependencyDialog } from './useDependencyDialog'
 import { useWorkspaceConflictDialog } from './useWorkspaceConflictDialog'
 import { WorkspaceConflictResolution } from './workspaceConflict'
-import { BuildStatus, CalcErrorCode, ExecutionSourceType, PublishState, type CalcReport, type CalcReportCategory } from 'src/api/calc/types'
+import { BuildStatus, CalcErrorCode, PublishState, type CalcReport, type CalcReportCategory } from 'src/api/calc/types'
 import { getWorkspace, saveWorkspace } from 'src/api/calc/workspace'
 import { listReportCategories } from 'src/api/calc/categories'
 import { formatPythonByBlack } from 'src/api/codeFormat'
@@ -94,13 +110,32 @@ const route = useRoute()
 const router = useRouter()
 const reportOidRef = computed(() => props.reportOid)
 const draft = useWorkspaceDraft(reportOidRef)
-const selectedPath = ref('')
+const workspaceTabs = useWorkspaceTabs()
+const {
+  expandedPaths,
+  selectedPath,
+  restoreViewState,
+  renameViewPath,
+  removeViewPath
+} = useWorkspaceViewState(reportOidRef)
 const categories = ref<CalcReportCategory[]>([])
 const createForm = reactive({ categoryOid: '', name: '', description: '' })
 const { openDependencyDialog } = useDependencyDialog()
 const { openWorkspaceConflictDialog } = useWorkspaceConflictDialog()
 const objectUrl = ref('')
+const isTreeVisible = ref(true)
+const isActivatingRunTab = ref(false)
+const runRefreshToken = ref(0)
+const executionPaneRef = ref<{ requestClose: () => Promise<boolean> } | null>(null)
 const selectedFile = computed(() => draft.files.value.find((file) => file.path === selectedPath.value) || null)
+const activeFile = computed(() => {
+  const tab = workspaceTabs.activeTab.value
+  if (tab?.kind !== WorkspaceTabKind.File || !tab.path) return null
+  return draft.files.value.find((file) => file.path === tab.path) || null
+})
+const isFileTabActive = computed(() => workspaceTabs.activeTab.value?.kind === WorkspaceTabKind.File)
+const isRunTabActive = computed(() => workspaceTabs.activeTab.value?.kind === WorkspaceTabKind.Run)
+const dirtyPaths = computed(() => draft.files.value.filter((file) => file.isDirty).map((file) => file.path))
 const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
 const reportCategoryName = computed(() => categories.value.find((category) => category.categoryOid === props.report?.categoryOid)?.name || '-')
 const isImage = computed(() => Boolean(selectedFile.value && /\.(png|jpe?g|gif|webp|svg)$/i.test(selectedFile.value.path)))
@@ -130,7 +165,8 @@ async function initialize(): Promise<void> {
     const response = await getWorkspace(props.reportOid)
     draft.initializeFromSnapshot(response.data)
   }
-  await onSelectFile(draft.entryPath.value)
+  restoreViewState(draft.treeNodes.value, draft.entryPath.value)
+  await onSelectFile(selectedPath.value)
 }
 
 onMounted(initialize)
@@ -141,55 +177,118 @@ async function onBackToReports(): Promise<void> {
   await router.push('/calc-report/list')
 }
 
-/** Load and select one workspace file. */
+/** Load, select, and open one workspace file. */
 async function onSelectFile(path: string): Promise<void> {
   const file = draft.files.value.find((candidate) => candidate.path === path)
   if (!file) return
   await draft.ensureFileLoaded(file)
   selectedPath.value = path
+  workspaceTabs.openFileTab(path)
   refreshObjectUrl(file)
 }
+
+/** Activate an existing file or synchronize and activate the run tab. */
+async function onActivateTab(tabId: string): Promise<void> {
+  const tab = workspaceTabs.tabs.value.find((candidate) => candidate.id === tabId)
+  if (!tab) return
+  if (tab.kind === WorkspaceTabKind.Run) {
+    await onRunWorkspace()
+    return
+  }
+  if (tab.path) await onSelectFile(tab.path)
+}
+
+/** Close one file or safely terminate and close the execution tab. */
+async function onCloseTab(tabId: string): Promise<void> {
+  const tab = workspaceTabs.tabs.value.find((candidate) => candidate.id === tabId)
+  if (!tab) return
+  if (tab.id === WORKSPACE_RUN_TAB_ID && executionPaneRef.value && !await executionPaneRef.value.requestClose()) return
+  const wasActive = workspaceTabs.activeTabId.value === tabId
+  const nextTab = workspaceTabs.closeTab(tabId)
+  if (wasActive && nextTab?.kind === WorkspaceTabKind.File && nextTab.path) await onSelectFile(nextTab.path)
+}
+
 /** Refresh the preview URL for one loaded binary file. */
 function refreshObjectUrl(file: WorkspaceDraftFile): void {
   if (objectUrl.value) URL.revokeObjectURL(objectUrl.value)
   objectUrl.value = !file.isText && file.content ? URL.createObjectURL(file.content) : ''
 }
-/** Create a new workspace text file. */
+
+/** Create and open a new workspace text file. */
 async function onCreateFile(path: string): Promise<void> {
-  try { const file = draft.addFile(path, ''); await onSelectFile(file.path) } catch (error) { notifyError(getApiFailure(error).message) }
+  try {
+    const file = draft.addFile(path, '')
+    await onSelectFile(file.path)
+  } catch (error) {
+    notifyError(getApiFailure(error).message)
+  }
 }
+
+/** Create a session-only empty directory without changing the save payload. */
+function onCreateDirectory(path: string): void {
+  try {
+    draft.addDirectory(path)
+  } catch (error) {
+    notifyError(getApiFailure(error).message)
+  }
+}
+
 /** Add selected local files under resources/. */
 function onUploadResources(localFiles: File[]): void {
   localFiles.forEach((file) => {
-    try { draft.addFile(`resources/${file.name}`, file) } catch (error) { notifyError(getApiFailure(error).message) }
+    try {
+      draft.addFile(`resources/${file.name}`, file)
+    } catch (error) {
+      notifyError(getApiFailure(error).message)
+    }
   })
 }
+
 /** Open dependency editing and apply only a confirmed detached result. */
 async function onOpenDependencyDialog(): Promise<void> {
   const dependencies = await openDependencyDialog(props.reportOid, draft.dependencies.value)
   if (dependencies) draft.setDependencies(dependencies)
 }
-/** Rename a file/folder and keep the current selection aligned. */
+
+/** Rename a file or directory and synchronize all path-based view state. */
 async function onRenamePath(oldPath: string, newPath: string): Promise<void> {
   try {
     await draft.renamePath(oldPath, newPath)
-    if (selectedPath.value === oldPath || selectedPath.value.startsWith(`${oldPath}/`)) selectedPath.value = `${newPath}${selectedPath.value.slice(oldPath.length)}`
-  } catch (error) { notifyError(getApiFailure(error).message) }
+    workspaceTabs.renamePath(oldPath, newPath)
+    renameViewPath(oldPath, newPath)
+    if (selectedFile.value) refreshObjectUrl(selectedFile.value)
+  } catch (error) {
+    notifyError(getApiFailure(error).message)
+  }
 }
-/** Delete a file/folder from the local snapshot. */
+
+/** Delete a file or directory from the local snapshot and open tabs. */
 function onDeletePath(path: string): void {
-  try { draft.deletePath(path); if (!draft.files.value.some((file) => file.path === selectedPath.value)) selectedPath.value = '' } catch (error) { notifyError(getApiFailure(error).message) }
+  try {
+    draft.deletePath(path)
+    workspaceTabs.removePath(path)
+    removeViewPath(path)
+    if (!selectedPath.value && draft.files.value.some((file) => file.path === draft.entryPath.value)) {
+      selectedPath.value = draft.entryPath.value
+    }
+  } catch (error) {
+    notifyError(getApiFailure(error).message)
+  }
 }
+
 /** Format the active Python file through the backend Black endpoint. */
 async function onFormatFile(): Promise<void> {
-  if (!selectedFile.value?.text) return
-  const response = await formatPythonByBlack({ code: selectedFile.value.text })
-  draft.updateText(selectedFile.value.path, response.data.formattedCode)
+  if (!activeFile.value?.text) return
+  const response = await formatPythonByBlack({ code: activeFile.value.text })
+  draft.updateText(activeFile.value.path, response.data.formattedCode)
 }
 
 /** Save the complete optimistic workspace and handle revision conflicts safely. */
 async function onSave(): Promise<boolean> {
-  if (props.isNew && (!createForm.categoryOid || !createForm.name.trim())) { notifyError(t('calcWorkspace.metadataRequired')); return false }
+  if (props.isNew && (!createForm.categoryOid || !createForm.name.trim())) {
+    notifyError(t('calcWorkspace.metadataRequired'))
+    return false
+  }
   draft.isSaving.value = true
   try {
     const create = props.isNew ? { ...createForm, name: createForm.name.trim() } : undefined
@@ -205,7 +304,9 @@ async function onSave(): Promise<boolean> {
     if (failure.errorCode === CalcErrorCode.WorkspaceRevisionConflict) await showConflictDialog()
     else notifyError(failure.message)
     return false
-  } finally { draft.isSaving.value = false }
+  } finally {
+    draft.isSaving.value = false
+  }
 }
 
 /** Present recovery choices and execute only a confirmed action. */
@@ -213,6 +314,7 @@ async function showConflictDialog(): Promise<void> {
   const resolution = await openWorkspaceConflictDialog()
   if (resolution) await onConflictChoice(resolution)
 }
+
 /** Execute the selected revision-conflict recovery action. */
 async function onConflictChoice(resolution: WorkspaceConflictResolution): Promise<void> {
   if (resolution === WorkspaceConflictResolution.ExportLocalZip) {
@@ -221,31 +323,66 @@ async function onConflictChoice(resolution: WorkspaceConflictResolution): Promis
   }
   await initialize()
 }
-/** Save dirty workspace state before running the workspace source. */
+
+/** Save current source, refresh execution context, and activate the run tab. */
 async function onRunWorkspace(): Promise<void> {
-  if (draft.hasUnsavedChanges.value && !await onSave()) return
-  await router.push({ path: `/calc-report/${props.reportOid}/run`, query: { source: ExecutionSourceType.Workspace } })
+  if (isActivatingRunTab.value) return
+  isActivatingRunTab.value = true
+  try {
+    if (draft.hasUnsavedChanges.value && !await onSave()) return
+    workspaceTabs.openRunTab()
+    runRefreshToken.value += 1
+  } finally {
+    isActivatingRunTab.value = false
+  }
 }
+
 /** Download the active binary resource. */
 function onDownloadSelected(): void {
   if (!selectedFile.value?.content) return
   const url = URL.createObjectURL(selectedFile.value.content)
-  const anchor = document.createElement('a'); anchor.href = url; anchor.download = selectedFile.value.path.split('/').pop() || 'resource'; anchor.click(); URL.revokeObjectURL(url)
+  const anchor = document.createElement('a')
+  anchor.href = url
+  anchor.download = selectedFile.value.path.split('/').pop() || 'resource'
+  anchor.click()
+  URL.revokeObjectURL(url)
 }
+
 /** Format a byte count for the file status bar. */
-function formatBytes(size: number): string { return size < 1024 ? `${size} B` : size < 1048576 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1048576).toFixed(1)} MB` }
+function formatBytes(size: number): string {
+  if (size < 1024) return `${size} B`
+  if (size < 1048576) return `${(size / 1024).toFixed(1)} KB`
+  return `${(size / 1048576).toFixed(1)} MB`
+}
 
 /** Confirm navigation while the current workspace has local changes. */
 onBeforeRouteLeave(async () => !draft.hasUnsavedChanges.value || await confirmOperation(
   t('calcWorkspace.unsaved'),
   t('calcWorkspace.leaveWithoutSaving')
 ))
+
 /** Prevent browser-level navigation from silently discarding local edits. */
-function onBeforeUnload(event: BeforeUnloadEvent): void { if (draft.hasUnsavedChanges.value) event.preventDefault() }
+function onBeforeUnload(event: BeforeUnloadEvent): void {
+  if (draft.hasUnsavedChanges.value) event.preventDefault()
+}
+
 /** Register the explicit save shortcut. */
-function onKeydown(event: KeyboardEvent): void { if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') { event.preventDefault(); void onSave() } }
-onMounted(() => { window.addEventListener('beforeunload', onBeforeUnload); window.addEventListener('keydown', onKeydown) })
-onUnmounted(() => { window.removeEventListener('beforeunload', onBeforeUnload); window.removeEventListener('keydown', onKeydown); if (objectUrl.value) URL.revokeObjectURL(objectUrl.value) })
+function onKeydown(event: KeyboardEvent): void {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 's') {
+    event.preventDefault()
+    void onSave()
+  }
+}
+
+onMounted(() => {
+  window.addEventListener('beforeunload', onBeforeUnload)
+  window.addEventListener('keydown', onKeydown)
+})
+onUnmounted(() => {
+  window.removeEventListener('beforeunload', onBeforeUnload)
+  window.removeEventListener('keydown', onKeydown)
+  if (objectUrl.value) URL.revokeObjectURL(objectUrl.value)
+})
 </script>
 
 <style scoped>
@@ -269,7 +406,8 @@ onUnmounted(() => { window.removeEventListener('beforeunload', onBeforeUnload); 
   width: 220px;
 }
 
-.workspace-body {
+.workspace-body,
+.workspace-tab-content {
   min-height: 0;
 }
 
@@ -279,17 +417,13 @@ onUnmounted(() => { window.removeEventListener('beforeunload', onBeforeUnload); 
 }
 
 .workspace-filebar {
-  min-height: 34px;
-  background: #f8fafc;
-}
-
-.resource-preview {
-  overflow: auto;
+  min-height: 32px;
+  background: #fff;
 }
 
 .resource-preview img {
-  max-width: 90%;
-  max-height: 75%;
+  max-width: min(80%, 900px);
+  max-height: 70vh;
   object-fit: contain;
 }
 </style>

@@ -58,26 +58,45 @@ export function normalizeWorkspacePath(path: string): string {
 }
 
 /** Create a derived flat tree from persisted file paths. */
-export function buildWorkspaceTree(files: WorkspaceDraftFile[]): WorkspaceTreeNode[] {
+export function buildWorkspaceTree(files: WorkspaceDraftFile[], directories: string[] = []): WorkspaceTreeNode[] {
   const nodes = new Map<string, WorkspaceTreeNode>()
+  directories.forEach((directory) => addTreePath(nodes, directory, false))
   files.forEach((file) => {
-    const parts = file.path.split('/')
-    for (let index = 0; index < parts.length; index += 1) {
-      const path = parts.slice(0, index + 1).join('/')
-      const isFile = index === parts.length - 1
-      if (!nodes.has(path)) {
-        nodes.set(path, {
-          id: path,
-          parentId: index === 0 ? null : parts.slice(0, index).join('/'),
-          label: parts[index] || path,
-          path,
-          kind: isFile ? 'file' : 'folder',
-          sort: isFile ? 1 : 0
-        })
-      }
-    }
+    addTreePath(nodes, file.path, true)
   })
   return [...nodes.values()]
+}
+
+/** Add one file or directory path and all of its parents to a flat node map. */
+function addTreePath(nodes: Map<string, WorkspaceTreeNode>, targetPath: string, isFile: boolean): void {
+  const parts = targetPath.split('/')
+  for (let index = 0; index < parts.length; index += 1) {
+    const path = parts.slice(0, index + 1).join('/')
+    const isTargetFile = isFile && index === parts.length - 1
+    if (!nodes.has(path)) {
+      nodes.set(path, {
+        id: path,
+        parentId: index === 0 ? null : parts.slice(0, index).join('/'),
+        label: parts[index] || path,
+        path,
+        kind: isTargetFile ? 'file' : 'folder',
+        sort: isTargetFile ? 1 : 0
+      })
+    }
+  }
+}
+
+/** Validate and normalize a client-created workspace directory path. */
+export function normalizeWorkspaceDirectoryPath(path: string): string {
+  const normalized = path.trim().replaceAll('\\', '/').replace(/^\/+|\/+$/g, '')
+  const parts = normalized.split('/')
+  if (!normalized || parts.some((part) => !part || part === '.' || part === '..')) {
+    throw new Error('Workspace directory path must be normalized and relative')
+  }
+  if (!normalized.startsWith('src/') && !normalized.startsWith('resources/')) {
+    throw new Error('Directories must live under src/resources')
+  }
+  return normalized
 }
 
 /** Build the default files for a new report workspace. */
@@ -109,13 +128,14 @@ function downloadBlob(blob: Blob, filename: string): void {
 /** Manage one workspace's files, dependencies, dirty state, and snapshots. */
 export function useWorkspaceDraft(reportOid: Ref<string>) {
   const files = ref<WorkspaceDraftFile[]>([])
+  const directories = ref<string[]>([])
   const dependencies = ref<ReportDependency[]>([])
   const workspaceRevision = ref(0)
   const entryPath = ref('src/main.py')
   const isLoading = ref(false)
   const isSaving = ref(false)
   const isDependencyDirty = ref(false)
-  const treeNodes = computed(() => buildWorkspaceTree(files.value))
+  const treeNodes = computed(() => buildWorkspaceTree(files.value, directories.value))
   const hasUnsavedChanges = computed(() => isDependencyDirty.value || files.value.some((file) => file.isDirty))
 
   /** Replace local state from server workspace metadata. */
@@ -123,6 +143,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     workspaceRevision.value = snapshot.workspaceRevision
     entryPath.value = snapshot.entryPath
     dependencies.value = structuredClone(snapshot.dependencies)
+    directories.value = []
     files.value = snapshot.files.map((file) => ({
       path: file.path,
       originalPath: file.path,
@@ -143,6 +164,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     workspaceRevision.value = 0
     entryPath.value = 'src/main.py'
     dependencies.value = []
+    directories.value = []
     files.value = createDefaultWorkspaceFiles()
     isDependencyDirty.value = false
   }
@@ -173,7 +195,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
   /** Add a new text or binary file to the draft. */
   function addFile(path: string, content: Blob | string = ''): WorkspaceDraftFile {
     const normalized = normalizeWorkspacePath(path)
-    if (files.value.some((file) => file.path === normalized)) throw new Error('A file already exists at this path')
+    assertAvailableFilePath(normalized)
     const blob = typeof content === 'string' ? new Blob([content], { type: 'text/plain;charset=utf-8' }) : content
     const isText = typeof content === 'string' || isWorkspaceTextFile(normalized)
     const file: WorkspaceDraftFile = {
@@ -192,6 +214,15 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     return file
   }
 
+  /** Add a session-only empty directory to the workspace tree. */
+  function addDirectory(path: string): string {
+    const normalized = normalizeWorkspaceDirectoryPath(path)
+    if (treeNodes.value.some((node) => node.path === normalized)) throw new Error('A file or directory already exists at this path')
+    assertNoFileAncestor(normalized)
+    directories.value.push(normalized)
+    return normalized
+  }
+
   /** Update one text file and compare it with the last synchronized content. */
   function updateText(path: string, text: string): void {
     const file = files.value.find((candidate) => candidate.path === path)
@@ -205,9 +236,26 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
   /** Rename one file or every file below a derived folder. */
   async function renamePath(oldPath: string, newPath: string): Promise<void> {
     if (oldPath === 'calcbook.json') throw new Error('calcbook.json cannot be renamed')
-    const normalized = normalizeWorkspacePath(newPath)
+    const sourceNode = treeNodes.value.find((node) => node.path === oldPath)
+    if (!sourceNode) return
+    const normalized = sourceNode.kind === 'folder' ? normalizeWorkspaceDirectoryPath(newPath) : normalizeWorkspacePath(newPath)
     const matches = files.value.filter((file) => file.path === oldPath || file.path.startsWith(`${oldPath}/`))
-    if (matches.length === 0) return
+    const directoryMatches = directories.value.filter((path) => path === oldPath || path.startsWith(`${oldPath}/`))
+    const targetPaths = [
+      ...matches.map((file) => `${normalized}${file.path.slice(oldPath.length)}`),
+      ...directoryMatches.map((path) => `${normalized}${path.slice(oldPath.length)}`)
+    ]
+    const renamedEntryPath = entryPath.value === oldPath || entryPath.value.startsWith(`${oldPath}/`)
+      ? `${normalized}${entryPath.value.slice(oldPath.length)}`
+      : entryPath.value
+    if (!renamedEntryPath.startsWith('src/') || !renamedEntryPath.endsWith('.py')) {
+      throw new Error('The entry must remain a Python file under src')
+    }
+    const excludedPaths = new Set([
+      ...matches.map((file) => file.path),
+      ...directoryMatches
+    ])
+    targetPaths.forEach((targetPath) => assertAvailableTreePath(targetPath, sourceNode.kind, excludedPaths))
     for (const file of matches) {
       await ensureFileLoaded(file)
       const suffix = file.path.slice(oldPath.length)
@@ -218,9 +266,11 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
       file.path = targetPath
       file.isDirty = file.isNew || file.path !== file.originalPath || (file.isText && file.text !== file.originalText)
     }
-    if (entryPath.value === oldPath || entryPath.value.startsWith(`${oldPath}/`)) {
-      setEntryPath(`${normalized}${entryPath.value.slice(oldPath.length)}`)
-    }
+    directories.value = directories.value.map((path) => {
+      if (path === oldPath || path.startsWith(`${oldPath}/`)) return `${normalized}${path.slice(oldPath.length)}`
+      return path
+    })
+    if (renamedEntryPath !== entryPath.value) setEntryPath(renamedEntryPath)
   }
 
   /** Remove one file or all files below a derived folder. */
@@ -228,6 +278,32 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     if (path === 'calcbook.json') throw new Error('calcbook.json cannot be deleted')
     if (entryPath.value === path || entryPath.value.startsWith(`${path}/`)) throw new Error('The entry file cannot be deleted')
     files.value = files.value.filter((file) => file.path !== path && !file.path.startsWith(`${path}/`))
+    directories.value = directories.value.filter((directory) => directory !== path && !directory.startsWith(`${path}/`))
+  }
+
+  /** Reject a new file path that collides with an existing file or directory. */
+  function assertAvailableFilePath(path: string): void {
+    assertNoFileAncestor(path)
+    const collision = treeNodes.value.find((node) => node.path === path || node.path.startsWith(`${path}/`))
+    if (collision) throw new Error('A file or directory already exists at this path')
+  }
+
+  /** Reject a path whose parent chain already contains a file. */
+  function assertNoFileAncestor(path: string): void {
+    const parts = path.split('/')
+    const ancestors = parts.slice(0, -1).map((_part, index) => parts.slice(0, index + 1).join('/'))
+    if (files.value.some((file) => ancestors.includes(file.path))) throw new Error('A parent path is already a file')
+  }
+
+  /** Reject a rename target that collides outside the renamed subtree. */
+  function assertAvailableTreePath(path: string, sourceKind: WorkspaceTreeNode['kind'], excludedPaths: Set<string>): void {
+    assertNoFileAncestor(path)
+    const collision = treeNodes.value.find((node) => {
+      if (excludedPaths.has(node.path)) return false
+      if (node.path === path) return true
+      return sourceKind === 'file' && node.path.startsWith(`${path}/`)
+    })
+    if (collision) throw new Error(`A file or directory already exists at ${path}`)
   }
 
   /** Set a Python source file as the manifest entry path. */
@@ -298,6 +374,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
 
   return {
     files,
+    directories,
     dependencies,
     workspaceRevision,
     entryPath,
@@ -309,6 +386,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     initializeNewWorkspace,
     ensureFileLoaded,
     addFile,
+    addDirectory,
     updateText,
     renamePath,
     deletePath,

@@ -1,10 +1,11 @@
 <template>
   <div class="draggable-tree">
-    <ElTree class="draggable-tree__tree" :data="treeData" :node-key="props.nodeKey"
+    <ElTree ref="treeRef" class="draggable-tree__tree" :data="treeData" :node-key="props.nodeKey"
       :props="props.treeProps" :default-expand-all="props.defaultExpandAll" :highlight-current="props.highlightCurrent"
       :expand-on-click-node="props.expandOnClickNode" :draggable="props.draggable" :allow-drag="props.allowDrag"
       :allow-drop="onAllowDrop" :show-checkbox="props.showCheckbox" :default-checked-keys="checkedKeys"
-      @node-click="onNodeClick" @node-drop="onNodeDrop" @check="onTreeCheck">
+      :default-expanded-keys="expandedKeys" :current-node-key="currentNodeKey ?? undefined" @node-click="onNodeClick"
+      @node-expand="onNodeExpand" @node-collapse="onNodeCollapse" @node-drop="onNodeDrop" @check="onTreeCheck">
       <template #default="{ node, data: nodeData }">
         <div class="draggable-tree__node">
           <slot :node="node" :data="nodeData">
@@ -26,6 +27,7 @@
 import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import type { AllowDropType, CheckedInfo, NodeDropType, TreeKey, TreeNodeData } from 'element-plus/es/components/tree/src/tree.type'
+import type { TreeInstance } from 'element-plus'
 import type {
   DraggableTreeAllowDrag,
   DraggableTreeAllowDrop,
@@ -67,12 +69,30 @@ const emit = defineEmits<{
 
 const checkedKeys = defineModel<TreeKey[]>('checkedKeys', { default: () => [] })
 const halfCheckedKeys = defineModel<TreeKey[]>('halfCheckedKeys', { default: () => [] })
+const expandedKeys = defineModel<TreeKey[]>('expandedKeys', { default: () => [] })
+const currentNodeKey = defineModel<TreeKey | null>('currentNodeKey', { default: null })
+const treeRef = ref<TreeInstance>()
 const treeData = computed(() => buildTreeData(props.data, props.nodeKey, props.treeProps.children ?? 'children'))
 
+/** Forward a node click and restore the externally controlled current key. */
 function onNodeClick(data: TreeNodeData, node: unknown, _nodeInstance?: unknown, event?: Event) {
   emit('nodeClick', data, node, event)
+  void nextTick(() => treeRef.value?.setCurrentKey(currentNodeKey.value))
 }
 
+/** Add one expanded node to the controlled key set. */
+function onNodeExpand(data: TreeNodeData): void {
+  const key = data[props.nodeKey]
+  if (!expandedKeys.value.includes(key)) expandedKeys.value = [...expandedKeys.value, key]
+}
+
+/** Remove one collapsed node and its descendants from the controlled key set. */
+function onNodeCollapse(data: TreeNodeData): void {
+  const path = String(data[props.nodeKey])
+  expandedKeys.value = expandedKeys.value.filter((key) => String(key) !== path && !String(key).startsWith(`${path}/`))
+}
+
+/** Delegate drag/drop acceptance to the optional caller policy. */
 function onAllowDrop(
   draggingNode: { data: TreeNodeData },
   dropNode: { data: TreeNodeData },
@@ -82,6 +102,7 @@ function onAllowDrop(
   return props.allowDrop(draggingNode, dropNode, normalizeAllowDropType(dropType))
 }
 
+/** Normalize and forward an accepted tree drop. */
 function onNodeDrop(
   draggingNode: { data: TreeNodeData },
   dropNode: { data: TreeNodeData },
@@ -91,19 +112,22 @@ function onNodeDrop(
   emit('nodeDrop', draggingNode, dropNode, dropType, event)
 }
 
+/** Synchronize checked and half-checked model keys. */
 function onTreeCheck(data: TreeNodeData, checkedInfo: CheckedInfo) {
   checkedKeys.value = checkedInfo.checkedKeys
   halfCheckedKeys.value = checkedInfo.halfCheckedKeys
   emit('check', data, checkedInfo)
 }
 
+/** Normalize Element Plus drop names into the shared tree contract. */
 function normalizeAllowDropType(dropType: AllowDropType): TreeDropType {
   if (dropType === 'prev') return 'before'
   if (dropType === 'next') return 'after'
   return dropType
 }
 
-function buildTreeData (nodes: TreeNodeData[], nodeKey: string, childrenKey: string) {
+/** Convert flat parent-linked nodes into a sorted nested tree. */
+function buildTreeData(nodes: TreeNodeData[], nodeKey: string, childrenKey: string) {
   const nodeMap = new Map<unknown, TreeNodeData>()
   const roots: TreeNodeData[] = []
 
@@ -135,12 +159,14 @@ function buildTreeData (nodes: TreeNodeData[], nodeKey: string, childrenKey: str
   return roots
 }
 
-function sortTreeNodes (nodes: TreeNodeData[], childrenKey: string) {
+/** Sort every tree level using the node ordering contract. */
+function sortTreeNodes(nodes: TreeNodeData[], childrenKey: string) {
   nodes.sort(compareTreeNodeOrder)
   nodes.forEach((node) => sortTreeNodes(node[childrenKey] as TreeNodeData[], childrenKey))
 }
 
-function compareTreeNodeOrder (leftNode: TreeNodeData, rightNode: TreeNodeData) {
+/** Compare two tree nodes by explicit sort order and stable identifier. */
+function compareTreeNodeOrder(leftNode: TreeNodeData, rightNode: TreeNodeData) {
   const leftSort = typeof leftNode.sort === 'number' ? leftNode.sort : 0
   const rightSort = typeof rightNode.sort === 'number' ? rightNode.sort : 0
   if (leftSort !== rightSort) return leftSort - rightSort

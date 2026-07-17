@@ -5,14 +5,16 @@
 import { monaco } from 'src/boot/monaco-editor'
 import { registerUzoncalcProviders } from '../../editor/utils/uzoncalcCompletion'
 
-const props = defineProps<{ path: string; content: string }>()
+const props = defineProps<{ path: string; content: string; openPaths: string[] }>()
 const emit = defineEmits<{ change: [path: string, content: string] }>()
 const editorElement = ref<HTMLElement | null>(null)
 const editor = shallowRef<monaco.editor.IStandaloneCodeEditor | null>(null)
 const models = new Map<string, monaco.editor.ITextModel>()
+const viewStates = new Map<string, monaco.editor.ICodeEditorViewState>()
 let changeSubscription: monaco.IDisposable | null = null
 let providers: { dispose: () => void } | null = null
 let isApplyingExternalContent = false
+let activePath = ''
 
 /** Resolve Monaco language from a workspace path. */
 function languageForPath(path: string): string {
@@ -29,6 +31,10 @@ function languageForPath(path: string): string {
 /** Activate or create the Monaco model for the selected file. */
 function activateModel(path: string, content: string): void {
   if (!editor.value || !path) return
+  if (activePath) {
+    const viewState = editor.value.saveViewState()
+    if (viewState) viewStates.set(activePath, viewState)
+  }
   let model = models.get(path)
   if (!model) {
     model = monaco.editor.createModel(content, languageForPath(path), monaco.Uri.parse(`inmemory://uzoncalc/${encodeURI(path)}`))
@@ -39,6 +45,9 @@ function activateModel(path: string, content: string): void {
     isApplyingExternalContent = false
   }
   editor.value.setModel(model)
+  activePath = path
+  const viewState = viewStates.get(path)
+  if (viewState) editor.value.restoreViewState(viewState)
   changeSubscription?.dispose()
   changeSubscription = model.onDidChangeContent(() => {
     if (!isApplyingExternalContent) emit('change', path, model.getValue())
@@ -61,6 +70,17 @@ onMounted(() => {
 })
 
 watch(() => [props.path, props.content] as const, ([path, content]) => activateModel(path, content))
+watch(() => props.openPaths, (paths) => {
+  const retainedPaths = new Set(paths)
+  models.forEach((model, path) => {
+    if (retainedPaths.has(path)) return
+    if (activePath === path) activePath = ''
+    model.dispose()
+    models.delete(path)
+    viewStates.delete(path)
+  })
+  if (paths.includes(props.path) && !models.has(props.path)) activateModel(props.path, props.content)
+}, { deep: true })
 onUnmounted(() => {
   changeSubscription?.dispose()
   editor.value?.dispose()

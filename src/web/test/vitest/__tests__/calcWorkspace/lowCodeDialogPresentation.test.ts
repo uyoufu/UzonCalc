@@ -1,4 +1,4 @@
-import { shallowMount } from '@vue/test-utils'
+import { flushPromises, shallowMount } from '@vue/test-utils'
 import { computed, onMounted, ref, toRefs, watch } from 'vue'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
@@ -47,6 +47,36 @@ describe('lowCode dialog presentation', () => {
     const input = wrapper.get('.test-input')
     expect(input.attributes('data-hint')).toBe('MAJOR.MINOR.PATCH')
     expect(input.attributes('data-autofocus')).toBe('true')
+  })
+
+  it('invokes field linkage callbacks when a LowCode value changes', async () => {
+    const onChanged = vi.fn()
+    const wrapper = shallowMount(LowCodeForm, {
+      props: {
+        fields: [{
+          name: 'target',
+          label: 'Target',
+          type: LowCodeFieldType.text,
+          value: 'before',
+          onChanged
+        }]
+      },
+      global: {
+        stubs: {
+          QInput: {
+            name: 'QInput',
+            props: ['modelValue'],
+            emits: ['update:modelValue'],
+            template: '<input class="linkage-input" :value="modelValue" @input="$emit(\'update:modelValue\', $event.target.value)">'
+          }
+        }
+      }
+    })
+
+    await wrapper.get('.linkage-input').setValue('after')
+    await flushPromises()
+
+    expect(onChanged).toHaveBeenCalledWith('after', 'before', expect.objectContaining({ target: 'after' }), expect.any(Array))
   })
 })
 
