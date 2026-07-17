@@ -4,8 +4,9 @@
       <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')" @click="onBackToReports" />
       <q-select v-model="sourceType" dense options-dense outlined emit-value map-options :options="sourceOptions"
         :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
-      <q-select v-if="sourceType === ExecutionSourceType.Version" v-model="versionName" dense options-dense outlined emit-value map-options
-        :options="versionOptions" :label="t('calcWorkspace.version')" class="execution-toolbar__version" />
+      <q-select v-if="sourceType === ExecutionSourceType.Version" v-model="versionName" dense options-dense outlined
+        emit-value map-options :options="versionOptions" :label="t('calcWorkspace.version')"
+        class="execution-toolbar__version" />
       <q-toggle v-model="isSilent" :label="t('calcWorkspace.silentRun')" />
       <CommonBtn v-if="!execution || execution.isCompleted" icon="play_arrow" :label="t('calcWorkspace.startRun')"
         :loading="isExecuting" @click="onStart" />
@@ -84,7 +85,7 @@ const report = ref<CalcReport | null>(null)
 const versions = ref<CalcReportVersion[]>([])
 const sourceType = ref<ExecutionSourceType>(ExecutionSourceType.Workspace)
 const versionName = ref<string | null>(null)
-const isSilent = ref(false)
+const isSilent = ref(true)
 const isExecuting = ref(false)
 const isWaitingForBuild = ref(false)
 const buildMessage = ref('')
@@ -248,7 +249,7 @@ onUnmounted(() => { if (buildPollTimer) clearTimeout(buildPollTimer) })
     display: none;
   }
 
-  .execution-body > section:last-child {
+  .execution-body>section:last-child {
     min-height: 520px;
   }
 }
