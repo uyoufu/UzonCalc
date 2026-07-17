@@ -1,9 +1,19 @@
 """UzonCalc CLI archive packaging helpers."""
 
 import ast
+from functools import partial
 import json
 from pathlib import Path
+from typing import BinaryIO
 import zipfile
+
+from .cli_archive_analysis import analyze_archive_script
+from .cli_png_container import write_png_zip_container
+from .cli_thumbnail import (
+    THUMBNAIL_HEIGHT,
+    THUMBNAIL_WIDTH,
+    render_archive_thumbnail,
+)
 
 _ARCHIVE_SUFFIX = ".uzc"
 _ARCHIVE_BUNDLE_DIR = "__uzoncalc_bundle__"
@@ -11,113 +21,9 @@ _ARCHIVE_SOURCE_DIR = f"{_ARCHIVE_BUNDLE_DIR}/src"
 _ARCHIVE_MANIFEST_PATH = f"{_ARCHIVE_BUNDLE_DIR}/manifest.json"
 _MANIFEST_ENTRY_PATH = "entry_path"
 _MANIFEST_AUTO_VIEW_ENTRY = "auto_view_entry"
-_ARCHIVE_SHEBANG = b"#!/usr/bin/env python3\n"
-
-
-def _is_uzon_calc_decorator(decorator: ast.expr) -> bool:
-    """判断装饰器是否引用 uzon_calc。
-
-    Args:
-        decorator: AST 装饰器表达式。
-
-    Returns:
-        若装饰器形如 @uzon_calc、@uzon_calc(...)、@pkg.uzon_calc 或
-        @pkg.uzon_calc(...)，则返回 True。
-
-    Raises:
-        None.
-    """
-    target = decorator.func if isinstance(decorator, ast.Call) else decorator
-    if isinstance(target, ast.Name):
-        return target.id == "uzon_calc"
-    if isinstance(target, ast.Attribute):
-        return target.attr == "uzon_calc"
-    return False
-
-
-def _is_main_name_node(node: ast.expr) -> bool:
-    """判断表达式是否为 __name__。
-
-    Args:
-        node: 待检查的 AST 表达式。
-
-    Returns:
-        表达式为 __name__ 时返回 True，否则返回 False。
-
-    Raises:
-        None.
-    """
-    return isinstance(node, ast.Name) and node.id == "__name__"
-
-
-def _is_main_string_node(node: ast.expr) -> bool:
-    """判断表达式是否为字符串 "__main__"。
-
-    Args:
-        node: 待检查的 AST 表达式。
-
-    Returns:
-        表达式为 "__main__" 字符串常量时返回 True，否则返回 False。
-
-    Raises:
-        None.
-    """
-    return isinstance(node, ast.Constant) and node.value == "__main__"
-
-
-def _is_main_guard_node(node: ast.stmt) -> bool:
-    """判断语句是否为标准 __main__ 入口判断。
-
-    Args:
-        node: 待检查的 AST 语句。
-
-    Returns:
-        语句形如 if __name__ == "__main__" 或反向比较时返回 True。
-
-    Raises:
-        None.
-    """
-    if not isinstance(node, ast.If):
-        return False
-    test = node.test
-    if not isinstance(test, ast.Compare):
-        return False
-    if len(test.ops) != 1 or len(test.comparators) != 1:
-        return False
-    if not isinstance(test.ops[0], ast.Eq):
-        return False
-    left = test.left
-    right = test.comparators[0]
-    return (
-        _is_main_name_node(left)
-        and _is_main_string_node(right)
-        or _is_main_string_node(left)
-        and _is_main_name_node(right)
-    )
-
-
-def _analyze_archive_entry(script_path: Path) -> tuple[list[str], bool]:
-    """分析待打包脚本的计算入口和 __main__ 入口。
-
-    Args:
-        script_path: 待打包的 Python 脚本路径。
-
-    Returns:
-        二元组：@uzon_calc 入口函数名列表、是否存在 __main__ 入口。
-
-    Raises:
-        SyntaxError: 当脚本不是合法 Python 源码时抛出。
-        OSError: 当脚本无法读取时抛出。
-    """
-    tree = ast.parse(script_path.read_text(encoding="utf-8"), filename=str(script_path))
-    entry_names = []
-    for node in tree.body:
-        if not isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef)):
-            continue
-        if any(_is_uzon_calc_decorator(decorator) for decorator in node.decorator_list):
-            entry_names.append(node.name)
-    has_main_guard = any(_is_main_guard_node(node) for node in tree.body)
-    return entry_names, has_main_guard
+_MANIFEST_FORMAT_VERSION = "format_version"
+_MANIFEST_THUMBNAIL = "thumbnail"
+_ARCHIVE_FORMAT_VERSION = 2
 
 
 def _module_file_candidates(source_root: Path, module_parts: list[str]) -> list[Path]:
@@ -276,7 +182,9 @@ def _iter_imported_local_modules(source_root: Path, source_path: Path) -> list[P
     return imported_paths
 
 
-def _collect_archive_source_files(source_root: Path, entry_script_path: Path) -> list[Path]:
+def _collect_archive_source_files(
+    source_root: Path, entry_script_path: Path
+) -> list[Path]:
     """收集打包所需的入口脚本和静态本地依赖。
 
     Args:
@@ -372,11 +280,53 @@ if __name__ == "__main__":
 '''
 
 
+def _write_archive_zip_payload(
+    archive_file: BinaryIO,
+    *,
+    auto_view_entry: str | None,
+    manifest: dict[str, object],
+    source_root: Path,
+    source_files: list[Path],
+) -> None:
+    """Write the executable ZIP members at the stream's current offset.
+
+    Args:
+        archive_file: Seekable binary stream positioned inside the PNG chunk.
+        auto_view_entry: Entry automatically passed to ``view`` when required.
+        manifest: Internal archive metadata serialized into the ZIP payload.
+        source_root: Root used to calculate bundled relative source paths.
+        source_files: Entry script and recursively collected local dependencies.
+
+    Returns:
+        None.
+
+    Raises:
+        OSError: When a source file or output stream cannot be read or written.
+        RuntimeError: When ZIP creation fails.
+    """
+    with zipfile.ZipFile(
+        archive_file,
+        "w",
+        compression=zipfile.ZIP_DEFLATED,
+    ) as archive:
+        archive.writestr("__main__.py", _build_archive_main_source(auto_view_entry))
+        archive.writestr(
+            _ARCHIVE_MANIFEST_PATH,
+            json.dumps(manifest, ensure_ascii=False, indent=2),
+        )
+        for source_file in source_files:
+            relative_source_path = source_file.relative_to(source_root).as_posix()
+            archive.write(
+                source_file,
+                f"{_ARCHIVE_SOURCE_DIR}/{relative_source_path}",
+            )
+
+
 def create_uzc_archive(
     script_path: Path,
     output_path: Path | None = None,
 ) -> Path:
-    """创建可通过 python 或执行权限直接运行的 .uzc 归档。
+    """创建带 PNG 缩略图且可通过 python 运行的 .uzc 归档。
 
     Args:
         script_path: 待打包的 UzonCalc 计算书脚本。
@@ -395,12 +345,13 @@ def create_uzc_archive(
     if not script_path.is_file():
         raise FileNotFoundError(f"脚本文件不存在: {script_path}")
 
-    entry_names, has_main_guard = _analyze_archive_entry(script_path)
-    if not entry_names:
+    analysis = analyze_archive_script(script_path)
+    first_entry_name = next(iter(analysis.entry_names), None)
+    if first_entry_name is None or analysis.preview is None:
         raise RuntimeError("未找到 @uzon_calc 装饰的入口函数")
-    if not has_main_guard and len(entry_names) > 1:
+    if not analysis.has_main_guard and len(analysis.entry_names) > 1:
         raise RuntimeError(
-            "存在多个 @uzon_calc 入口，请添加 if __name__ == \"__main__\" 显式入口"
+            '存在多个 @uzon_calc 入口，请添加 if __name__ == "__main__" 显式入口'
         )
 
     archive_path = (
@@ -413,30 +364,28 @@ def create_uzc_archive(
     archive_path.parent.mkdir(parents=True, exist_ok=True)
 
     source_root = script_path.parent.resolve()
-    auto_view_entry = None if has_main_guard else entry_names[0]
+    auto_view_entry = None if analysis.has_main_guard else first_entry_name
     source_files = _collect_archive_source_files(source_root, script_path)
+    thumbnail_png = render_archive_thumbnail(analysis.preview)
     manifest = {
         _MANIFEST_ENTRY_PATH: script_path.relative_to(source_root).as_posix(),
         _MANIFEST_AUTO_VIEW_ENTRY: auto_view_entry,
+        _MANIFEST_FORMAT_VERSION: _ARCHIVE_FORMAT_VERSION,
+        _MANIFEST_THUMBNAIL: {
+            "entry_name": analysis.preview.entry_name,
+            "title": analysis.preview.title,
+            "width": THUMBNAIL_WIDTH,
+            "height": THUMBNAIL_HEIGHT,
+        },
     }
 
-    with archive_path.open("wb") as archive_file:
-        archive_file.write(_ARCHIVE_SHEBANG)
-        with zipfile.ZipFile(
-            archive_file,
-            "w",
-            compression=zipfile.ZIP_DEFLATED,
-        ) as archive:
-            archive.writestr("__main__.py", _build_archive_main_source(auto_view_entry))
-            archive.writestr(
-                _ARCHIVE_MANIFEST_PATH,
-                json.dumps(manifest, ensure_ascii=False, indent=2),
-            )
-            for source_file in source_files:
-                relative_source_path = source_file.relative_to(source_root).as_posix()
-                archive.write(
-                    source_file,
-                    f"{_ARCHIVE_SOURCE_DIR}/{relative_source_path}",
-                )
+    zip_payload_writer = partial(
+        _write_archive_zip_payload,
+        auto_view_entry=auto_view_entry,
+        manifest=manifest,
+        source_root=source_root,
+        source_files=source_files,
+    )
+    write_png_zip_container(archive_path, thumbnail_png, zip_payload_writer)
 
     return archive_path

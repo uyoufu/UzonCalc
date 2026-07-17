@@ -14,7 +14,7 @@ import os
 from pathlib import Path
 import sys
 
-from .cli_archive import create_uzc_archive
+from .cli_core.cli_archive import create_uzc_archive
 from .http_server import DEFAULT_SERVER_PORT, serve_reloadable_html
 
 # 环境变量名：设置后 doc.save() 将变为空操作
@@ -162,7 +162,7 @@ def _build_zip_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="uzoncalc zip",
-        description="将 UzonCalc 计算脚本打包为可通过 python 运行的 .uzc 归档",
+        description="将计算脚本打包为带 PNG 缩略图且可通过 python 运行的 .uzc 归档",
     )
     parser.add_argument(
         "--path",
@@ -174,7 +174,7 @@ def _build_zip_parser() -> argparse.ArgumentParser:
         "--output",
         "-o",
         default=None,
-        help="输出 .uzc 文件路径（省略时保存到脚本同目录）",
+        help="输出 PNG/ZIP 格式的 .uzc 文件路径（省略时保存到脚本同目录）",
     )
     return parser
 

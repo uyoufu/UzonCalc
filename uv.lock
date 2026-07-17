@@ -2451,6 +2451,7 @@ source = { editable = "src/core" }
 dependencies = [
     { name = "lxml" },
     { name = "markdown-it-pyrs" },
+    { name = "pillow" },
     { name = "pint" },
 ]
 
@@ -2509,6 +2510,7 @@ requires-dist = [
     { name = "numpy", marker = "extra == 'scientific'" },
     { name = "openpyxl", marker = "extra == 'all'" },
     { name = "openpyxl", marker = "extra == 'excel'" },
+    { name = "pillow", specifier = ">=12.1.1" },
     { name = "pint" },
     { name = "playwright", marker = "extra == 'all'", specifier = ">=1.60.0" },
     { name = "playwright", marker = "extra == 'toc'", specifier = ">=1.60.0" },

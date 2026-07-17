@@ -5,7 +5,8 @@
       <CommonBtn flat dense icon="upload_file" :tooltip="t('calcWorkspace.uploadResources')"
         @click="fileInput?.click()" />
       <input ref="fileInput" class="hidden" type="file" multiple @change="onFilesSelected">
-      <q-space /><CommonBtn flat dense icon="account_tree" :tooltip="t('calcWorkspace.dependencies')"
+      <q-space />
+      <CommonBtn flat dense icon="account_tree" :tooltip="t('calcWorkspace.dependencies')"
         @click="emit('dependencies')" />
     </div>
     <q-separator />
@@ -121,9 +122,5 @@ function iconForPath(path: string): string {
   min-width: 250px;
   border-right: 1px solid #e4e7ec;
   background: #fff;
-}
-
-.workspace-tree__toolbar {
-  min-height: 40px;
 }
 </style>

@@ -289,3 +289,5 @@ python path/to/your/script.uzc
 ```
 
 The script must contain at least one `@uzon_calc` entry. If it has no `if __name__ == "__main__"` block, packaging succeeds only when there is exactly one calculation entry, and the generated archive calls `view()` for that entry.
+
+The generated `.uzc` is a 1280×720 PNG thumbnail containing the executable ZIP payload in a private PNG chunk. The thumbnail uses the first calculation entry and resolves its title from `H1(...)`, `doc_title(...)`, the `@uzon_calc(...)` name, then the script filename. Run it with `python script.uzc`; PNG-first archives cannot also use a POSIX shebang. Do not resave or optimize a `.uzc` with an image editor because unknown private chunks may be removed.

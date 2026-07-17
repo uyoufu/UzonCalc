@@ -113,6 +113,8 @@ python example.uzc
 
 The zip command validates that the script contains an `@uzon_calc` entry. If the script does not define an `if __name__ == "__main__"` block, the archive automatically calls `view()` for the single calculation entry.
 
+The generated `.uzc` is both a 1280×720 PNG thumbnail and a ZIP-based Python application. Its title is selected from the first entry using `H1(...)`, `doc_title(...)`, the `@uzon_calc(...)` name, then the script filename. Run it with `python example.uzc`; the PNG signature means it is no longer a shebang executable. Do not resave or optimize the file with an image editor, because tools may discard its private ZIP chunk.
+
 ## 🌐 Online Examples
 
 | Document                  | Source                                                                       | Online Preview                                                         |
