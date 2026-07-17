@@ -2,9 +2,9 @@
   <div class="execution-pane column no-wrap">
     <div class="execution-toolbar row items-center q-gutter-sm q-px-sm">
       <CommonBtn flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')" @click="onBackToReports" />
-      <q-select v-model="sourceType" dense outlined emit-value map-options :options="sourceOptions"
+      <q-select v-model="sourceType" dense options-dense outlined emit-value map-options :options="sourceOptions"
         :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
-      <q-select v-if="sourceType === ExecutionSourceType.Version" v-model="versionName" dense outlined emit-value map-options
+      <q-select v-if="sourceType === ExecutionSourceType.Version" v-model="versionName" dense options-dense outlined emit-value map-options
         :options="versionOptions" :label="t('calcWorkspace.version')" class="execution-toolbar__version" />
       <q-toggle v-model="isSilent" :label="t('calcWorkspace.silentRun')" />
       <CommonBtn v-if="!execution || execution.isCompleted" icon="play_arrow" :label="t('calcWorkspace.startRun')"

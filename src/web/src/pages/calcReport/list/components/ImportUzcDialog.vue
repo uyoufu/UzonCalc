@@ -3,7 +3,7 @@
     <q-card class="import-uzc-dialog">
       <q-card-section class="text-subtitle1">{{ t('calcWorkspace.importUzc') }}</q-card-section>
       <q-card-section class="q-gutter-md">
-        <q-select v-model="categoryOid" dense outlined emit-value map-options :options="categoryOptions"
+        <q-select v-model="categoryOid" dense options-dense outlined emit-value map-options :options="categoryOptions"
           :label="t('calcWorkspace.categoryName')" />
         <q-input v-model="name" dense outlined :label="t('calcWorkspace.reportName')" />
         <q-file v-model="archive" dense outlined accept=".uzc" :label="t('calcWorkspace.uzcFile')" />

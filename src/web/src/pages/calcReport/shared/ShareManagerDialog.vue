@@ -3,18 +3,20 @@
     <q-card class="share-dialog">
       <q-card-section class="row items-center">
         <div class="text-subtitle1">{{ t('calcWorkspace.shareReport') }} · {{ reportName }}</div>
-        <q-space /><CommonBtn flat dense icon="close" @click="onDialogCancel" />
+        <q-space />
+        <CommonBtn flat dense icon="close" @click="onDialogCancel" />
       </q-card-section>
       <q-separator />
       <q-card-section class="q-gutter-md">
         <div class="row q-col-gutter-sm">
-          <q-select v-model="versionName" class="col" dense outlined emit-value map-options
+          <q-select v-model="versionName" class="col" dense options-dense outlined emit-value map-options
             :label="t('calcWorkspace.version')" :options="approvedVersionOptions" />
-          <q-select v-model="accessType" class="col" dense outlined emit-value map-options
+          <q-select v-model="accessType" class="col" dense options-dense outlined emit-value map-options
             :label="t('calcWorkspace.accessType')" :options="accessOptions" />
         </div>
-        <q-select v-if="accessType === ShareAccessType.SpecifiedUsers" v-model="recipients" use-input use-chips multiple dense
-          outlined :label="t('calcWorkspace.recipientUsernames')" :options="[]" @new-value="onRecipientAdded" />
+        <q-select v-if="accessType === ShareAccessType.SpecifiedUsers" v-model="recipients" use-input use-chips multiple
+          dense options-dense outlined :label="t('calcWorkspace.recipientUsernames')" :options="[]"
+          @new-value="onRecipientAdded" />
         <div class="row q-col-gutter-sm">
           <q-input v-model="expiresAt" class="col" dense outlined type="datetime-local"
             :label="t('calcWorkspace.expiresAt')" />
@@ -34,11 +36,13 @@
             <q-item-label caption>{{ link.useCount }} / {{ link.maxUseCount ?? '∞' }} · {{ link.revokedAt ?
               t('calcWorkspace.revoked') : t('calcWorkspace.active') }}</q-item-label>
           </q-item-section>
-          <q-item-section side><CommonBtn flat dense icon="link_off" color="negative"
-              :disable="Boolean(link.revokedAt)" @click="onRevoke(link)" /></q-item-section>
+          <q-item-section side>
+            <CommonBtn flat dense icon="link_off" color="negative" :disable="Boolean(link.revokedAt)"
+              @click="onRevoke(link)" />
+          </q-item-section>
         </q-item>
         <q-item v-if="links.length === 0"><q-item-section class="text-grey-6">{{ t('calcWorkspace.noShareLinks')
-            }}</q-item-section></q-item>
+        }}</q-item-section></q-item>
       </q-list>
     </q-card>
   </q-dialog>

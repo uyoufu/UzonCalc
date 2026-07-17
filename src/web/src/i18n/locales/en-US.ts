@@ -250,7 +250,7 @@ export default {
     sharedReport: 'Shared report',
     shareReport: 'Share report',
     showInExplorer: 'Show in file explorer',
-    silentRun: 'Run directly with defaults',
+    silentRun: 'Run silently',
     sourceLatest: 'Latest published version',
     sourceVersion: 'Explicit version',
     sourceWorkspace: 'Workspace',

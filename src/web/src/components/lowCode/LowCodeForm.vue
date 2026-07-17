@@ -41,7 +41,7 @@
         <q-select v-if="isMatchedType(field, ['selectOne', 'selectMany'])" class="q-mb-sm low-code__field q-px-xs"
           :class="[fieldClass, field.classes]" outlined v-model="fieldsModel[field.name]" :options="field.options"
           :label="field.label" :hint="field.hint" :autofocus="field.autofocus" :disable="field.disable" dense
-          :option-label="field.optionLabel" :option-value="field.optionValue" options-dense
+          options-dense :option-label="field.optionLabel" :option-value="field.optionValue"
           :multiple="isMatchedType(field, 'selectMany')" :map-options="field.mapOptions" :emit-value="field.emitValue">
           <AsyncTooltip :tooltip="field.tooltip" />
           <template v-slot:option="{ itemProps, opt, selected, toggleOption }">

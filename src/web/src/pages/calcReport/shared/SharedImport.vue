@@ -5,16 +5,24 @@
       <div class="text-body2 text-grey-7 q-mt-xs">{{ preview?.reportDescription }}</div>
       <q-separator class="q-my-lg" />
       <dl v-if="preview" class="shared-import__summary">
-        <dt>{{ t('calcWorkspace.version') }}</dt><dd>{{ preview.versionName }}</dd>
-        <dt>{{ t('calcWorkspace.dependencies') }}</dt><dd>{{ preview.dependencyCount }}</dd>
-        <dt>{{ t('calcWorkspace.files') }}</dt><dd>{{ preview.totalFileCount }}</dd>
-        <dt>{{ t('calcWorkspace.totalSize') }}</dt><dd>{{ formatBytes(preview.totalSize) }}</dd>
+        <dt>{{ t('calcWorkspace.version') }}</dt>
+        <dd>{{ preview.versionName }}</dd>
+        <dt>{{ t('calcWorkspace.dependencies') }}</dt>
+        <dd>{{ preview.dependencyCount }}</dd>
+        <dt>{{ t('calcWorkspace.files') }}</dt>
+        <dd>{{ preview.totalFileCount }}</dd>
+        <dt>{{ t('calcWorkspace.totalSize') }}</dt>
+        <dd>{{ formatBytes(preview.totalSize) }}</dd>
       </dl>
       <div class="q-gutter-md q-mt-lg">
-        <q-select v-model="categoryOid" dense outlined emit-value map-options :options="categoryOptions" :label="t('calcWorkspace.categoryName')" />
+        <q-select v-model="categoryOid" dense options-dense outlined emit-value map-options :options="categoryOptions"
+          :label="t('calcWorkspace.categoryName')" />
         <q-input v-model="name" dense outlined :label="t('calcWorkspace.importName')" />
       </div>
-      <div class="row justify-end q-mt-lg"><CommonBtn icon="download" :label="t('calcWorkspace.importSharedReport')" :loading="isImporting" :disable="!categoryOid" @click="onImport" /></div>
+      <div class="row justify-end q-mt-lg">
+        <CommonBtn icon="download" :label="t('calcWorkspace.importSharedReport')" :loading="isImporting"
+          :disable="!categoryOid" @click="onImport" />
+      </div>
     </section>
   </div>
 </template>
@@ -40,4 +48,27 @@ async function onImport(): Promise<void> { isImporting.value = true; try { const
 function formatBytes(size: number): string { return size < 1048576 ? `${(size / 1024).toFixed(1)} KB` : `${(size / 1048576).toFixed(1)} MB` }
 </script>
 
-<style scoped>.shared-import { min-height: 620px; background: #fff; }.shared-import__content { width: min(620px, 100%); }.shared-import__summary { display: grid; grid-template-columns: 160px 1fr; gap: 8px 16px; }.shared-import__summary dt { color: #667085; }.shared-import__summary dd { margin: 0; }</style>
+<style scoped>
+.shared-import {
+  min-height: 620px;
+  background: #fff;
+}
+
+.shared-import__content {
+  width: min(620px, 100%);
+}
+
+.shared-import__summary {
+  display: grid;
+  grid-template-columns: 160px 1fr;
+  gap: 8px 16px;
+}
+
+.shared-import__summary dt {
+  color: #667085;
+}
+
+.shared-import__summary dd {
+  margin: 0;
+}
+</style>

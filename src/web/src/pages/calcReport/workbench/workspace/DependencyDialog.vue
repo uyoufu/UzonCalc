@@ -2,20 +2,20 @@
   <q-dialog ref="dialogRef" @hide="onDialogHide" persistent>
     <q-card class="dependency-dialog">
       <q-card-section class="row items-center">
-        <div class="text-subtitle1">{{ t('calcWorkspace.dependencies') }}</div><q-space /><CommonBtn flat dense
-          icon="close" @click="onDialogCancel" />
+        <div class="text-subtitle1">{{ t('calcWorkspace.dependencies') }}</div><q-space />
+        <CommonBtn flat dense icon="close" @click="onDialogCancel" />
       </q-card-section>
       <q-separator />
       <q-card-section class="q-gutter-md">
         <div class="row q-col-gutter-sm">
           <q-input v-model="alias" class="col" dense outlined :label="t('calcWorkspace.alias')" />
-          <q-select v-model="targetReportOid" class="col" dense outlined emit-value map-options :options="reportOptions"
-            :label="t('calcWorkspace.targetReport')" @update:model-value="onTargetChanged" />
+          <q-select v-model="targetReportOid" class="col" dense options-dense outlined emit-value map-options
+            :options="reportOptions" :label="t('calcWorkspace.targetReport')" @update:model-value="onTargetChanged" />
         </div>
-        <q-select v-model="selectedSelectors" dense outlined multiple use-chips emit-value map-options
+        <q-select v-model="selectedSelectors" dense options-dense outlined multiple use-chips emit-value map-options
           :options="selectorOptions" :label="t('calcWorkspace.selectors')" />
-        <q-select v-model="defaultSelector" dense outlined emit-value map-options :options="selectedSelectorOptions"
-          :label="t('calcWorkspace.defaultSelector')" />
+        <q-select v-model="defaultSelector" dense options-dense outlined emit-value map-options
+          :options="selectedSelectorOptions" :label="t('calcWorkspace.defaultSelector')" />
         <div class="row justify-end">
           <CommonBtn icon="add" :label="t('global.add')" :disable="!canAdd" @click="onAdd" />
         </div>
@@ -25,9 +25,10 @@
         <q-item v-for="dependency in draftDependencies" :key="dependency.alias">
           <q-item-section><q-item-label>{{ dependency.alias }}</q-item-label><q-item-label caption>{{
             reportName(dependency.targetReportOid) }} · {{dependency.selectors.map((selector) =>
-                selector.selectorKey).join(', ') }}</q-item-label></q-item-section>
-          <q-item-section side><CommonBtn flat dense icon="delete" color="negative"
-              @click="removeDependency(dependency.alias)" /></q-item-section>
+                selector.selectorKey).join(', ')}}</q-item-label></q-item-section>
+          <q-item-section side>
+            <CommonBtn flat dense icon="delete" color="negative" @click="removeDependency(dependency.alias)" />
+          </q-item-section>
         </q-item>
       </q-list>
       <q-card-actions align="right">
@@ -101,15 +102,14 @@ function reportName(reportOid: string): string { return reports.value.find((repo
 function onApply(): void { onDialogOK(structuredClone(draftDependencies.value)) }
 </script>
 
-<style
-  scoped>
-  .dependency-dialog {
-    width: min(780px, 92vw);
-    max-width: 780px;
-  }
+<style scoped>
+.dependency-dialog {
+  width: min(780px, 92vw);
+  max-width: 780px;
+}
 
-  .dependency-dialog__list {
-    max-height: 300px;
-    overflow: auto;
-  }
+.dependency-dialog__list {
+  max-height: 300px;
+  overflow: auto;
+}
 </style>
