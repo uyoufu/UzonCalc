@@ -16,8 +16,15 @@ from uzoncalc.cli_core.cli_archive_analysis import (
     ArchiveEntryPreview,
     analyze_archive_script,
 )
-from uzoncalc.cli_core.cli_png_container import write_png_zip_container
+from uzoncalc.cli_core.cli_png_container import (
+    read_png_zip_container,
+    write_png_zip_container,
+)
 from uzoncalc.cli_core.cli_thumbnail import render_archive_thumbnail
+from uzoncalc.cli_core.cli_workspace_archive import (
+    read_workspace_archive,
+    write_workspace_archive,
+)
 
 
 _PNG_SIGNATURE = b"\x89PNG\r\n\x1a\n"
@@ -90,6 +97,97 @@ def _read_png_chunks(archive_path: Path) -> list[tuple[bytes, bytes]]:
     assert offset == len(png_bytes)
     assert chunks[-1][0] == b"IEND"
     return chunks
+
+
+def test_png_container_reader_returns_validated_zip_payload(tmp_path):
+    """共享容器读取器应返回写入 PNG 私有块的原始 ZIP 数据。"""
+    thumbnail = BytesIO()
+    Image.new("RGB", (2, 2), color="white").save(thumbnail, format="PNG")
+    output_path = tmp_path / "report.png"
+
+    def write_payload(stream) -> None:
+        """向给定流写入确定性的测试 ZIP。"""
+        with zipfile.ZipFile(stream, "w") as archive:
+            archive.writestr("manifest.json", "{}")
+
+    write_png_zip_container(output_path, thumbnail.getvalue(), write_payload)
+
+    payload = read_png_zip_container(output_path.read_bytes())
+    with zipfile.ZipFile(BytesIO(payload)) as archive:
+        assert archive.read("manifest.json") == b"{}"
+
+
+def test_png_container_reader_rejects_tampered_crc(tmp_path):
+    """共享容器读取器应拒绝 CRC 未同步更新的篡改数据。"""
+    thumbnail = BytesIO()
+    Image.new("RGB", (2, 2), color="white").save(thumbnail, format="PNG")
+    output_path = tmp_path / "report.uzc"
+    write_png_zip_container(
+        output_path, thumbnail.getvalue(), lambda stream: stream.write(b"zip")
+    )
+    tampered = bytearray(output_path.read_bytes())
+    payload_offset = tampered.index(b"uzCa") + 4
+    tampered[payload_offset] ^= 0x01
+
+    with pytest.raises(ValueError, match="CRC"):
+        read_png_zip_container(bytes(tampered))
+
+
+@pytest.mark.parametrize("suffix", [".png", ".uzc"])
+def test_workspace_archive_v3_round_trip_supports_both_extensions(tmp_path, suffix):
+    """V3 workspace archives should use identical validated PNG containers."""
+    thumbnail = BytesIO()
+    Image.new("RGB", (2, 2), color="white").save(thumbnail, format="PNG")
+    output_path = tmp_path / f"report{suffix}"
+    files = {
+        "executable/src/main.py": b"print('ok')\n",
+        "workspace/root/calcbook.json": b'{"formatVersion": 1}',
+    }
+
+    write_workspace_archive(
+        output_path,
+        thumbnail.getvalue(),
+        {"rootReportOid": "0123456789abcdef01234567", "canEdit": False},
+        files,
+    )
+
+    archive = read_workspace_archive(output_path.read_bytes())
+    assert archive.manifest["formatVersion"] == 3
+    assert archive.manifest["canEdit"] is False
+    assert archive.files == files
+
+
+def test_workspace_archive_v3_rejects_manifest_hash_tampering(tmp_path):
+    """V3 reads should reject content whose declared digest no longer matches."""
+    thumbnail = BytesIO()
+    Image.new("RGB", (2, 2), color="white").save(thumbnail, format="PNG")
+    output_path = tmp_path / "report.png"
+    write_workspace_archive(
+        output_path,
+        thumbnail.getvalue(),
+        {"rootReportOid": "0123456789abcdef01234567"},
+        {"executable/src/main.py": b"print('ok')\n"},
+    )
+    payload = read_png_zip_container(output_path.read_bytes())
+    source = BytesIO(payload)
+    rewritten = BytesIO()
+    with zipfile.ZipFile(source) as input_archive, zipfile.ZipFile(
+        rewritten, "w", compression=zipfile.ZIP_DEFLATED
+    ) as output_archive:
+        for info in input_archive.infolist():
+            content = input_archive.read(info)
+            if info.filename == "executable/src/main.py":
+                content = b"print('tampered')\n"
+            output_archive.writestr(info.filename, content)
+
+    tampered_path = tmp_path / "tampered.png"
+    write_png_zip_container(
+        tampered_path,
+        thumbnail.getvalue(),
+        lambda stream: stream.write(rewritten.getvalue()),
+    )
+    with pytest.raises(ValueError, match="哈希"):
+        read_workspace_archive(tampered_path.read_bytes())
 
 
 def test_archive_analysis_prefers_h1_and_first_entry(tmp_path):

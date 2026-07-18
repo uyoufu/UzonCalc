@@ -22,14 +22,6 @@ class BuildStatus(StrEnum):
     FAILED = "failed"
 
 
-class ReviewStatus(StrEnum):
-    """Describe the public review outcome for a report version."""
-
-    PENDING = "pending"
-    APPROVED = "approved"
-    REJECTED = "rejected"
-
-
 class ExecutionSourceType(StrEnum):
     """Identify the public source selected for an execution."""
 
@@ -52,9 +44,30 @@ class ExecutionStatus(StrEnum):
 class ShareAccessType(StrEnum):
     """Describe who may consume a version share link."""
 
-    LINK = "link"
     PUBLIC = "public"
+    INTERNAL = "internal"
     SPECIFIED_USERS = "specified_users"
+    SPECIFIED_DEPARTMENTS = "specified_departments"
+
+
+class ReportOriginType(StrEnum):
+    """Describe how a calculation report entered the current library."""
+
+    NATIVE = "native"
+    COPY = "copy"
+    SHARE_IMPORT = "share_import"
+    SHARE_SYNC = "share_sync"
+    FILE_IMPORT = "file_import"
+
+
+class ReportSyncState(StrEnum):
+    """Describe whether a synchronized report has a newer upstream version."""
+
+    NOT_APPLICABLE = "not_applicable"
+    CURRENT = "current"
+    UPDATE_AVAILABLE = "update_available"
+    SOURCE_UNAVAILABLE = "source_unavailable"
+    ACCESS_REVOKED = "access_revoked"
 
 
 class WorkspaceFileSource(StrEnum):

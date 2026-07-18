@@ -1,113 +1,142 @@
 <template>
-  <q-card class="column items-center justify-center q-pa-md text-subtitle1">
-    <div class="row items-center">
-      <UserAvatar size="50px" />
-      <h6 class="q-ml-md text-secondary">{{ userInfo.userId }}</h6>
-    </div>
-
-    <div v-if="createDate" class="row justify-start items-center">
-      <span>注册日期：</span>
-      <span class="text-secondary">{{ createDate }}</span>
-    </div>
-
-    <div v-if="userRole" class="row justify-start items-center">
-      <span>账户角色：</span>
-      <span class="text-secondary">{{ userRole }}</span>
-    </div>
-
-    <div class="row justify-end items-center q-mt-lg">
-      <CommonBtn label="修改头像" color="secondary" class="q-mr-md" @click="onChangeUserAvatar" />
-      <CommonBtn label="修改密码" @click="onChangeUserPassword" />
-    </div>
-  </q-card>
+  <div class="profile-page column no-wrap">
+    <q-tabs v-model="activeTab" dense align="left" active-color="primary" indicator-color="primary">
+      <q-tab name="basic" icon="person" :label="t('userPage.basicInfo')" />
+      <q-tab name="security" icon="lock" :label="t('userPage.securitySettings')" />
+    </q-tabs>
+    <q-separator />
+    <q-tab-panels v-model="activeTab" animated class="col">
+      <q-tab-panel name="basic" class="profile-panel">
+        <div class="row items-center q-gutter-lg">
+          <button type="button" class="avatar-button" :aria-label="t('userPage.changeAvatar')"
+            @click="onChangeUserAvatar">
+            <UserAvatar size="88px" />
+            <q-icon name="photo_camera" class="avatar-button__icon" />
+          </button>
+          <div>
+            <div class="text-subtitle1 text-weight-medium">{{ profile?.username }}</div>
+            <div class="text-caption text-grey-7">{{ roleLabel }}</div>
+          </div>
+        </div>
+        <q-input v-model="nickName" dense outlined class="profile-field q-mt-xl" :label="t('userPage.nickName')"
+          maxlength="50" counter />
+        <div class="text-caption text-grey-7 q-mt-sm">{{ t('userPage.registeredAt') }} · {{ createdAt }}</div>
+        <div class="row q-mt-lg">
+          <CommonBtn icon="save" :label="t('global.save')" :loading="isSavingProfile" :disable="!nickName.trim()"
+            @click="onSaveProfile" />
+        </div>
+      </q-tab-panel>
+      <q-tab-panel name="security" class="profile-panel">
+        <div class="text-subtitle1 text-weight-medium">{{ t('userPage.changePassword') }}</div>
+        <div class="text-body2 text-grey-7 q-mt-xs">{{ t('userPage.passwordSecurity') }}</div>
+        <CommonBtn class="q-mt-lg" icon="password" :label="t('userPage.changePassword')"
+          @click="onChangeUserPassword" />
+      </q-tab-panel>
+    </q-tab-panels>
+  </div>
 </template>
 
-<script lang="ts" setup>
+<script setup lang="ts">
+/** Current-user profile with basic information and security settings. */
+import dayjs from 'dayjs'
 import UserAvatar from 'src/components/userAvatar/UserAvatar.vue'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
-import dayjs from 'dayjs'
-
-import { useUserInfoStore } from 'src/stores/user'
-const userInfoStore = useUserInfoStore()
-
-import { getUserInfo, changeUserPassword, updateUserAvatar } from 'src/api/user'
-// 获取用户的信息
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-const userInfo: Ref<Record<string, any>> = ref({})
-onMounted(async () => {
-  const { data } = await getUserInfo(userInfoStore.username)
-  userInfo.value = data
-})
-
-// 创建日期
-const createDate = computed(() => {
-  if (!userInfo.value.createDate) return ''
-  return dayjs(userInfo.value.createDate).format('YYYY-MM-DD')
-})
-
-// 当前角色
-const userRole = computed(() => {
-  if (userInfo.value.isSuperAdmin) return '超级管理员'
-  return '普通用户'
-})
-
-/**
- * 修改密码
- */
-import { showDialog, showComponentDialog } from 'src/components/lowCode/PopupDialog'
+import ImageCropper from 'src/components/imageCropper/ImageCropper.vue'
+import { changeUserPassword, getCurrentUserProfile, updateCurrentUserProfile, updateUserAvatar, type IUserInfoDetail } from 'src/api/user'
 import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { notifySuccess } from 'src/utils/dialog'
-async function onChangeUserPassword () {
-  const result = await showDialog({
-    title: '修改密码',
-    fields: [
-      {
-        name: 'oldPassword',
-        label: '旧密码',
-        type: LowCodeFieldType.text,
-        placeholder: '请输入旧密码',
-        value: ''
-      },
-      {
-        name: 'newPassword',
-        label: '新密码',
-        type: LowCodeFieldType.password,
-        placeholder: '请输入新密码',
-        value: ''
-      }
-    ],
-    onOkMain: async (modelValue) => {
-      const { data } = await changeUserPassword(modelValue.oldPassword, modelValue.newPassword)
-      return data
-    }
-  })
+import { showComponentDialog, showDialog } from 'src/components/lowCode/PopupDialog'
+import { openFileSelector } from 'src/utils/file'
+import { useUserInfoStore } from 'src/stores/user'
+import { t } from 'src/i18n/helpers'
 
-  if (!result.ok) return
+defineOptions({ name: 'profileIndex' })
+const userStore = useUserInfoStore()
+const activeTab = ref('basic')
+const profile = ref<IUserInfoDetail | null>(null)
+const nickName = ref('')
+const isSavingProfile = ref(false)
+const createdAt = computed(() => profile.value ? dayjs(profile.value.createdAt).format('YYYY-MM-DD') : '')
+const roleLabel = computed(() => profile.value?.roles.includes('admin') ? t('userPage.administrator') : t('userPage.regularUser'))
 
-  notifySuccess(`密码修改成功! 新密码为：${result.data.newPassword}`)
+/** Load the authenticated user's safe profile. */
+async function initializeProfile(): Promise<void> {
+  profile.value = (await getCurrentUserProfile()).data
+  nickName.value = profile.value.nickName || profile.value.username
+}
+onMounted(initializeProfile)
+
+/** Persist the edited nickname and update session display state. */
+async function onSaveProfile(): Promise<void> {
+  isSavingProfile.value = true
+  try {
+    profile.value = (await updateCurrentUserProfile(nickName.value.trim())).data
+    userStore.updateNickName(profile.value.nickName || profile.value.username)
+    notifySuccess(t('userPage.profileSaved'))
+  } finally {
+    isSavingProfile.value = false
+  }
 }
 
-/**
- * 修改头像
- */
-import ImageCropper from 'src/components/imageCropper/ImageCropper.vue'
-import { openFileSelector, bufferToBase64Png } from 'src/utils/file'
-async function onChangeUserAvatar () {
-  // 选择文件
-  const buffer = await openFileSelector()
+/** Select, crop, normalize, and upload a new avatar. */
+async function onChangeUserAvatar(): Promise<void> {
+  const buffer = await openFileSelector(false, 'image/png,image/jpeg,image/webp')
   if (!buffer) return
+  const cropResult = await showComponentDialog(ImageCropper, { img: new Blob([buffer as ArrayBuffer]) })
+  if (!cropResult.ok) return
+  const avatarUrl = (await updateUserAvatar(cropResult.data as Blob)).data
+  userStore.updateUserAvatar(avatarUrl)
+  if (profile.value) profile.value.avatar = avatarUrl
+}
 
-  const blobResult = await showComponentDialog(ImageCropper, {
-    img: bufferToBase64Png(buffer as ArrayBuffer)
+/** Verify the current password and submit a replacement. */
+async function onChangeUserPassword(): Promise<void> {
+  const result = await showDialog<{ oldPassword: string; newPassword: string }>({
+    title: t('userPage.changePassword'),
+    oneColumn: true,
+    fields: [
+      { name: 'oldPassword', label: t('userPage.oldPassword'), type: LowCodeFieldType.password, required: true },
+      { name: 'newPassword', label: t('userPage.newPassword'), type: LowCodeFieldType.password, required: true }
+    ],
+    onOkMain: async (value) => (await changeUserPassword(value.oldPassword, value.newPassword)).data
   })
-  if (!blobResult.ok) return
-
-  // 上传 blob 到服务器
-  const { data } = blobResult
-  const { data: avatarUrl } = await updateUserAvatar(data as Blob)
-  // 将头像数据更新到 store 中
-  userInfoStore.updateUserAvatar(avatarUrl)
+  if (result.ok) notifySuccess(t('userPage.passwordChanged'))
 }
 </script>
 
-<style lang="scss" scoped></style>
+<style scoped>
+.profile-page {
+  height: 100%;
+  min-height: 580px;
+  background: #fff;
+}
+
+.profile-panel {
+  max-width: 680px;
+  padding: 32px;
+}
+
+.profile-field {
+  max-width: 250px;
+}
+
+.avatar-button {
+  position: relative;
+  border: 0;
+  padding: 0;
+  border-radius: 50%;
+  background: transparent;
+  cursor: pointer;
+}
+
+.avatar-button__icon {
+  position: absolute;
+  right: -2px;
+  bottom: 2px;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  color: white;
+  background: var(--q-primary);
+}
+</style>

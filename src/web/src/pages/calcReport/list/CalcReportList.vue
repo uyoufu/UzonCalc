@@ -1,8 +1,10 @@
 <template>
   <div class="report-library row no-wrap full-height">
     <ReportCategoryPanel v-model="selectedCategoryOid" :categories="categories" @create="onOpenCategoryDialog()"
-      @edit="onOpenCategoryDialog" @delete="onDeleteCategory" @reorder="onReorderCategories" />
-    <ReportTable v-model:filter="filter" v-model:pagination="pagination" :reports="reports" :loading="loading"
+      @edit="onOpenCategoryDialog" @delete="onDeleteCategory" @organize="onOrganizeCategories"
+      @access="onCategoryAccess" />
+    <SharedReportList v-if="selectedCategoryOid === FixedReportCategoryFilter.Shared" :categories="categories" />
+    <ReportTable v-else v-model:filter="filter" v-model:pagination="pagination" :reports="reports" :loading="loading"
       :context-menu-items="contextMenuItems" @request="onTableRequest" @create="onCreateReport"
       @import="onOpenImportDialog" @open="onOpenReport" @favorite="onToggleFavorite" />
   </div>
@@ -14,27 +16,44 @@ defineOptions({ name: 'CalcReportList' })
 
 import ReportCategoryPanel from './components/ReportCategoryPanel.vue'
 import ReportTable from './components/ReportTable.vue'
+import SharedReportList from './components/SharedReportList.vue'
 import type { CalcReport, CalcReportCategory } from 'src/api/calc/types'
-import { createReportCategory, deleteReportCategory, listReportCategories, reorderReportCategories, updateReportCategory } from 'src/api/calc/categories'
-import { countCalcReports, importUzcReport, listCalcReports, type ReportListParams } from 'src/api/calc/reports'
+import { createReportCategory, deleteReportCategory, listReportCategories, recordReportCategoryAccess, reorderReportCategories, updateReportCategory, updateReportCategoryState } from 'src/api/calc/categories'
+import { countCalcReports, importReportArchive, listCalcReports, type ReportListParams } from 'src/api/calc/reports'
+import { importRemoteShare, previewRemoteShare, resolveBackendShareSource } from 'src/api/calc/shares'
 import { useReportContextMenu } from './components/useReportContextMenu'
 import { useCalcReportListDialogs } from './compositions/useCalcReportListDialogs'
-import { confirmOperation, notifySuccess } from 'src/utils/dialog'
+import { confirmOperation, notifySuccess, notifyUntil } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 import { useQTable } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
 import { FixedReportCategoryFilter, type ReportCategorySelection } from './components/reportCategoryFilter'
+import { getUserSetting, upsertUserSetting } from 'src/api/userSetting'
+
+const LAST_CATEGORY_SETTING_KEY = 'calcReport.lastCategory'
 
 const router = useRouter()
 const categories = ref<CalcReportCategory[]>([])
 const selectedCategoryOid = ref<ReportCategorySelection>(null)
 const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
-const { openCategoryDialog, openImportDialog } = useCalcReportListDialogs()
+const { openCategoryDialog, openImportDialog, openLinkImportDialog } = useCalcReportListDialogs()
 
 /** Refresh report categories and their derived counts. */
 async function loadCategories(): Promise<void> {
   const response = await listReportCategories()
   categories.value = response.data || []
+}
+
+/** Restore the last category with local state taking precedence over server sync. */
+async function initializeCategories(): Promise<void> {
+  await loadCategories()
+  const localSelection = localStorage.getItem(LAST_CATEGORY_SETTING_KEY)
+  const serverSetting = localSelection ? null : (await getUserSetting(LAST_CATEGORY_SETTING_KEY)).data
+  const candidate = localSelection || (typeof serverSetting?.categoryOid === 'string' ? serverSetting.categoryOid : null)
+  const fixedValues: ReportCategorySelection[] = [null, FixedReportCategoryFilter.Favorites, FixedReportCategoryFilter.Shared]
+  selectedCategoryOid.value = fixedValues.includes(candidate) || categories.value.some((category) => category.categoryOid === candidate)
+    ? candidate
+    : null
 }
 
 /** Convert table search and category state into API filters. */
@@ -82,20 +101,27 @@ const {
   onRequest: requestReportItems
 })
 
-onMounted(loadCategories)
+onMounted(initializeCategories)
 watch(filter, () => {
   pagination.value.page = 1
 }, { flush: 'sync' })
-watch(selectedCategoryOid, () => {
+let categorySettingTimer: ReturnType<typeof setTimeout> | undefined
+watch(selectedCategoryOid, (selection) => {
   pagination.value.page = 1
-  refreshTable()
+  if (selection !== FixedReportCategoryFilter.Shared) refreshTable()
+  if (selection === null) localStorage.removeItem(LAST_CATEGORY_SETTING_KEY)
+  else localStorage.setItem(LAST_CATEGORY_SETTING_KEY, selection)
+  clearTimeout(categorySettingTimer)
+  categorySettingTimer = setTimeout(() => {
+    void upsertUserSetting(LAST_CATEGORY_SETTING_KEY, { value: { categoryOid: selection } })
+  }, 400)
 })
 
 /** Navigate to a preallocated new workspace. */
 async function onCreateReport(): Promise<void> {
-  const selectedPersistedCategoryOid = selectedCategoryOid.value === FixedReportCategoryFilter.Favorites
-    ? undefined
-    : selectedCategoryOid.value
+  const selectedPersistedCategoryOid = categories.value.some((category) => category.categoryOid === selectedCategoryOid.value)
+    ? selectedCategoryOid.value
+    : undefined
   await router.push({ path: '/calc-report/new', query: { categoryOid: selectedPersistedCategoryOid || categories.value[0]?.categoryOid } })
 }
 /** Open category metadata and persist a confirmed change. */
@@ -114,19 +140,53 @@ async function onDeleteCategory(category: CalcReportCategory): Promise<void> {
   if (selectedCategoryOid.value === category.categoryOid) selectedCategoryOid.value = null
   await loadCategories()
 }
-/** Persist drag-and-drop report-category ordering. */
-async function onReorderCategories(value: CalcReportCategory[]): Promise<void> {
+/** Persist pin/hide changes and manual order after menu or drag operations. */
+async function onOrganizeCategories(value: CalcReportCategory[]): Promise<void> {
+  const previous = new Map(categories.value.map((category) => [category.categoryOid, category]))
   categories.value = value
-  const response = await reorderReportCategories(value.map((category) => ({ categoryOid: category.categoryOid, sortOrder: category.sortOrder })))
+  await Promise.all(value.map((category) => {
+    const original = previous.get(category.categoryOid)
+    if (original?.isPinned === category.isPinned && original?.isHidden === category.isHidden) return Promise.resolve()
+    return updateReportCategoryState(category.categoryOid, { isPinned: category.isPinned, isHidden: category.isHidden })
+  }))
+  const pinned = value.filter((category) => category.isPinned)
+  const response = await reorderReportCategories(pinned.map((category, manualOrder) => ({ categoryOid: category.categoryOid, manualOrder })))
   categories.value = response.data || value
 }
 
-/** Import a UZC archive and refresh the report library after success. */
-async function onOpenImportDialog(): Promise<void> {
+/** Record one persisted category use and reload LFU-Aging order. */
+async function onCategoryAccess(category: CalcReportCategory): Promise<void> {
+  await recordReportCategoryAccess(category.categoryOid)
+  await loadCategories()
+}
+
+/** Import a portable file or public share link and refresh the library. */
+async function onOpenImportDialog(kind: 'file' | 'link'): Promise<void> {
+  if (kind === 'link') {
+    const input = await openLinkImportDialog(categoryOptions.value)
+    if (!input) return
+    const source = resolveBackendShareSource(input.source)
+    const preview = (await previewRemoteShare(source)).data
+    if (!preview.canEdit && !await confirmOperation(t('calcWorkspace.executionRiskTitle'), t('calcWorkspace.executionRiskMessage'))) return
+    await notifyUntil(
+      async () => await importRemoteShare(source, input.categoryOid, input.name, input.shouldSync),
+      t('calcWorkspace.importingArchive')
+    )
+    await refreshAfterImport()
+    return
+  }
   const input = await openImportDialog(categoryOptions.value)
   if (!input) return
 
-  await importUzcReport(input.categoryOid, input.name, input.archive)
+  await notifyUntil(
+    async () => await importReportArchive(input.categoryOid, input.name, input.archive),
+    t('calcWorkspace.importingArchive')
+  )
+  await refreshAfterImport()
+}
+
+/** Reload categories and the first report page after a completed import. */
+async function refreshAfterImport(): Promise<void> {
   await loadCategories()
   pagination.value.page = 1
   refreshTable()

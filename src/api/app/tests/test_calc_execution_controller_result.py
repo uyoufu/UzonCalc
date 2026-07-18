@@ -36,7 +36,7 @@ class FakeHtmlCacher:
         )
 
 
-def test_finalize_execution_step_builds_provenance_response(monkeypatch):
+def test_finalize_execution_step_builds_public_response(monkeypatch):
     """Finalization should expose immutable provenance and persist cache path."""
 
     async def record_result_path(session, execution_oid, user_id, result_path):
@@ -114,7 +114,9 @@ def test_finalize_execution_step_builds_provenance_response(monkeypatch):
     )
 
     response = asyncio.run(
-        calc_execution._finalize_step(step, "public/calcs/1/old.html", 1, object())
+        calc_execution.finalize_execution_step(
+            step, "public/calcs/1/old.html", 1, object()
+        )
     )
 
     assert isinstance(response, CalcExecutionResDTO)

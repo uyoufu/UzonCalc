@@ -4,6 +4,7 @@ import datetime
 
 from sqlalchemy import (
     BigInteger,
+    Boolean,
     CHAR,
     CheckConstraint,
     DateTime,
@@ -14,6 +15,8 @@ from sqlalchemy import (
     SmallInteger,
     String,
     Text,
+    false,
+    true,
     text,
 )
 from sqlalchemy.orm import Mapped, mapped_column
@@ -37,6 +40,7 @@ class CalcReport(BaseModel):
         CheckConstraint(
             "workspaceRevision >= 0", name="workspace_revision_nonnegative"
         ),
+        CheckConstraint("originType IN (1, 2, 3, 4, 5)", name="origin_type_values"),
         Index(
             "uq_calc_report_active_user_category_name",
             "userId",
@@ -79,6 +83,18 @@ class CalcReport(BaseModel):
         ForeignKey("calc_report_artifact.id", ondelete="RESTRICT"), nullable=True
     )
     latestVersionId: Mapped[int | None] = mapped_column(nullable=True)
+    originType: Mapped[int] = mapped_column(
+        SmallInteger, nullable=False, default=1, server_default="1"
+    )
+    canEdit: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    canShare: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
+    )
+    isSystemComponent: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     updatedAt: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
@@ -94,14 +110,9 @@ class CalcReportOrigin(BaseModel):
     """Persist optional provenance for a calculation report."""
 
     __tablename__ = "calc_report_origin"
-    __table_args__ = (
-        CheckConstraint("originType IN (1, 2, 3, 4)", name="origin_type_values"),
-    )
-
     reportId: Mapped[int] = mapped_column(
         ForeignKey("calc_report.id", ondelete="CASCADE"), nullable=False, unique=True
     )
-    originType: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     sourceReportId: Mapped[int | None] = mapped_column(
         ForeignKey("calc_report.id", ondelete="RESTRICT"), nullable=True
     )
@@ -113,3 +124,25 @@ class CalcReportOrigin(BaseModel):
     )
     sourceArchiveHash: Mapped[str | None] = mapped_column(CHAR(64), nullable=True)
     originMetadata: Mapped[dict | None] = mapped_column("metadata", JSON, nullable=True)
+
+
+class CalcReportSyncSource(BaseModel):
+    """Persist the upstream locator and cached state for a synchronized report."""
+
+    __tablename__ = "calc_report_sync_source"
+
+    reportId: Mapped[int] = mapped_column(
+        ForeignKey("calc_report.id", ondelete="CASCADE"), nullable=False, unique=True
+    )
+    sourceLocator: Mapped[str] = mapped_column(Text, nullable=False)
+    sourceReportOid: Mapped[str] = mapped_column(CHAR(24), nullable=False)
+    sourceVersionName: Mapped[str] = mapped_column(String(64), nullable=False)
+    sourceArtifactHash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    lastCheckedAt: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    lastSyncedAt: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )

@@ -14,6 +14,7 @@ dependencies = [
     "uvicorn[standard]>=0.41.0",
     "python-multipart",
     "PyJWT",
+    "cryptography>=46.0.5",
     "Babel",
     "aiofiles",
     "interval",

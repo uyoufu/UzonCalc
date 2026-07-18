@@ -112,6 +112,26 @@ async def get_owned_report(
     return cast(CalcReport, report)
 
 
+def require_editable_report(report: CalcReport) -> None:
+    """Reject source mutations for application-level read-only reports.
+
+    Args:
+        report: Report targeted by a source mutation.
+
+    Returns:
+        None.
+
+    Raises:
+        CustomException: If the report's inherited policy forbids editing.
+    """
+    if not report.canEdit:
+        raise_ex(
+            "Report editing is not permitted",
+            code=403,
+            error_code=CalcErrorCode.SHARE_NOT_ALLOWED,
+        )
+
+
 async def save_workspace(
     user_id: int,
     report_oid: str,
@@ -147,6 +167,8 @@ async def save_workspace(
             CalcReport.deletedAt.is_(None),
         )
     )
+    if report is not None:
+        require_editable_report(report)
     current_artifact = None
     if report is not None and report.workspaceArtifactId is not None:
         current_artifact = await session.get(
@@ -367,6 +389,7 @@ async def restore_workspace_artifact(
     Raises:
         CustomException: If the artifact dependency snapshot is no longer valid.
     """
+    require_editable_report(report)
     dependencies = [
         ReportDependencyDTO.model_validate(value)
         for value in artifact.manifest.get("dependencies", [])

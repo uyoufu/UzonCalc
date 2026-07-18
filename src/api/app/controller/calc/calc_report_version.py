@@ -6,7 +6,6 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.controller.calc.calc_report_dto import (
     CalcReportVersionCreateDTO,
     CalcReportVersionResDTO,
-    CalcReportVersionReviewDTO,
     VersionNameDTO,
 )
 from app.controller.calc.calc_workspace_dto import WorkspaceResDTO
@@ -73,26 +72,5 @@ async def restore_calc_report_workspace(
     return ok(
         data=await calc_report_version_service.restore_version_workspace(
             tokenPayloads.id, reportOid, request.versionName, session
-        )
-    )
-
-
-@router.put("/{reportOid}/versions/{versionName}/review")
-async def review_calc_report_version(
-    reportOid: str,
-    versionName: str,
-    request: CalcReportVersionReviewDTO,
-    tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcReportVersionResDTO]:
-    """Apply an administrator review outcome."""
-    return ok(
-        data=await calc_report_version_service.review_version(
-            tokenPayloads.id,
-            tokenPayloads.roles,
-            reportOid,
-            versionName,
-            request,
-            session,
         )
     )

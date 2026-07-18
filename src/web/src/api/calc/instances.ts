@@ -29,3 +29,9 @@ export function updateInstance(instanceOid: string, data: { revision: number; ca
 export function updateInstanceResult(instanceOid: string, revision: number, executionId: string) { return httpClient.put<CalcInstance>(`/calc-report-instance/${instanceOid}/result`, { data: { revision, executionId } }) }
 /** Soft-delete a saved instance. */
 export function deleteInstance(instanceOid: string) { return httpClient.delete<void>(`/calc-report-instance/${instanceOid}`) }
+/** Enable anonymous access for a saved instance. */
+export function shareInstance(instanceOid: string) { return httpClient.put<{ instanceOid: string; shareOid: string; token: string; createdAt: string }>(`/calc-report-instance/${instanceOid}/share`) }
+/** Revoke anonymous access for a saved instance. */
+export function revokeInstanceShare(instanceOid: string) { return httpClient.delete<void>(`/calc-report-instance/${instanceOid}/share`) }
+/** Load a read-only instance using an anonymous share token. */
+export function getSharedInstance(token: string) { return httpClient.get<CalcInstance>(`/calc-report-instance/shared/${token}`) }

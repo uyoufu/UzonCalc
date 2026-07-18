@@ -55,7 +55,9 @@ def test_calc_list_routers_expose_static_count_and_items_paths() -> None:
         assert f"{router.prefix}/count" in get_paths
         assert f"{router.prefix}/items" in get_paths
         assert get_paths.index(f"{router.prefix}/count") < next(
-            index for index, path in enumerate(get_paths) if "{" in path
+            index
+            for index, path in enumerate(get_paths)
+            if path.startswith(f"{router.prefix}/{{")
         )
 
 
@@ -98,8 +100,9 @@ def test_calc_list_openapi_reuses_pagination_dto_on_items_only() -> None:
         "sortBy",
         "descending",
     ]
-    assert parameter_names("/v1/calc/execution/count") == []
+    assert parameter_names("/v1/calc/execution/count") == ["reportOid"]
     assert parameter_names("/v1/calc/execution/items") == [
+        "reportOid",
         "skip",
         "limit",
         "sortBy",

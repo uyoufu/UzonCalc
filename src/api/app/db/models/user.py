@@ -30,7 +30,7 @@ class User(BaseModel):
     __table_args__ = (CheckConstraint("status IN (0, 1, 2)", name="status_values"),)
 
     username: Mapped[str] = mapped_column(String(50), unique=True, nullable=False)
-    name: Mapped[str | None] = mapped_column(String(50), nullable=True)
+    nickName: Mapped[str | None] = mapped_column(String(50), nullable=True)
     avatar: Mapped[str | None] = mapped_column(String(255), nullable=True)
     password: Mapped[str] = mapped_column(String(255), nullable=False)
     salt: Mapped[str] = mapped_column(String(255), nullable=False)

@@ -13,14 +13,14 @@
         <span>{{ t('calcWorkspace.sourceWorkspace') }}</span>
       </div>
       <q-toggle v-model="isSilent" :label="t('calcWorkspace.silentRun')" />
-      <CommonBtn v-if="!execution || execution.isCompleted || isExecutionOutdated" icon="play_arrow"
+      <CommonBtn v-if="isSilent || !execution || execution.isCompleted || isExecutionOutdated" icon="play_arrow"
         :label="t('calcWorkspace.startRun')" :loading="isExecuting" @click="onStart" />
       <CommonBtn v-else icon="skip_next" :label="t('calcWorkspace.continueRun')" :loading="isExecuting"
         @click="onContinue" />
       <CommonBtn v-if="execution && !execution.isCompleted" flat dense icon="stop" color="negative"
         :tooltip="t('calcWorkspace.terminate')" @click="onTerminate" />
       <q-space />
-      <CommonBtn v-if="execution?.isCompleted" icon="save_as" color="grey-8" :label="t('calcWorkspace.saveInstance')"
+      <CommonBtn v-if="showSaveInstanceButton && execution?.isCompleted" icon="save_as" color="grey-8" :label="t('calcWorkspace.saveInstance')"
         @click="onOpenSaveInstanceDialog" />
     </div>
     <q-separator />
@@ -35,13 +35,6 @@
     </q-banner>
     <div class="row no-wrap col execution-body">
       <section class="execution-input column no-wrap">
-        <div v-if="execution" class="execution-provenance q-pa-sm text-caption">
-          <div>{{ execution.sourceType }}<span v-if="execution.resolvedVersion"> · {{ execution.resolvedVersion
-          }}</span>
-          </div>
-          <div class="ellipsis text-grey-7">{{ execution.backendMode }} · {{ execution.bundleHash }}</div>
-        </div>
-        <q-separator />
         <q-scroll-area class="col">
           <div v-if="execution?.windows.length" class="q-pa-sm q-gutter-md">
             <section v-for="windowInfo in execution.windows" :key="windowInfo.title">
@@ -62,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-/** Run and continue managed calculations while showing immutable provenance. */
+/** Restore, run, and continue managed calculations with editable UI inputs. */
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import ExecutionResultFrame from './ExecutionResultFrame.vue'
@@ -76,7 +69,7 @@ import {
   type CalcReport,
   type CalcReportVersion
 } from 'src/api/calc/types'
-import { continueExecution, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
+import { continueExecution, listExecutions, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
 import { createInstance } from 'src/api/calc/instances'
 import { listVersions } from 'src/api/calc/versions'
 import { adaptExecutionFields } from '../utils/adaptExecutionFields'
@@ -93,12 +86,19 @@ const props = withDefaults(defineProps<{
   initialSource?: ExecutionSourceType
   refreshToken?: number
   showBackButton?: boolean
+  initialExecution?: CalcExecution | null
+  autoRestoreHistory?: boolean
+  showSaveInstanceButton?: boolean
 }>(), {
   workspaceOnly: false,
   initialSource: ExecutionSourceType.Workspace,
   refreshToken: 0,
-  showBackButton: false
+  showBackButton: false,
+  initialExecution: null,
+  autoRestoreHistory: true,
+  showSaveInstanceButton: true
 })
+const emit = defineEmits<{ executionChanged: [execution: CalcExecution] }>()
 
 const router = useRouter()
 const report = ref<CalcReport | null>(null)
@@ -140,7 +140,18 @@ async function refreshExecutionContext(): Promise<void> {
     } else if (sourceType.value === ExecutionSourceType.Version && versions.value.length === 0) {
       sourceType.value = ExecutionSourceType.Workspace
     }
+    const isFirstLoad = initializedReportOid !== props.reportOid
     initializedReportOid = props.reportOid
+    if (isFirstLoad) {
+      const history = props.initialExecution || (props.autoRestoreHistory
+        ? (await listExecutions({ reportOid: props.reportOid, skip: 0, limit: 1, sortBy: 'createdAt', descending: true })).data?.[0]
+        : null)
+      execution.value = history ? adaptExecutionFields(history) : null
+      if (execution.value) emit('executionChanged', execution.value)
+      if (!history) await onStart()
+    } else if (isExecutionOutdated.value) {
+      await onStart()
+    }
   } catch (error) {
     notifyError(getApiFailure(error).message)
   }
@@ -188,6 +199,7 @@ async function onStart(): Promise<void> {
       lastHtmlPath: execution.value?.htmlPath
     })
     execution.value = adaptExecutionFields(response.data)
+    emit('executionChanged', execution.value)
     buildMessage.value = ''
   } catch (error) {
     const failure = getApiFailure(error)
@@ -234,6 +246,7 @@ async function onContinue(): Promise<void> {
   try {
     const response = await continueExecution(execution.value.executionId, collectDefaults(), execution.value.htmlPath)
     execution.value = adaptExecutionFields(response.data)
+    emit('executionChanged', execution.value)
   } finally {
     isExecuting.value = false
   }
@@ -297,10 +310,6 @@ onUnmounted(() => { if (buildPollTimer) clearTimeout(buildPollTimer) })
 .execution-input {
   width: 330px;
   min-width: 330px;
-}
-
-.execution-provenance {
-  min-height: 54px;
 }
 
 @media (max-width: 900px) {

@@ -5,8 +5,13 @@
       <div class="row items-center full-width q-gutter-sm">
         <CommonBtn icon="add" :label="t('global.new')" :tooltip="t('calcWorkspace.newReport')"
           @click="emit('create')" />
-        <CommonBtn icon="upload_file" color="grey-8" :label="t('global.import')" :tooltip="t('calcWorkspace.importUzc')"
-          @click="emit('import')" />
+        <q-fab square color="grey-8" icon="add" direction="down" padding="xs" :label="t('global.import')"
+          vertical-actions-align="left">
+          <q-fab-action square padding="xs" color="primary" icon="upload_file" :label="t('calcWorkspace.importFile')"
+            @click="emit('import', 'file')" />
+          <q-fab-action square padding="xs" color="secondary" icon="link" :label="t('calcWorkspace.importLink')"
+            @click="emit('import', 'link')" />
+        </q-fab>
         <q-space />
         <SearchInput v-model="filter" />
       </div>
@@ -25,6 +30,9 @@
         <q-chip dense square :color="buildColor(slotProps.row.buildStatus)" text-color="white">
           {{ buildLabel(slotProps.row.buildStatus) }}
         </q-chip>
+        <q-chip v-if="slotProps.row.syncState !== ReportSyncState.NotApplicable" dense square
+          :color="syncColor(slotProps.row.syncState)" text-color="white">{{ syncLabel(slotProps.row.syncState)
+          }}</q-chip>
       </q-td>
     </template>
     <template #body-cell-favorite="slotProps">
@@ -39,7 +47,7 @@
 <script setup lang="ts">
 /** Dense report table with server-side pagination and row actions. */
 import type { QTableColumn, QTableProps } from 'quasar'
-import { BuildStatus, PublishState, type CalcReport } from 'src/api/calc/types'
+import { BuildStatus, PublishState, ReportSyncState, type CalcReport } from 'src/api/calc/types'
 import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import SearchInput from 'src/components/searchInput/SearchInput.vue'
@@ -57,7 +65,7 @@ const filter = defineModel<string>('filter', { required: true })
 const emit = defineEmits<{
   request: [request: Parameters<NonNullable<QTableProps['onRequest']>>[0]]
   create: []
-  import: []
+  import: [kind: 'file' | 'link']
   open: [report: CalcReport]
   favorite: [report: CalcReport]
 }>()
@@ -66,6 +74,7 @@ const columns: ComputedRef<QTableColumn<CalcReport>[]> = computed(() => [
   { name: 'name', label: t('calcWorkspace.reportName'), field: 'name', align: 'left', sortable: true },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
   { name: 'latestVersionName', label: t('calcWorkspace.latestVersion'), field: (row) => row.latestVersionName || '-', align: 'left' },
+  { name: 'originType', label: t('calcWorkspace.origin'), field: (row) => t(`calcWorkspace.origins.${row.originType}`), align: 'left' },
   { name: 'state', label: t('calcWorkspace.state'), field: 'publishState', align: 'left' },
   { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true },
   { name: 'favorite', label: '', field: 'isFavorite', align: 'center' }
@@ -79,6 +88,18 @@ function publishColor(state: PublishState): string {
     [PublishState.WorkspaceVersionMismatch]: 'deep-orange'
   } satisfies Record<PublishState, string>)[state]
 }
+/** Map synchronization state to a restrained semantic color. */
+function syncColor(state: ReportSyncState): string {
+  return ({
+    [ReportSyncState.NotApplicable]: 'grey-6',
+    [ReportSyncState.Current]: 'positive',
+    [ReportSyncState.UpdateAvailable]: 'warning',
+    [ReportSyncState.SourceUnavailable]: 'negative',
+    [ReportSyncState.AccessRevoked]: 'negative'
+  } satisfies Record<ReportSyncState, string>)[state]
+}
+/** Return the localized synchronization-state label. */
+function syncLabel(state: ReportSyncState): string { return t(`calcWorkspace.syncStates.${state}`) }
 /** Map build state to a restrained status color. */
 function buildColor(state: BuildStatus): string {
   return ({

@@ -2,7 +2,17 @@
 
 import datetime
 
-from sqlalchemy import DateTime, ForeignKey, Index, Integer, String, Text, text
+from sqlalchemy import (
+    Boolean,
+    DateTime,
+    ForeignKey,
+    Index,
+    Integer,
+    String,
+    Text,
+    false,
+    text,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import BaseModel
@@ -25,7 +35,8 @@ class CalcReportCategory(BaseModel):
             "ix_calc_report_category_user_deleted_sort",
             "userId",
             "deletedAt",
-            "sortOrder",
+            "isPinned",
+            "manualOrder",
         ),
     )
 
@@ -34,8 +45,23 @@ class CalcReportCategory(BaseModel):
     )
     name: Mapped[str] = mapped_column(String(50), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    sortOrder: Mapped[int] = mapped_column(
+    manualOrder: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
+    )
+    isPinned: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    isHidden: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    frequencyCount: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    agingEpoch: Mapped[int] = mapped_column(
+        Integer, nullable=False, default=0, server_default="0"
+    )
+    lastUsedAt: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
     )
     updatedAt: Mapped[datetime.datetime] = mapped_column(
         DateTime(timezone=True),

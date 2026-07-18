@@ -1,6 +1,7 @@
 """Write executable ZIP payloads inside standards-compliant PNG containers."""
 
 from collections.abc import Callable
+from io import BytesIO
 import os
 from pathlib import Path
 import struct
@@ -15,6 +16,59 @@ _UZONCALC_ARCHIVE_CHUNK_TYPE = b"uzCa"
 _PNG_CHUNK_MAX_SIZE = (1 << 31) - 1
 _CRC_READ_SIZE = 1024 * 1024
 _ARCHIVE_FILE_MODE = 0o644
+_SPOOLED_PAYLOAD_MEMORY_LIMIT = 8 * 1024 * 1024
+
+
+def read_png_zip_container(container_bytes: bytes) -> bytes:
+    """Read and validate the ZIP payload stored in a UzonCalc PNG container.
+
+    Args:
+        container_bytes: Complete PNG container bytes from an untrusted source.
+
+    Returns:
+        The ZIP payload from the unique private ``uzCa`` chunk.
+
+    Raises:
+        ValueError: If PNG framing, chunk CRC, payload count, or IEND is invalid.
+    """
+    if not container_bytes.startswith(_PNG_SIGNATURE):
+        raise ValueError("归档缺少有效的 PNG 签名")
+
+    stream = BytesIO(container_bytes)
+    stream.seek(len(_PNG_SIGNATURE))
+    payload: bytes | None = None
+    has_iend = False
+    while stream.tell() < len(container_bytes):
+        header = stream.read(8)
+        if len(header) != 8:
+            raise ValueError("PNG 块头不完整")
+        chunk_length, chunk_type = struct.unpack(">I4s", header)
+        if chunk_length > _PNG_CHUNK_MAX_SIZE:
+            raise ValueError("PNG 块长度超过允许上限")
+        chunk_data = stream.read(chunk_length)
+        chunk_crc = stream.read(4)
+        if len(chunk_data) != chunk_length or len(chunk_crc) != 4:
+            raise ValueError("PNG 块数据不完整")
+        expected_crc = struct.unpack(">I", chunk_crc)[0]
+        actual_crc = zlib.crc32(chunk_type + chunk_data) & 0xFFFFFFFF
+        if actual_crc != expected_crc:
+            raise ValueError("PNG 块 CRC 校验失败")
+
+        if chunk_type == _UZONCALC_ARCHIVE_CHUNK_TYPE:
+            if payload is not None:
+                raise ValueError("PNG 包含多个 UzonCalc 归档块")
+            payload = chunk_data
+        if chunk_type == b"IEND":
+            if chunk_length != 0 or stream.tell() != len(container_bytes):
+                raise ValueError("PNG IEND 块不是最终空块")
+            has_iend = True
+            break
+
+    if not has_iend:
+        raise ValueError("PNG 缺少最终 IEND 块")
+    if payload is None:
+        raise ValueError("PNG 不包含 UzonCalc 归档块")
+    return payload
 
 
 def _validate_thumbnail_png(thumbnail_png: bytes) -> None:
@@ -33,36 +87,6 @@ def _validate_thumbnail_png(thumbnail_png: bytes) -> None:
         raise ValueError("缩略图缺少有效的 PNG 签名")
     if not thumbnail_png.endswith(_PNG_IEND_CHUNK):
         raise ValueError("缩略图缺少末尾 IEND 块")
-
-
-def _calculate_archive_chunk_crc(
-    archive_file: BinaryIO,
-    payload_start: int,
-    payload_length: int,
-) -> int:
-    """Calculate the PNG CRC for the private ZIP payload without loading it all.
-
-    Args:
-        archive_file: Seekable output stream containing the ZIP payload.
-        payload_start: Absolute byte offset of the private chunk data.
-        payload_length: Number of ZIP payload bytes covered by the chunk.
-
-    Returns:
-        Unsigned CRC-32 over the chunk type and payload.
-
-    Raises:
-        OSError: When the output stream cannot be read completely.
-    """
-    archive_file.seek(payload_start)
-    remaining = payload_length
-    checksum = zlib.crc32(_UZONCALC_ARCHIVE_CHUNK_TYPE)
-    while remaining:
-        block = archive_file.read(min(_CRC_READ_SIZE, remaining))
-        if not block:
-            raise OSError("读取 .uzc ZIP 数据计算 PNG 校验值时提前结束")
-        checksum = zlib.crc32(block, checksum)
-        remaining -= len(block)
-    return checksum & 0xFFFFFFFF
 
 
 def write_png_zip_container(
@@ -89,37 +113,34 @@ def write_png_zip_container(
     thumbnail_without_iend = thumbnail_png[: -len(_PNG_IEND_CHUNK)]
     temp_path: Path | None = None
     try:
-        temp_descriptor, temp_name = tempfile.mkstemp(
-            dir=output_path.parent,
-            prefix=f".{output_path.name}.",
-            suffix=".tmp",
-        )
-        temp_path = Path(temp_name)
-        with os.fdopen(temp_descriptor, "w+b") as archive_file:
-            archive_file.write(thumbnail_without_iend)
-            chunk_header_start = archive_file.tell()
-            archive_file.write(struct.pack(">I", 0))
-            archive_file.write(_UZONCALC_ARCHIVE_CHUNK_TYPE)
-            payload_start = archive_file.tell()
-
-            zip_payload_writer(archive_file)
-            payload_end = archive_file.seek(0, os.SEEK_END)
-            payload_length = payload_end - payload_start
+        with tempfile.SpooledTemporaryFile(
+            max_size=_SPOOLED_PAYLOAD_MEMORY_LIMIT, mode="w+b"
+        ) as payload_file:
+            # ZIP offsets must start at zero so the private chunk is independently readable.
+            zip_payload_writer(payload_file)
+            payload_length = payload_file.seek(0, os.SEEK_END)
             if payload_length > _PNG_CHUNK_MAX_SIZE:
                 raise ValueError(".uzc ZIP 数据超过 PNG 单块 2 GiB 上限")
+            payload_file.seek(0)
 
-            checksum = _calculate_archive_chunk_crc(
-                archive_file,
-                payload_start,
-                payload_length,
+            temp_descriptor, temp_name = tempfile.mkstemp(
+                dir=output_path.parent,
+                prefix=f".{output_path.name}.",
+                suffix=".tmp",
             )
-            archive_file.seek(chunk_header_start)
-            archive_file.write(struct.pack(">I", payload_length))
-            archive_file.seek(payload_end)
-            archive_file.write(struct.pack(">I", checksum))
-            archive_file.write(_PNG_IEND_CHUNK)
-            archive_file.flush()
-            os.fsync(archive_file.fileno())
+            temp_path = Path(temp_name)
+            with os.fdopen(temp_descriptor, "w+b") as archive_file:
+                archive_file.write(thumbnail_without_iend)
+                archive_file.write(struct.pack(">I", payload_length))
+                archive_file.write(_UZONCALC_ARCHIVE_CHUNK_TYPE)
+                checksum = zlib.crc32(_UZONCALC_ARCHIVE_CHUNK_TYPE)
+                while block := payload_file.read(_CRC_READ_SIZE):
+                    archive_file.write(block)
+                    checksum = zlib.crc32(block, checksum)
+                archive_file.write(struct.pack(">I", checksum & 0xFFFFFFFF))
+                archive_file.write(_PNG_IEND_CHUNK)
+                archive_file.flush()
+                os.fsync(archive_file.fileno())
 
         if temp_path is None:
             raise RuntimeError(".uzc 临时文件未创建")

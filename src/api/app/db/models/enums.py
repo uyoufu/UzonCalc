@@ -19,14 +19,6 @@ class ArtifactBuildStatus(IntEnum):
     FAILED = 3
 
 
-class VersionReviewStatus(IntEnum):
-    """Describe the review outcome for a published report version."""
-
-    PENDING = 0
-    APPROVED = 1
-    REJECTED = 2
-
-
 class ExecutionSourceType(IntEnum):
     """Identify how an execution selected its report source."""
 
@@ -56,15 +48,17 @@ class ExecutionStatus(IntEnum):
 class ShareAccessType(IntEnum):
     """Describe who may consume a version share link."""
 
-    LINK = 1
-    PUBLIC = 2
+    PUBLIC = 1
+    INTERNAL = 2
     SPECIFIED_USERS = 3
+    SPECIFIED_DEPARTMENTS = 4
 
 
 class ReportOriginType(IntEnum):
     """Describe how a calculation report was initially created."""
 
-    CREATED = 1
+    NATIVE = 1
     COPY = 2
-    SHARE = 3
-    UZC_IMPORT = 4
+    SHARE_IMPORT = 3
+    SHARE_SYNC = 4
+    FILE_IMPORT = 5

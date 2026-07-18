@@ -19,6 +19,7 @@ class UserInputHistory(BaseModel):
         unique=True,
     )
     defaults: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    windows: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     inputHistory: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     currentStep: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"

@@ -1,7 +1,7 @@
 /** Typed HTTP functions for calculation-report metadata. */
 
 import { httpClient } from 'src/api/base/httpClient'
-import type { CalcReport, WorkspaceSnapshot } from './types'
+import type { CalcReport } from './types'
 
 export interface ReportListParams {
   categoryOid?: string
@@ -60,11 +60,16 @@ export function deleteCalcReport(reportOid: string) {
   return httpClient.delete<void>(`/calc-report/${reportOid}`)
 }
 
-/** Import one legacy UZC archive as an unpublished workspace. */
-export function importUzcReport(categoryOid: string, name: string, archive: File) {
+/** Import one portable v3 PNG or UZC dependency closure. */
+export function importReportArchive(categoryOid: string, name: string, archive: File) {
   const data = new FormData()
   data.append('categoryOid', categoryOid)
   data.append('name', name)
   data.append('archive', archive, archive.name)
-  return httpClient.postForm<WorkspaceSnapshot>('/calc-report/imports/uzc', { data })
+  return httpClient.postForm<{ reportOid: string; versionName: string; importedReportCount: number }>('/calc-report/imports/archive', { data })
+}
+
+/** Download one owned report's latest published closure. */
+export function exportReportArchive(reportOid: string, canEdit: boolean, canShare: boolean) {
+  return httpClient.getBlob(`/calc-report/${reportOid}/archive`, { params: { canEdit, canShare } })
 }

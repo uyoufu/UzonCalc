@@ -33,7 +33,10 @@ import type { WorkspaceTreeNode } from './useWorkspaceDraft'
 import { t } from 'src/i18n/helpers'
 import type { TreeNodeData } from 'element-plus/es/components/tree/src/tree.type'
 
-const props = defineProps<{ nodes: WorkspaceTreeNode[]; entryPath: string }>()
+import { showCalcReportInExplorer } from 'src/api/desktop'
+import { notifySuccess } from 'src/utils/dialog'
+
+const props = defineProps<{ nodes: WorkspaceTreeNode[]; entryPath: string; reportOid: string; isDesktopApi: boolean }>()
 const expandedPaths = defineModel<string[]>('expandedPaths', { default: () => [] })
 const currentPath = defineModel<string | null>('currentPath', { default: null })
 const emit = defineEmits<{
@@ -52,9 +55,17 @@ const contextItems: IContextMenuItem<DraggableTreeContextValue>[] = [
   { name: 'create-file', label: t('calcWorkspace.newFile'), icon: 'note_add', color: 'grey-9', vif: ({ data }) => asWorkspaceNode(data).kind === 'folder', onClick: ({ data }) => void onCreateFile(asWorkspaceNode(data).path) },
   { name: 'create-directory', label: t('calcWorkspace.newDirectory'), icon: 'create_new_folder', color: 'grey-9', vif: ({ data }) => asWorkspaceNode(data).kind === 'folder', onClick: ({ data }) => void onCreateDirectory(asWorkspaceNode(data).path) },
   { name: 'rename', label: t('calcWorkspace.rename'), icon: 'drive_file_rename_outline', color: 'grey-9', vif: ({ data }) => asWorkspaceNode(data).path !== 'calcbook.json', onClick: ({ data }) => onRename(asWorkspaceNode(data)) },
+  { name: 'copy-reference', label: t('calcWorkspace.copyReference'), icon: 'content_copy', color: 'primary', onClick: ({ data }) => onCopyReference(asWorkspaceNode(data)) },
+  { name: 'show-in-explorer', label: t('calcWorkspace.showInExplorer'), icon: 'folder_open', color: 'grey-9', vif: () => props.isDesktopApi, onClick: ({ data }) => showCalcReportInExplorer(props.reportOid, asWorkspaceNode(data).path) },
   { name: 'entry', label: t('calcWorkspace.setEntry'), icon: 'play_arrow', color: 'positive', vif: ({ data }) => { const node = asWorkspaceNode(data); return node.kind === 'file' && node.path.startsWith('src/') && node.path.endsWith('.py') }, onClick: ({ data }) => emit('entry', asWorkspaceNode(data).path) },
   { name: 'delete', label: t('global.delete'), icon: 'delete', color: 'negative', vif: ({ data }) => { const path = asWorkspaceNode(data).path; return path !== 'calcbook.json' && path !== props.entryPath }, onClick: ({ data }) => emit('delete', asWorkspaceNode(data).path) }
 ]
+
+/** Copy a normalized workspace-relative reference for source or resource files. */
+async function onCopyReference(node: WorkspaceTreeNode): Promise<void> {
+  await navigator.clipboard.writeText(node.path)
+  notifySuccess(t('calcWorkspace.referenceCopied'))
+}
 
 /** Narrow Element Plus tree data to this workspace's node contract. */
 function asWorkspaceNode(data: TreeNodeData): WorkspaceTreeNode { return data as WorkspaceTreeNode }

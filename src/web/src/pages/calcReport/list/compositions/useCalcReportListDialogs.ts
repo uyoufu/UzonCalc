@@ -22,6 +22,13 @@ export interface ImportUzcDialogInput {
   archive: File
 }
 
+export interface ImportLinkDialogInput {
+  source: string
+  categoryOid: string
+  name: string
+  shouldSync: boolean
+}
+
 /**
  * Create report-list dialog openers.
  *
@@ -130,5 +137,23 @@ export function useCalcReportListDialogs() {
     }
   }
 
-  return { openCategoryDialog, openReportDialog, openImportDialog }
+  /** Collect a public share URL and receiver-owned import metadata. */
+  async function openLinkImportDialog(
+    categoryOptions: DialogSelectOption[]
+  ): Promise<ImportLinkDialogInput | null> {
+    const result = await showDialog<ImportLinkDialogInput>({
+      title: t('calcWorkspace.importLink'),
+      oneColumn: true,
+      fields: [
+        { name: 'source', label: t('calcWorkspace.shareLink'), required: true },
+        { name: 'categoryOid', label: t('calcWorkspace.categoryName'), type: LowCodeFieldType.selectOne, required: true, value: categoryOptions[0]?.value, options: categoryOptions, optionLabel: 'label', optionValue: 'value', emitValue: true, mapOptions: true },
+        { name: 'name', label: t('calcWorkspace.reportName'), required: true },
+        { name: 'shouldSync', label: t('calcWorkspace.keepSynchronized'), type: LowCodeFieldType.boolean, value: false }
+      ]
+    })
+    if (!result.ok) return null
+    return result.data
+  }
+
+  return { openCategoryDialog, openReportDialog, openImportDialog, openLinkImportDialog }
 }

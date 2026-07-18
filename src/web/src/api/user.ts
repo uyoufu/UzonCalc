@@ -13,11 +13,12 @@ export interface IUserLoginInfo {
 export interface IUserInfoDetail {
   id: number
   oid: string
-  name?: string
+  username: string
+  nickName: string | null
   avatar?: string | null
   roles: string[]
   status: number
-  createAt?: string
+  createdAt: string
   isSuperAdmin: boolean
 }
 
@@ -38,12 +39,16 @@ export function userLogin(username: string, password: string, lang: string) {
 }
 
 /**
- * 获取用户信息
- * @param username 用户名
+ * 获取当前用户信息
  * @returns
  */
-export function getUserInfo(username: string) {
-  return httpClient.get<IUserInfoDetail>(`/user/info/${username}`)
+export function getCurrentUserProfile() {
+  return httpClient.get<IUserInfoDetail>('/user/me')
+}
+
+/** Update the current user's nickname. */
+export function updateCurrentUserProfile(nickName: string) {
+  return httpClient.put<IUserInfoDetail>('/user/me', { data: { nickName } })
 }
 
 /**

@@ -11,17 +11,12 @@
       <template #body-cell-versionName="slotProps"><q-td :props="slotProps"><span class="text-weight-medium">{{
         slotProps.row.versionName }}</span><q-chip v-if="slotProps.row.isLatest" dense square color="primary"
             text-color="white" class="q-ml-sm">latest</q-chip></q-td></template>
-      <template #body-cell-reviewStatus="slotProps"><q-td :props="slotProps"><q-chip dense square
-            :color="reviewColor(slotProps.row.reviewStatus)" text-color="white">{{
-              reviewLabel(slotProps.row.reviewStatus) }}</q-chip></q-td></template>
       <template #body-cell-actions="slotProps">
         <q-td :props="slotProps" class="q-gutter-xs">
           <CommonBtn flat dense icon="bookmark" :disable="slotProps.row.isLatest"
             :tooltip="t('calcWorkspace.setLatest')" @click="onSetLatest(slotProps.row)" />
           <CommonBtn flat dense icon="restore" :tooltip="t('calcWorkspace.restoreWorkspace')"
             @click="onRestore(slotProps.row)" />
-          <CommonBtn v-if="userStore.isAdmin" flat dense icon="fact_check" :tooltip="t('calcWorkspace.review')"
-            @click="openReviewDialog(slotProps.row)" />
         </q-td>
       </template>
     </q-table>
@@ -29,27 +24,22 @@
 </template>
 
 <script setup lang="ts">
-/** Version listing, latest selection, restore, and review route page. */
+/** Version listing, latest selection, and workspace restore route page. */
 defineOptions({ name: 'CalcReportVersions' })
 import type { QTableColumn } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
-import { ReviewStatus, type CalcReportVersion } from 'src/api/calc/types'
-import { listVersions, restoreWorkspaceVersion, reviewVersion, setLatestVersion } from 'src/api/calc/versions'
-import { useUserInfoStore } from 'src/stores/user'
+import type { CalcReportVersion } from 'src/api/calc/types'
+import { listVersions, restoreWorkspaceVersion, setLatestVersion } from 'src/api/calc/versions'
 import { confirmOperation } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
-import { useVersionReviewDialog } from './useVersionReviewDialog'
 import { useQTable } from 'src/compositions/qTableUtils'
 
 const route = useRoute()
 const router = useRouter()
 const reportOid = computed(() => String(route.params.reportOid || ''))
-const userStore = useUserInfoStore()
-const { openVersionReviewDialog } = useVersionReviewDialog()
 const columns: ComputedRef<QTableColumn<CalcReportVersion>[]> = computed(() => [
   { name: 'versionName', label: t('calcWorkspace.version'), field: 'versionName', align: 'left', sortable: true },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
-  { name: 'reviewStatus', label: t('calcWorkspace.reviewStatus'), field: 'reviewStatus', align: 'left' },
   { name: 'createdAt', label: t('calcWorkspace.publishedAt'), field: 'createdAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'versionOid', align: 'right' }
 ])
@@ -73,23 +63,11 @@ async function onRestore(version: CalcReportVersion): Promise<void> {
   await restoreWorkspaceVersion(reportOid.value, version.versionName)
   await router.push(`/calc-report/${reportOid.value}/workspace`)
 }
-/** Open administrator review controls and refresh the confirmed result. */
-async function openReviewDialog(version: CalcReportVersion): Promise<void> {
-  const input = await openVersionReviewDialog(version)
-  if (!input) return
-
-  const reviewedVersion = (await reviewVersion(reportOid.value, version.versionName, input.status, input.comment || null)).data
-  updateExistOne(reviewedVersion, 'versionOid')
-}
 /** Mark the previous latest version as non-latest before applying a replacement. */
 function replaceLatestVersion(latestVersion: CalcReportVersion): void {
   const previousLatest = versions.value.find((version) => version.isLatest && version.versionOid !== latestVersion.versionOid)
   if (previousLatest) updateExistOne({ ...previousLatest, isLatest: false }, 'versionOid')
 }
-/** Map review status to a semantic color. */
-function reviewColor(status: ReviewStatus): string { return ({ [ReviewStatus.Pending]: 'grey-7', [ReviewStatus.Approved]: 'positive', [ReviewStatus.Rejected]: 'negative' })[status] }
-/** Return the translated review-state label. */
-function reviewLabel(status: ReviewStatus): string { return ({ [ReviewStatus.Pending]: t('calcWorkspace.reviewStates.pending'), [ReviewStatus.Approved]: t('calcWorkspace.reviewStates.approved'), [ReviewStatus.Rejected]: t('calcWorkspace.reviewStates.rejected') })[status] }
 </script>
 
 <style scoped>

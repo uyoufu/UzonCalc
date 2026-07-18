@@ -1,7 +1,6 @@
-"""Publishing, latest-pointer, review, and workspace-restore services."""
+"""Publishing, latest-pointer, and workspace-restore services."""
 
 import ast
-import datetime
 from pathlib import Path
 from typing import cast
 
@@ -9,18 +8,16 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
-from app.controller.calc.calc_state import ReservedDependencySelectorKey, ReviewStatus
+from app.controller.calc.calc_state import ReservedDependencySelectorKey
 from app.controller.calc.calc_report_dto import (
     CalcReportVersionCreateDTO,
     CalcReportVersionResDTO,
-    CalcReportVersionReviewDTO,
 )
 from app.controller.calc.calc_workspace_dto import WorkspaceResDTO
 from app.db.models.calc_report import CalcReport
 from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_version import CalcReportVersion
-from app.db.models.enums import ArtifactKind, VersionReviewStatus
-from app.db.models.user import UserRole
+from app.db.models.enums import ArtifactKind
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_artifact_service import artifact_store, public_hash
 from app.service.calc_report_service import (
@@ -30,6 +27,7 @@ from app.service.calc_report_service import (
 from app.service.calc_report_workspace_service import (
     get_owned_report,
     parse_version_name,
+    require_editable_report,
     restore_workspace_artifact,
 )
 from config import logger
@@ -43,6 +41,7 @@ async def publish_version(
 ) -> CalcReportVersionResDTO:
     """Publish the current SOURCE after static validation without instrumentation."""
     report = await get_owned_report(user_id, report_oid, session)
+    require_editable_report(report)
     if report.workspaceArtifactId is None:
         raise_ex(
             "Workspace not found",
@@ -126,6 +125,7 @@ async def set_latest_version(
 ) -> CalcReportVersionResDTO:
     """Move only the authoritative latest pointer to an existing version."""
     report = await get_owned_report(user_id, report_oid, session)
+    require_editable_report(report)
     version = await _get_version(report, version_name, session)
     report.latestVersionId = version.id
     await session.commit()
@@ -149,47 +149,6 @@ async def restore_version_workspace(
     if artifact is None:
         raise_ex("Version artifact not found", code=500)
     return await restore_workspace_artifact(user_id, report, artifact, session)
-
-
-async def review_version(
-    reviewer_user_id: int,
-    reviewer_roles: list[str],
-    report_oid: str,
-    version_name: str,
-    request: CalcReportVersionReviewDTO,
-    session: AsyncSession,
-) -> CalcReportVersionResDTO:
-    """Apply an administrator review outcome without changing source/version."""
-    if UserRole.Admin.value not in reviewer_roles:
-        raise_ex("Administrator role is required", code=403)
-    report = await session.scalar(
-        select(CalcReport).where(
-            CalcReport.oid == report_oid, CalcReport.deletedAt.is_(None)
-        )
-    )
-    if report is None:
-        raise_ex(
-            "Report not found",
-            code=404,
-            error_code=CalcErrorCode.REPORT_NOT_FOUND,
-        )
-    version = await _get_version(report, version_name, session)
-    status = VersionReviewStatus[request.reviewStatus.name]
-    version.reviewStatus = status.value
-    version.reviewComment = request.reviewComment
-    if status is VersionReviewStatus.PENDING:
-        version.reviewedByUserId = None
-        version.reviewedAt = None
-    else:
-        version.reviewedByUserId = reviewer_user_id
-        version.reviewedAt = datetime.datetime.now(datetime.timezone.utc)
-    await session.commit()
-    artifact = await session.get(CalcReportArtifact, version.sourceArtifactId)
-    if artifact is None:
-        raise_ex("Version artifact not found", code=500)
-    return _version_response(
-        version, artifact, is_latest=version.id == report.latestVersionId
-    )
 
 
 def _validate_publishable_source(artifact: CalcReportArtifact) -> None:
@@ -319,9 +278,6 @@ def _version_response(
         importSegment=f"v_{version.major}_{version.minor}_{version.patch}",
         sourceArtifactHash=public_hash(artifact.contentHash),
         description=version.description,
-        reviewStatus=ReviewStatus[VersionReviewStatus(version.reviewStatus).name],
-        reviewedAt=version.reviewedAt,
-        reviewComment=version.reviewComment,
         isLatest=is_latest,
         createdAt=version.createdAt,
     )

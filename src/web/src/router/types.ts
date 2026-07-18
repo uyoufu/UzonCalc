@@ -13,6 +13,7 @@ export type ExtendedRouteRecordRaw = RouteRecordRaw & {
     // 更多关于缓存的说明见 readme
     noCache?: boolean
     noMenu?: boolean // 是否不显示菜单
+    anoymous?: boolean // 是否允许未登录访问（保留既有路由字段拼写）
   }
   children?: ExtendedRouteRecordRaw[]
 }

@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from pathlib import Path
 from typing import Any, Callable, Optional, Dict, cast, Awaitable
 
 # Adjust import based on workspace structure 'uzoncalc' package availability
@@ -61,13 +62,16 @@ class LocalSandboxRunner:
             self._task.cancel()
 
     async def _run_script(self):
-        module_name = f"uzoncalc_{self.execution_id}"
+        module_name, source_root = resolve_workspace_module_identity(
+            self.script_path, self.package_root, self.execution_id
+        )
 
         try:
             async with DynamicImportSession(
                 module_name=module_name,
                 script_path=self.script_path,
                 package_root=self.package_root,
+                source_root=source_root,
             ) as module:
                 # 1) 查找入口函数（@uzon_calc 标记）
                 entry_point = None
@@ -171,3 +175,35 @@ class LocalSandboxRunner:
 
         # 取消全局超时计时器
         self._timeout.cancel()
+
+
+def resolve_workspace_module_identity(
+    script_path: str, package_root: str | None, execution_id: str
+) -> tuple[str, str | None]:
+    """Resolve a standard package module name for a workspace entry.
+
+    Args:
+        script_path: Absolute or relative entry script path.
+        package_root: Materialized bundle root containing the ``src`` directory.
+        execution_id: Unique fallback namespace for a root-level entry.
+
+    Returns:
+        Module name and optional source import root.
+
+    Raises:
+        None.
+    """
+    script = Path(script_path).resolve()
+    if package_root:
+        source_root = (Path(package_root).resolve() / "src").resolve()
+        try:
+            relative = script.relative_to(source_root)
+        except ValueError:
+            pass
+        else:
+            module_parts = list(relative.with_suffix("").parts)
+            if module_parts[-1] == "__init__":
+                module_parts = module_parts[:-1]
+            if module_parts and all(part.isidentifier() for part in module_parts):
+                return ".".join(module_parts), str(source_root)
+    return f"uzoncalc_{execution_id.replace('-', '_')}", None

@@ -3,6 +3,7 @@
 import datetime
 
 from sqlalchemy import (
+    Boolean,
     BigInteger,
     CheckConstraint,
     DateTime,
@@ -12,6 +13,8 @@ from sqlalchemy import (
     JSON,
     String,
     Text,
+    text,
+    true,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -63,6 +66,7 @@ class CalcReportInstance(BaseModel):
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)
     defaults: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    inputWindows: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
     resultPath: Mapped[str] = mapped_column(String(500), nullable=False)
     revision: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=1, server_default="1"
@@ -75,4 +79,37 @@ class CalcReportInstance(BaseModel):
     )
     deletedAt: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True
+    )
+
+
+class CalcReportInstanceShare(BaseModel):
+    """Persist a revocable anonymous share for one saved calculation instance."""
+
+    __tablename__ = "calc_report_instance_share"
+    __table_args__ = (
+        Index(
+            "ix_calc_report_instance_share_instance_revoked",
+            "instanceId",
+            "revokedAt",
+        ),
+        Index(
+            "uq_calc_report_instance_share_active_instance",
+            "instanceId",
+            unique=True,
+            sqlite_where=text('"revokedAt" IS NULL AND "isEnabled" IS TRUE'),
+            postgresql_where=text('"revokedAt" IS NULL AND "isEnabled" IS TRUE'),
+        ),
+    )
+
+    instanceId: Mapped[int] = mapped_column(
+        ForeignKey("calc_report_instance.id", ondelete="CASCADE"), nullable=False
+    )
+    createdByUserId: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    revokedAt: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    isEnabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
     )

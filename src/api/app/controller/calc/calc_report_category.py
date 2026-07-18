@@ -7,6 +7,7 @@ from app.controller.calc.calc_report_dto import (
     CalcReportCategoryReqDTO,
     CalcReportCategoryResDTO,
     CategoryOrderDTO,
+    CategoryStateDTO,
 )
 from app.controller.depends import get_session, get_token_payload
 from app.response.response_result import ResponseResult, ok
@@ -67,6 +68,35 @@ async def reorder_calc_report_categories(
     return ok(
         data=await calc_report_category_service.reorder_categories(
             tokenPayloads.id, orders, session
+        )
+    )
+
+
+@router.put("/{categoryOid}/state")
+async def update_calc_report_category_state(
+    categoryOid: str,
+    request: CategoryStateDTO,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcReportCategoryResDTO]:
+    """Update category pinning and visibility state."""
+    return ok(
+        data=await calc_report_category_service.update_category_state(
+            tokenPayloads.id, categoryOid, request, session
+        )
+    )
+
+
+@router.post("/{categoryOid}/access")
+async def record_calc_report_category_access(
+    categoryOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcReportCategoryResDTO]:
+    """Record one category activation for LFU-Aging ordering."""
+    return ok(
+        data=await calc_report_category_service.record_category_access(
+            tokenPayloads.id, categoryOid, session
         )
     )
 

@@ -49,6 +49,9 @@ async def start_execution(
     session: AsyncSession,
     user_id: int,
     request: CalcExecutionStartDTO,
+    *,
+    use_cached_defaults: bool = True,
+    persist_input_cache: bool = True,
 ) -> ExecutionStep:
     """Resolve, lazily build, bundle, audit, and start one execution."""
     executor = get_sandbox_executor()
@@ -74,12 +77,16 @@ async def start_execution(
     )
     if execution_artifact is None:
         raise_ex("Bundle execution artifact not found", code=500)
-    defaults = await _merge_cached_defaults(
-        user_id,
-        source.report,
-        source.source_artifact,
-        request.defaults,
-        session,
+    defaults = (
+        await _merge_cached_defaults(
+            user_id,
+            source.report,
+            source.source_artifact,
+            request.defaults,
+            session,
+        )
+        if use_cached_defaults
+        else request.defaults
     )
     now = datetime.datetime.now(datetime.timezone.utc)
     execution = CalcExecution(
@@ -114,7 +121,15 @@ async def start_execution(
     except Exception as error:
         await _mark_execution_failed(execution, error, session)
         raise
-    await _apply_backend_result(execution, history, result, source, session, defaults)
+    await _apply_backend_result(
+        execution,
+        history,
+        result,
+        source,
+        session,
+        defaults,
+        persist_input_cache=persist_input_cache,
+    )
     return ExecutionStep(
         execution=execution,
         result=result,
@@ -249,13 +264,16 @@ async def get_execution_step(
         image_digest=bundle.runtimeImageDigest,
         node_id=execution.executorNodeId,
     )
+    history = await session.scalar(
+        select(UserInputHistory).where(UserInputHistory.executionId == execution.id)
+    )
     return ExecutionStep(
         execution=execution,
         result=ExecutionResult(
             executionId=execution.oid,
             html="",
             isCompleted=execution.status != ExecutionStatus.RUNNING.value,
-            windows=[],
+            windows=history.windows if history is not None else [],
         ),
         report=report,
         source_artifact=source_artifact,
@@ -270,10 +288,24 @@ async def get_execution_step(
     )
 
 
-async def count_executions(session: AsyncSession, user_id: int) -> int:
+async def count_executions(
+    session: AsyncSession, user_id: int, report_oid: str | None = None
+) -> int:
     """Count persisted execution audits owned by one user."""
+    conditions = [CalcExecution.userId == user_id]
+    if report_oid:
+        conditions.append(
+            CalcExecution.reportId
+            == select(CalcReport.id)
+            .where(
+                CalcReport.oid == report_oid,
+                CalcReport.userId == user_id,
+                CalcReport.deletedAt.is_(None),
+            )
+            .scalar_subquery()
+        )
     total = await session.scalar(
-        select(func.count(CalcExecution.id)).where(CalcExecution.userId == user_id)
+        select(func.count(CalcExecution.id)).where(*conditions)
     )
     return total or 0
 
@@ -282,6 +314,7 @@ async def list_execution_oids(
     session: AsyncSession,
     user_id: int,
     pagination: PaginationDTO,
+    report_oid: str | None = None,
 ) -> list[str]:
     """List one sorted page of execution audit OIDs."""
     sort_columns = {
@@ -295,10 +328,22 @@ async def list_execution_oids(
     stable_sort = (
         CalcExecution.id.desc() if pagination.descending else CalcExecution.id.asc()
     )
+    conditions = [CalcExecution.userId == user_id]
+    if report_oid:
+        conditions.append(
+            CalcExecution.reportId
+            == select(CalcReport.id)
+            .where(
+                CalcReport.oid == report_oid,
+                CalcReport.userId == user_id,
+                CalcReport.deletedAt.is_(None),
+            )
+            .scalar_subquery()
+        )
     oids = (
         await session.scalars(
             select(CalcExecution.oid)
-            .where(CalcExecution.userId == user_id)
+            .where(*conditions)
             .order_by(sort_expression, stable_sort)
             .offset(pagination.skip)
             .limit(pagination.limit)
@@ -376,6 +421,8 @@ async def _apply_backend_result(
     source: ResolvedExecutionSource,
     session: AsyncSession,
     submitted_defaults: dict[str, dict[str, Any]],
+    *,
+    persist_input_cache: bool = True,
 ) -> None:
     """Persist one interaction result and recent-input cache update."""
     now = datetime.datetime.now(datetime.timezone.utc)
@@ -389,6 +436,7 @@ async def _apply_backend_result(
     )
     execution.completedAt = now if result.isCompleted else None
     history.defaults = submitted_defaults
+    history.windows = result.windows
     history.inputHistory = [
         *(history.inputHistory or []),
         {"step": history.currentStep + 1, "defaults": submitted_defaults},
@@ -396,9 +444,10 @@ async def _apply_backend_result(
     history.currentStep += 1
     history.totalSteps = max(history.totalSteps, history.currentStep)
     flag_modified(history, "defaults")
+    flag_modified(history, "windows")
     flag_modified(history, "inputHistory")
     extracted = _extract_defaults_from_windows(result.windows)
-    if extracted:
+    if extracted and persist_input_cache:
         cache = await session.scalar(
             select(InputCache).where(
                 InputCache.userId == execution.userId,

@@ -19,13 +19,6 @@ export const BuildStatus = {
 } as const
 export type BuildStatus = typeof BuildStatus[keyof typeof BuildStatus]
 
-export const ReviewStatus = {
-  Pending: 'pending',
-  Approved: 'approved',
-  Rejected: 'rejected'
-} as const
-export type ReviewStatus = typeof ReviewStatus[keyof typeof ReviewStatus]
-
 export const ExecutionSourceType = {
   Workspace: 'workspace',
   Latest: 'latest',
@@ -44,11 +37,30 @@ export const ExecutionStatus = {
 export type ExecutionStatus = typeof ExecutionStatus[keyof typeof ExecutionStatus]
 
 export const ShareAccessType = {
-  Link: 'link',
   Public: 'public',
-  SpecifiedUsers: 'specified_users'
+  Internal: 'internal',
+  SpecifiedUsers: 'specified_users',
+  SpecifiedDepartments: 'specified_departments'
 } as const
 export type ShareAccessType = typeof ShareAccessType[keyof typeof ShareAccessType]
+
+export const ReportOriginType = {
+  Native: 'native',
+  Copy: 'copy',
+  ShareImport: 'share_import',
+  ShareSync: 'share_sync',
+  FileImport: 'file_import'
+} as const
+export type ReportOriginType = typeof ReportOriginType[keyof typeof ReportOriginType]
+
+export const ReportSyncState = {
+  NotApplicable: 'not_applicable',
+  Current: 'current',
+  UpdateAvailable: 'update_available',
+  SourceUnavailable: 'source_unavailable',
+  AccessRevoked: 'access_revoked'
+} as const
+export type ReportSyncState = typeof ReportSyncState[keyof typeof ReportSyncState]
 
 export const WorkspaceFileSource = {
   Upload: 'upload',
@@ -98,7 +110,11 @@ export interface CalcReportCategory {
   categoryOid: string
   name: string
   description: string | null
-  sortOrder: number
+  manualOrder: number
+  isPinned: boolean
+  isHidden: boolean
+  frequencyCount: number
+  lastUsedAt: string | null
   reportCount: number
   createdAt: string
   updatedAt: string
@@ -119,6 +135,10 @@ export interface CalcReport {
   buildStatus: BuildStatus
   publishState: PublishState
   isFavorite: boolean
+  originType: ReportOriginType
+  syncState: ReportSyncState
+  canEdit: boolean
+  canShare: boolean
   createdAt: string
   updatedAt: string
 }
@@ -184,9 +204,6 @@ export interface CalcReportVersion {
   importSegment: string
   sourceArtifactHash: string
   description: string | null
-  reviewStatus: ReviewStatus
-  reviewedAt: string | null
-  reviewComment: string | null
   isLatest: boolean
   createdAt: string
 }
@@ -196,6 +213,8 @@ export interface ShareLink {
   reportOid: string
   versionName: string
   accessType: ShareAccessType
+  canEdit: boolean
+  canShare: boolean
   expiresAt: string | null
   revokedAt: string | null
   maxUseCount: number | null
@@ -212,6 +231,9 @@ export interface SharePreview {
   dependencyCount: number
   totalFileCount: number
   totalSize: number
+  canEdit: boolean
+  canShare: boolean
+  recentExecution: CalcExecution | null
 }
 
 export interface CalcInputWindow {
@@ -273,8 +295,29 @@ export interface CalcInstance {
   name: string
   description: string | null
   defaults: Record<string, Record<string, unknown>>
+  inputWindows: CalcInputWindow[]
   resultPath: string
+  isShared: boolean
+  shareToken: string | null
   revision: number
   createdAt: string
   updatedAt: string
+}
+
+export interface SharedReport {
+  shareOid: string
+  reportName: string
+  qualifiedName: string
+  description: string | null
+  versionName: string
+  sharedAt: string
+  canEdit: boolean
+  canShare: boolean
+}
+
+export interface ReportSyncStatus {
+  reportOid: string
+  state: ReportSyncState
+  currentVersionName: string
+  upstreamVersionName: string | null
 }

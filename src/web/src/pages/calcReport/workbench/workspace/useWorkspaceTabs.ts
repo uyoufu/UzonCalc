@@ -80,6 +80,14 @@ export function useWorkspaceTabs() {
     return activeTab.value
   }
 
+  /** Restore a validated tab sequence and active identifier. */
+  function restoreTabs(restoredTabs: WorkspaceTab[], restoredActiveTabId: string): void {
+    tabs.value = restoredTabs.map((tab) => ({ ...tab }))
+    activeTabId.value = tabs.value.some((tab) => tab.id === restoredActiveTabId)
+      ? restoredActiveTabId
+      : tabs.value[0]?.id || ''
+  }
+
   /** Build the stable tab identifier for a workspace file. */
   function fileTabId(path: string): string {
     return `${FILE_TAB_PREFIX}${path}`
@@ -96,6 +104,7 @@ export function useWorkspaceTabs() {
     activateTab,
     closeTab,
     renamePath,
-    removePath
+    removePath,
+    restoreTabs
   }
 }

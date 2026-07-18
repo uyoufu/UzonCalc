@@ -43,7 +43,7 @@ async def start_calc_execution(
     step = await calc_execution_service.start_execution(
         session, tokenPayloads.id, request
     )
-    response = await _finalize_step(
+    response = await finalize_execution_step(
         step, request.lastHtmlPath, tokenPayloads.id, session
     )
     return ok(data=response)
@@ -60,7 +60,7 @@ async def continue_calc_execution(
     step = await calc_execution_service.continue_execution(
         session, tokenPayloads.id, executionId, request.defaults
     )
-    response = await _finalize_step(
+    response = await finalize_execution_step(
         step, request.lastHtmlPath, tokenPayloads.id, session
     )
     return ok(data=response)
@@ -68,27 +68,31 @@ async def continue_calc_execution(
 
 @router.get("/count")
 async def count_calc_executions(
+    reportOid: str | None = None,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[int]:
     """Count persisted execution audit records for the current user."""
     return ok(
-        data=await calc_execution_service.count_executions(session, tokenPayloads.id)
+        data=await calc_execution_service.count_executions(
+            session, tokenPayloads.id, reportOid
+        )
     )
 
 
 @router.get("/items")
 async def list_calc_execution_items(
     pagination: Annotated[PaginationDTO, Depends()],
+    reportOid: str | None = None,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[list[CalcExecutionResDTO]]:
     """List one sorted page of persisted execution audit records."""
     oids = await calc_execution_service.list_execution_oids(
-        session, tokenPayloads.id, pagination
+        session, tokenPayloads.id, pagination, reportOid
     )
     items = [
-        _step_response(
+        execution_step_response(
             await calc_execution_service.get_execution_step(
                 session, tokenPayloads.id, oid
             )
@@ -108,7 +112,7 @@ async def get_calc_execution(
     step = await calc_execution_service.get_execution_step(
         session, tokenPayloads.id, executionId
     )
-    return ok(data=_step_response(step))
+    return ok(data=execution_step_response(step))
 
 
 @router.delete("/{executionId}")
@@ -124,7 +128,7 @@ async def terminate_calc_execution(
     return ok()
 
 
-async def _finalize_step(
+async def finalize_execution_step(
     step: ExecutionStep,
     last_html_path: str | None,
     user_id: int,
@@ -138,14 +142,14 @@ async def _finalize_step(
     await calc_execution_service.record_result_path(
         session, step.execution.oid, user_id, html_path
     )
-    response = _step_response(step)
+    response = execution_step_response(step)
     response.htmlPath = html_path
     response.updateType = patch.updateType
     response.htmlContentPatch = patch.contentHtml
     return response
 
 
-def _step_response(step: ExecutionStep) -> CalcExecutionResDTO:
+def execution_step_response(step: ExecutionStep) -> CalcExecutionResDTO:
     """Convert internal execution models into a stable public response."""
     resolved_version = (
         f"{step.resolved_version.major}.{step.resolved_version.minor}."

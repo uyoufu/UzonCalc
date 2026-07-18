@@ -4,7 +4,12 @@ import datetime
 
 from pydantic import Field
 
-from app.controller.calc.calc_state import BuildStatus, PublishState, ReviewStatus
+from app.controller.calc.calc_state import (
+    BuildStatus,
+    PublishState,
+    ReportOriginType,
+    ReportSyncState,
+)
 from app.controller.dto_base import BaseDTO
 
 
@@ -40,6 +45,10 @@ class CalcReportResDTO(BaseDTO):
     buildStatus: BuildStatus
     publishState: PublishState
     isFavorite: bool
+    originType: ReportOriginType
+    syncState: ReportSyncState
+    canEdit: bool
+    canShare: bool
     createdAt: datetime.datetime
     updatedAt: datetime.datetime
 
@@ -63,7 +72,11 @@ class CalcReportCategoryResDTO(CalcReportCategoryReqDTO):
     """Return a category and its derived active report count."""
 
     categoryOid: str
-    sortOrder: int
+    manualOrder: int
+    isPinned: bool
+    isHidden: bool
+    frequencyCount: int
+    lastUsedAt: datetime.datetime | None
     reportCount: int
     createdAt: datetime.datetime
     updatedAt: datetime.datetime
@@ -73,7 +86,14 @@ class CategoryOrderDTO(BaseDTO):
     """Assign one category's zero-based sort order."""
 
     categoryOid: str
-    sortOrder: int = Field(ge=0)
+    manualOrder: int = Field(ge=0)
+
+
+class CategoryStateDTO(BaseDTO):
+    """Update pinning or visibility without changing category metadata."""
+
+    isPinned: bool | None = None
+    isHidden: bool | None = None
 
 
 class CalcReportVersionCreateDTO(BaseDTO):
@@ -83,24 +103,14 @@ class CalcReportVersionCreateDTO(BaseDTO):
     description: str | None = None
 
 
-class CalcReportVersionReviewDTO(BaseDTO):
-    """Set an administrator review outcome for an immutable version."""
-
-    reviewStatus: ReviewStatus
-    reviewComment: str | None = None
-
-
 class CalcReportVersionResDTO(BaseDTO):
-    """Return an immutable report version and review/latest metadata."""
+    """Return an immutable report version and latest metadata."""
 
     versionOid: str
     versionName: str
     importSegment: str
     sourceArtifactHash: str
     description: str | None
-    reviewStatus: ReviewStatus
-    reviewedAt: datetime.datetime | None
-    reviewComment: str | None
     isLatest: bool
     createdAt: datetime.datetime
 

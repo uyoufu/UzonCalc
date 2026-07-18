@@ -3,6 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_instance_dto import (
@@ -10,6 +11,7 @@ from app.controller.calc.calc_instance_dto import (
     CalcInstanceListFilterDTO,
     CalcInstanceResDTO,
     CalcInstanceResultUpdateDTO,
+    CalcInstanceShareResDTO,
     CalcInstanceUpdateDTO,
 )
 from app.controller.depends import get_session, get_token_payload
@@ -19,6 +21,29 @@ from app.service import calc_report_instance_service
 from utils.jwt_helper import TokenPayloads
 
 router = APIRouter(prefix="/v1/calc-report-instance", tags=["calc-report-instance"])
+
+
+@router.get("/shared/{shareToken}")
+async def get_public_calc_report_instance(
+    shareToken: str,
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcInstanceResDTO]:
+    """Return a read-only saved instance through an anonymous share token."""
+    return ok(
+        data=await calc_report_instance_service.get_public_instance(shareToken, session)
+    )
+
+
+@router.get("/shared/{shareToken}/result")
+async def get_public_calc_report_instance_result(
+    shareToken: str,
+    session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    """Serve shared instance HTML only after validating its anonymous token."""
+    result_path = await calc_report_instance_service.get_public_instance_result_path(
+        shareToken, session
+    )
+    return FileResponse(result_path, media_type="text/html")
 
 
 @router.get("/count")
@@ -78,6 +103,19 @@ async def get_calc_report_instance(
     )
 
 
+@router.get("/{instanceOid}/result")
+async def get_calc_report_instance_result(
+    instanceOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    """Serve an owned saved instance result after authentication."""
+    result_path = await calc_report_instance_service.get_owned_instance_result_path(
+        tokenPayloads.id, instanceOid, session
+    )
+    return FileResponse(result_path, media_type="text/html")
+
+
 @router.put("/{instanceOid}")
 async def update_calc_report_instance(
     instanceOid: str,
@@ -116,6 +154,33 @@ async def delete_calc_report_instance(
 ) -> ResponseResult[None]:
     """Soft-delete one saved instance."""
     await calc_report_instance_service.delete_instance(
+        tokenPayloads.id, instanceOid, session
+    )
+    return ok()
+
+
+@router.put("/{instanceOid}/share")
+async def share_calc_report_instance(
+    instanceOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcInstanceShareResDTO]:
+    """Enable anonymous access and return a stable share token."""
+    return ok(
+        data=await calc_report_instance_service.share_instance(
+            tokenPayloads.id, instanceOid, session
+        )
+    )
+
+
+@router.delete("/{instanceOid}/share")
+async def revoke_calc_report_instance_share(
+    instanceOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[None]:
+    """Revoke anonymous access to one owned saved instance."""
+    await calc_report_instance_service.revoke_instance_share(
         tokenPayloads.id, instanceOid, session
     )
     return ok()

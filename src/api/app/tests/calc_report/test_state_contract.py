@@ -6,7 +6,6 @@ import pytest
 from pydantic import TypeAdapter, ValidationError
 
 from app.controller.calc.calc_execution_dto import CalcExecutionSourceDTO
-from app.controller.calc.calc_report_dto import CalcReportVersionReviewDTO
 from app.controller.calc.calc_share_dto import ShareLinkCreateDTO
 from app.controller.calc.calc_state import (
     BuildStatus,
@@ -14,7 +13,8 @@ from app.controller.calc.calc_state import (
     ExecutionStatus,
     ExecutorType,
     PublishState,
-    ReviewStatus,
+    ReportOriginType,
+    ReportSyncState,
     ShareAccessType,
     WorkspaceFileSource,
 )
@@ -34,13 +34,29 @@ from app.controller.calc.calc_workspace_dto import WorkspaceFileDTO
             ],
         ),
         (BuildStatus, ["not_requested", "pending", "building", "ready", "failed"]),
-        (ReviewStatus, ["pending", "approved", "rejected"]),
+        (
+            ReportOriginType,
+            ["native", "copy", "share_import", "share_sync", "file_import"],
+        ),
+        (
+            ReportSyncState,
+            [
+                "not_applicable",
+                "current",
+                "update_available",
+                "source_unavailable",
+                "access_revoked",
+            ],
+        ),
         (ExecutionSourceType, ["workspace", "latest", "version"]),
         (
             ExecutionStatus,
             ["pending", "running", "succeeded", "failed", "cancelled", "expired"],
         ),
-        (ShareAccessType, ["link", "public", "specified_users"]),
+        (
+            ShareAccessType,
+            ["public", "internal", "specified_users", "specified_departments"],
+        ),
         (WorkspaceFileSource, ["upload", "current"]),
         (ExecutorType, ["local", "docker"]),
     ],
@@ -75,7 +91,6 @@ def test_state_dtos_serialize_enum_values_as_existing_strings() -> None:
     source = CalcExecutionSourceDTO(
         type=ExecutionSourceType.VERSION, versionName="1.2.3"
     )
-    review = CalcReportVersionReviewDTO(reviewStatus=ReviewStatus.APPROVED)
     share = ShareLinkCreateDTO(versionName="1.2.3")
     workspace_file = WorkspaceFileDTO(path="src/main.py")
 
@@ -83,8 +98,7 @@ def test_state_dtos_serialize_enum_values_as_existing_strings() -> None:
         "type": "version",
         "versionName": "1.2.3",
     }
-    assert review.model_dump(mode="json")["reviewStatus"] == "approved"
-    assert share.model_dump(mode="json")["accessType"] == "link"
+    assert share.model_dump(mode="json")["accessType"] == "public"
     assert workspace_file.model_dump(mode="json")["source"] == "upload"
 
 
@@ -92,7 +106,6 @@ def test_state_dtos_serialize_enum_values_as_existing_strings() -> None:
     "factory",
     [
         lambda: CalcExecutionSourceDTO(type="retired"),
-        lambda: CalcReportVersionReviewDTO(reviewStatus="retired"),
         lambda: ShareLinkCreateDTO(versionName="1.2.3", accessType="retired"),
         lambda: WorkspaceFileDTO(path="src/main.py", source="retired"),
     ],

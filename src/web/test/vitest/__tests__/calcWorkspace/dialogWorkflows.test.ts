@@ -1,11 +1,10 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { ReviewStatus, type CalcInstance, type CalcReport, type CalcReportVersion } from 'src/api/calc/types'
+import type { CalcInstance, CalcReport, CalcReportVersion } from 'src/api/calc/types'
 import type { IPopupDialogParams } from 'src/components/lowCode/types'
 import { useInstanceListDialogs } from 'src/pages/calcReportInstance/list/compositions/useInstanceListDialogs'
 import { useCalcReportListDialogs } from 'src/pages/calcReport/list/compositions/useCalcReportListDialogs'
 import { useSaveInstanceDialog } from 'src/pages/calcExecution/compositions/useSaveInstanceDialog'
 import { usePublishVersionDialog } from 'src/pages/calcReport/list/compositions/usePublishVersionDialog'
-import { useVersionReviewDialog } from 'src/pages/calcReport/version/useVersionReviewDialog'
 import { useWorkspaceConflictDialog } from 'src/pages/calcReport/workbench/workspace/useWorkspaceConflictDialog'
 import { WorkspaceConflictResolution } from 'src/pages/calcReport/workbench/workspace/workspaceConflict'
 
@@ -100,7 +99,7 @@ describe('calculation workspace dialog workflows', () => {
     expect(mocks.showDialog.mock.calls[1]?.[0].onOkMain).toBeUndefined()
   })
 
-  it('keeps semantic-version validation and returns publication and review input', async () => {
+  it('keeps semantic-version validation and returns publication input', async () => {
     const versions = [{ versionName: '1.0.0' }] as CalcReportVersion[]
     mocks.showDialog
       .mockImplementationOnce(async (params: IPopupDialogParams) => {
@@ -111,26 +110,13 @@ describe('calculation workspace dialog workflows', () => {
         expect(params.onOkMain).toBeUndefined()
         return { ok: true, data: { versionName: '1.0.1', description: '' } }
       })
-      .mockResolvedValueOnce({
-        ok: true,
-        data: { status: ReviewStatus.Approved, comment: 'Reviewed' }
-      })
 
     const { openPublishVersionDialog } = usePublishVersionDialog()
-    const { openVersionReviewDialog } = useVersionReviewDialog()
     await expect(openPublishVersionDialog(versions)).resolves.toEqual({
       versionName: '1.0.1',
       description: ''
     })
-    await expect(
-      openVersionReviewDialog({
-        versionName: '1.0.0',
-        reviewStatus: ReviewStatus.Pending,
-        reviewComment: null
-      } as CalcReportVersion)
-    ).resolves.toEqual({ status: ReviewStatus.Approved, comment: 'Reviewed' })
-
-    expect(mocks.showDialog.mock.calls[1]?.[0].onOkMain).toBeUndefined()
+    expect(mocks.showDialog.mock.calls[0]?.[0].onOkMain).toBeUndefined()
   })
 
   it('creates a default category before returning save-instance metadata', async () => {

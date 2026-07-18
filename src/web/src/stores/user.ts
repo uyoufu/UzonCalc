@@ -22,7 +22,7 @@ export const useUserInfoStore = defineStore('userInfo', {
     username: (state) => state.userInfo.username,
 
     // 用户名称
-    userName: (state) => state.userInfo.name,
+    userName: (state) => state.userInfo.nickName || state.userInfo.username,
 
     userAvatar: (state) => {
       // 判断是否包含 http，若不包含，添加后端的 http
@@ -35,8 +35,7 @@ export const useUserInfoStore = defineStore('userInfo', {
     },
 
     isAdmin: (state) => {
-      // 目前使用 * 或者 admin 来表示超管权限
-      return state.access.includes('*') || state.userInfo.username === 'admin'
+      return state.access.includes('admin') || state.userInfo.roles?.includes('admin') === true
     },
 
     /**
@@ -133,6 +132,10 @@ export const useUserInfoStore = defineStore('userInfo', {
      */
     updateUserAvatar (avatarUrl: string) {
       this.userInfo.avatar = avatarUrl
+    },
+
+    updateNickName (nickName: string) {
+      this.userInfo.nickName = nickName
     },
 
     /**

@@ -3,12 +3,15 @@
 import {
   ExecutionSourceType,
   PublishState,
+  ReportOriginType,
+  ReportSyncState,
   type CalcReport,
   type CalcReportCategory
 } from 'src/api/calc/types'
 import {
   copyCalcReport,
   deleteCalcReport,
+  exportReportArchive,
   getCalcReport,
   setCalcReportFavorite,
   updateCalcReport
@@ -16,6 +19,7 @@ import {
 import { listReportCategories } from 'src/api/calc/categories'
 import { listVersions, publishVersion } from 'src/api/calc/versions'
 import { showCalcReportInExplorer } from 'src/api/desktop'
+import { synchronizeReport } from 'src/api/calc/shares'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import type {
   deleteRowByIdType,
@@ -25,7 +29,9 @@ import type {
 import type { IQTablePagination } from 'src/compositions/types'
 import { t } from 'src/i18n/helpers'
 import { useSystemInfo } from 'src/stores/system'
-import { confirmOperation, notifySuccess } from 'src/utils/dialog'
+import { confirmOperation, notifySuccess, notifyUntil } from 'src/utils/dialog'
+import { showDialog } from 'src/components/lowCode/PopupDialog'
+import { LowCodeFieldType } from 'src/components/lowCode/types'
 import { useShareManagerDialog } from '../../shared/useShareManagerDialog'
 import {
   ReportDialogMode,
@@ -83,6 +89,10 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
    * @throws Propagates router navigation errors.
    */
   async function onOpenReport(report: CalcReport): Promise<void> {
+    if (!report.canEdit) {
+      await onRunReport(report)
+      return
+    }
     await router.push({
       path: `/calc-report/${report.reportOid}/workspace`,
       query: { tagName: `${report.name} · ${t('calcWorkspace.workspace')}` }
@@ -97,10 +107,17 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
    * @throws Propagates router navigation errors.
    */
   async function onRunReport(report: CalcReport): Promise<void> {
+    if (report.syncState === ReportSyncState.UpdateAvailable) {
+      const shouldUpdate = await confirmOperation(t('calcWorkspace.syncUpdateAvailable'), t('calcWorkspace.syncBeforeRun'))
+      if (shouldUpdate) {
+        await synchronizeReport(report.reportOid)
+        options.updateReportRow((await getCalcReport(report.reportOid)).data, 'reportOid')
+      }
+    }
     await router.push({
       path: `/calc-report/${report.reportOid}/run`,
       query: {
-        source: ExecutionSourceType.Workspace,
+        source: report.originType === ReportOriginType.ShareSync ? ExecutionSourceType.Latest : ExecutionSourceType.Workspace,
         tagName: `${report.name} · ${t('calcWorkspace.run')}`
       }
     })
@@ -207,6 +224,25 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
     await showCalcReportInExplorer(report.reportOid)
   }
 
+  /** Download the report's latest published portable closure. */
+  async function onExportReport(report: CalcReport): Promise<void> {
+    const permissionResult = await showDialog<{ canEdit: boolean; canShare: boolean }>({
+      title: t('calcWorkspace.exportPermissions'),
+      oneColumn: true,
+      fields: [
+        { name: 'canEdit', label: t('calcWorkspace.canEdit'), type: LowCodeFieldType.boolean, value: false },
+        { name: 'canShare', label: t('calcWorkspace.canShare'), type: LowCodeFieldType.boolean, value: false }
+      ]
+    })
+    if (!permissionResult.ok) return
+    const response = await notifyUntil(
+      async () => await exportReportArchive(report.reportOid, permissionResult.data.canEdit, permissionResult.data.canShare),
+      t('calcWorkspace.exportingArchive')
+    )
+    if (!response) return
+    downloadArchiveBlob(response.data, `${report.name}.png`)
+  }
+
   /**
    * Delete a confirmed report and synchronize row and category state.
    *
@@ -227,6 +263,7 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
       label: t('calcWorkspace.openWorkspace'),
       icon: 'code',
       color: 'grey-9',
+      vif: (report) => report.canEdit,
       onClick: onOpenReport
     },
     {
@@ -242,7 +279,7 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
       icon: 'publish',
       color: 'primary',
       vif: (report) =>
-        ([PublishState.Unpublished, PublishState.UnpublishedChanges] as PublishState[]).includes(
+        report.canEdit && ([PublishState.Unpublished, PublishState.UnpublishedChanges] as PublishState[]).includes(
           report.publishState
         ),
       onClick: onPublishVersion
@@ -280,7 +317,16 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
       label: t('calcWorkspace.share'),
       icon: 'share',
       color: 'primary',
+      vif: (report) => report.canShare,
       onClick: onShareReport
+    },
+    {
+      name: 'export',
+      label: t('global.export'),
+      icon: 'download',
+      color: 'secondary',
+      vif: (report) => Boolean(report.latestVersionName),
+      onClick: onExportReport
     },
     {
       name: 'explorer',
@@ -300,4 +346,14 @@ export function useReportContextMenu(options: ReportContextMenuOptions) {
   ]
 
   return { items, onOpenReport, onToggleFavorite }
+}
+
+/** Trigger a browser download and release its temporary object URL. */
+function downloadArchiveBlob(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(objectUrl)
 }

@@ -4,30 +4,63 @@ HTML template for rendering calculation sheets with LaTeX support.
 
 import html
 import os
+from functools import lru_cache
+from pathlib import Path
 from typing import Any
+from urllib.parse import urlparse
+
 from ..context_options import ContextOptions
 
-# 模板缓存，避免重复加载文件
-_template_cache: str | None = None
+_TEMPLATE_SCRIPT_SRC_ENV = "UZONCALC_TEMPLATE_SCRIPT_SRC"
+_DEFAULT_TEMPLATE_SCRIPT_SRC = "https://calc.uzoncloud.com/scripts/template.js"
+
+
+@lru_cache(maxsize=1)
+def _load_raw_template() -> str:
+    """Load and cache the raw HTML template from package resources.
+
+    Returns:
+        The unrendered HTML template text.
+
+    Raises:
+        OSError: If the packaged template cannot be read.
+    """
+    return Path(__file__).with_name("calc_template.html").read_text(encoding="utf-8")
+
+
+def _get_template_script_src() -> str:
+    """Resolve and validate the configured template runtime URL.
+
+    Returns:
+        An HTML-escaped HTTP(S) URL suitable for a script ``src`` attribute.
+
+    Raises:
+        ValueError: If the configured value is not an absolute HTTP(S) URL.
+    """
+    script_src = os.environ.get(
+        _TEMPLATE_SCRIPT_SRC_ENV, _DEFAULT_TEMPLATE_SCRIPT_SRC
+    ).strip()
+    parsed = urlparse(script_src)
+    if parsed.scheme not in {"http", "https"} or not parsed.netloc:
+        raise ValueError(
+            f"{_TEMPLATE_SCRIPT_SRC_ENV} must be an absolute HTTP(S) URL"
+        )
+    return html.escape(script_src, quote=True)
 
 
 def load_template() -> str:
-    """
-    从模板文件中加载 HTML 模板（带缓存）
+    """Load the HTML template with the configured runtime script URL.
 
     Returns:
-        HTML 模板字符串
+        The HTML template text ready for calculation-content substitutions.
+
+    Raises:
+        OSError: If the packaged template cannot be read.
+        ValueError: If ``UZONCALC_TEMPLATE_SCRIPT_SRC`` is invalid.
     """
-    global _template_cache
-
-    if _template_cache is None:
-        template_dir = os.path.join(os.path.dirname(__file__))
-        template_file = os.path.join(template_dir, "calc_template.html")
-
-        with open(template_file, "r", encoding="utf-8") as f:
-            _template_cache = f.read()
-
-    return _template_cache
+    return _load_raw_template().replace(
+        "TEMPLATE_SCRIPT_SRC", _get_template_script_src()
+    )
 
 
 def generate_custom_styles(styles: dict[str, dict[str, Any]]) -> str:

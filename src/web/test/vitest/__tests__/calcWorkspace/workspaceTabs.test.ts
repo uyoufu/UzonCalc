@@ -5,6 +5,10 @@ import { useWorkspaceTabs, WorkspaceTabKind, WORKSPACE_RUN_TAB_ID } from 'src/pa
 import { useWorkspaceViewState } from 'src/pages/calcReport/workbench/workspace/useWorkspaceViewState'
 
 vi.mock('src/api/calc/workspace', () => ({ getWorkspaceFile: vi.fn() }))
+vi.mock('src/api/userSetting', () => ({
+  getUserSetting: vi.fn().mockResolvedValue({ data: null }),
+  upsertUserSetting: vi.fn().mockResolvedValue({ data: null })
+}))
 
 describe('workspace tabs and view state', () => {
   beforeEach(() => window.localStorage.clear())
@@ -40,25 +44,28 @@ describe('workspace tabs and view state', () => {
   it('restores only valid selected and expanded tree paths per report', async () => {
     const reportOid = ref('report-1')
     const nodes = buildWorkspaceTree(createDefaultWorkspaceFiles())
-    const first = useWorkspaceViewState(reportOid)
-    first.restoreViewState(nodes, 'src/main.py')
+    const firstTabs = useWorkspaceTabs()
+    const first = useWorkspaceViewState(reportOid, firstTabs.tabs, firstTabs.activeTabId)
+    await first.restoreViewState(nodes, 'src/main.py')
     first.expandedPaths.value = ['src', 'missing']
     first.selectedPath.value = 'calcbook.json'
     await nextTick()
 
-    const restored = useWorkspaceViewState(reportOid)
-    restored.restoreViewState(nodes, 'src/main.py')
+    const restoredTabs = useWorkspaceTabs()
+    const restored = useWorkspaceViewState(reportOid, restoredTabs.tabs, restoredTabs.activeTabId)
+    await restored.restoreViewState(nodes, 'src/main.py')
 
     expect(restored.expandedPaths.value).toEqual(['src'])
     expect(restored.selectedPath.value).toBe('calcbook.json')
   })
 
-  it('falls back safely when persisted view state is malformed', () => {
+  it('falls back safely when persisted view state is malformed', async () => {
     const reportOid = ref('report-2')
-    window.localStorage.setItem('uzoncalc.calcReport.workspaceView.v1:report-2', '{invalid')
-    const state = useWorkspaceViewState(reportOid)
+    window.localStorage.setItem('uzoncalc.calcReport.workspaceView.v2:report-2', '{invalid')
+    const tabs = useWorkspaceTabs()
+    const state = useWorkspaceViewState(reportOid, tabs.tabs, tabs.activeTabId)
 
-    state.restoreViewState(buildWorkspaceTree(createDefaultWorkspaceFiles()), 'src/main.py')
+    await state.restoreViewState(buildWorkspaceTree(createDefaultWorkspaceFiles()), 'src/main.py')
 
     expect(state.selectedPath.value).toBe('src/main.py')
     expect(state.expandedPaths.value).toEqual(['src'])

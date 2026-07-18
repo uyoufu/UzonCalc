@@ -6,17 +6,22 @@ from .calc_execution import (
     CalcExecutionBundle,
     CalcExecutionBundleComponent,
 )
-from .calc_report import CalcReport, CalcReportOrigin
+from .calc_report import CalcReport, CalcReportOrigin, CalcReportSyncSource
 from .calc_report_artifact import CalcReportArtifact, CalcReportArtifactBuild
 from .calc_report_category import CalcReportCategory
 from .calc_report_dependency import (
     CalcReportDependency,
     CalcReportDependencySelector,
 )
-from .calc_report_instance import CalcReportInstance
+from .calc_report_instance import CalcReportInstance, CalcReportInstanceShare
 from .calc_report_instance_category import CalcReportInstanceCategory
-from .calc_report_share import CalcReportShareLink, CalcReportShareRecipient
+from .calc_report_share import (
+    CalcReportShareDepartment,
+    CalcReportShareLink,
+    CalcReportShareRecipient,
+)
 from .calc_report_version import CalcReportVersion
+from .department import Department, DepartmentUser
 from .enums import (
     ArtifactBuildStatus,
     ArtifactKind,
@@ -25,7 +30,6 @@ from .enums import (
     ExecutorType,
     ReportOriginType,
     ShareAccessType,
-    VersionReviewStatus,
 )
 from .favorite_calc_report import FavoriteCalcReport
 from .system_setting import SystemSetting
@@ -49,11 +53,16 @@ __all__ = [
     "CalcReportDependency",
     "CalcReportDependencySelector",
     "CalcReportInstance",
+    "CalcReportInstanceShare",
     "CalcReportInstanceCategory",
     "CalcReportOrigin",
+    "CalcReportSyncSource",
+    "CalcReportShareDepartment",
     "CalcReportShareLink",
     "CalcReportShareRecipient",
     "CalcReportVersion",
+    "Department",
+    "DepartmentUser",
     "ExecutionSourceType",
     "ExecutionStatus",
     "ExecutorType",
@@ -66,5 +75,4 @@ __all__ = [
     "User",
     "UserInputHistory",
     "UserSetting",
-    "VersionReviewStatus",
 ]

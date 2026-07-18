@@ -3,6 +3,7 @@
 import asyncio
 from pathlib import Path
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.controller.calc.calc_instance_dto import CalcInstanceCreateDTO
@@ -14,6 +15,7 @@ from app.db.models import (
     CalcReportArtifact,
     CalcReportCategory,
     CalcReportInstanceCategory,
+    CalcReportInstance,
     User,
     UserInputHistory,
 )
@@ -100,6 +102,7 @@ def test_create_instance_derives_provenance_and_copies_cached_result(
                     UserInputHistory(
                         executionId=execution.id,
                         defaults={"parameters": {"a": 1}},
+                        windows=[{"title": "parameters", "fields": []}],
                         inputHistory=[],
                     )
                 )
@@ -123,12 +126,21 @@ def test_create_instance_derives_provenance_and_copies_cached_result(
                     user.id, request, session
                 )
 
-                assert result.resultPath.startswith("public/calc-instances/1/")
+                assert result.resultPath == (
+                    f"/v1/calc-report-instance/{result.instanceOid}/result"
+                )
                 assert result.instanceOid in result.resultPath
-                saved_html = tmp_path / "data" / result.resultPath
+                saved_instance = await session.scalar(
+                    select(CalcReportInstance).where(
+                        CalcReportInstance.oid == result.instanceOid
+                    )
+                )
+                assert saved_instance is not None
+                saved_html = tmp_path / "data" / saved_instance.resultPath
                 assert saved_html.exists()
                 assert (saved_html.parent / "images/image_1.png").exists()
                 assert result.defaults == {"parameters": {"a": 1}}
+                assert result.inputWindows == [{"title": "parameters", "fields": []}]
                 assert result.reportOid == report.oid
                 assert result.bundleHash == f"sha256:{'c' * 64}"
         finally:

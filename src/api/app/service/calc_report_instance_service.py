@@ -14,18 +14,26 @@ from app.controller.calc.calc_instance_dto import (
     CalcInstanceListFilterDTO,
     CalcInstanceResDTO,
     CalcInstanceResultUpdateDTO,
+    CalcInstanceShareResDTO,
     CalcInstanceUpdateDTO,
 )
 from app.controller.dto_base import PaginationDTO
 from app.db.models.calc_execution import CalcExecution, CalcExecutionBundle
 from app.db.models.calc_report import CalcReport
-from app.db.models.calc_report_instance import CalcReportInstance
+from app.db.models.calc_report_instance import (
+    CalcReportInstance,
+    CalcReportInstanceShare,
+)
 from app.db.models.calc_report_instance_category import CalcReportInstanceCategory
 from app.db.models.calc_report_version import CalcReportVersion
 from app.db.models.object_id import ObjectId
 from app.db.models.user_input_history import UserInputHistory
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_instance_category_service import get_category
+from app.service.share_token_service import (
+    create_signed_share_token,
+    verify_signed_share_token,
+)
 
 
 async def create_instance(
@@ -54,6 +62,7 @@ async def create_instance(
         name=request.name.strip(),
         description=request.description,
         defaults=history.defaults,
+        inputWindows=history.windows,
         resultPath=result_path,
         revision=1,
     )
@@ -192,6 +201,7 @@ async def update_instance_result(
     instance.executionId = execution.id
     instance.reportName = report.name
     instance.defaults = history.defaults
+    instance.inputWindows = history.windows
     instance.resultPath = result_path
     instance.revision += 1
     await session.commit()
@@ -205,6 +215,104 @@ async def delete_instance(
     instance = await _get_instance_model(user_id, instance_oid, session)
     instance.deletedAt = datetime.datetime.now(datetime.timezone.utc)
     await session.commit()
+
+
+async def share_instance(
+    user_id: int, instance_oid: str, session: AsyncSession
+) -> CalcInstanceShareResDTO:
+    """Create or return the active anonymous share for an owned instance."""
+    instance = await _get_instance_model(user_id, instance_oid, session)
+    share = await session.scalar(
+        select(CalcReportInstanceShare)
+        .where(
+            CalcReportInstanceShare.instanceId == instance.id,
+            CalcReportInstanceShare.revokedAt.is_(None),
+            CalcReportInstanceShare.isEnabled.is_(True),
+        )
+        .order_by(CalcReportInstanceShare.id.desc())
+    )
+    if share is None:
+        share = CalcReportInstanceShare(
+            instanceId=instance.id,
+            createdByUserId=user_id,
+        )
+        session.add(share)
+        await session.commit()
+        await session.refresh(share)
+    return _share_response(instance, share)
+
+
+async def revoke_instance_share(
+    user_id: int, instance_oid: str, session: AsyncSession
+) -> None:
+    """Revoke every active anonymous share for an owned instance."""
+    instance = await _get_instance_model(user_id, instance_oid, session)
+    now = datetime.datetime.now(datetime.timezone.utc)
+    await session.execute(
+        update(CalcReportInstanceShare)
+        .where(
+            CalcReportInstanceShare.instanceId == instance.id,
+            CalcReportInstanceShare.revokedAt.is_(None),
+        )
+        .values(revokedAt=now, isEnabled=False)
+    )
+    await session.commit()
+
+
+async def get_public_instance(
+    share_token: str, session: AsyncSession
+) -> CalcInstanceResDTO:
+    """Return one saved instance through a valid anonymous share token."""
+    share_oid = verify_signed_share_token("calc-instance", share_token)
+    if share_oid is None:
+        raise_ex("Shared calculation instance not found", code=404)
+    row = (
+        await session.execute(
+            select(CalcReportInstanceShare, CalcReportInstance)
+            .join(
+                CalcReportInstance,
+                CalcReportInstance.id == CalcReportInstanceShare.instanceId,
+            )
+            .where(
+                CalcReportInstanceShare.oid == share_oid,
+                CalcReportInstanceShare.revokedAt.is_(None),
+                CalcReportInstanceShare.isEnabled.is_(True),
+                CalcReportInstance.deletedAt.is_(None),
+            )
+        )
+    ).one_or_none()
+    if row is None:
+        raise_ex("Shared calculation instance not found", code=404)
+    _, instance = row
+    return await _response(instance, session, public_token=share_token)
+
+
+async def get_public_instance_result_path(
+    share_token: str, session: AsyncSession
+) -> Path:
+    """Resolve a shared instance's HTML file after token authorization."""
+    instance = await get_public_instance(share_token, session)
+    relative_path = Path(instance.resultPath)
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise_ex("Calculation result path is invalid", code=500)
+    result_file = Path("data") / relative_path
+    if not result_file.is_file():
+        raise_ex("Calculation result file not found", code=404)
+    return result_file
+
+
+async def get_owned_instance_result_path(
+    user_id: int, instance_oid: str, session: AsyncSession
+) -> Path:
+    """Resolve an owned instance's private HTML result file."""
+    instance = await _get_instance_model(user_id, instance_oid, session)
+    relative_path = Path(instance.resultPath)
+    if relative_path.is_absolute() or ".." in relative_path.parts:
+        raise_ex("Calculation result path is invalid", code=500)
+    result_file = Path("data") / relative_path
+    if not result_file.is_file():
+        raise_ex("Calculation result file not found", code=404)
+    return result_file
 
 
 async def _get_instance_model(
@@ -257,15 +365,18 @@ def _persist_result(user_id: int, instance_oid: str, source_result_path: str) ->
     source_file = Path("data") / relative
     if not source_file.is_file():
         raise_ex("Calculation result file not found", code=404)
-    target_dir = Path("data/public/calc-instances") / str(user_id) / instance_oid
+    target_dir = Path("data/calc-instances") / str(user_id) / instance_oid
     if target_dir.exists():
         shutil.rmtree(target_dir)
     shutil.copytree(source_file.parent, target_dir)
-    return f"public/calc-instances/{user_id}/{instance_oid}/{source_file.name}"
+    return f"calc-instances/{user_id}/{instance_oid}/{source_file.name}"
 
 
 async def _response(
-    instance: CalcReportInstance, session: AsyncSession
+    instance: CalcReportInstance,
+    session: AsyncSession,
+    *,
+    public_token: str | None = None,
 ) -> CalcInstanceResDTO:
     """Build a saved-instance response from normalized provenance relationships."""
     category = await session.get(CalcReportInstanceCategory, instance.categoryId)
@@ -280,6 +391,24 @@ async def _response(
         await session.get(CalcReportVersion, instance.sourceVersionId)
         if instance.sourceVersionId is not None
         else None
+    )
+    share = await session.scalar(
+        select(CalcReportInstanceShare)
+        .where(
+            CalcReportInstanceShare.instanceId == instance.id,
+            CalcReportInstanceShare.revokedAt.is_(None),
+            CalcReportInstanceShare.isEnabled.is_(True),
+        )
+        .order_by(CalcReportInstanceShare.id.desc())
+    )
+    share_token = (
+        public_token
+        if public_token is not None
+        else (
+            create_signed_share_token("calc-instance", share.oid)
+            if share is not None
+            else None
+        )
     )
     return CalcInstanceResDTO(
         instanceOid=instance.oid,
@@ -296,8 +425,27 @@ async def _response(
         name=instance.name,
         description=instance.description,
         defaults=instance.defaults,
-        resultPath=instance.resultPath,
+        inputWindows=instance.inputWindows,
+        resultPath=(
+            f"/v1/calc-report-instance/shared/{public_token}/result"
+            if public_token is not None
+            else f"/v1/calc-report-instance/{instance.oid}/result"
+        ),
+        isShared=share is not None,
+        shareToken=share_token,
         revision=instance.revision,
         createdAt=instance.createdAt,
         updatedAt=instance.updatedAt,
+    )
+
+
+def _share_response(
+    instance: CalcReportInstance, share: CalcReportInstanceShare
+) -> CalcInstanceShareResDTO:
+    """Convert an active instance share into its public token response."""
+    return CalcInstanceShareResDTO(
+        instanceOid=instance.oid,
+        shareOid=share.oid,
+        token=create_signed_share_token("calc-instance", share.oid),
+        createdAt=share.createdAt,
     )

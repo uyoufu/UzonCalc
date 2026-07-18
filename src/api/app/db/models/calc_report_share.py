@@ -7,8 +7,11 @@ from sqlalchemy import (
     CheckConstraint,
     DateTime,
     ForeignKey,
+    ForeignKeyConstraint,
     Integer,
     SmallInteger,
+    Boolean,
+    false,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -20,17 +23,22 @@ class CalcReportShareLink(BaseModel):
 
     __tablename__ = "calc_report_share_link"
     __table_args__ = (
-        CheckConstraint("accessType IN (1, 2, 3)", name="access_type_values"),
+        CheckConstraint("accessType IN (1, 2, 3, 4)", name="access_type_values"),
         CheckConstraint(
             "maxUseCount IS NULL OR maxUseCount >= 0",
             name="max_use_count_nonnegative",
         ),
         CheckConstraint("useCount >= 0", name="use_count_nonnegative"),
+        ForeignKeyConstraint(
+            ["reportId", "versionId"],
+            ["calc_report_version.reportId", "calc_report_version.id"],
+            name="fk_share_link_report_version",
+            ondelete="RESTRICT",
+        ),
     )
 
-    versionId: Mapped[int] = mapped_column(
-        ForeignKey("calc_report_version.id", ondelete="RESTRICT"), nullable=False
-    )
+    reportId: Mapped[int] = mapped_column(Integer, nullable=False)
+    versionId: Mapped[int] = mapped_column(nullable=False)
     tokenHash: Mapped[str] = mapped_column(CHAR(64), nullable=False, unique=True)
     accessType: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     expiresAt: Mapped[datetime.datetime | None] = mapped_column(
@@ -43,8 +51,17 @@ class CalcReportShareLink(BaseModel):
     useCount: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0"
     )
+    canEdit: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    canShare: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
     createdByUserId: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
+    )
+    previewExecutionId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_execution.id", ondelete="SET NULL"), nullable=True
     )
 
 
@@ -63,4 +80,17 @@ class CalcReportShareRecipient(Base):
     )
     userId: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="CASCADE"), primary_key=True
+    )
+
+
+class CalcReportShareDepartment(Base):
+    """Associate a department-scoped share link with an authorized department."""
+
+    __tablename__ = "calc_report_share_department"
+
+    shareLinkId: Mapped[int] = mapped_column(
+        ForeignKey("calc_report_share_link.id", ondelete="CASCADE"), primary_key=True
+    )
+    departmentId: Mapped[int] = mapped_column(
+        ForeignKey("department.id", ondelete="CASCADE"), primary_key=True
     )

@@ -1,4 +1,4 @@
-/** Component-dialog opener for approved-version share-link management. */
+/** Component-dialog opener for version share-link management. */
 
 import ShareManagerDialog from './ShareManagerDialog.vue'
 import { showComponentDialog } from 'src/components/lowCode/PopupDialog'

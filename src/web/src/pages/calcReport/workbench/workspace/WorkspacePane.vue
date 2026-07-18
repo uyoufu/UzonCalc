@@ -42,6 +42,7 @@
     <div class="row no-wrap col workspace-body">
       <WorkspaceTreePanel v-show="isTreeVisible" v-model:expanded-paths="expandedPaths"
         v-model:current-path="selectedPath" :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value"
+        :report-oid="reportOid" :is-desktop-api="isDesktopApi"
         @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory" @upload="onUploadResources"
         @rename="onRenamePath" @delete="onDeletePath" @entry="draft.setEntryPath"
         @dependencies="onOpenDependencyDialog" />
@@ -103,8 +104,10 @@ import { formatPythonByBlack } from 'src/api/codeFormat'
 import { getApiFailure } from '../../shared/apiFailure'
 import { confirmOperation, notifyError, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
+import { usePermission } from 'src/compositions/permission'
 
 const props = defineProps<{ reportOid: string; report: CalcReport | null; isNew: boolean }>()
+const { isDesktopApi } = usePermission()
 const emit = defineEmits<{ saved: [reportOid: string] }>()
 const route = useRoute()
 const router = useRouter()
@@ -114,16 +117,16 @@ const workspaceTabs = useWorkspaceTabs()
 const {
   expandedPaths,
   selectedPath,
+  isTreeVisible,
   restoreViewState,
   renameViewPath,
   removeViewPath
-} = useWorkspaceViewState(reportOidRef)
+} = useWorkspaceViewState(reportOidRef, workspaceTabs.tabs, workspaceTabs.activeTabId)
 const categories = ref<CalcReportCategory[]>([])
 const createForm = reactive({ categoryOid: '', name: '', description: '' })
 const { openDependencyDialog } = useDependencyDialog()
 const { openWorkspaceConflictDialog } = useWorkspaceConflictDialog()
 const objectUrl = ref('')
-const isTreeVisible = ref(true)
 const isActivatingRunTab = ref(false)
 const runRefreshToken = ref(0)
 const executionPaneRef = ref<{ requestClose: () => Promise<boolean> } | null>(null)
@@ -165,8 +168,11 @@ async function initialize(): Promise<void> {
     const response = await getWorkspace(props.reportOid)
     draft.initializeFromSnapshot(response.data)
   }
-  restoreViewState(draft.treeNodes.value, draft.entryPath.value)
-  await onSelectFile(selectedPath.value)
+  const viewState = await restoreViewState(draft.treeNodes.value, draft.entryPath.value)
+  workspaceTabs.restoreTabs(viewState.tabs, viewState.activeTabId)
+  const activeTab = workspaceTabs.activeTab.value
+  if (activeTab?.kind === WorkspaceTabKind.File && activeTab.path) await onSelectFile(activeTab.path)
+  else if (activeTab?.kind !== WorkspaceTabKind.Run) await onSelectFile(selectedPath.value)
 }
 
 onMounted(initialize)

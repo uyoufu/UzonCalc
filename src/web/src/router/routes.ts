@@ -95,17 +95,6 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         meta: { icon: 'history', label: 'calcWorkspace.versions', noMenu: true, noCache: true },
         component: () => import('pages/calcReport/version/CalcReportVersions.vue')
       },
-      {
-        name: 'CalcReportSharedImport',
-        path: 'shared/:token/import',
-        meta: {
-          icon: 'download',
-          label: 'calcWorkspace.importSharedReport',
-          noMenu: true,
-          noCache: true
-        },
-        component: () => import('pages/calcReport/shared/SharedImport.vue')
-      }
     ]
   },
   {
@@ -181,6 +170,26 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
   //   ]
   // },
   {
+    name: 'UserManagement',
+    path: '/user-management',
+    component: NormalLayout,
+    meta: {
+      label: 'userManagement.title',
+      icon: 'manage_accounts',
+      access: ['admin'],
+      denies: ['desktop-api']
+    },
+    redirect: '/user-management/index',
+    children: [
+      {
+        name: 'UserManagementIndex',
+        path: 'index',
+        meta: { label: 'userManagement.title', icon: 'manage_accounts', noCache: true },
+        component: () => import('pages/userManagement/UserManagementIndex.vue')
+      }
+    ]
+  },
+  {
     name: 'Sponsor',
     path: '/sponsor',
     component: NormalLayout,
@@ -229,6 +238,26 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
 
 // 静态 routes
 export const constantRoutes: ExtendedRouteRecordRaw[] = [
+  {
+    name: 'PublicShares',
+    path: '/',
+    component: NormalLayout,
+    meta: { label: 'calcWorkspace.sharedReport', icon: 'share', noMenu: true, anoymous: true },
+    children: [
+      {
+        name: 'CalcReportSharedImport',
+        path: '/calc-report/shared/import',
+        meta: { label: 'calcWorkspace.importSharedReport', icon: 'download', noMenu: true, noCache: true, anoymous: true },
+        component: () => import('pages/calcReport/shared/SharedImport.vue')
+      },
+      {
+        name: 'CalcReportInstanceShared',
+        path: '/calc-report-instance/shared/:token',
+        meta: { label: 'calcWorkspace.sharedInstance', icon: 'share', noMenu: true, noCache: true, anoymous: true },
+        component: () => import('pages/calcReportInstance/SharedInstanceDetail.vue')
+      }
+    ]
+  },
   {
     name: 'Login',
     path: '/login',

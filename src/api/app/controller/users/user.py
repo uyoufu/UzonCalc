@@ -1,9 +1,15 @@
+import io
+import os
+import uuid
+
 from fastapi import APIRouter, Depends, UploadFile, File
+from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.depends import get_session, get_current_user
 from app.response.response_result import ResponseResult, ok
 from config import logger
+from app.exception.custom_exception import raise_ex
 import app.service.user_service as user_service
 
 from .user_dto import (
@@ -11,6 +17,7 @@ from .user_dto import (
     UserSignInResponseDTO,
     ChangePasswordDTO,
     UserDetailDTO,
+    UserProfileUpdateDTO,
 )
 from app.db.models.user import User
 
@@ -52,27 +59,27 @@ async def sign_in(
     return ok(data=result)
 
 
-@router.get("/info/{username}")
-async def get_user_info(
-    username: str,
+@router.get("/me")
+async def get_current_user_profile(
+    current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[UserDetailDTO]:
-    """
-    获取用户信息
+    """Return the authenticated user's safe profile."""
+    return ok(data=await user_service.get_user_detail(current_user.id, session))
 
-    **功能说明:**
-    - 根据用户名获取用户信息
-    - 不返回密码和盐字段
 
-    **请求参数:**
-    - username: 用户名
-
-    **返回数据:**
-    - 用户信息（不包含密码和盐）
-    """
-    result = await user_service.get_user_by_username(username, session)
-    logger.info(f"获取用户信息: {username}")
-    return ok(data=result)
+@router.put("/me")
+async def update_current_user_profile(
+    data: UserProfileUpdateDTO,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[UserDetailDTO]:
+    """Update the authenticated user's editable profile fields."""
+    return ok(
+        data=await user_service.update_user_profile(
+            current_user.id, data.nickName, session
+        )
+    )
 
 
 @router.put("/password")
@@ -122,29 +129,30 @@ async def update_avatar(
     **返回数据:**
     - 头像 URL
     """
-    import os
-    import uuid
-    from config import app_config
+    allowed_media_types = {"image/png", "image/jpeg", "image/webp"}
+    if avatar.content_type not in allowed_media_types:
+        raise_ex("Avatar must be a PNG, JPEG, or WebP image", code=415)
+    content = await avatar.read(2 * 1024 * 1024 + 1)
+    if len(content) > 2 * 1024 * 1024:
+        raise_ex("Avatar exceeds the 2 MiB limit", code=413)
+    try:
+        with Image.open(io.BytesIO(content)) as source:
+            source.load()
+            normalized = ImageOps.fit(source.convert("RGB"), (512, 512))
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise_ex("Avatar image is invalid", code=400)
 
-    # 生成唯一文件名
-    file_ext = os.path.splitext(avatar.filename or "avatar.png")[1]
-    filename = f"avatar_{current_user.id}_{uuid.uuid4().hex}{file_ext}"  # type: ignore
-
-    # 确保 public/avatars 目录存在
+    filename = f"avatar_{current_user.id}_{uuid.uuid4().hex}.png"
     avatars_dir = "data/public/avatars"
     os.makedirs(avatars_dir, exist_ok=True)
-
-    # 保存文件
     file_path = os.path.join(avatars_dir, filename)
-    with open(file_path, "wb") as f:
-        content = await avatar.read()
-        f.write(content)
-
-    # 生成 URL
+    normalized.save(file_path, format="PNG", optimize=True)
     avatar_url = f"/public/avatars/{filename}"
-
-    # 更新数据库
-    await user_service.update_user_avatar(current_user.id, avatar_url, session)  # type: ignore
-
-    logger.info(f"用户更新头像成功: user_id={current_user.id}, url={avatar_url}")  # type: ignore
+    previous_avatar = current_user.avatar
+    await user_service.update_user_avatar(current_user.id, avatar_url, session)
+    if previous_avatar and previous_avatar.startswith("/public/avatars/"):
+        previous_path = os.path.join("data", previous_avatar.removeprefix("/public/"))
+        if os.path.isfile(previous_path):
+            os.remove(previous_path)
+    logger.info(f"用户更新头像成功: user_id={current_user.id}, url={avatar_url}")
     return ok(data=avatar_url)

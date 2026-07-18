@@ -1,20 +1,15 @@
 """Published calculation-report version table definition."""
 
-import datetime
-
 from sqlalchemy import (
     CheckConstraint,
-    DateTime,
     ForeignKey,
     Integer,
-    SmallInteger,
     Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import BaseModel
-from .enums import VersionReviewStatus
 
 
 class CalcReportVersion(BaseModel):
@@ -33,7 +28,6 @@ class CalcReportVersion(BaseModel):
         CheckConstraint("major >= 0", name="major_nonnegative"),
         CheckConstraint("minor >= 0", name="minor_nonnegative"),
         CheckConstraint("patch >= 0", name="patch_nonnegative"),
-        CheckConstraint("reviewStatus IN (0, 1, 2)", name="review_status_values"),
     )
 
     reportId: Mapped[int] = mapped_column(
@@ -49,16 +43,3 @@ class CalcReportVersion(BaseModel):
     publishedByUserId: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
-    reviewStatus: Mapped[int] = mapped_column(
-        SmallInteger,
-        nullable=False,
-        default=VersionReviewStatus.PENDING.value,
-        server_default=str(VersionReviewStatus.PENDING.value),
-    )
-    reviewedByUserId: Mapped[int | None] = mapped_column(
-        ForeignKey("users.id", ondelete="RESTRICT"), nullable=True
-    )
-    reviewedAt: Mapped[datetime.datetime | None] = mapped_column(
-        DateTime(timezone=True), nullable=True
-    )
-    reviewComment: Mapped[str | None] = mapped_column(Text, nullable=True)

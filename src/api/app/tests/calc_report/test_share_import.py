@@ -16,8 +16,8 @@ from app.db.models import (
     CalcReportVersion,
     User,
 )
-from app.db.models.enums import ArtifactKind, VersionReviewStatus
-from app.service import calc_report_share_service
+from app.db.models.enums import ArtifactKind
+from app.service import calc_report_archive_service, calc_report_share_service
 from app.service.calc_report_artifact_service import ArtifactFile, artifact_store
 from app.service.calc_report_workspace_service import _get_or_create_source_artifact
 from config import app_config
@@ -51,13 +51,22 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     salt="salt",
                     roles=["regular"],
                 )
-                session.add_all([owner, receiver])
+                archive_receiver = User(
+                    username="archive-receiver",
+                    password="hash",
+                    salt="salt",
+                    roles=["regular"],
+                )
+                session.add_all([owner, receiver, archive_receiver])
                 await session.flush()
                 owner_category = CalcReportCategory(userId=owner.id, name="owner")
                 receiver_category = CalcReportCategory(
                     userId=receiver.id, name="receiver"
                 )
-                session.add_all([owner_category, receiver_category])
+                archive_category = CalcReportCategory(
+                    userId=archive_receiver.id, name="archive-receiver"
+                )
+                session.add_all([owner_category, receiver_category, archive_category])
                 await session.flush()
                 dependency_report = CalcReport(
                     userId=owner.id, categoryId=owner_category.id, name="dependency"
@@ -89,7 +98,6 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                         minor=0,
                         patch=patch,
                         publishedByUserId=owner.id,
-                        reviewStatus=VersionReviewStatus.APPROVED.value,
                     )
                     session.add(version)
                     await session.flush()
@@ -139,7 +147,6 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     minor=0,
                     patch=0,
                     publishedByUserId=owner.id,
-                    reviewStatus=VersionReviewStatus.APPROVED.value,
                 )
                 session.add(root_version)
                 await session.flush()
@@ -187,6 +194,40 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     == imported_target.oid
                 )
                 assert imported_artifact.artifactKind == ArtifactKind.SOURCE.value
+
+                exported = await calc_report_archive_service.export_version_closure(
+                    root_report,
+                    root_version,
+                    can_edit=False,
+                    can_share=True,
+                    session=session,
+                )
+                try:
+                    archive_import = (
+                        await calc_report_archive_service.import_archive_closure(
+                            archive_receiver.id,
+                            ShareImportDTO(categoryOid=archive_category.oid),
+                            exported.path.read_bytes(),
+                            session,
+                        )
+                    )
+                finally:
+                    calc_report_archive_service.remove_exported_archive(exported)
+                archive_root = await session.scalar(
+                    select(CalcReport).where(CalcReport.oid == archive_import.reportOid)
+                )
+                archive_dependency = await session.scalar(
+                    select(CalcReportDependency).where(
+                        CalcReportDependency.reportId == archive_root.id
+                    )
+                )
+                archive_target = await session.get(
+                    CalcReport, archive_dependency.targetReportId
+                )
+                assert archive_import.importedReportCount == 2
+                assert archive_root.canEdit is False
+                assert archive_root.canShare is True
+                assert archive_target.userId == archive_receiver.id
         finally:
             await engine.dispose()
 

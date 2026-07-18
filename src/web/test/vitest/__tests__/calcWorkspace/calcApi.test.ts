@@ -62,7 +62,9 @@ describe('calculation APIs', () => {
     })
 
     await countExecutions()
-    expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/count')
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/count', {
+      params: { reportOid: undefined }
+    })
     await listExecutions({ ...pagination, sortBy: 'createdAt' })
     expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/items', {
       params: { ...pagination, sortBy: 'createdAt' }

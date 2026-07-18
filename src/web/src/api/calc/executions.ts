@@ -8,6 +8,7 @@ export interface ExecutionItemsParams {
   limit: number
   sortBy: string
   descending: boolean
+  reportOid?: string
 }
 
 export type ExecutionDefaults = Record<string, Record<string, unknown>>
@@ -17,7 +18,7 @@ export function startExecution(data: { reportOid: string; source: CalcExecutionS
 /** Continue the original interactive process. */
 export function continueExecution(executionId: string, defaults: ExecutionDefaults, lastHtmlPath?: string | null) { return httpClient.post<CalcExecution>(`/calc/execution/${executionId}/continue`, { data: { defaults, lastHtmlPath } }) }
 /** Count persisted execution audits. */
-export function countExecutions() { return httpClient.get<number>('/calc/execution/count') }
+export function countExecutions(reportOid?: string) { return httpClient.get<number>('/calc/execution/count', { params: { reportOid } }) }
 /** List one page of persisted execution audits. */
 export function listExecutions(params: ExecutionItemsParams) { return httpClient.get<CalcExecution[]>('/calc/execution/items', { params }) }
 /** Load one execution audit. */

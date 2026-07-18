@@ -1,6 +1,7 @@
 """Metadata, copy, soft-delete, and favorite services for CalcReport."""
 
 import datetime
+import hashlib
 import json
 from pathlib import Path
 from typing import Any, cast
@@ -9,7 +10,12 @@ from sqlalchemy import delete, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
-from app.controller.calc.calc_state import BuildStatus, PublishState
+from app.controller.calc.calc_state import (
+    BuildStatus,
+    PublishState,
+    ReportOriginType as PublicReportOriginType,
+    ReportSyncState,
+)
 from app.controller.calc.calc_report_dto import (
     CalcReportCopyDTO,
     CalcReportListFilterDTO,
@@ -17,7 +23,7 @@ from app.controller.calc.calc_report_dto import (
     CalcReportUpdateDTO,
 )
 from app.controller.dto_base import PaginationDTO
-from app.db.models.calc_report import CalcReport, CalcReportOrigin
+from app.db.models.calc_report import CalcReport, CalcReportOrigin, CalcReportSyncSource
 from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_category import CalcReportCategory
 from app.db.models.calc_report_dependency import (
@@ -25,6 +31,7 @@ from app.db.models.calc_report_dependency import (
     CalcReportDependencySelector,
 )
 from app.db.models.calc_report_version import CalcReportVersion
+from app.db.models.calc_report_share import CalcReportShareLink
 from app.db.models.enums import ReportOriginType
 from app.db.models.favorite_calc_report import FavoriteCalcReport
 from app.db.models.object_id import ObjectId
@@ -37,6 +44,7 @@ from app.service.calc_report_build_service import (
 )
 from app.service.calc_report_state_service import resolve_publish_state
 from app.service.calc_report_workspace_service import get_owned_report
+from app.service.secret_storage_service import decrypt_persisted_secret
 from config import app_config, logger
 
 
@@ -86,7 +94,11 @@ async def _report_list_conditions(
     session: AsyncSession,
 ) -> list[Any]:
     """Build the shared report predicates used by count and item queries."""
-    conditions = [CalcReport.userId == user_id, CalcReport.deletedAt.is_(None)]
+    conditions = [
+        CalcReport.userId == user_id,
+        CalcReport.deletedAt.is_(None),
+        CalcReport.isSystemComponent.is_(False),
+    ]
     if filters.categoryOid:
         category = await get_category(user_id, filters.categoryOid, session)
         conditions.append(CalcReport.categoryId == category.id)
@@ -178,13 +190,15 @@ async def copy_report(
         formatVersion=source.formatVersion,
         workspaceRevision=1,
         workspaceArtifactId=source.workspaceArtifactId,
+        originType=ReportOriginType.COPY.value,
+        canEdit=source.canEdit,
+        canShare=source.canShare,
     )
     session.add(target)
     await session.flush()
     session.add(
         CalcReportOrigin(
             reportId=target.id,
-            originType=ReportOriginType.COPY.value,
             sourceReportId=source.id,
             sourceArtifactId=source.workspaceArtifactId,
         )
@@ -325,8 +339,73 @@ async def _report_response(
         buildStatus=build_status,
         publishState=publish_state,
         isFavorite=is_favorite,
+        originType=PublicReportOriginType[ReportOriginType(report.originType).name],
+        syncState=await _report_sync_state(report, session),
+        canEdit=report.canEdit,
+        canShare=report.canShare,
         createdAt=report.createdAt,
         updatedAt=report.updatedAt,
+    )
+
+
+async def _report_sync_state(
+    report: CalcReport, session: AsyncSession
+) -> ReportSyncState:
+    """Derive cheap same-backend synchronization state for report lists."""
+    if report.originType != ReportOriginType.SHARE_SYNC.value:
+        return ReportSyncState.NOT_APPLICABLE
+    sync_source = await session.scalar(
+        select(CalcReportSyncSource).where(CalcReportSyncSource.reportId == report.id)
+    )
+    if sync_source is None:
+        return ReportSyncState.SOURCE_UNAVAILABLE
+    try:
+        token = decrypt_persisted_secret(sync_source.sourceLocator)
+    except ValueError:
+        return ReportSyncState.SOURCE_UNAVAILABLE
+    link = (
+        await session.scalar(
+            select(CalcReportShareLink).where(
+                CalcReportShareLink.oid == token.removeprefix("catalog:")
+            )
+        )
+        if token.startswith("catalog:")
+        else await session.scalar(
+            select(CalcReportShareLink).where(
+                CalcReportShareLink.tokenHash
+                == hashlib.sha256(token.encode("utf-8")).hexdigest()
+            )
+        )
+    )
+    now = datetime.datetime.now(datetime.timezone.utc)
+    if link is None or link.revokedAt is not None:
+        return ReportSyncState.ACCESS_REVOKED
+    expires_at = link.expiresAt
+    if expires_at is not None:
+        if expires_at.tzinfo is None:
+            expires_at = expires_at.replace(tzinfo=datetime.timezone.utc)
+        if expires_at <= now:
+            return ReportSyncState.ACCESS_REVOKED
+    source_report = await session.scalar(
+        select(CalcReport).where(
+            CalcReport.oid == sync_source.sourceReportOid,
+            CalcReport.deletedAt.is_(None),
+        )
+    )
+    if source_report is None or source_report.latestVersionId is None:
+        return ReportSyncState.SOURCE_UNAVAILABLE
+    source_version = await session.get(CalcReportVersion, source_report.latestVersionId)
+    source_artifact = (
+        await session.get(CalcReportArtifact, source_version.sourceArtifactId)
+        if source_version is not None
+        else None
+    )
+    if source_artifact is None:
+        return ReportSyncState.SOURCE_UNAVAILABLE
+    return (
+        ReportSyncState.CURRENT
+        if source_artifact.contentHash == sync_source.sourceArtifactHash
+        else ReportSyncState.UPDATE_AVAILABLE
     )
 
 

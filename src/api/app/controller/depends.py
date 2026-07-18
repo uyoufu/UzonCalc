@@ -7,7 +7,8 @@ from app.db.manager import get_db_manager
 from app.db.models.user import User, UserStatus
 from app.exception.custom_exception import raise_ex
 from utils.jwt_helper import TokenPayloads, verify_jwt
-from config import logger
+from config import app_config, logger
+from app.db.models.user import UserRole
 
 
 async def get_session() -> AsyncGenerator[AsyncSession, None]:
@@ -63,6 +64,30 @@ def get_token_payload(token: str = Depends(get_request_token)) -> TokenPayloads:
     return payload  # type: ignore
 
 
+def get_optional_token_payload(request: Request) -> TokenPayloads | None:
+    """Resolve an optional JWT without weakening invalid-token handling.
+
+    Args:
+        request: Current HTTP request.
+
+    Returns:
+        Valid token payload when credentials are present, otherwise ``None``.
+
+    Raises:
+        CustomException: If credentials are present but invalid or expired.
+    """
+    token = request.headers.get("Authorization") or request.query_params.get("token")
+    if not token:
+        return None
+    token = token.strip()
+    if " " in token:
+        token = token.split(" ", 1)[1]
+    payload = verify_jwt(token)
+    if payload is None:
+        raise_ex("Invalid or expired token", code=401)
+    return payload
+
+
 async def get_current_user(
     payload: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
@@ -94,8 +119,29 @@ async def get_current_user(
         raise_ex("User not found", code=404)
 
     user = cast(User, user)
-    if user.status == UserStatus.Deleted:
-        logger.warning(f"User deleted: {user_id}")
-        raise_ex("User has been deleted", code=403)
+    if user.status != UserStatus.Active.value:
+        logger.warning(f"User is not active: {user_id}")
+        raise_ex("User is disabled", code=403)
 
     return user  # type: ignore
+
+
+async def require_server_admin(
+    current_user: User = Depends(get_current_user),
+) -> User:
+    """Require an administrator in a non-desktop deployment.
+
+    Args:
+        current_user: User resolved from the authenticated request.
+
+    Returns:
+        The authorized administrator.
+
+    Raises:
+        CustomException: If desktop mode is active or the role is missing.
+    """
+    if app_config.is_desktop:
+        raise_ex("User management is unavailable in desktop mode", code=403)
+    if UserRole.Admin.value not in current_user.roles:
+        raise_ex("Administrator role is required", code=403)
+    return current_user

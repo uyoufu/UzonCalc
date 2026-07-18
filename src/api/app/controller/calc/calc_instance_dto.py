@@ -62,7 +62,10 @@ class CalcInstanceResDTO(BaseDTO):
     name: str
     description: str | None
     defaults: dict
+    inputWindows: list
     resultPath: str
+    isShared: bool
+    shareToken: str | None
     revision: int
     createdAt: datetime.datetime
     updatedAt: datetime.datetime
@@ -73,3 +76,12 @@ class CalcInstanceListFilterDTO(BaseDTO):
 
     categoryOid: str | None = None
     query: str | None = None
+
+
+class CalcInstanceShareResDTO(BaseDTO):
+    """Return the active anonymous share for one saved instance."""
+
+    instanceOid: str
+    shareOid: str
+    token: str
+    createdAt: datetime.datetime

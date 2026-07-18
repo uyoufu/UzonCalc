@@ -1,7 +1,7 @@
 <template>
   <q-dialog ref="dialogRef" @hide="onDialogHide">
     <q-card class="execution-detail-dialog">
-      <q-card-section class="row items-center">
+      <q-card-section class="row items-center q-py-sm">
         <div class="text-subtitle1">{{ execution.executionId }}</div>
         <q-space />
         <CommonBtn flat dense icon="close" @click="onDialogCancel" />

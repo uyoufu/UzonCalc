@@ -14,7 +14,11 @@ export function ensureDefaultReportCategory(data: CategoryInput) { return httpCl
 /** Update a report category. */
 export function updateReportCategory(categoryOid: string, data: CategoryInput) { return httpClient.put<CalcReportCategory>(`/calc-report-category/${categoryOid}`, { data }) }
 /** Replace report category ordering. */
-export function reorderReportCategories(data: Array<{ categoryOid: string; sortOrder: number }>) { return httpClient.put<CalcReportCategory[]>('/calc-report-category/order', { data }) }
+export function reorderReportCategories(data: Array<{ categoryOid: string; manualOrder: number }>) { return httpClient.put<CalcReportCategory[]>('/calc-report-category/order', { data }) }
+/** Update report-category pinning or visibility. */
+export function updateReportCategoryState(categoryOid: string, data: { isPinned?: boolean; isHidden?: boolean }) { return httpClient.put<CalcReportCategory>(`/calc-report-category/${categoryOid}/state`, { data }) }
+/** Record category use for LFU-Aging ordering. */
+export function recordReportCategoryAccess(categoryOid: string) { return httpClient.post<CalcReportCategory>(`/calc-report-category/${categoryOid}/access`) }
 /** Delete an empty report category. */
 export function deleteReportCategory(categoryOid: string) { return httpClient.delete<void>(`/calc-report-category/${categoryOid}`) }
 

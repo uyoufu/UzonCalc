@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   listReportCategories: vi.fn(),
   copyCalcReport: vi.fn(),
   deleteCalcReport: vi.fn(),
+  exportReportArchive: vi.fn(),
   getCalcReport: vi.fn(),
   setCalcReportFavorite: vi.fn(),
   updateCalcReport: vi.fn(),
@@ -22,6 +23,8 @@ const mocks = vi.hoisted(() => ({
   showCalcReportInExplorer: vi.fn(),
   confirmOperation: vi.fn(),
   notifySuccess: vi.fn(),
+  notifyUntil: vi.fn(),
+  showDialog: vi.fn(),
   openReportDialog: vi.fn(),
   openPublishVersionDialog: vi.fn(),
   openShareManagerDialog: vi.fn(),
@@ -36,6 +39,7 @@ vi.mock('src/api/calc/categories', () => ({
 vi.mock('src/api/calc/reports', () => ({
   copyCalcReport: mocks.copyCalcReport,
   deleteCalcReport: mocks.deleteCalcReport,
+  exportReportArchive: mocks.exportReportArchive,
   getCalcReport: mocks.getCalcReport,
   setCalcReportFavorite: mocks.setCalcReportFavorite,
   updateCalcReport: mocks.updateCalcReport
@@ -49,8 +53,10 @@ vi.mock('src/api/desktop', () => ({
 }))
 vi.mock('src/utils/dialog', () => ({
   confirmOperation: mocks.confirmOperation,
-  notifySuccess: mocks.notifySuccess
+  notifySuccess: mocks.notifySuccess,
+  notifyUntil: mocks.notifyUntil
 }))
+vi.mock('src/components/lowCode/PopupDialog', () => ({ showDialog: mocks.showDialog }))
 vi.mock('src/pages/calcReport/list/compositions/useCalcReportListDialogs', () => ({
   ReportDialogMode: { Edit: 'edit', Copy: 'copy' },
   useCalcReportListDialogs: () => ({ openReportDialog: mocks.openReportDialog })
@@ -71,7 +77,10 @@ const report = {
   description: '',
   publishState: PublishState.Unpublished,
   buildStatus: BuildStatus.NotRequested,
-  isFavorite: false
+  isFavorite: false,
+  latestVersionName: '1.0.0',
+  canEdit: true,
+  canShare: true
 } as CalcReport
 
 /**
@@ -124,6 +133,7 @@ describe('report context menu', () => {
     vi.stubGlobal('useRouter', () => ({ push: mocks.routerPush }))
     mocks.systemInfo.isLocalhost = false
     mocks.listReportCategories.mockResolvedValue({ data: [] })
+    mocks.notifyUntil.mockImplementation(async (runFunc) => await runFunc())
   })
 
   it('exposes fixed actions with publication and desktop visibility rules', () => {
@@ -137,6 +147,7 @@ describe('report context menu', () => {
       'favorite',
       'copy',
       'share',
+      'export',
       'explorer',
       'delete'
     ])
@@ -175,6 +186,25 @@ describe('report context menu', () => {
     })
     expect(mocks.openShareManagerDialog).toHaveBeenCalledWith('report-1', 'Report')
     expect(mocks.showCalcReportInExplorer).toHaveBeenCalledWith('report-1')
+  })
+
+  it('collects archive permissions before exporting a published report', async () => {
+    const { items } = createMenu()
+    const archive = new Blob(['archive'], { type: 'image/png' })
+    const clickSpy = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {})
+    vi.stubGlobal('URL', {
+      createObjectURL: vi.fn(() => 'blob:archive'),
+      revokeObjectURL: vi.fn()
+    })
+    mocks.showDialog.mockResolvedValue({ ok: true, data: { canEdit: true, canShare: false } })
+    mocks.exportReportArchive.mockResolvedValue({ data: archive })
+
+    await items.find((item) => item.name === 'export')?.onClick(report)
+
+    expect(mocks.exportReportArchive).toHaveBeenCalledWith('report-1', true, false)
+    expect(clickSpy).toHaveBeenCalledOnce()
+    clickSpy.mockRestore()
+    vi.unstubAllGlobals()
   })
 
   it('publishes and edits rows while preserving incremental and refresh semantics', async () => {
