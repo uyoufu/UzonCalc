@@ -21,8 +21,8 @@
         :disable="!draft.hasUnsavedChanges.value" @click="onSave" />
       <CommonBtn flat dense icon="play_arrow" color="positive" :loading="isActivatingRunTab" @click="onRunWorkspace"
         :tooltip="t('calcWorkspace.runWorkspace')" />
-      <CommonBtn flat dense icon="format_align_left" :disable="!activeFile?.path.endsWith('.py')"
-        @click="onFormatFile" :tooltip="t('calcWorkspace.format')" />
+      <CommonBtn flat dense icon="format_align_left" :disable="!activeFile?.path.endsWith('.py')" @click="onFormatFile"
+        :tooltip="t('calcWorkspace.format')" />
 
       <q-chip dense square :color="draft.hasUnsavedChanges.value ? 'warning' : 'positive'" text-color="white">
         {{ draft.hasUnsavedChanges.value ? t('calcWorkspace.unsaved') : t('calcWorkspace.saved') }}
@@ -42,9 +42,9 @@
     <div class="row no-wrap col workspace-body">
       <WorkspaceTreePanel v-show="isTreeVisible" v-model:expanded-paths="expandedPaths"
         v-model:current-path="selectedPath" :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value"
-        @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory"
-        @upload="onUploadResources" @rename="onRenamePath" @delete="onDeletePath"
-        @entry="draft.setEntryPath" @dependencies="onOpenDependencyDialog" />
+        @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory" @upload="onUploadResources"
+        @rename="onRenamePath" @delete="onDeletePath" @entry="draft.setEntryPath"
+        @dependencies="onOpenDependencyDialog" />
       <main class="col workspace-main column no-wrap">
         <WorkspaceTabs :tabs="workspaceTabs.tabs.value" :active-tab-id="workspaceTabs.activeTabId.value"
           :dirty-paths="dirtyPaths" @activate="onActivateTab" @close="onCloseTab" />

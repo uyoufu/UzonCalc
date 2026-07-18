@@ -20,17 +20,33 @@
               @click="onNewDependency" />
           </div>
           <q-separator />
-          <q-list v-if="draftDependencies.length" separator class="col scroll" dense>
+          <q-list v-if="draftDependencies.length" class="dependency-dialog__items col scroll" dense>
             <q-item v-for="dependency in draftDependencies" :key="dependency.alias" clickable
-              :active="editingAlias === dependency.alias" active-class="bg-blue-1 text-primary"
-              @click="onEditDependency(dependency)">
+              :active="editingAlias === dependency.alias" active-class="dependency-dialog__item--active"
+              class="dependency-dialog__item" @click="onEditDependency(dependency)">
               <q-item-section>
-                <q-item-label>{{ dependency.alias }}</q-item-label>
-                <q-item-label caption class="ellipsis">{{ reportName(dependency.targetReportOid) }}</q-item-label>
-                <q-item-label caption class="ellipsis">{{ selectorSummary(dependency) }}</q-item-label>
+                <div class="row items-center no-wrap q-gutter-x-xs">
+                  <q-item-label class="text-weight-medium ellipsis">{{
+                    dependency.alias
+                  }}</q-item-label>
+                  <q-badge outline color="primary" :label="dependencyVersionLabel(dependency)" />
+                </div>
+                <q-item-label caption class="row items-center no-wrap q-mt-xs">
+                  <q-icon name="description" size="14px" class="q-mr-xs" />
+                  <span class="ellipsis">{{ reportName(dependency.targetReportOid) }}</span>
+                </q-item-label>
+                <div class="dependency-dialog__reference row items-center no-wrap">
+                  <q-icon name="terminal" size="14px" color="grey-7" class="q-mr-xs" />
+                  <code class="dependency-dialog__reference-path">{{
+                    dependencyReferencePath(dependency)
+                  }}</code>
+                  <CommonBtn flat round dense size="sm" icon="content_copy"
+                    :tooltip="t('calcWorkspace.copyDependencyReference')"
+                    @click.stop="onCopyDependencyReference(dependency)" />
+                </div>
               </q-item-section>
-              <q-item-section side>
-                <div class="row no-wrap">
+              <q-item-section side top>
+                <div class="dependency-dialog__actions row no-wrap">
                   <CommonBtn flat round dense size="sm" icon="edit" :tooltip="t('calcWorkspace.editDependency')"
                     @click.stop="onEditDependency(dependency)" />
                   <CommonBtn flat round dense size="sm" icon="delete" color="negative" :tooltip="t('global.delete')"
@@ -48,7 +64,9 @@
         <q-separator vertical />
         <section class="dependency-dialog__form col column no-wrap">
           <div class="text-subtitle2 q-px-md q-pt-md">
-            {{ editingAlias ? t('calcWorkspace.editDependency') : t('calcWorkspace.addDependency') }}
+            {{
+              editingAlias ? t('calcWorkspace.editDependency') : t('calcWorkspace.addDependency')
+            }}
           </div>
           <LowCodeForm :key="formRevision" :fields="formFields" :validate="validateDependencyForm"
             :disable-default-btns="['cancel']" @ok="onDependencyFormConfirmed" />
@@ -65,25 +83,29 @@
 </template>
 
 <script setup lang="ts">
-/** Edit dependency aliases and version selectors in a detached LowCode draft. */
+/** Edit dependency aliases and versions in a detached LowCode draft. */
 import { useDialogPluginComponent } from 'quasar'
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
 import CancelBtn from 'src/components/quasarWrapper/buttons/CancelBtn.vue'
 import LowCodeForm from 'src/components/lowCode/LowCodeForm.vue'
 import { LowCodeFieldType, type ILowCodeField } from 'src/components/lowCode/types'
-import { ReservedDependencySelectorKey, type CalcReport, type ReportDependency } from 'src/api/calc/types'
+import {
+  ReservedDependencySelectorKey,
+  type CalcReport,
+  type DependencySelector,
+  type ReportDependency
+} from 'src/api/calc/types'
 import { listCalcReports } from 'src/api/calc/reports'
 import { listVersions } from 'src/api/calc/versions'
 import { getApiFailure } from '../../shared/apiFailure'
-import { notifyError } from 'src/utils/dialog'
+import { notifyError, notifySuccess } from 'src/utils/dialog'
 import type { IFunctionResult } from 'src/types'
 import { t } from 'src/i18n/helpers'
 
 interface DependencyFormModel {
   alias: string
   targetReportOid: string
-  selectors: string[]
-  defaultSelector: string
+  dependencyVersion: string
 }
 
 interface SelectorOption {
@@ -101,15 +123,22 @@ const editingAlias = ref<string | null>(null)
 const formFields = ref<ILowCodeField[]>([])
 const formRevision = ref(0)
 let selectorRequestId = 0
-const reportOptions = computed(() => reports.value
-  .filter((report) => report.reportOid !== props.reportOid && report.latestVersionName)
-  .map((report) => ({ label: report.name, value: report.reportOid })))
+const reportOptions = computed(() =>
+  reports.value
+    .filter((report) => report.reportOid !== props.reportOid && report.latestVersionName)
+    .map((report) => ({ label: report.name, value: report.reportOid }))
+)
 
 /** Initialize the detached dependency list and available published reports. */
 async function initializeDialog(): Promise<void> {
   draftDependencies.value = cloneDependencies(props.dependencies)
   try {
-    const response = await listCalcReports({ skip: 0, limit: 100, sortBy: 'name', descending: false })
+    const response = await listCalcReports({
+      skip: 0,
+      limit: 100,
+      sortBy: 'name',
+      descending: false
+    })
     reports.value = response.data || []
   } catch (error) {
     notifyError(getApiFailure(error).message)
@@ -137,19 +166,14 @@ async function onEditDependency(dependency: ReportDependency): Promise<void> {
 }
 
 /** Create the reactive LowCode field configuration for one dependency. */
-function createDependencyFields(dependency: ReportDependency | null, selectorOptions: SelectorOption[]): ILowCodeField[] {
-  const selectedKeys = dependency?.selectors.map((selector) => selector.selectorKey) || [ReservedDependencySelectorKey.Latest]
-  const defaultKey = dependency?.selectors.find((selector) => selector.isDefault)?.selectorKey || selectedKeys[0]
+function createDependencyFields(
+  dependency: ReportDependency | null,
+  selectorOptions: SelectorOption[]
+): ILowCodeField[] {
+  const dependencyVersion = dependency
+    ? selectedDependencySelector(dependency)?.selectorKey || ReservedDependencySelectorKey.Latest
+    : ReservedDependencySelectorKey.Latest
   return [
-    {
-      name: 'alias',
-      label: t('calcWorkspace.alias'),
-      type: LowCodeFieldType.text,
-      value: dependency?.alias || '',
-      required: true,
-      autofocus: true,
-      classes: 'col-12 col-md-5'
-    },
     {
       name: 'targetReportOid',
       label: t('calcWorkspace.targetReport'),
@@ -161,29 +185,24 @@ function createDependencyFields(dependency: ReportDependency | null, selectorOpt
       mapOptions: true,
       emitValue: true,
       required: true,
-      classes: 'col-12 col-md-7',
+      classes: 'col-12 col-md-6',
       onChanged: onTargetReportChanged
     },
     {
-      name: 'selectors',
-      label: t('calcWorkspace.selectors'),
-      type: LowCodeFieldType.selectMany,
-      value: selectedKeys,
-      options: selectorOptions,
-      optionLabel: 'label',
-      optionValue: 'value',
-      mapOptions: true,
-      emitValue: true,
+      name: 'alias',
+      label: t('calcWorkspace.alias'),
+      type: LowCodeFieldType.text,
+      value: dependency?.alias || '',
       required: true,
-      classes: 'col-12',
-      onChanged: onSelectorsChanged
+      autofocus: true,
+      classes: 'col-12 col-md-6'
     },
     {
-      name: 'defaultSelector',
-      label: t('calcWorkspace.defaultSelector'),
+      name: 'dependencyVersion',
+      label: t('calcWorkspace.dependencyVersion'),
       type: LowCodeFieldType.selectOne,
-      value: defaultKey,
-      options: selectorOptions.filter((option) => selectedKeys.includes(option.value)),
+      value: dependencyVersion,
+      options: selectorOptions,
       optionLabel: 'label',
       optionValue: 'value',
       mapOptions: true,
@@ -202,74 +221,53 @@ async function onTargetReportChanged(
   allFields: ILowCodeField[]
 ): Promise<void> {
   const requestId = ++selectorRequestId
-  const selectorField = fieldByName(allFields, 'selectors')
-  const defaultField = fieldByName(allFields, 'defaultSelector')
+  const versionField = fieldByName(allFields, DependencyFormFieldName.DependencyVersion)
   const latestOption = latestSelectorOption()
-  allValues.selectors = [latestOption.value]
-  allValues.defaultSelector = latestOption.value
-  selectorField.options = [latestOption]
-  defaultField.options = [latestOption]
-  selectorField.disable = true
-  defaultField.disable = true
+  allValues.dependencyVersion = latestOption.value
+  versionField.options = [latestOption]
+  versionField.disable = true
   if (typeof value !== 'string' || !value) {
-    selectorField.disable = false
-    defaultField.disable = false
+    versionField.disable = false
     return
   }
   const options = await loadSelectorOptions(value)
   if (requestId !== selectorRequestId) return
-  selectorField.options = options
-  defaultField.options = [options[0] || latestOption]
-  selectorField.disable = false
-  defaultField.disable = false
-}
-
-/** Keep the default selector inside the current selected selector set. */
-function onSelectorsChanged(
-  value: unknown,
-  _oldValue: unknown,
-  allValues: Record<string, unknown>,
-  allFields: ILowCodeField[]
-): void {
-  const selectedKeys = Array.isArray(value) ? value.filter((key): key is string => typeof key === 'string') : []
-  const selectorOptions = fieldByName(allFields, 'selectors').options as SelectorOption[]
-  const selectedOptions = selectorOptions.filter((option) => selectedKeys.includes(option.value))
-  fieldByName(allFields, 'defaultSelector').options = selectedOptions
-  const defaultSelector = typeof allValues.defaultSelector === 'string' ? allValues.defaultSelector : ''
-  if (!selectedKeys.includes(defaultSelector)) {
-    allValues.defaultSelector = selectedKeys[0] || ''
-  }
+  versionField.options = options
+  versionField.disable = false
 }
 
 /** Validate one dependency form before it changes the detached list. */
 function validateDependencyForm(values: Record<string, unknown>): Promise<IFunctionResult> {
   const alias = typeof values.alias === 'string' ? values.alias.trim() : ''
-  const selectors = Array.isArray(values.selectors)
-    ? values.selectors.filter((selector): selector is string => typeof selector === 'string')
-    : []
   if (!/^[A-Za-z_][A-Za-z0-9_]{0,63}$/.test(alias)) {
     return Promise.resolve({ ok: false, message: t('calcWorkspace.dependencyAliasInvalid') })
   }
-  const duplicate = draftDependencies.value.some((dependency) => dependency.alias === alias && dependency.alias !== editingAlias.value)
-  if (duplicate) return Promise.resolve({ ok: false, message: t('calcWorkspace.dependencyAliasExists') })
-  const defaultSelector = typeof values.defaultSelector === 'string' ? values.defaultSelector : ''
-  if (!selectors.includes(defaultSelector)) {
-    return Promise.resolve({ ok: false, message: t('calcWorkspace.defaultSelectorRequired') })
-  }
+  const duplicate = draftDependencies.value.some(
+    (dependency) => dependency.alias === alias && dependency.alias !== editingAlias.value
+  )
+  if (duplicate)
+    return Promise.resolve({ ok: false, message: t('calcWorkspace.dependencyAliasExists') })
   return Promise.resolve({ ok: true })
 }
 
 /** Add or replace one validated dependency in the detached list. */
 function onDependencyFormConfirmed(values: Record<string, unknown>): void {
   const model = values as unknown as DependencyFormModel
-  const selectorOptions = fieldByName(formFields.value, 'selectors').options as SelectorOption[]
+  const selectorOptions = fieldByName(formFields.value, DependencyFormFieldName.DependencyVersion)
+    .options as SelectorOption[]
+  const selectedOption =
+    selectorOptions.find((candidate) => candidate.value === model.dependencyVersion) ||
+    latestSelectorOption()
   const dependency: ReportDependency = {
     alias: model.alias.trim(),
     targetReportOid: model.targetReportOid,
-    selectors: model.selectors.map((selectorKey) => {
-      const option = selectorOptions.find((candidate) => candidate.value === selectorKey) || latestSelectorOption()
-      return { selectorKey, versionName: option.versionName, isDefault: selectorKey === model.defaultSelector }
-    })
+    selectors: [
+      {
+        selectorKey: selectedOption.value,
+        versionName: selectedOption.versionName,
+        isDefault: true
+      }
+    ]
   }
   const existingIndex = editingAlias.value
     ? draftDependencies.value.findIndex((candidate) => candidate.alias === editingAlias.value)
@@ -281,7 +279,9 @@ function onDependencyFormConfirmed(values: Record<string, unknown>): void {
 
 /** Delete one dependency from the detached list without affecting the workspace. */
 function onDeleteDependency(alias: string): void {
-  draftDependencies.value = draftDependencies.value.filter((dependency) => dependency.alias !== alias)
+  draftDependencies.value = draftDependencies.value.filter(
+    (dependency) => dependency.alias !== alias
+  )
   if (editingAlias.value === alias) onNewDependency()
 }
 
@@ -290,11 +290,13 @@ async function loadSelectorOptions(reportOid: string): Promise<SelectorOption[]>
   const options = [latestSelectorOption()]
   try {
     const response = await listVersions(reportOid)
-    options.push(...(response.data || []).map((version) => ({
-      label: version.importSegment,
-      value: version.importSegment,
-      versionName: version.versionName
-    })))
+    options.push(
+      ...(response.data || []).map((version) => ({
+        label: version.versionName,
+        value: version.importSegment,
+        versionName: version.versionName
+      }))
+    )
   } catch (error) {
     notifyError(getApiFailure(error).message)
   }
@@ -320,19 +322,45 @@ function fieldByName(fields: ILowCodeField[], name: DependencyFormFieldName): IL
 const DependencyFormFieldName = {
   Alias: 'alias',
   TargetReportOid: 'targetReportOid',
-  Selectors: 'selectors',
-  DefaultSelector: 'defaultSelector'
+  DependencyVersion: 'dependencyVersion'
 } as const
-type DependencyFormFieldName = typeof DependencyFormFieldName[keyof typeof DependencyFormFieldName]
+type DependencyFormFieldName =
+  (typeof DependencyFormFieldName)[keyof typeof DependencyFormFieldName]
 
 /** Resolve a report OID into its display name. */
 function reportName(reportOid: string): string {
   return reports.value.find((report) => report.reportOid === reportOid)?.name || reportOid
 }
 
-/** Format the selected import segments for the compact dependency list. */
-function selectorSummary(dependency: ReportDependency): string {
-  return dependency.selectors.map((selector) => selector.selectorKey).join(', ')
+/** Return the declared default selector, falling back to the first legacy selector. */
+function selectedDependencySelector(dependency: ReportDependency): DependencySelector | null {
+  return (
+    dependency.selectors.find((selector) => selector.isDefault) || dependency.selectors[0] || null
+  )
+}
+
+/** Format the selected dependency version for display. */
+function dependencyVersionLabel(dependency: ReportDependency): string {
+  const selector = selectedDependencySelector(dependency)
+  return selector?.versionName || selector?.selectorKey || ReservedDependencySelectorKey.Latest
+}
+
+/** Build the public namespace prefix used to import one dependency. */
+function dependencyReferencePath(dependency: ReportDependency): string {
+  const selectorKey = selectedDependencySelector(dependency)?.selectorKey
+  if (!selectorKey || selectorKey === ReservedDependencySelectorKey.Latest)
+    return `calcdeps.${dependency.alias}`
+  return `calcdeps.${dependency.alias}.${selectorKey}`
+}
+
+/** Copy one dependency namespace prefix and report clipboard failures. */
+async function onCopyDependencyReference(dependency: ReportDependency): Promise<void> {
+  try {
+    await navigator.clipboard.writeText(dependencyReferencePath(dependency))
+    notifySuccess(t('calcWorkspace.dependencyReferenceCopied'))
+  } catch {
+    notifyError(t('calcWorkspace.dependencyReferenceCopyFailed'))
+  }
 }
 
 /** Return the complete detached dependency list to the workspace. */
@@ -366,8 +394,49 @@ function cloneDependencies(dependencies: ReportDependency[]): ReportDependency[]
 }
 
 .dependency-dialog__list {
-  width: 300px;
-  min-width: 300px;
+  width: 340px;
+  min-width: 340px;
+}
+
+.dependency-dialog__items {
+  padding: 8px;
+}
+
+.dependency-dialog__item {
+  min-height: 112px;
+  margin-bottom: 8px;
+  border: 1px solid rgba(0, 0, 0, 0.12);
+  border-radius: 6px;
+}
+
+.dependency-dialog__item:last-child {
+  margin-bottom: 0;
+}
+
+.dependency-dialog__item--active {
+  color: inherit;
+  background: #eef6ff;
+  border-color: #90caf9;
+}
+
+.dependency-dialog__reference {
+  min-width: 0;
+  margin-top: 6px;
+  padding: 3px 2px 3px 8px;
+  background: rgba(0, 0, 0, 0.04);
+  border-radius: 4px;
+}
+
+.dependency-dialog__reference-path {
+  min-width: 0;
+  overflow: hidden;
+  color: #424242;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dependency-dialog__actions {
+  gap: 2px;
 }
 
 .dependency-dialog__form {
