@@ -108,7 +108,7 @@ python example.py
 
 | 文档           | 源码                                                                         | 在线预览                                                                |
 | -------------- | ---------------------------------------------------------------------------- | ----------------------------------------------------------------------- |
-| 使用说明       | [help.zh.py](examples/zh/help.zh.py)                                         | [查看文档](https://calc.uzoncloud.com/examples/zh/help.zh.html)         |
+| 使用说明       | [help.zh-CN.py](examples/zh/help.zh-CN.py)                                         | [查看文档](https://calc.uzoncloud.com/examples/zh/help.zh-CN.html)         |
 | T 形截面惯性矩 | [T_section_moment_of_inertia.py](examples/zh/T_section_moment_of_inertia.py) | [查看文档](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
 
 ---

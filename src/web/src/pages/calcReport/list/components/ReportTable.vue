@@ -13,7 +13,7 @@
     </template>
     <template #body-cell-name="slotProps">
       <q-td :props="slotProps">
-        <button class="report-link" type="button" @click="emit('open', slotProps.row)">{{ slotProps.row.name }}</button>
+        <ClickableText :text="slotProps.row.name" @click="emit('open', slotProps.row)" />
       </q-td>
       <ContextMenu :items="contextMenuItems" :value="slotProps.row" />
     </template>

@@ -2,7 +2,7 @@
 
 ## 帮助文档
 
-参考 src/core/uzoncalc/ 目录下的核心实现，在 examples/zh/help.zh.py 中编写帮助文档，要求：帮助文档由浅入深
+参考 src/core/uzoncalc/ 目录下的核心实现，在 examples/zh/help.zh-CN.py 中编写帮助文档，要求：帮助文档由浅入深
 
 ## 编写 Skill 文档
 

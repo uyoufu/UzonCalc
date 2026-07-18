@@ -2,8 +2,15 @@
   <div class="instance-detail column no-wrap full-height">
     <header class="instance-detail__header row items-center q-gutter-sm q-px-md">
       <CommonBtn flat dense icon="arrow_back" @click="router.push('/calc-report-instance/list')" />
-      <div><div class="text-subtitle1">{{ instance?.name }}</div><div class="text-caption text-grey-7">{{ instance?.reportName }} · {{ instance?.sourceVersion || ExecutionSourceType.Workspace }}</div></div>
-      <q-space /><CommonBtn icon="refresh" :label="t('calcWorkspace.recalculate')" :loading="isExecuting" @click="onRecalculate" /><CommonBtn v-if="execution?.isCompleted" icon="save" color="grey-8" :label="t('calcWorkspace.updateInstanceResult')" @click="onUpdateResult" />
+      <div>
+        <div class="text-subtitle1">{{ instance?.name }}</div>
+        <div class="text-caption text-grey-7">{{ instance?.reportName }} · {{ instance?.sourceVersion ||
+          ExecutionSourceType.Workspace }}</div>
+      </div>
+      <q-space />
+      <CommonBtn icon="refresh" :label="t('calcWorkspace.recalculate')" :loading="isExecuting" @click="onRecalculate" />
+      <CommonBtn v-if="execution?.isCompleted" icon="save" color="grey-8"
+        :label="t('calcWorkspace.updateInstanceResult')" @click="onUpdateResult" />
     </header>
     <q-separator />
     <div class="col">
@@ -40,4 +47,19 @@ async function onRecalculate(): Promise<void> { if (!instance.value) return; isE
 async function onUpdateResult(): Promise<void> { if (!instance.value || !execution.value) return; const response = await updateInstanceResult(instance.value.instanceOid, instance.value.revision, execution.value.executionId); instance.value = response.data; execution.value = null; notifySuccess(t('calcWorkspace.instanceUpdated')) }
 </script>
 
-<style scoped>.instance-detail { min-height: 620px; background: #fff; }.instance-detail__header { min-height: 58px; }.instance-detail iframe { width: 100%; height: 100%; border: 0; }</style>
+<style scoped>
+.instance-detail {
+  min-height: 620px;
+  background: #fff;
+}
+
+.instance-detail__header {
+  min-height: 58px;
+}
+
+.instance-detail iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+</style>

@@ -103,6 +103,10 @@ export function useReportContextMenu() {
 6. `src/web/src/components/quasarWrapper/buttons/` 下的按钮组件已自动注册，在模板中直接使用，不需要手动导入。
 7. `src/web/src/pages/login/loginIndex.vue` 中的登录按钮是保留原 `q-btn` 实现的明确例外。
 
+## Quasar 组件使用
+
+1. 采用 dense 样式，提高布局密度。 `<q-select dense options-dense>` q-select 需要同步设置 `options-dense`
+
 ## 数据请求与更新
 
 1. 不要在 OnMounted 中请求所有数据，而是按需获取

@@ -119,7 +119,7 @@ The generated `.uzc` is both a 1280×720 PNG thumbnail and a ZIP-based Python ap
 
 | Document                  | Source                                                                       | Online Preview                                                         |
 | ------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
-| User Guide                | [help.en.py](examples/en/help.en.py)                                         | [View Document](https://calc.uzoncloud.com/examples/en/help.en.html)   |
+| User Guide                | [help.en-US.py](examples/en/help.en-US.py)                                         | [View Document](https://calc.uzoncloud.com/examples/en/help.en-US.html)   |
 | T-section Moment of Inertia | [T_section_moment_of_inertia.py](examples/zh/T_section_moment_of_inertia.py) | [View Document](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
 
 ---

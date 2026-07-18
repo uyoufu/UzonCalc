@@ -1,5 +1,5 @@
 <template>
-  <iframe class="uzoncalc-help" src="https://calc.uzoncloud.com/example.zh.html">
+  <iframe class="uzoncalc-help" src="https://calc.uzoncloud.com/examples/example.zh-CN.html">
   </iframe>
 </template>
 

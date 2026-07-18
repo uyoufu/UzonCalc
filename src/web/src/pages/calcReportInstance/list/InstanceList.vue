@@ -25,10 +25,12 @@
           <SearchInput v-model="filter" />
         </div>
       </template>
-      <template #body-cell-name="slotProps"><q-td :props="slotProps"><button class="instance-link"
-            @click="onOpenInstance(slotProps.row)">{{ slotProps.row.name }}</button>
-          <ContextMenu :items="instanceMenuItems" :value="slotProps.row" />
-        </q-td></template>
+      <template #body-cell-name="slotProps">
+        <q-td :props="slotProps">
+          <ClickableText :text="slotProps.row.name" @click="onOpenInstance(slotProps.row)" />
+        </q-td>
+        <ContextMenu :items="instanceMenuItems" :value="slotProps.row" />
+      </template>
     </q-table>
   </div>
 </template>
