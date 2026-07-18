@@ -1,7 +1,8 @@
 <template>
   <div class="execution-result-frame full-height">
     <div v-if="!documentUrl" class="full-height column items-center justify-center text-grey-6">
-      <q-icon name="article" size="52px" /><div class="q-mt-sm">{{ t('calcWorkspace.runToPreview') }}</div>
+      <q-icon name="article" size="52px" />
+      <div class="q-mt-sm">{{ t('calcWorkspace.runToPreview') }}</div>
     </div>
     <iframe v-else ref="iframe" :src="iframeUrl" title="Calculation result" @load="postRuntimeInfo" />
   </div>
@@ -44,4 +45,15 @@ function postRuntimeInfo(): void {
 }
 </script>
 
-<style scoped>.execution-result-frame { min-height: 420px; background: #fff; }.execution-result-frame iframe { width: 100%; height: 100%; border: 0; }</style>
+<style scoped>
+.execution-result-frame {
+  min-height: 420px;
+  background: #fff;
+}
+
+.execution-result-frame iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+</style>

@@ -20,8 +20,8 @@
       <CommonBtn v-if="execution && !execution.isCompleted" flat dense icon="stop" color="negative"
         :tooltip="t('calcWorkspace.terminate')" @click="onTerminate" />
       <q-space />
-      <CommonBtn v-if="execution?.isCompleted" icon="save_as" color="grey-8"
-        :label="t('calcWorkspace.saveInstance')" @click="onOpenSaveInstanceDialog" />
+      <CommonBtn v-if="execution?.isCompleted" icon="save_as" color="grey-8" :label="t('calcWorkspace.saveInstance')"
+        @click="onOpenSaveInstanceDialog" />
     </div>
     <q-separator />
     <q-banner v-if="isExecutionOutdated" dense class="bg-orange-1 text-orange-10">
@@ -36,7 +36,9 @@
     <div class="row no-wrap col execution-body">
       <section class="execution-input column no-wrap">
         <div v-if="execution" class="execution-provenance q-pa-sm text-caption">
-          <div>{{ execution.sourceType }}<span v-if="execution.resolvedVersion"> · {{ execution.resolvedVersion }}</span></div>
+          <div>{{ execution.sourceType }}<span v-if="execution.resolvedVersion"> · {{ execution.resolvedVersion
+          }}</span>
+          </div>
           <div class="ellipsis text-grey-7">{{ execution.backendMode }} · {{ execution.bundleHash }}</div>
         </div>
         <q-separator />
