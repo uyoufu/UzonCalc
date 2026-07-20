@@ -242,7 +242,7 @@ export const constantRoutes: ExtendedRouteRecordRaw[] = [
     name: 'PublicShares',
     path: '/public',
     component: SinglePageLayout,
-    meta: { label: 'calcWorkspace.sharedReport', icon: 'share', noMenu: true, anoymous: true },
+    meta: { label: 'calcWorkspace.sharedReport', icon: 'share', noMenu: true, anonymous: true },
     children: [
       {
         name: 'CalcReportSharedImport',
@@ -252,7 +252,7 @@ export const constantRoutes: ExtendedRouteRecordRaw[] = [
           icon: 'download',
           noMenu: true,
           noCache: true,
-          anoymous: true
+          anonymous: true
         },
         component: () => import('pages/calcReport/shared/SharedImport.vue')
       },
@@ -264,7 +264,7 @@ export const constantRoutes: ExtendedRouteRecordRaw[] = [
           icon: 'share',
           noMenu: true,
           noCache: true,
-          anoymous: true
+          anonymous: true
         },
         component: () => import('pages/calcReportInstance/SharedInstanceDetail.vue')
       }
