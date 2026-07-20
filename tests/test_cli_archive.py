@@ -3,6 +3,7 @@ from io import BytesIO
 import subprocess
 import struct
 import sys
+from unittest.mock import Mock
 import zipfile
 import zlib
 from pathlib import Path
@@ -469,6 +470,77 @@ def test_thumbnail_rendering_falls_back_when_system_fonts_are_missing(
     with Image.open(BytesIO(thumbnail_png)) as thumbnail:
         thumbnail.load()
         assert thumbnail.size == (1280, 720)
+
+
+def test_thumbnail_removes_top_stripe_and_highlights_python() -> None:
+    """Description thumbnails should use a plain header and colored Python code.
+
+    Returns:
+        None.
+
+    Raises:
+        AssertionError: If header styling or syntax token colors regress.
+    """
+    source = "def sheet(value=1):\n    # note\n    return 'result'"
+    preview = ArchiveEntryPreview(
+        entry_name="sheet",
+        title="Highlighted report",
+        source_excerpt=source,
+        description="A report description shown below the title.",
+    )
+
+    thumbnail_png = render_archive_thumbnail(preview)
+    highlighted_lines = cli_thumbnail._highlight_python_source(source)
+    highlighted_segments = [
+        segment for line in highlighted_lines for segment in line if segment[0].strip()
+    ]
+    segment_colors = {text: color for text, color in highlighted_segments}
+
+    with Image.open(BytesIO(thumbnail_png)) as thumbnail:
+        thumbnail.load()
+        assert thumbnail.getpixel((0, 0)) == (243, 245, 244)
+    assert segment_colors["def"] != segment_colors["sheet"]
+    assert segment_colors["# note"] != segment_colors["result"]
+    assert len(set(segment_colors.values())) >= 4
+
+
+def test_workspace_thumbnail_uses_supplied_report_metadata(monkeypatch) -> None:
+    """Workspace exports should override static titles and carry descriptions.
+
+    Args:
+        monkeypatch: Pytest fixture used to capture the render request.
+
+    Returns:
+        None.
+
+    Raises:
+        AssertionError: If workspace report metadata is not forwarded.
+    """
+    renderer = Mock(return_value=b"thumbnail")
+    monkeypatch.setattr(cli_thumbnail, "render_archive_thumbnail", renderer)
+    files = {
+        "src/main.py": (
+            "from uzoncalc import uzon_calc\n\n"
+            "@uzon_calc\n"
+            "def sheet():\n"
+            "    H1('Source title')\n"
+        ).encode("utf-8")
+    }
+
+    thumbnail_png, auto_view_entry = (
+        cli_thumbnail.render_workspace_archive_thumbnail(
+            files,
+            "src/main.py",
+            title="Stored report name",
+            description="Stored report description",
+        )
+    )
+
+    rendered_preview = renderer.call_args.args[0]
+    assert thumbnail_png == b"thumbnail"
+    assert auto_view_entry == "sheet"
+    assert rendered_preview.title == "Stored report name"
+    assert rendered_preview.description == "Stored report description"
 
 
 def test_png_zip_container_preserves_existing_output_on_writer_failure(tmp_path):

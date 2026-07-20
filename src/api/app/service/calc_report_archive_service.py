@@ -125,7 +125,10 @@ async def export_version_closure(
     if root_files is None:
         raise ValueError("导出闭包缺少根计算书")
     thumbnail_png, auto_view_entry = render_workspace_archive_thumbnail(
-        root_files, root_entry_path
+        root_files,
+        root_entry_path,
+        title=root_report.name,
+        description=root_report.description,
     )
     manifest = {
         "kind": _ARCHIVE_KIND,

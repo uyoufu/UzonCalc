@@ -143,6 +143,23 @@ def test_create_instance_derives_provenance_and_copies_cached_result(
                 assert result.inputWindows == [{"title": "parameters", "fields": []}]
                 assert result.reportOid == report.oid
                 assert result.bundleHash == f"sha256:{'c' * 64}"
+
+                share = await calc_report_instance_service.share_instance(
+                    user.id, result.instanceOid, session
+                )
+                public_result = await calc_report_instance_service.get_public_instance(
+                    share.token, session
+                )
+                assert public_result.resultPath == (
+                    "/api/v1/calc-report-instance/shared/"
+                    f"{share.token}/result"
+                )
+                assert (
+                    await calc_report_instance_service.get_public_instance_result_path(
+                        share.token, session
+                    )
+                    == Path("data") / saved_instance.resultPath
+                )
         finally:
             await engine.dispose()
 

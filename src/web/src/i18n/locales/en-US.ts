@@ -231,6 +231,8 @@ export default {
     instanceDetail: 'Instance detail',
     instanceName: 'Instance name',
     instanceSaved: 'Instance saved',
+    instanceShareRevoked: 'Share revoked',
+    instanceShareSucceeded: 'Shared successfully; link copied to clipboard',
     instanceUpdated: 'Instance result updated',
     keepSynchronized: 'Keep synchronized',
     latestVersion: 'Latest version',

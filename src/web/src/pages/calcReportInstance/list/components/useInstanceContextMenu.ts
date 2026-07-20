@@ -11,7 +11,7 @@ import {
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import type { deleteRowByIdType, updateExistOneType } from 'src/compositions/qTableUtils'
 import { t } from 'src/i18n/helpers'
-import { confirmOperation } from 'src/utils/dialog'
+import { confirmOperation, notifySuccess } from 'src/utils/dialog'
 import { useInstanceListDialogs } from '../compositions/useInstanceListDialogs'
 
 export interface InstanceContextMenuOptions {
@@ -91,29 +91,32 @@ export function useInstanceContextMenu(options: InstanceContextMenuOptions) {
     await refreshCategories()
   }
 
-  /** Enable anonymous access and patch the returned token into the row. */
+  /** Build the stable anonymous frontend URL for an active share token. */
+  function buildShareUrl(shareToken: string): string {
+    return new URL(`/calc-report-instance/shared/${shareToken}`, window.location.origin).toString()
+  }
+
+  /** Enable anonymous access, copy its link, and patch the returned token into the row. */
   async function onShareInstance(instance: CalcInstance): Promise<void> {
     const response = await shareInstance(instance.instanceOid)
-    options.updateInstanceRow(
-      { ...instance, isShared: true, shareToken: response.data.token },
-      'instanceOid'
-    )
+    const shareToken = response.data.token
+    options.updateInstanceRow({ ...instance, isShared: true, shareToken }, 'instanceOid')
+    await navigator.clipboard.writeText(buildShareUrl(shareToken))
+    notifySuccess(t('calcWorkspace.instanceShareSucceeded'))
   }
 
   /** Copy the stable anonymous frontend URL for an active share. */
   async function onCopyShareLink(instance: CalcInstance): Promise<void> {
     if (!instance.shareToken) return
-    const url = new URL(
-      `/calc-report-instance/shared/${instance.shareToken}`,
-      window.location.origin
-    )
-    await navigator.clipboard.writeText(url.toString())
+    await navigator.clipboard.writeText(buildShareUrl(instance.shareToken))
+    notifySuccess(t('calcWorkspace.linkCopied'))
   }
 
   /** Revoke anonymous access and patch only the selected row. */
   async function onRevokeShare(instance: CalcInstance): Promise<void> {
     await revokeInstanceShare(instance.instanceOid)
     options.updateInstanceRow({ ...instance, isShared: false, shareToken: null }, 'instanceOid')
+    notifySuccess(t('calcWorkspace.instanceShareRevoked'))
   }
 
   const items: IContextMenuItem<CalcInstance>[] = [

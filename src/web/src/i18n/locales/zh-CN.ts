@@ -231,6 +231,8 @@ export default {
     instanceDetail: '实例详情',
     instanceName: '实例名称',
     instanceSaved: '实例已保存',
+    instanceShareRevoked: '已取消分享',
+    instanceShareSucceeded: '分享成功，链接已复制到粘贴板',
     instanceUpdated: '实例结果已更新',
     keepSynchronized: '保持同步',
     latestVersion: '最新版本',

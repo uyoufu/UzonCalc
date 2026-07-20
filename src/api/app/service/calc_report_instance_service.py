@@ -263,6 +263,25 @@ async def get_public_instance(
     share_token: str, session: AsyncSession
 ) -> CalcInstanceResDTO:
     """Return one saved instance through a valid anonymous share token."""
+    instance = await _get_public_instance_model(share_token, session)
+    return await _response(instance, session, public_token=share_token)
+
+
+async def _get_public_instance_model(
+    share_token: str, session: AsyncSession
+) -> CalcReportInstance:
+    """Load one active saved instance through a valid anonymous share token.
+
+    Args:
+        share_token: Signed token identifying the active instance share.
+        session: Database session used to resolve the share and instance.
+
+    Returns:
+        Active shared calculation instance model.
+
+    Raises:
+        CustomException: If the token, share, or instance is unavailable.
+    """
     share_oid = verify_signed_share_token("calc-instance", share_token)
     if share_oid is None:
         raise_ex("Shared calculation instance not found", code=404)
@@ -284,14 +303,14 @@ async def get_public_instance(
     if row is None:
         raise_ex("Shared calculation instance not found", code=404)
     _, instance = row
-    return await _response(instance, session, public_token=share_token)
+    return cast(CalcReportInstance, instance)
 
 
 async def get_public_instance_result_path(
     share_token: str, session: AsyncSession
 ) -> Path:
     """Resolve a shared instance's HTML file after token authorization."""
-    instance = await get_public_instance(share_token, session)
+    instance = await _get_public_instance_model(share_token, session)
     relative_path = Path(instance.resultPath)
     if relative_path.is_absolute() or ".." in relative_path.parts:
         raise_ex("Calculation result path is invalid", code=500)
@@ -427,7 +446,7 @@ async def _response(
         defaults=instance.defaults,
         inputWindows=instance.inputWindows,
         resultPath=(
-            f"/v1/calc-report-instance/shared/{public_token}/result"
+            f"/api/v1/calc-report-instance/shared/{public_token}/result"
             if public_token is not None
             else f"/v1/calc-report-instance/{instance.oid}/result"
         ),

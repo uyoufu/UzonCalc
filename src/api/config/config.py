@@ -310,11 +310,45 @@ class AppConfig:
     @property
     def default_password(self) -> str:
         """Return the SHA-256 hash of the desktop default password."""
-        # 进行 sha256 加密
+        return self._hash_default_password(self.default_password_plain)
+
+    @property
+    def default_department_name(self) -> str:
+        """Return the configured root department created for default users."""
+        return self.get("user", "default_department_name")
+
+    @property
+    def default_regular_userId(self) -> str:
+        """Return the configured username for the default regular account."""
+        return self.get("user", "default_regular_userId")
+
+    @property
+    def default_regular_password_plain(self) -> str:
+        """Return the configured plaintext password for the regular account."""
+        return self.get("user", "default_regular_password")
+
+    @property
+    def default_regular_password(self) -> str:
+        """Return the SHA-256 hash of the default regular account password."""
+        return self._hash_default_password(self.default_regular_password_plain)
+
+    @staticmethod
+    def _hash_default_password(password: str) -> str:
+        """Hash one configured default password before account registration.
+
+        Args:
+            password: Plaintext password loaded from application configuration.
+
+        Returns:
+            Lowercase SHA-256 hexadecimal digest expected by ``register_user``.
+
+        Raises:
+            None.
+        """
         import hashlib
 
         sha256_hash = hashlib.sha256()
-        sha256_hash.update(self.default_password_plain.encode("utf-8"))
+        sha256_hash.update(password.encode("utf-8"))
         return sha256_hash.hexdigest()
 
     # endregion

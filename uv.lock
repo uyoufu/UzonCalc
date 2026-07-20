@@ -2384,6 +2384,7 @@ dependencies = [
     { name = "markdown-it-pyrs" },
     { name = "pillow" },
     { name = "pint" },
+    { name = "pygments" },
 ]
 
 [package.optional-dependencies]
@@ -2445,6 +2446,7 @@ requires-dist = [
     { name = "pint" },
     { name = "playwright", marker = "extra == 'all'", specifier = ">=1.60.0" },
     { name = "playwright", marker = "extra == 'toc'", specifier = ">=1.60.0" },
+    { name = "pygments", specifier = ">=2.19.2" },
     { name = "pymupdf", marker = "extra == 'all'", specifier = ">=1.27.2.3" },
     { name = "pymupdf", marker = "extra == 'toc'", specifier = ">=1.27.2.3" },
     { name = "svg-py", marker = "extra == 'all'", specifier = ">=1.10.0" },

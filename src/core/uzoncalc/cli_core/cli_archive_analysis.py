@@ -16,11 +16,13 @@ class ArchiveEntryPreview:
         entry_name: Selected ``@uzon_calc`` function name.
         title: Statically resolved report title.
         source_excerpt: Leading source lines beginning at the decorator.
+        description: Optional report description supplied by an archive owner.
     """
 
     entry_name: str
     title: str
     source_excerpt: str
+    description: str | None = None
 
 
 @dataclass(frozen=True)

@@ -2,6 +2,7 @@
 
 import asyncio
 from pathlib import Path
+from unittest.mock import Mock
 
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
@@ -76,7 +77,10 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     userId=owner.id, categoryId=owner_category.id, name="dependency"
                 )
                 root_report = CalcReport(
-                    userId=owner.id, categoryId=owner_category.id, name="root"
+                    userId=owner.id,
+                    categoryId=owner_category.id,
+                    name="root",
+                    description="root report description",
                 )
                 session.add_all([dependency_report, root_report])
                 await session.flush()
@@ -228,6 +232,14 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                 )
                 assert imported_artifact.artifactKind == ArtifactKind.SOURCE.value
 
+                thumbnail_renderer = Mock(
+                    wraps=calc_report_archive_service.render_workspace_archive_thumbnail
+                )
+                monkeypatch.setattr(
+                    calc_report_archive_service,
+                    "render_workspace_archive_thumbnail",
+                    thumbnail_renderer,
+                )
                 exported = await calc_report_archive_service.export_version_closure(
                     root_report,
                     root_version,
@@ -235,6 +247,10 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     can_share=True,
                     session=session,
                 )
+                assert thumbnail_renderer.call_args.kwargs == {
+                    "title": "root",
+                    "description": "root report description",
+                }
                 try:
                     selected_entries = []
                     monkeypatch.setattr(
