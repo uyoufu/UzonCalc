@@ -25,6 +25,7 @@ from app.controller.depends import (
     get_token_payload,
 )
 from app.controller.dto_base import PaginationDTO
+from app.middleware.authentication import allow_anonymous
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_archive_service, calc_report_share_service
 from app.db.models.calc_report_share import CalcReportShareLink
@@ -148,6 +149,7 @@ async def revoke_calc_report_share(
 
 
 @router.get("/shared/{token}/preview")
+@allow_anonymous
 async def preview_shared_calc_report(
     token: str,
     tokenPayloads: TokenPayloads | None = Depends(get_optional_token_payload),
@@ -174,6 +176,7 @@ async def preview_shared_calc_report(
 
 
 @router.get("/shared/{token}/result")
+@allow_anonymous
 async def get_shared_calc_report_result(
     token: str,
     tokenPayloads: TokenPayloads | None = Depends(get_optional_token_payload),
@@ -187,6 +190,7 @@ async def get_shared_calc_report_result(
 
 
 @router.get("/shared/{token}/archive")
+@allow_anonymous
 async def export_shared_calc_report(
     token: str,
     background_tasks: BackgroundTasks,

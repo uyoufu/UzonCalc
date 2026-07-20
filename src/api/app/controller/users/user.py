@@ -1,3 +1,5 @@
+"""Expose user authentication and self-service profile operations."""
+
 import io
 import os
 import uuid
@@ -7,6 +9,7 @@ from PIL import Image, ImageOps, UnidentifiedImageError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.depends import get_session, get_current_user
+from app.middleware.authentication import allow_anonymous
 from app.response.response_result import ResponseResult, ok
 from config import logger
 from app.exception.custom_exception import raise_ex
@@ -28,6 +31,7 @@ router = APIRouter(
 
 
 @router.post("/sign-in")
+@allow_anonymous
 async def sign_in(
     data: UserSignInDTO, session: AsyncSession = Depends(get_session)
 ) -> ResponseResult[UserSignInResponseDTO]:

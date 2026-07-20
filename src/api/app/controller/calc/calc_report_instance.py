@@ -16,6 +16,7 @@ from app.controller.calc.calc_instance_dto import (
 )
 from app.controller.depends import get_session, get_token_payload
 from app.controller.dto_base import PaginationDTO
+from app.middleware.authentication import allow_anonymous
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_instance_service
 from utils.jwt_helper import TokenPayloads
@@ -24,6 +25,7 @@ router = APIRouter(prefix="/v1/calc-report-instance", tags=["calc-report-instanc
 
 
 @router.get("/shared/{shareToken}")
+@allow_anonymous
 async def get_public_calc_report_instance(
     shareToken: str,
     session: AsyncSession = Depends(get_session),
@@ -35,6 +37,7 @@ async def get_public_calc_report_instance(
 
 
 @router.get("/shared/{shareToken}/result")
+@allow_anonymous
 async def get_public_calc_report_instance_result(
     shareToken: str,
     session: AsyncSession = Depends(get_session),

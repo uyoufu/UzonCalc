@@ -17,6 +17,7 @@ from app.controller.calc.calc_share_dto import (
 from app.controller.depends import get_session, get_token_payload
 from app.db.models.calc_report_version import CalcReportVersion
 from app.exception.custom_exception import raise_ex
+from app.middleware.authentication import allow_anonymous
 from app.response.response_result import ResponseResult, ok
 from app.service import (
     calc_report_archive_service,
@@ -30,6 +31,7 @@ router = APIRouter(prefix="/v1/calc-report", tags=["calc-report-archive"])
 
 
 @router.post("/imports/link/preview")
+@allow_anonymous
 async def preview_remote_calc_report_link(
     request: RemoteShareSourceDTO,
 ) -> ResponseResult[SharePreviewResDTO]:
@@ -50,6 +52,7 @@ async def preview_remote_calc_report_link(
 
 
 @router.post("/imports/link/archive")
+@allow_anonymous
 async def download_remote_calc_report_link(
     request: RemoteShareSourceDTO,
 ) -> Response:

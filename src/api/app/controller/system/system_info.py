@@ -1,4 +1,7 @@
+"""Expose public system-version and desktop auto-login information."""
+
 from fastapi import APIRouter
+from app.middleware.authentication import allow_anonymous
 from app.response.response_result import ResponseResult, ok
 from app.controller.system.system_dto import DesktopAutoLoginResDTO
 from config import app_config
@@ -10,6 +13,7 @@ router = APIRouter(
 
 
 @router.get("/version")
+@allow_anonymous
 async def get_version() -> ResponseResult[str]:
     """
     获取系统版本号
@@ -24,6 +28,7 @@ async def get_version() -> ResponseResult[str]:
 
 
 @router.get("/desktop-auto-login")
+@allow_anonymous
 async def get_desktop_auto_login() -> ResponseResult[DesktopAutoLoginResDTO]:
     """
     获取桌面端自动登录信息
