@@ -1,308 +1,522 @@
-import os
-import hashlib
-from dataclasses import asdict
-from typing import Optional, Any
-from datetime import datetime
-from sqlalchemy import select
+"""Reproducible execution orchestration and interaction-state persistence."""
+
+from __future__ import annotations
+
+import datetime
+from dataclasses import dataclass
+from typing import Any, cast
+
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
+
+from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_execution_dto import CalcExecutionStartDTO
+from app.controller.dto_base import PaginationDTO
+from app.db.models.calc_execution import CalcExecution, CalcExecutionBundle
 from app.db.models.calc_report import CalcReport
-from app.db.models.calc_report_archive import CalcReportArchive
-from app.db.models.calc_report_category import CalcReportCategory
+from app.db.models.calc_report_artifact import CalcReportArtifact
+from app.db.models.calc_report_version import CalcReportVersion
+from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorType
+from app.db.models.user_input_history import InputCache, UserInputHistory
+from app.exception.custom_exception import raise_ex
+from app.sandbox.core.backend_factory import get_sandbox_executor
+from app.sandbox.core.backend_types import RuntimeDescriptor, SandboxBackendMode
 from app.sandbox.core.execution_result import ExecutionResult
-from app.sandbox.core.executor_interface import ISandboxExecutor
-from app.sandbox.core.executor_local import LocalSandboxExecutor
-from app.sandbox.core.executor_remote import RemoteSandboxExecutor
-from app.utils.path_manager import combine_calc_report_path, get_user_calcs_root
-from config import logger, app_config
-from uzoncalc.utils_core.dot_dict import deep_update
+from app.service.calc_execution_bundle_service import (
+    ResolvedExecutionSource,
+    prepare_execution_bundle,
+    resolve_execution_source,
+)
+from config import app_config
 
 
-_executor_instance: ISandboxExecutor | None = None
+@dataclass(frozen=True)
+class ExecutionStep:
+    """Combine one backend result with persisted provenance models."""
+
+    execution: CalcExecution
+    result: ExecutionResult
+    report: CalcReport
+    source_artifact: CalcReportArtifact
+    execution_artifact: CalcReportArtifact
+    bundle: CalcExecutionBundle
+    runtime: RuntimeDescriptor
+    resolved_version: CalcReportVersion | None
+
+
+async def start_execution(
+    session: AsyncSession,
+    user_id: int,
+    request: CalcExecutionStartDTO,
+    *,
+    use_cached_defaults: bool = True,
+    persist_input_cache: bool = True,
+) -> ExecutionStep:
+    """Resolve, lazily build, bundle, audit, and start one execution."""
+    executor = get_sandbox_executor()
+    try:
+        runtime = await executor.runtime_descriptor()
+    except Exception as error:
+        raise_ex(
+            "Configured sandbox backend is unavailable",
+            code=503,
+            data={"message": str(error)},
+            error_code=CalcErrorCode.SANDBOX_BACKEND_UNAVAILABLE,
+        )
+    source = await resolve_execution_source(
+        user_id,
+        request.reportOid,
+        request.source.type,
+        request.source.versionName,
+        session,
+    )
+    bundle, prepared = await prepare_execution_bundle(user_id, source, runtime, session)
+    execution_artifact = await session.get(
+        CalcReportArtifact, bundle.entryExecutionArtifactId
+    )
+    if execution_artifact is None:
+        raise_ex("Bundle execution artifact not found", code=500)
+    defaults = (
+        await _merge_cached_defaults(
+            user_id,
+            source.report,
+            source.source_artifact,
+            request.defaults,
+            session,
+        )
+        if use_cached_defaults
+        else request.defaults
+    )
+    now = datetime.datetime.now(datetime.timezone.utc)
+    execution = CalcExecution(
+        userId=user_id,
+        reportId=source.report.id,
+        bundleId=bundle.id,
+        sourceType=source.source_type.value,
+        resolvedVersionId=(
+            source.resolved_version.id if source.resolved_version is not None else None
+        ),
+        executorType=runtime.executor_type.value,
+        status=ExecutionStatus.PENDING.value,
+        executorNodeId=runtime.node_id,
+        expiresAt=now + datetime.timedelta(seconds=app_config.sandbox_session_timeout),
+        metrics={"backend": runtime.mode.value},
+    )
+    session.add(execution)
+    await session.flush()
+    history = UserInputHistory(
+        executionId=execution.id,
+        defaults=defaults,
+        inputHistory=[{"step": 0, "defaults": defaults}],
+        currentStep=0,
+        totalSteps=0,
+    )
+    session.add(history)
+    await session.commit()
+    try:
+        result = await executor.execute_bundle(
+            prepared, defaults, is_silent=request.isSilent
+        )
+    except Exception as error:
+        await _mark_execution_failed(execution, error, session)
+        raise
+    await _apply_backend_result(
+        execution,
+        history,
+        result,
+        source,
+        session,
+        defaults,
+        persist_input_cache=persist_input_cache,
+    )
+    return ExecutionStep(
+        execution=execution,
+        result=result,
+        report=source.report,
+        source_artifact=source.source_artifact,
+        execution_artifact=execution_artifact,
+        bundle=bundle,
+        runtime=runtime,
+        resolved_version=source.resolved_version,
+    )
+
+
+async def continue_execution(
+    session: AsyncSession,
+    user_id: int,
+    execution_oid: str,
+    defaults: dict[str, dict[str, Any]],
+) -> ExecutionStep:
+    """Continue the original backend session without rebuilding or resolving latest."""
+    execution = await _get_execution(user_id, execution_oid, session)
+    if (
+        execution.status != ExecutionStatus.RUNNING.value
+        or not execution.sandboxExecutionId
+    ):
+        raise_ex(
+            "Execution session is no longer active",
+            code=410,
+            error_code=CalcErrorCode.EXECUTION_PROCESS_LOST,
+        )
+    executor = get_sandbox_executor()
+    runtime = await executor.runtime_descriptor()
+    try:
+        result = await executor.continue_execution(
+            execution.sandboxExecutionId, defaults
+        )
+    except (ValueError, KeyError) as error:
+        await _mark_execution_failed(execution, error, session, process_lost=True)
+        raise_ex(
+            "Execution process was lost",
+            code=410,
+            error_code=CalcErrorCode.EXECUTION_PROCESS_LOST,
+        )
+    history = await session.scalar(
+        select(UserInputHistory).where(UserInputHistory.executionId == execution.id)
+    )
+    if history is None:
+        raise_ex("Execution input history not found", code=500)
+    report = await session.get(CalcReport, execution.reportId)
+    bundle = await session.get(CalcExecutionBundle, execution.bundleId)
+    if report is None or bundle is None:
+        raise_ex("Execution provenance is incomplete", code=500)
+    source_artifact = await session.get(
+        CalcReportArtifact, bundle.entrySourceArtifactId
+    )
+    execution_artifact = await session.get(
+        CalcReportArtifact, bundle.entryExecutionArtifactId
+    )
+    if source_artifact is None or execution_artifact is None:
+        raise_ex("Execution artifacts not found", code=500)
+    source = ResolvedExecutionSource(
+        report=report,
+        source_artifact=source_artifact,
+        source_type=ExecutionSourceType(execution.sourceType),
+        resolved_version=(
+            await session.get(CalcReportVersion, execution.resolvedVersionId)
+            if execution.resolvedVersionId is not None
+            else None
+        ),
+    )
+    await _apply_backend_result(execution, history, result, source, session, defaults)
+    return ExecutionStep(
+        execution=execution,
+        result=result,
+        report=report,
+        source_artifact=source_artifact,
+        execution_artifact=execution_artifact,
+        bundle=bundle,
+        runtime=runtime,
+        resolved_version=source.resolved_version,
+    )
+
+
+async def terminate_execution(
+    session: AsyncSession, user_id: int, execution_oid: str
+) -> None:
+    """Terminate an active backend session and persist CANCELLED."""
+    execution = await _get_execution(user_id, execution_oid, session)
+    if execution.sandboxExecutionId:
+        await get_sandbox_executor().terminate(execution.sandboxExecutionId)
+    execution.status = ExecutionStatus.CANCELLED.value
+    execution.completedAt = datetime.datetime.now(datetime.timezone.utc)
+    await session.commit()
+
+
+async def record_result_path(
+    session: AsyncSession,
+    execution_oid: str,
+    user_id: int,
+    result_path: str,
+) -> None:
+    """Attach a cached public HTML path to an owned execution audit row."""
+    execution = await _get_execution(user_id, execution_oid, session)
+    execution.resultPath = result_path
+    await session.commit()
+
+
+async def get_execution_step(
+    session: AsyncSession, user_id: int, execution_oid: str
+) -> ExecutionStep:
+    """Load persisted provenance for a detail/history response without windows."""
+    execution = await _get_execution(user_id, execution_oid, session)
+    report = await session.get(CalcReport, execution.reportId)
+    bundle = await session.get(CalcExecutionBundle, execution.bundleId)
+    if report is None or bundle is None:
+        raise_ex("Execution provenance is incomplete", code=500)
+    source_artifact = await session.get(
+        CalcReportArtifact, bundle.entrySourceArtifactId
+    )
+    execution_artifact = await session.get(
+        CalcReportArtifact, bundle.entryExecutionArtifactId
+    )
+    if source_artifact is None or execution_artifact is None:
+        raise_ex("Execution artifacts not found", code=500)
+    backend_name = (execution.metrics or {}).get(
+        "backend", SandboxBackendMode.IN_PROCESS
+    )
+
+    runtime = RuntimeDescriptor(
+        mode=SandboxBackendMode(backend_name),
+        fingerprint=bundle.runtimeFingerprint,
+        executor_type=ExecutorType(execution.executorType),
+        image_digest=bundle.runtimeImageDigest,
+        node_id=execution.executorNodeId,
+    )
+    history = await session.scalar(
+        select(UserInputHistory).where(UserInputHistory.executionId == execution.id)
+    )
+    return ExecutionStep(
+        execution=execution,
+        result=ExecutionResult(
+            executionId=execution.oid,
+            html="",
+            isCompleted=execution.status != ExecutionStatus.RUNNING.value,
+            windows=history.windows if history is not None else [],
+        ),
+        report=report,
+        source_artifact=source_artifact,
+        execution_artifact=execution_artifact,
+        bundle=bundle,
+        runtime=runtime,
+        resolved_version=(
+            await session.get(CalcReportVersion, execution.resolvedVersionId)
+            if execution.resolvedVersionId is not None
+            else None
+        ),
+    )
+
+
+async def count_executions(
+    session: AsyncSession, user_id: int, report_oid: str | None = None
+) -> int:
+    """Count persisted execution audits owned by one user."""
+    conditions = [CalcExecution.userId == user_id]
+    if report_oid:
+        conditions.append(
+            CalcExecution.reportId
+            == select(CalcReport.id)
+            .where(
+                CalcReport.oid == report_oid,
+                CalcReport.userId == user_id,
+                CalcReport.deletedAt.is_(None),
+            )
+            .scalar_subquery()
+        )
+    total = await session.scalar(
+        select(func.count(CalcExecution.id)).where(*conditions)
+    )
+    return total or 0
+
+
+async def list_execution_oids(
+    session: AsyncSession,
+    user_id: int,
+    pagination: PaginationDTO,
+    report_oid: str | None = None,
+) -> list[str]:
+    """List one sorted page of execution audit OIDs."""
+    sort_columns = {
+        "id": CalcExecution.id,
+        "createdAt": CalcExecution.createdAt,
+        "status": CalcExecution.status,
+        "sourceType": CalcExecution.sourceType,
+    }
+    sort_column = sort_columns.get(pagination.sortBy, CalcExecution.createdAt)
+    sort_expression = sort_column.desc() if pagination.descending else sort_column.asc()
+    stable_sort = (
+        CalcExecution.id.desc() if pagination.descending else CalcExecution.id.asc()
+    )
+    conditions = [CalcExecution.userId == user_id]
+    if report_oid:
+        conditions.append(
+            CalcExecution.reportId
+            == select(CalcReport.id)
+            .where(
+                CalcReport.oid == report_oid,
+                CalcReport.userId == user_id,
+                CalcReport.deletedAt.is_(None),
+            )
+            .scalar_subquery()
+        )
+    oids = (
+        await session.scalars(
+            select(CalcExecution.oid)
+            .where(*conditions)
+            .order_by(sort_expression, stable_sort)
+            .offset(pagination.skip)
+            .limit(pagination.limit)
+        )
+    ).all()
+    return list(oids)
+
+
+async def expire_orphaned_executions(session: AsyncSession) -> int:
+    """Mark startup-surviving PENDING/RUNNING rows as process-lost failures."""
+    executions = (
+        await session.scalars(
+            select(CalcExecution).where(
+                CalcExecution.status.in_(
+                    [ExecutionStatus.PENDING.value, ExecutionStatus.RUNNING.value]
+                )
+            )
+        )
+    ).all()
+    now = datetime.datetime.now(datetime.timezone.utc)
+    for execution in executions:
+        execution.status = ExecutionStatus.FAILED.value
+        execution.errorCode = CalcErrorCode.EXECUTION_PROCESS_LOST.value
+        execution.errorMessage = "API process restarted while execution was active"
+        execution.completedAt = now
+    await session.commit()
+    return len(executions)
+
+
+async def _get_execution(
+    user_id: int, execution_oid: str, session: AsyncSession
+) -> CalcExecution:
+    """Load one owned execution audit row by public OID."""
+    execution = await session.scalar(
+        select(CalcExecution).where(
+            CalcExecution.oid == execution_oid,
+            CalcExecution.userId == user_id,
+        )
+    )
+    if execution is None:
+        raise_ex(
+            "Execution not found",
+            code=404,
+            error_code=CalcErrorCode.EXECUTION_NOT_FOUND,
+        )
+    return cast(CalcExecution, execution)
+
+
+async def _merge_cached_defaults(
+    user_id: int,
+    report: CalcReport,
+    source_artifact: CalcReportArtifact,
+    requested: dict[str, dict[str, Any]],
+    session: AsyncSession,
+) -> dict[str, dict[str, Any]]:
+    """Merge recent inputs only when they came from the same SOURCE shape."""
+    cache = await session.scalar(
+        select(InputCache).where(
+            InputCache.userId == user_id,
+            InputCache.reportId == report.id,
+            InputCache.entryName == report.entryPath,
+        )
+    )
+    merged: dict[str, dict[str, Any]] = {}
+    if cache is not None and cache.sourceArtifactId == source_artifact.id:
+        _deep_update(merged, cache.defaults)
+    _deep_update(merged, requested)
+    return merged
+
+
+async def _apply_backend_result(
+    execution: CalcExecution,
+    history: UserInputHistory,
+    result: ExecutionResult,
+    source: ResolvedExecutionSource,
+    session: AsyncSession,
+    submitted_defaults: dict[str, dict[str, Any]],
+    *,
+    persist_input_cache: bool = True,
+) -> None:
+    """Persist one interaction result and recent-input cache update."""
+    now = datetime.datetime.now(datetime.timezone.utc)
+    execution.sandboxExecutionId = result.executionId
+    execution.startedAt = execution.startedAt or now
+    execution.lastActiveAt = now
+    execution.status = (
+        ExecutionStatus.SUCCEEDED.value
+        if result.isCompleted
+        else ExecutionStatus.RUNNING.value
+    )
+    execution.completedAt = now if result.isCompleted else None
+    history.defaults = submitted_defaults
+    history.windows = result.windows
+    history.inputHistory = [
+        *(history.inputHistory or []),
+        {"step": history.currentStep + 1, "defaults": submitted_defaults},
+    ]
+    history.currentStep += 1
+    history.totalSteps = max(history.totalSteps, history.currentStep)
+    flag_modified(history, "defaults")
+    flag_modified(history, "windows")
+    flag_modified(history, "inputHistory")
+    extracted = _extract_defaults_from_windows(result.windows)
+    if extracted and persist_input_cache:
+        cache = await session.scalar(
+            select(InputCache).where(
+                InputCache.userId == execution.userId,
+                InputCache.reportId == execution.reportId,
+                InputCache.entryName == source.report.entryPath,
+            )
+        )
+        if cache is None:
+            cache = InputCache(
+                userId=execution.userId,
+                reportId=execution.reportId,
+                entryName=source.report.entryPath,
+                sourceArtifactId=source.source_artifact.id,
+                defaults=extracted,
+            )
+            session.add(cache)
+        else:
+            cache.sourceArtifactId = source.source_artifact.id
+            cache.defaults = extracted
+            flag_modified(cache, "defaults")
+    await session.commit()
+
+
+async def _mark_execution_failed(
+    execution: CalcExecution,
+    error: Exception,
+    session: AsyncSession,
+    *,
+    process_lost: bool = False,
+) -> None:
+    """Persist a terminal failure before propagating an execution exception."""
+    execution.status = ExecutionStatus.FAILED.value
+    execution.errorCode = (
+        CalcErrorCode.EXECUTION_PROCESS_LOST.value
+        if process_lost
+        else type(error).__name__
+    )
+    execution.errorMessage = str(error)
+    execution.completedAt = datetime.datetime.now(datetime.timezone.utc)
+    await session.commit()
 
 
 def _extract_defaults_from_windows(
     windows: list[dict[str, Any]],
 ) -> dict[str, dict[str, Any]]:
-    """
-    从 windows 中提取 defaults 信息
-    格式转换: [{"title": str, "fields": [{"name": str, "value": Any, ...}]}]
-             -> {"title": {"field_name": value, ...}}
-    """
-    defaults = {}
+    """Extract named field values from backend UI-window payloads."""
+    defaults: dict[str, dict[str, Any]] = {}
     for window in windows:
         title = window.get("title")
-        fields = window.get("fields", [])
-        if title and fields:
-            defaults[title] = {}
-            for field in fields:
-                field_name = field.get("name")
-                field_value = field.get("value")
-                if field_name is not None:
-                    defaults[title][field_name] = field_value
+        if not title:
+            continue
+        values = {
+            field["name"]: field.get("value")
+            for field in window.get("fields", [])
+            if field.get("name")
+        }
+        if values:
+            defaults[title] = values
     return defaults
 
 
-def get_sandbox_executor() -> ISandboxExecutor:
-    """
-    获取 sandbox 执行器单例
-
-    根据配置返回本地或远程执行器
-    """
-    global _executor_instance
-
-    if _executor_instance is not None:
-        return _executor_instance
-
-    mode = app_config.sandbox_mode
-
-    if mode == "local":
-        logger.info("Using local sandbox executor (in-process)")
-        _executor_instance = LocalSandboxExecutor()
-    elif mode == "remote":
-        remote_url = app_config.sandbox_remote_url
-        remote_timeout = app_config.sandbox_remote_timeout
-        logger.info(
-            f"Using remote sandbox executor: {remote_url} (timeout: {remote_timeout}s)"
-        )
-        _executor_instance = RemoteSandboxExecutor(
-            base_url=remote_url,
-            timeout=remote_timeout,
-        )
-    else:
-        raise ValueError(f"Unknown sandbox mode: {mode}. Expected 'local' or 'remote'")
-
-    return _executor_instance
-
-
-def _get_report_file_path(
-    user_id: int, report_name: str, category_name: str
-) -> tuple[str, str]:
-    package_root = get_user_calcs_root(user_id)
-
-    # report_name 可能是绝对路径
-    if os.path.isabs(report_name):
-        return (report_name, package_root)
-
-    full_path = combine_calc_report_path(user_id, report_name, category_name)
-
-    # 添加后缀 .py，如果没有的话
-    possible_path = f"{full_path.replace('.py','')}.py"
-
-    # 判断文件是否存在
-    if not os.path.isfile(possible_path):
-        raise FileNotFoundError(f"CalcReport script file not found: {possible_path}")
-
-    return (possible_path, package_root)
-
-
-def _calculate_file_hash(file_path: str) -> str:
-    """计算文件路径的 hash"""
-    return hashlib.sha256(file_path.encode()).hexdigest()
-
-
-async def _save_execution_archive(
-    db_session: AsyncSession,
-    user_id: int,
-    defaults: dict[str, dict[str, Any]],
-    report_oid: str | None = None,
-    file_path_hash: str | None = None,
-) -> None:
-    """
-    保存执行历史到 CalcReportArchive
-    :param db_session: 数据库会话
-    :param user_id: 用户 ID
-    :param defaults: 执行收集到的参数值
-    :param report_oid: 报告 ID（可选）
-    :param file_path_hash: 文件路径 hash（文件执行时使用）
-    """
-    if not defaults:
-        return
-
-    # 查找或创建临时记录
-    query = select(CalcReportArchive).where(
-        CalcReportArchive.userId == user_id,
-        CalcReportArchive.type == 0,  # 临时记录
-    )
-
-    if report_oid:
-        query = query.where(CalcReportArchive.reportId == report_oid)
-    elif file_path_hash:
-        query = query.where(CalcReportArchive.name == file_path_hash)
-    else:
-        return
-
-    archive = await db_session.scalar(query)
-
-    if archive:
-        # 增量更新现有记录
-        deep_update(archive.defaults, defaults)
-        # 标记 defaults 字段已修改，确保 SQLAlchemy 能检测到变化
-        flag_modified(archive, "defaults")
-    else:
-        # 创建新的临时记录
-        archive = CalcReportArchive(
-            userId=user_id,
-            status=1,
-            type=0,  # 临时记录
-            reportId=report_oid or 0,
-            name=file_path_hash,
-            defaults=defaults,
-        )
-        db_session.add(archive)
-
-    await db_session.commit()
-
-
-async def start_execution(
-    db_session: AsyncSession,
-    user_id: int,
-    report_oid: str,
-    defaults: dict[str, dict[str, Any]] = {},
-    is_silent: bool = False,
-) -> ExecutionResult:
-    """
-    启动计算执行
-    :return: ExecutionResult，包含 execution_id、windows 和收集到的 defaults
-    """
-
-    logger.info(f"Starting execution: user={user_id}, reportId={report_oid}")
-
-    # 根据 id 获取 CalcReport
-    calc_report = await db_session.scalar(
-        select(CalcReport).where(CalcReport.oid == report_oid)
-    )
-    if not calc_report:
-        raise ValueError(f"CalcReport with id {report_oid} not found")
-
-    calc_category = await db_session.scalar(
-        select(CalcReportCategory).where(
-            CalcReportCategory.id == calc_report.categoryId
-        )
-    )
-    if not calc_category:
-        raise ValueError(
-            f"CalcReportCategory with id {calc_report.categoryId} not found"
-        )
-
-    # 计算脚本路径
-    (file_path, package_root) = _get_report_file_path(
-        user_id, calc_report.name, calc_category.name
-    )
-
-    # 读取上一次的历史输入
-    last_archive = await db_session.scalar(
-        select(CalcReportArchive).where(
-            CalcReportArchive.userId == user_id,
-            CalcReportArchive.reportId == report_oid,
-            CalcReportArchive.type == 0,  # 临时记录
-        )
-    )
-
-    # 更新默认值
-    final_defaults = {}
-    deep_update(final_defaults, last_archive.defaults if last_archive else {}, defaults)
-
-    # 获取 sandbox 执行器并执行
-    executor = get_sandbox_executor()
-
-    result = await executor.execute_script(
-        file_path,
-        final_defaults,
-        is_silent=is_silent,
-        package_root=package_root,
-    )
-
-    # 保存执行结果到数据库（从 windows 中提取 defaults）
-    extracted_defaults = _extract_defaults_from_windows(result.windows)
-    if extracted_defaults:
-        await _save_execution_archive(
-            db_session,
-            user_id,
-            extracted_defaults,
-            report_oid=report_oid,
-        )
-
-    return result
-
-
-async def continue_execution(
-    execution_id: str,
-    defaults: dict[str, dict[str, Any]],
-) -> ExecutionResult:
-    """
-    继续计算执行
-    :return: 字典，包含 execution_id 等信息
-    返回值示例：
-    {
-        "execution_id": "some-unique-id",
-        "window":{},
-        "resultUrl": "public/path/to/result"
-    }
-    """
-
-    logger.info(f"Continuing execution: execution_id={execution_id}")
-
-    # 获取 sandbox 执行器并继续执行
-    executor = get_sandbox_executor()
-    return await executor.continue_execution(
-        execution_id,
-        defaults,
-    )
-
-
-async def start_file_execution(
-    db_session: AsyncSession,
-    user_id: int,
-    file_path: str,
-    defaults: dict[str, dict[str, Any]] = {},
-) -> ExecutionResult:
-    """
-    启动文件执行（调试用）
-    :param db_session: 数据库会话
-    :param user_id: 用户 ID
-    :param file_path: 文件路径
-    :param defaults: 参数值
-    :return: ExecutionResult，包含 execution_id、windows 和收集到的 defaults
-    """
-
-    logger.info(f"Starting file execution: file_path={file_path}")
-
-    # 计算文件路径的 hash
-    file_path_hash = _calculate_file_hash(file_path)
-
-    # 读取历史输入
-    last_archive = await db_session.scalar(
-        select(CalcReportArchive).where(
-            CalcReportArchive.userId == user_id,
-            CalcReportArchive.name == file_path_hash,
-            CalcReportArchive.type == 0,  # 临时记录
-        )
-    )
-
-    # 更新默认值
-    final_defaults = {}
-    deep_update(final_defaults, last_archive.defaults if last_archive else {}, defaults)
-
-    # 获取 sandbox 执行器并执行
-    executor = get_sandbox_executor()
-
-    (script_path, package_root) = _get_report_file_path(user_id, file_path, "./")
-    result = await executor.execute_script(
-        script_path,
-        final_defaults,
-        is_silent=True,
-        package_root=package_root,
-    )
-
-    # 保存执行结果到数据库（从 windows 中提取 defaults）
-    extracted_defaults = _extract_defaults_from_windows(result.windows)
-    if extracted_defaults:
-        await _save_execution_archive(
-            db_session,
-            user_id,
-            extracted_defaults,
-            file_path_hash=file_path_hash,
-        )
-
-    return result
+def _deep_update(target: dict, source: dict) -> None:
+    """Recursively merge dictionaries without mutating the source."""
+    for key, value in source.items():
+        if isinstance(value, dict) and isinstance(target.get(key), dict):
+            _deep_update(target[key], value)
+        elif isinstance(value, dict):
+            nested: dict = {}
+            _deep_update(nested, value)
+            target[key] = nested
+        else:
+            target[key] = value

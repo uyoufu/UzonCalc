@@ -8,10 +8,17 @@ from pathlib import Path
 
 
 def show_in_file_explorer(target_file_path: str) -> None:
-    """
-    在系统文件管理器中显示目标文件。
+    """在系统文件管理器中显示目标文件或打开目标目录。
 
-    :param target_file_path: 目标文件路径
+    Args:
+        target_file_path: 目标文件或目录路径。
+
+    Returns:
+        None.
+
+    Raises:
+        FileNotFoundError: 目标路径不存在。
+        subprocess.CalledProcessError: 系统文件管理器启动失败。
     """
     target_path = Path(target_file_path)
     if not target_path.exists():
@@ -32,4 +39,5 @@ def show_in_file_explorer(target_file_path: str) -> None:
         subprocess.run(["open", "-R", str(target_path)], check=True)
         return
 
-    subprocess.run(["xdg-open", str(target_path.parent)], check=True)
+    explorer_target = target_path if target_path.is_dir() else target_path.parent
+    subprocess.run(["xdg-open", str(explorer_target)], check=True)

@@ -9,7 +9,8 @@ export interface IUserInfo {
   oid: string,
   id: number,
   username: string
-  name: string,
+  nickName: string | null,
   avatar: string | null,
   status: UserStatus,
+  roles: string[]
 }

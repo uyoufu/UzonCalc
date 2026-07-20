@@ -1,5 +1,7 @@
 from dataclasses import dataclass, field
 
+from .context_result_handler.base_context_result_handler import BaseContextResultHandler
+from .context_result_handler.post_pipeline import get_default_context_result_handlers
 from .handcalc.post_handlers.base_post_handler import BasePostHandler
 from .handcalc.post_handlers.post_pipeline import get_default_post_handlers
 
@@ -80,6 +82,12 @@ class PageInfo:
 
 
 @dataclass
+class PrefixSettings:
+    figure_prefix: str = "图"
+    table_prefix: str = "表"
+
+
+@dataclass
 class ContextOptions:
     # 是否启用调试模式，记录更多步骤信息
     enable_debug: bool = False
@@ -92,8 +100,8 @@ class ContextOptions:
     # 跳过以 _ 开头的临时/私有变量的记录
     suppress_private_assignments: bool = True
 
-    # 记录结构化步骤（不仅是字符串），便于后续渲染或调试
-    record_structured_steps: bool = True
+    # 是否渲染原始公式表达式，关闭后仍保留值代入和结果
+    enable_formula_expression: bool = True
 
     # 是否启用 fstring 方程渲染
     # 默认为 False
@@ -107,6 +115,8 @@ class ContextOptions:
     # 逻辑在两个地方实现
     # 1. 在 AST 解析时，遇到 hide() 时，将不会继续解析
     # 2. CalcContext.append_content 方法中进行检查
+    # hide() 由于是在 AST 解析时调用，在条件语句中中的 hide() 不论是否为 True，都会生效
+    # 因此，建议仅在根上下文调用 hide()
     skip_content: bool = False
 
     # 别名映射
@@ -120,6 +130,11 @@ class ContextOptions:
         default_factory=get_default_post_handlers
     )
 
+    # 自定义的完整正文后处理器列表
+    context_result_handlers: list[BaseContextResultHandler] = field(
+        default_factory=get_default_context_result_handlers
+    )
+
     # 页面标题
     doc_title: str = "UzonCalc Calculation Sheet"
     page_info: PageInfo = field(default_factory=PageInfo)
@@ -131,3 +146,6 @@ class ContextOptions:
     # 自定义样式字典，格式为 {选择器: {属性: 值}}
     # 例如: {"body": {"font_size": "14px", "line_height": "1.8"}}
     styles: dict[str, dict] = field(default_factory=dict)
+
+    # Figure/Table prefix
+    prefix_settings: PrefixSettings = field(default_factory=PrefixSettings)

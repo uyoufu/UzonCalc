@@ -1,0 +1,29 @@
+from uzoncalc import *
+
+
+@uzon_calc()
+async def sheet():
+    doc_title("单位计算示例")
+
+    H2("截面应力计算")
+
+    "截面宽度："
+    b = 300 * unit.millimeter
+    alias("b", "截面宽度 b")
+
+    "截面高度："
+    h = 500 * unit.millimeter
+    alias("h", "截面高度 h")
+
+    "轴向力："
+    N = 100 * unit.kilonewton
+
+    "截面面积："
+    A = b * h
+
+    "截面应力："
+    sigma = N / A
+
+
+if __name__ == "__main__":
+    view(sheet)

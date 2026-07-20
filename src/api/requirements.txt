@@ -11,7 +11,7 @@ attrs==25.4.0
 authlib==1.6.8
 babel==2.18.0
 beartype==0.22.9
-black==26.1.0
+ruff==0.15.22
 build==1.4.2
 cachetools==7.0.1
 caio==0.9.25
@@ -79,6 +79,7 @@ pathspec==1.0.4
 pillow==12.1.1
 pint==0.25.2
 platformdirs==4.9.2
+playwright==1.60.0
 pluggy==1.6.0
 portalocker==3.2.0
 protobuf==7.34.0
@@ -87,6 +88,7 @@ pycparser==3.0
 pydantic==2.12.5
 pydantic-core==2.41.5
 pydantic-settings==2.13.1
+pyee==13.0.1
 pygments==2.19.2
 pyjwt==2.11.0
 pyparsing==3.3.2
@@ -124,4 +126,4 @@ watchfiles==1.1.1
 websockets==16.0
 xlwings==0.33.20
 zipp==3.23.0
-uzoncalc
+uzoncalc[all]

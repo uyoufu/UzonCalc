@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { useSessionStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core'
 import type { IUserInfo } from './types'
 import { useRouter } from 'src/router/index'
 import logger from 'loglevel'
@@ -7,12 +7,12 @@ import logger from 'loglevel'
 // options 方式定义
 export const useUserInfoStore = defineStore('userInfo', {
   state: () => ({
-    token: useSessionStorage('token', ''),
-    access: useSessionStorage('access', [] as string[]),
-    secretKey: useSessionStorage('secretKey', ''),
-    installedPlugins: useSessionStorage('installedPlugins', [] as string[]),
-    userInfo: useSessionStorage('userInfo', {} as IUserInfo),
-    locale: useSessionStorage('locale', navigator.language)
+    token: useLocalStorage('token', ''),
+    access: useLocalStorage('access', [] as string[]),
+    secretKey: useLocalStorage('secretKey', ''),
+    installedPlugins: useLocalStorage('installedPlugins', [] as string[]),
+    userInfo: useLocalStorage('userInfo', {} as IUserInfo),
+    locale: useLocalStorage('locale', navigator.language)
   }),
   getters: {
     // 用户数据库的 id
@@ -22,7 +22,7 @@ export const useUserInfoStore = defineStore('userInfo', {
     username: (state) => state.userInfo.username,
 
     // 用户名称
-    userName: (state) => state.userInfo.name,
+    userName: (state) => state.userInfo.nickName || state.userInfo.username,
 
     userAvatar: (state) => {
       // 判断是否包含 http，若不包含，添加后端的 http
@@ -35,8 +35,7 @@ export const useUserInfoStore = defineStore('userInfo', {
     },
 
     isAdmin: (state) => {
-      // 目前使用 * 或者 admin 来表示超管权限
-      return state.access.includes('*') || state.userInfo.username === 'admin'
+      return state.access.includes('admin') || state.userInfo.roles?.includes('admin') === true
     },
 
     /**
@@ -120,6 +119,9 @@ export const useUserInfoStore = defineStore('userInfo', {
     async logout () {
       this.token = ''
       this.access = []
+      this.secretKey = ''
+      this.installedPlugins = []
+      this.userInfo = {} as IUserInfo
 
       // 重定向到登录页面
       const router = useRouter()
@@ -133,6 +135,10 @@ export const useUserInfoStore = defineStore('userInfo', {
      */
     updateUserAvatar (avatarUrl: string) {
       this.userInfo.avatar = avatarUrl
+    },
+
+    updateNickName (nickName: string) {
+      this.userInfo.nickName = nickName
     },
 
     /**

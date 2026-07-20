@@ -1,6 +1,6 @@
 from typing import Dict, Any, cast
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select
+from sqlalchemy import func, select
 from app.controller.users.user_dto import (
     UserInfoDTO,
     UserSignInResponseDTO,
@@ -36,10 +36,8 @@ async def sign_in(
 
     user = cast(User, user)
 
-    # assert user is not None
-    # 验证用户是否被删除
-    if user.status == UserStatus.Deleted.value:  # type: ignore
-        logger.warning(f"User deleted - {username}")
+    if user.status != UserStatus.Active.value:
+        logger.warning(f"User is not active - {username}")
         raise_ex("Username or password is incorrect", code=401)
     # 验证密码
     if not verify_password(password, user.password, user.salt):  # type: ignore
@@ -63,6 +61,15 @@ async def sign_in(
             expires_in=86400,  # 1天
         )
 
+    access = [app_config.get_api_host_type()]
+    if UserRole.Admin.value in user.roles:
+        access.append(UserRole.Admin.value)
+    user_count = await session.scalar(
+        select(func.count(User.id)).where(User.status != UserStatus.Deleted.value)
+    )
+    if (user_count or 0) > 1:
+        access.append("is_multi_user")
+
     logger.info(f"用户登录成功: {username}")
     # 返回用户信息和 tokens（不包含密码）
     return UserSignInResponseDTO(
@@ -72,12 +79,13 @@ async def sign_in(
             oid=user.oid,
             id=user.id,
             username=user.username,
-            name=user.name,
+            nickName=user.nickName,
             avatar=user.avatar,
             status=UserStatus(user.status),
+            roles=list(user.roles),
         ),
         roles=user.roles,  # type: ignore
-        access=[app_config.get_api_host_type()],  # type: ignore
+        access=access,
         accessToken=access_token,
         refreshToken=refresh_token,
         token=development_token,
@@ -91,7 +99,8 @@ async def register_user(
     username: str,
     password: str,
     session: AsyncSession,
-    roles: list[str] = [UserRole.Regular.value],
+    roles: list[str] | None = None,
+    nick_name: str | None = None,
 ) -> User:
     """
     用户注册（创建用户）
@@ -112,10 +121,11 @@ async def register_user(
     # 创建新用户
     new_user = User(
         username=username,
+        nickName=nick_name,
         password=hashed_password,
         salt=salt,
         status=UserStatus.Active.value,
-        roles=roles,
+        roles=roles or [UserRole.Regular.value],
     )
     session.add(new_user)
     await session.commit()
@@ -196,22 +206,57 @@ async def reset_password(
     return True
 
 
-async def get_user_by_username(username: str, session: AsyncSession) -> UserDetailDTO:
-    """
-    根据用户名获取用户信息（不包含密码和盐）
-    :param username: 用户名
-    :param session: 数据库会话
-    :return: 用户信息 DTO
-    """
-    res = await session.execute(select(User).filter(User.username == username))
-    user: User | None = res.scalars().first()
-    if not user or user.status == UserStatus.Deleted.value:  # type: ignore
-        raise_ex("User not found", code=404)
+async def get_user_detail(user_id: int, session: AsyncSession) -> UserDetailDTO:
+    """Return the current user's complete safe profile.
 
-    user = cast(User, user)
-    user_detail = UserDetailDTO.model_validate(user, from_attributes=True)
-    user_detail.isSuperAdmin = UserRole.Admin.value in user.roles
-    return user_detail
+    Args:
+        user_id: Authenticated database user identifier.
+        session: Active database session.
+
+    Returns:
+        Profile fields that do not expose password material.
+
+    Raises:
+        CustomException: If the user no longer exists.
+    """
+    user = await session.get(User, user_id)
+    if user is None or user.status == UserStatus.Deleted.value:
+        raise_ex("User not found", code=404)
+    return UserDetailDTO(
+        id=user.id,
+        oid=user.oid,
+        username=user.username,
+        nickName=user.nickName,
+        avatar=user.avatar,
+        roles=list(user.roles),
+        status=user.status,
+        createdAt=user.createdAt,
+        isSuperAdmin=UserRole.Admin.value in user.roles,
+    )
+
+
+async def update_user_profile(
+    user_id: int, nick_name: str, session: AsyncSession
+) -> UserDetailDTO:
+    """Update the current user's nickname and return the new profile.
+
+    Args:
+        user_id: Authenticated database user identifier.
+        nick_name: Validated non-blank display nickname.
+        session: Active database session.
+
+    Returns:
+        The updated safe profile.
+
+    Raises:
+        CustomException: If the user no longer exists.
+    """
+    user = await session.get(User, user_id)
+    if user is None or user.status == UserStatus.Deleted.value:
+        raise_ex("User not found", code=404)
+    user.nickName = nick_name.strip()
+    await session.commit()
+    return await get_user_detail(user_id, session)
 
 
 async def update_user_avatar(

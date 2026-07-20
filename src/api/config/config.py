@@ -1,3 +1,5 @@
+"""Load application configuration and initialize the shared API logger."""
+
 import configparser
 import logging
 import logging.config
@@ -9,6 +11,11 @@ app_name = "uzoncalc"
 
 # 当前文件所在目录
 def setup_logger():
+    """Initialize file-based logging and return the application logger.
+
+    Returns:
+        Configured application logger.
+    """
     # 获取日志保存位置，若不存在，则创建目录
     current_dir = os.path.dirname(os.path.abspath(__file__))
     log_dir = f"{current_dir}/../logs"
@@ -24,6 +31,8 @@ logger = setup_logger()
 
 
 class AppConfig:
+    """Expose typed values from environment-selected INI configuration files."""
+
     __config: configparser.ConfigParser
     env: str
 
@@ -63,12 +72,14 @@ class AppConfig:
         return conf
 
     def __init__(self):
+        """Load configuration files into the singleton instance."""
         # 获取配置文件
         # 从 config/.env 文件中读取字符串
         conf = self.__load_config_files()
         self.__config = conf
 
     def __new__(cls) -> "AppConfig":
+        """Return the process-wide configuration singleton."""
         if not hasattr(cls, "_instance"):
             cls._instance = super(AppConfig, cls).__new__(cls)
         return cls._instance
@@ -82,14 +93,17 @@ class AppConfig:
     # region app 配置
     @property
     def version(self) -> str:
+        """Return the application version."""
         return self.get("app", "version")
 
     @property
     def app_name(self) -> str:
+        """Return the configured application name."""
         return self.get("app", "name")
 
     @property
     def welcome(self) -> str:
+        """Return the root endpoint welcome text."""
         return self.get("app", "welcome")
 
     @property
@@ -110,18 +124,22 @@ class AppConfig:
 
     @property
     def host(self) -> str:
+        """Return the API bind host."""
         return self.get("app", "host")
 
     @property
     def port(self) -> int:
+        """Return the API bind port."""
         return self.__config.getint("app", "port")
 
     @property
     def token_secret(self) -> str:
+        """Return the JWT signing secret."""
         return self.get("app", "token_secret")
 
     @property
     def allow_origins(self) -> list[str]:
+        """Return configured CORS origins."""
         origins = self.get("app", "allow_origins")
         return [origin.strip() for origin in origins.split(",")]
 
@@ -134,9 +152,48 @@ class AppConfig:
 
     # endregion
 
+    # region calc report storage
+    @property
+    def calc_report_reports_root(self) -> str:
+        """Return the mutable report projection root directory."""
+        return self.get("calc_report_storage", "reports_root")
+
+    @property
+    def calc_report_artifacts_root(self) -> str:
+        """Return the content-addressed artifact root directory."""
+        return self.get("calc_report_storage", "artifacts_root")
+
+    @property
+    def calc_report_bundles_root(self) -> str:
+        """Return the assembled execution bundle cache directory."""
+        return self.get("calc_report_storage", "bundles_root")
+
+    @property
+    def calc_report_max_file_count(self) -> int:
+        """Return the maximum number of files in one workspace snapshot."""
+        return self.__config.getint("calc_report_storage", "max_file_count")
+
+    @property
+    def calc_report_max_total_size(self) -> int:
+        """Return the maximum total workspace size in bytes."""
+        return self.__config.getint("calc_report_storage", "max_total_size")
+
+    @property
+    def calc_report_max_file_size(self) -> int:
+        """Return the maximum size of one workspace file in bytes."""
+        return self.__config.getint("calc_report_storage", "max_file_size")
+
+    @property
+    def calc_report_build_wait_timeout(self) -> float:
+        """Return how long an execution waits for a lazy artifact build."""
+        return self.__config.getfloat("calc_report_storage", "build_wait_timeout")
+
+    # endregion
+
     # region log
     @property
     def log_level(self) -> int:
+        """Return the numeric application log level."""
         return logging.getLevelNamesMapping().get(
             self.get("log", "level"), logging.INFO
         )
@@ -146,34 +203,42 @@ class AppConfig:
     # region database
     @property
     def postgres_enabled(self) -> bool:
+        """Return whether PostgreSQL storage is enabled."""
         return self.__config.getboolean("postgres", "enabled")
 
     @property
     def sqlite_enabled(self) -> bool:
+        """Return whether SQLite storage is enabled."""
         return self.__config.getboolean("sqlite", "enabled")
 
     @property
     def postgres_host(self) -> str:
+        """Return the PostgreSQL host."""
         return self.get("postgres", "host")
 
     @property
     def postgres_port(self) -> int:
+        """Return the PostgreSQL port."""
         return self.__config.getint("postgres", "port")
 
     @property
     def postgres_user(self) -> str:
+        """Return the PostgreSQL username."""
         return self.get("postgres", "user")
 
     @property
     def postgres_password(self) -> str:
+        """Return the PostgreSQL password."""
         return self.get("postgres", "password")
 
     @property
     def postgres_database(self) -> str:
+        """Return the PostgreSQL database name."""
         return self.get("postgres", "database")
 
     @property
     def sqlite_source(self) -> str:
+        """Return the SQLite connection source."""
         return self.get("sqlite", "source")
 
     def get_db_connection(self) -> str:
@@ -205,6 +270,7 @@ class AppConfig:
     # region mcp
     @property
     def mcp_enabled(self) -> bool:
+        """Return whether MCP endpoints are enabled."""
         return self.__config.getboolean("mcp", "enabled")
 
     @property
@@ -233,6 +299,7 @@ class AppConfig:
     # region user
     @property
     def default_userId(self) -> str:
+        """Return the configured desktop default user identifier."""
         return self.get("user", "default_userId")
 
     @property
@@ -242,11 +309,46 @@ class AppConfig:
 
     @property
     def default_password(self) -> str:
-        # 进行 sha256 加密
+        """Return the SHA-256 hash of the desktop default password."""
+        return self._hash_default_password(self.default_password_plain)
+
+    @property
+    def default_department_name(self) -> str:
+        """Return the configured root department created for default users."""
+        return self.get("user", "default_department_name")
+
+    @property
+    def default_regular_userId(self) -> str:
+        """Return the configured username for the default regular account."""
+        return self.get("user", "default_regular_userId")
+
+    @property
+    def default_regular_password_plain(self) -> str:
+        """Return the configured plaintext password for the regular account."""
+        return self.get("user", "default_regular_password")
+
+    @property
+    def default_regular_password(self) -> str:
+        """Return the SHA-256 hash of the default regular account password."""
+        return self._hash_default_password(self.default_regular_password_plain)
+
+    @staticmethod
+    def _hash_default_password(password: str) -> str:
+        """Hash one configured default password before account registration.
+
+        Args:
+            password: Plaintext password loaded from application configuration.
+
+        Returns:
+            Lowercase SHA-256 hexadecimal digest expected by ``register_user``.
+
+        Raises:
+            None.
+        """
         import hashlib
 
         sha256_hash = hashlib.sha256()
-        sha256_hash.update(self.default_password_plain.encode("utf-8"))
+        sha256_hash.update(password.encode("utf-8"))
         return sha256_hash.hexdigest()
 
     # endregion
@@ -254,16 +356,18 @@ class AppConfig:
     # region sandbox
     @property
     def sandbox_mode(self) -> str:
-        """获取 sandbox 执行模式: local 或 remote"""
+        """Return the configured execution backend mode."""
         return self.get("sandbox", "mode")
 
     @property
     def sandbox_safe_dirs(self) -> list[str]:
+        """Return legacy in-process sandbox safe directories."""
         dirs = self.get("sandbox", "safe_dirs")
         return [d.strip() for d in dirs.split(",") if d.strip()]
 
     @property
     def sandbox_session_timeout(self) -> int:
+        """Return the interactive sandbox session timeout in seconds."""
         return self.__config.getint("sandbox", "session_timeout")
 
     @property
@@ -275,6 +379,49 @@ class AppConfig:
     def sandbox_remote_timeout(self) -> float:
         """获取远程调用超时时间（秒）"""
         return self.__config.getfloat("sandbox", "remote_timeout")
+
+    @property
+    def sandbox_remote_token(self) -> str:
+        """Return the shared token used by the internal Docker sandbox service."""
+        return os.getenv("UZONCALC_SANDBOX_TOKEN") or self.get(
+            "sandbox", "remote_token"
+        )
+
+    @property
+    def sandbox_bubblewrap_path(self) -> str:
+        """Return the configured bubblewrap executable path."""
+        return self.get("sandbox", "bubblewrap_path")
+
+    @property
+    def sandbox_runtime_image(self) -> str:
+        """Return the Docker sandbox runtime image reference."""
+        return self.get("sandbox", "runtime_image")
+
+    @property
+    def sandbox_runtime_image_digest(self) -> str | None:
+        """Return the optional configured immutable Docker image digest."""
+        value = self.get("sandbox", "runtime_image_digest").strip()
+        return value or None
+
+    @property
+    def sandbox_memory_limit(self) -> int:
+        """Return the execution memory limit in bytes."""
+        return self.__config.getint("sandbox", "memory_limit")
+
+    @property
+    def sandbox_cpu_limit(self) -> float:
+        """Return the execution CPU quota expressed as CPU cores."""
+        return self.__config.getfloat("sandbox", "cpu_limit")
+
+    @property
+    def sandbox_pids_limit(self) -> int:
+        """Return the maximum process count for isolated backends."""
+        return self.__config.getint("sandbox", "pids_limit")
+
+    @property
+    def sandbox_network_enabled(self) -> bool:
+        """Return whether isolated managed calculations may access the network."""
+        return self.__config.getboolean("sandbox", "network_enabled")
 
     # endregion
 

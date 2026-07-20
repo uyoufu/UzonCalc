@@ -1,7 +1,8 @@
 from uuid import uuid4
 
 from ..context_utils.doc import head
-from ..context_utils.elements import Div
+from ..context_utils.elements import LabelKind, create_auto_label, h
+from ..globals import get_current_instance
 import itertools
 import json
 
@@ -74,6 +75,7 @@ def echart(
             f"Object of type {type(value).__name__} is not JSON serializable"
         )
 
+    # options_json 是字符串，里面有 js 代码应不再包含引号
     options_json = json.dumps(options, default=encode_default)
 
     # 替换占位符为原始 JavaScript 代码
@@ -84,7 +86,7 @@ def echart(
     container_id = f"echart-container-{uuid4().hex[:8]}"
 
     return f"""
-<div id="{container_id}" style="width: {width}; height: {height};">
+<figure id="{container_id}" style="width: {width}; height: {height};" class="break-inside-avoid">
     <script>
         (function() {{
             const dom = document.getElementById("{container_id}");
@@ -107,12 +109,6 @@ def echart(
 
                 chart.setOption({options_json});
 
-                window.addEventListener('resize', function () {{
-                    if (chart) {{
-                        chart.resize();
-                    }}
-                }});
-
                 if (typeof ResizeObserver !== 'undefined' && !resizeObserver) {{
                     resizeObserver = new ResizeObserver(function () {{
                         if (chart) {{
@@ -123,14 +119,10 @@ def echart(
                 }}
             }}
 
-            if (document.readyState === 'loading') {{
-                document.addEventListener('DOMContentLoaded', initChartWhenReady);
-            }} else {{
-                initChartWhenReady();
-            }}
+            initChartWhenReady();
         }})();
     </script>
-</div>
+</figure>
 """
 
 
@@ -139,7 +131,8 @@ def EChart(
     width: str = "100%",
     height: str = "400px",
     use_gl: bool = False,
-):
+    caption: str = "",
+) -> str:
     """
     生成 ECharts 图表的 HTML 代码，作为新版本的接口
 
@@ -149,6 +142,22 @@ def EChart(
         height: 图表高度，默认为 "400px"
 
     Returns:
-        包含 ECharts 图表的 HTML 字符串
+        返回图表的引用 HTML 字符串
     """
-    Div(echart(options, width, height, use_gl=use_gl))
+    label = create_auto_label(LabelKind.FIGURE)
+    current_instance = get_current_instance()
+    current_instance.append_content(
+        h(
+            "figure",
+            [
+                echart(options, width, height, use_gl=use_gl),
+                h(
+                    "figcaption",
+                    [label.source_html(), caption],
+                    classes="uzoncalc-label-caption uzoncalc-label-caption-figure",
+                ),
+            ],
+            classes="uzoncalc-figure-wrapper",
+        )
+    )
+    return label.reference_html()

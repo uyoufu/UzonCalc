@@ -1,4 +1,5 @@
 import hashlib
+import html
 import json
 import os
 from typing import Any
@@ -43,7 +44,9 @@ def page_size(size: str):
 def head(tag: str, attrs: dict[str, str]):
     """
     添加自定义 HTML 头部内容
-    :param content: HTML 内容字符串，可以包含 <style>、<link>、<script> 等标签
+    内部会自动去重，确保相同内容只添加一次。
+    :param tag: 标签名称，如 'meta', 'link', 'style' 等
+    :param attrs: 属性字典，键值对形式
     """
     ctx = get_current_instance()
 
@@ -87,57 +90,21 @@ def style(name: str, value: dict[str, Any]):
     ctx.options.styles[name] = dict(value)
 
 
-def save(filename: str | None = None):
-    """
-    保存当前文档为指定文件
-    :param filename: 文件名（可以是完整路径或仅文件名）
-    """
-    # CLI 模式下由 cli.py 统一负责保存，此处直接跳过
-    if _is_cli_mode():
-        return
-
-    from ..template.utils import render_html_template
-
-    ctx = get_current_instance()
-
-    if not filename:
-        # 以当前的标题作为文件名
-        filename = ctx.options.doc_title or "UzonCalc Sheet"
-
-    # 没有扩展名则添加 .html
-    if not filename.endswith(".html"):
-        filename += ".html"
-
-    # 如果 filename 不是绝对路径，则保存到调用者文件所在的目录
-    if not os.path.isabs(filename):
-        caller_dir = ctx.get_location_dir()
-        filename = os.path.join(caller_dir, filename)
-
-    # 获取内容
-    content = ctx.html_content()
-
-    # 使用模板渲染 HTML
-    html_output = render_html_template(content, ctx.options)
-
-    # 保存为 HTML 文件
-    with open(filename, "w", encoding="utf-8") as f:
-        f.write(html_output)
-
-    # Show web url
-    print(f"Document saved to (open with browser): file:///{filename}")
-
-
 def toc(title: str = "Table of Contents"):
     """
     插入目录
     :param title: 目录标题
     """
     ctx = get_current_instance()
+    safe_title = html.escape(title, quote=True)
     # 在当前位置插入目录占位符，JavaScript 会自动填充内容
     toc_html = f"""
-<div id='toc' style='page-break-before:always;page-break-after:always;'>
-    <div class='text-center text-2xl font-semibold'>{title}</div>
+<div id="toc" data-toc-title="{safe_title}" style="page-break-before:always;page-break-after:always;">
+    <div class="text-center text-2xl font-semibold">{safe_title}</div>
     <div id='toc-container'></div>
 </div>
 """
     ctx.append_content(toc_html)
+
+
+__all__ = ["doc_title", "font_family", "head", "page_size", "style", "toc"]

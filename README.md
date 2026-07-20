@@ -2,25 +2,34 @@
 
 # UzonCalc
 
-**Write Engineering Calculation Documents in Python — Focus on Calculations, Not Layout**
+**AI-oriented calculation report authoring software - enterprise quality, AI-native, automatic calculation, automatic layout**
 
 English · [中文](README.zh-CN.md)
 
 </div>
 
-UzonCalc is a Python-based engineering calculation document tool. You only need to write calculation logic, and UzonCalc automatically substitutes variable values, generates math formulas, lays out tables of contents and tables, and outputs beautiful HTML calculation documents.
+[![UzonCalc](https://oss.uzoncloud.com:2234/public/files/images/image-20260620153738596.png)](https://github.com/user-attachments/assets/04384977-d1c6-4fab-825b-34bcb4b036c2)
+
+UzonCalc is AI-oriented calculation report authoring software. Its goal is to let AI help engineers quickly generate and modify calculation reports through UzonCalc, so one report can be written once and reused for life.
+
+With UzonCalc, you only need to focus on the calculation logic. The framework automatically substitutes variables, generates calculation steps, renders mathematical formulas, and lays out the document to produce professional calculation reports.
+
+UzonCalc calculation reports are written in native Python syntax without any proprietary conventions, so they are easy to learn and quick to use.
+
+Combined with AI, UzonCalc helps you work much more efficiently.
 
 ---
 
 ## ✨ Features
 
-- 🐍 **Pure Python** — No new syntax to learn; everything is function calls
-- 🤖 **AI Friendly** — Comes with SKILLs, AI helps you quickly generate calculation drafts
-- 📐 **Automatic Formula Rendering** — Variable values are automatically substituted, calculation steps are automatically displayed, with support for Greek letters and subscripts
-- 📏 **Unit Calculations** — Based on pint, automatic unit conversion and dimensional checking
-- 📊 **Chart Support** — Built-in ECharts interactive charts and Matplotlib static charts
-- 📋 **Tables & Excel** — Supports complex tables (merged cells) and calling Excel calculation models
-- 📄 **Multi-format Output** — Direct HTML output, printable to PDF via browser, or convertible to Word via pandoc
+- 🤖 **AI-friendly** — Comes with a SKILL so AI can help you quickly generate and modify calculation reports
+- 🐍 **Native Python** — Uses native Python syntax, easy to learn, quick to use, powerful, and flexible
+- 📐 **Automatic formula rendering** — Variables are automatically substituted with values, and calculation steps are displayed automatically
+- 📌 **Automatic layout** — Automatically lays out content according to calculation results, with no manual adjustment required
+- 📏 **Unit calculation** — Automatically performs unit conversion and dimensional checks, so you do not need to worry about units during calculation
+- 📊 **Chart support** — Draw many kinds of charts with ECharts, SVG, and Matplotlib
+- 📋 **Excel reuse** — Automatically call Excel for calculation and extract results
+- 📄 **Multiple output formats** — Uses standard MathML and supports conversion to PDF and Word
 
 ---
 
@@ -30,29 +39,61 @@ UzonCalc is a Python-based engineering calculation document tool. You only need 
 pip install uzoncalc
 ```
 
-> UzonCalc requires Python 3.10+.
+> UzonCalc requires Python 3.13+.
 
 ---
 
 ## 🚀 Quick Start
 
-**1. Create a calculation script**
+### Windows
+
+1. **Download the software**
+
+   Download the `win-x64` version from [Releases · uyoufu/UzonCalc](https://github.com/uyoufu/UzonCalc/releases), extract it, and double-click `UzonCalc.exe` to start.
+
+2. Copy the following code into the new editor box
+
+   ```python
+   from uzoncalc import *
+
+   @uzon_calc()
+   async def sheet():
+       doc_title("example")
+
+       "Hello, UzonCalc!"
+
+       w = 10*unit.m
+       l = 5*unit.m
+       A = w * l
+   ```
+
+3. Click the run button
+
+   ![image-20260527133234259](https://oss.uzoncloud.com:2234/public/files/images/image-20260527133234259.png)
+
+### CLI
+
+If you use the CLI, follow these steps:
+
+**1. Create a calculation report script**
 
 ```python
 # example.py
+
 from uzoncalc import *
 
 @uzon_calc()
 async def sheet():
-    doc_title("uzoncalc example")
+    doc_title("example")
 
     "Hello, UzonCalc!"
 
-    save()
-
+    w = 10*unit.m
+    l = 5*unit.m
+    A = w * l
 
 if __name__ == "__main__":
-    run_sync(sheet)
+    view(sheet)
 ```
 
 **2. Run**
@@ -61,130 +102,35 @@ if __name__ == "__main__":
 python example.py
 ```
 
-This will generate `example.html` in the current directory. Open it in a browser to view the calculation document.
+You will see `Serving document at: http://127.0.0.1:32180/`. Click it or open it in a browser to view the result.
 
----
+**3. Package as a `.uzc` archive**
 
-## 🖥 Preview
-
-![image-20260329003206167](https://oss.uzoncloud.com:2234/public/files/images/image-20260329003206167.png)
-
-## 📖 More Examples
-
-### Engineering Calculations with Units
-
-```python
-from uzoncalc import *
-
-@uzon_calc()
-async def sheet():
-    doc_title("Cross-Section Stress Calculation")
-
-    H2("Cross-Section Stress Calculation")
-
-    "Section width:"
-    b = 300 * unit.millimeter
-    alias("b", "Section width b")
-
-    "Section height:"
-    h = 500 * unit.millimeter
-    alias("h", "Section height h")
-
-    "Axial force:"
-    N = 100 * unit.kilonewton
-    alias("N", "Axial force N")
-
-    "Section area:"
-    A = b * h
-    alias("A", "Section area A")
-
-    "Section stress:"
-    sigma = N / A
-    alias("sigma", "Section stress σ")
-
-    save()
+```bash
+uzoncalc zip -p example.py
+python example.uzc
 ```
 
-UzonCalc will automatically render:
+The zip command validates that the script contains an `@uzon_calc` entry. If the script does not define an `if __name__ == "__main__"` block, the archive automatically calls `view()` for the single calculation entry.
 
-![image-20260329003336680](https://oss.uzoncloud.com:2234/public/files/images/image-20260329003336680.png)
+The generated `.uzc` is both a 1280×720 PNG thumbnail and a ZIP-based Python application. Its title is selected from the first entry using `H1(...)`, `doc_title(...)`, the `@uzon_calc(...)` name, then the script filename. Run it with `python example.uzc`; the PNG signature means it is no longer a shebang executable. Do not resave or optimize the file with an image editor, because tools may discard its private ZIP chunk.
 
-### T-Section Moment of Inertia Calculation
+## 🌐 Online Examples
 
-```python
-from uzoncalc import *
-
-@uzon_calc()
-async def sheet():
-    doc_title("T-Section Moment of Inertia Calculation")
-    page_size("A4")
-
-    H1("T-Section Moment of Inertia Calculation")
-
-    H2("Basic Section Parameters")
-
-    "Flange width:"
-    b_f = 300 * unit.millimeter
-    alias("b_f", "Flange width b_f")
-
-    "Flange thickness:"
-    h_f = 50 * unit.millimeter
-    alias("h_f", "Flange thickness h_f")
-
-    "Web width:"
-    b_w = 100 * unit.millimeter
-    alias("b_w", "Web width b_w")
-
-    "Web height:"
-    h_w = 200 * unit.millimeter
-    alias("h_w", "Web height h_w")
-
-    H2("Area Calculation")
-
-    "Flange area:"
-    A_f = b_f * h_f
-
-    "Web area:"
-    A_w = b_w * h_w
-
-    "Total area:"
-    A_total = A_f + A_w
-
-    H2("Moment of Inertia Calculation (Parallel Axis Theorem)")
-
-    "Flange self moment of inertia:"
-    I_f_self = b_f * h_f**3 / 12
-
-    "Web self moment of inertia:"
-    I_w_self = b_w * h_w**3 / 12
-
-    # ... more calculation logic
-
-    save("../output/T_section.html")
-```
-
-> Full source: [T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py)
+| Document                  | Source                                                                       | Online Preview                                                         |
+| ------------------------- | ---------------------------------------------------------------------------- | ---------------------------------------------------------------------- |
+| User Guide                | [help.en-US.py](examples/en/help.en-US.py)                                         | [View Document](https://calc.uzoncloud.com/examples/en/help.en-US.html)   |
+| T-section Moment of Inertia | [T_section_moment_of_inertia.py](examples/zh/T_section_moment_of_inertia.py) | [View Document](https://calc.uzoncloud.com/T_section_moment_of_inertia.html) |
 
 ---
 
-## 🌐 Online Demo
+## Contact
 
-| Document | Source | Online Preview |
-|----------|--------|----------------|
-| Usage Guide | [example.en.py](examples/example.en.py) | [View Document](https://calc.uzoncloud.com/examples/example.en.html) |
-| T-Section Moment of Inertia | [T_section_moment_of_inertia.py](examples/T_section_moment_of_inertia.py) | [View Document](https://calc.uzoncloud.com/examples/T_section_moment_of_inertia.en.html) |
+Li Youfu: uyoufu@uzoncloud.com
 
----
+## More
 
-## 📄 Output Formats
-
-| Format | Method |
-|--------|--------|
-| HTML | `save()` generates directly |
-| PDF | Print from browser after opening HTML |
-| Word | `pandoc input.html -o output.docx` |
-
----
+[UzonCalc](https://uzoncalc.uzoncloud.com/)
 
 ## 📜 License
 

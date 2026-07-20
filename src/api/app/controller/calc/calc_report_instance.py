@@ -1,27 +1,95 @@
-"""
-计算实例控制器
-"""
+"""HTTP endpoints for bundle-backed saved calculation instances."""
+
+from typing import Annotated
 
 from fastapi import APIRouter, Depends
+from fastapi.responses import FileResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.controller.calc.calc_dto import (
-    CalcReportInstanceCountFilterDTO,
-    CalcReportInstanceListFilterDTO,
-    CalcReportInstanceReqDTO,
-    CalcReportInstanceResDTO,
-    CalcReportInstanceSaveReqDTO,
+from app.controller.calc.calc_instance_dto import (
+    CalcInstanceCreateDTO,
+    CalcInstanceListFilterDTO,
+    CalcInstanceResDTO,
+    CalcInstanceResultUpdateDTO,
+    CalcInstanceShareResDTO,
+    CalcInstanceUpdateDTO,
 )
 from app.controller.depends import get_session, get_token_payload
+from app.controller.dto_base import PaginationDTO
+from app.middleware.authentication import allow_anonymous
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_instance_service
-from config import logger
 from utils.jwt_helper import TokenPayloads
 
-router = APIRouter(
-    prefix="/v1/calc-report-instance",
-    tags=["calc-report-instance"],
-)
+router = APIRouter(prefix="/v1/calc-report-instance", tags=["calc-report-instance"])
+
+
+@router.get("/shared/{shareToken}")
+@allow_anonymous
+async def get_public_calc_report_instance(
+    shareToken: str,
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcInstanceResDTO]:
+    """Return a read-only saved instance through an anonymous share token."""
+    return ok(
+        data=await calc_report_instance_service.get_public_instance(shareToken, session)
+    )
+
+
+@router.get("/shared/{shareToken}/result")
+@allow_anonymous
+async def get_public_calc_report_instance_result(
+    shareToken: str,
+    session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    """Serve shared instance HTML only after validating its anonymous token."""
+    result_path = await calc_report_instance_service.get_public_instance_result_path(
+        shareToken, session
+    )
+    return FileResponse(result_path, media_type="text/html")
+
+
+@router.get("/count")
+async def count_calc_report_instances(
+    filters: Annotated[CalcInstanceListFilterDTO, Depends()],
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[int]:
+    """Count active saved instances matching the filters."""
+    return ok(
+        data=await calc_report_instance_service.count_instances(
+            tokenPayloads.id, filters, session
+        )
+    )
+
+
+@router.get("/items")
+async def list_calc_report_instance_items(
+    filters: Annotated[CalcInstanceListFilterDTO, Depends()],
+    pagination: Annotated[PaginationDTO, Depends()],
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[list[CalcInstanceResDTO]]:
+    """List one sorted page of active saved instances."""
+    return ok(
+        data=await calc_report_instance_service.list_instances(
+            tokenPayloads.id, filters, pagination, session
+        )
+    )
+
+
+@router.post("")
+async def create_calc_report_instance(
+    request: CalcInstanceCreateDTO,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcInstanceResDTO]:
+    """Save a persisted execution as a permanent instance."""
+    return ok(
+        data=await calc_report_instance_service.create_instance(
+            tokenPayloads.id, request, session
+        )
+    )
 
 
 @router.get("/{instanceOid}")
@@ -29,79 +97,56 @@ async def get_calc_report_instance(
     instanceOid: str,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcReportInstanceResDTO]:
-    result = await calc_report_instance_service.get_calc_report_instance(
+) -> ResponseResult[CalcInstanceResDTO]:
+    """Return one active saved instance."""
+    return ok(
+        data=await calc_report_instance_service.get_instance(
+            tokenPayloads.id, instanceOid, session
+        )
+    )
+
+
+@router.get("/{instanceOid}/result")
+async def get_calc_report_instance_result(
+    instanceOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> FileResponse:
+    """Serve an owned saved instance result after authentication."""
+    result_path = await calc_report_instance_service.get_owned_instance_result_path(
         tokenPayloads.id, instanceOid, session
     )
-    return ok(data=result)
-
-
-@router.post("/list")
-async def list_calc_report_instances(
-    filter_data: CalcReportInstanceListFilterDTO,
-    tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    session: AsyncSession = Depends(get_session),
-) -> ResponseResult[list[CalcReportInstanceResDTO]]:
-    items, total = await calc_report_instance_service.list_calc_report_instances(
-        tokenPayloads.id, filter_data, session
-    )
-    logger.debug(
-        "获取计算实例列表: userId=%s, categoryId=%s, count=%s",
-        tokenPayloads.id,
-        filter_data.categoryId,
-        total,
-    )
-    return ok(data=items)
-
-
-@router.post("/count")
-async def count_calc_report_instances(
-    filter_data: CalcReportInstanceCountFilterDTO,
-    tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    session: AsyncSession = Depends(get_session),
-) -> ResponseResult[int]:
-    total = await calc_report_instance_service.count_calc_report_instances(
-        tokenPayloads.id, filter_data, session
-    )
-    return ok(data=total)
-
-
-@router.post("")
-async def save_calc_report_instance(
-    data: CalcReportInstanceSaveReqDTO,
-    tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcReportInstanceResDTO]:
-    result = await calc_report_instance_service.save_calc_report_instance(
-        tokenPayloads.id, data, session
-    )
-    return ok(data=result)
+    return FileResponse(result_path, media_type="text/html")
 
 
 @router.put("/{instanceOid}")
-async def update_calc_report_instance_info(
+async def update_calc_report_instance(
     instanceOid: str,
-    data: CalcReportInstanceReqDTO,
+    request: CalcInstanceUpdateDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcReportInstanceResDTO]:
-    result = await calc_report_instance_service.update_calc_report_instance_info(
-        tokenPayloads.id, instanceOid, data, session
+) -> ResponseResult[CalcInstanceResDTO]:
+    """Optimistically update saved-instance metadata."""
+    return ok(
+        data=await calc_report_instance_service.update_instance(
+            tokenPayloads.id, instanceOid, request, session
+        )
     )
-    return ok(data=result)
 
 
 @router.put("/{instanceOid}/result")
 async def update_calc_report_instance_result(
     instanceOid: str,
-    data: CalcReportInstanceSaveReqDTO,
+    request: CalcInstanceResultUpdateDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcReportInstanceResDTO]:
-    result = await calc_report_instance_service.update_calc_report_instance_result(
-        tokenPayloads.id, instanceOid, data, session
+) -> ResponseResult[CalcInstanceResDTO]:
+    """Replace saved result and provenance from another execution."""
+    return ok(
+        data=await calc_report_instance_service.update_instance_result(
+            tokenPayloads.id, instanceOid, request, session
+        )
     )
-    return ok(data=result)
 
 
 @router.delete("/{instanceOid}")
@@ -110,7 +155,35 @@ async def delete_calc_report_instance(
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[None]:
-    await calc_report_instance_service.delete_calc_report_instance(
+    """Soft-delete one saved instance."""
+    await calc_report_instance_service.delete_instance(
+        tokenPayloads.id, instanceOid, session
+    )
+    return ok()
+
+
+@router.put("/{instanceOid}/share")
+async def share_calc_report_instance(
+    instanceOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcInstanceShareResDTO]:
+    """Enable anonymous access and return a stable share token."""
+    return ok(
+        data=await calc_report_instance_service.share_instance(
+            tokenPayloads.id, instanceOid, session
+        )
+    )
+
+
+@router.delete("/{instanceOid}/share")
+async def revoke_calc_report_instance_share(
+    instanceOid: str,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[None]:
+    """Revoke anonymous access to one owned saved instance."""
+    await calc_report_instance_service.revoke_instance_share(
         tokenPayloads.id, instanceOid, session
     )
     return ok()

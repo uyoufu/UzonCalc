@@ -1,0 +1,20 @@
+name: Core
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v6
+        with:
+          python-version: "3.13"
+          enable-cache: true
+      - run: uv sync --package uzoncalc --group test
+      - run: uv run --package uzoncalc --group test pytest tests -q
+      - run: uv run --package uzoncalc --group test ruff check --config src/core/pyproject.toml src/core/uzoncalc tests
+      - run: uv run --package uzoncalc --group test basedpyright --level error
+        working-directory: src/core

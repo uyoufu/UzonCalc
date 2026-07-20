@@ -6,10 +6,10 @@
   --uz-text-color: #333;
   --uz-text-color-strong: #2b3b4e;
   --uz-text-color-muted: #999;
-  --uz-text-color-code: #d73a49;
-  --uz-text-color-math: #06d;
+  --uz-text-color-code: #2bbc8a;
+  --uz-text-color-math: rgb(30, 122, 228);
   --uz-text-color-function: #d2a8ff;
-  --uz-text-color-unit: #239561;
+  --uz-text-color-unit: #2bbc8a;
   --uz-text-color-print: #000;
 
   --uz-bg-color: #fff;
@@ -45,8 +45,16 @@
   --uz-line-height-ui: 1.6;
   --uz-line-height-code: 1.5;
 
-  --uz-font-mono: "Consolas", "Monaco", "Courier New", monospace;
-  --uz-font-math-zh:
-    "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei",
-    "微软雅黑";
+  --uz-font-body: var(
+    --uz-font-body-option,
+    'Segoe UI',
+    Tahoma,
+    Geneva,
+    Verdana,
+    sans-serif,
+    'Microsoft YaHei' ;
+  );
+  --uz-font-page: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft YaHei';
+  --uz-font-mono: 'Consolas', 'Monaco', 'Courier New', monospace;
+  --uz-font-math-zh: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif, 'Microsoft YaHei';
 }

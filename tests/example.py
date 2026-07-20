@@ -1,12 +1,5 @@
-from pathlib import Path
-import sys
 import numpy as np
-
-# Ensure project root is on sys.path so `import core` works when running
-# this script from the `core` folder.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
-
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 @uzon_calc()
@@ -51,9 +44,6 @@ async def sheet():
         final_result = result * 2
     else:
         final_result = result
-
-    # 保存输出
-    save("../output/example.html")
 
 
 if __name__ == "__main__":

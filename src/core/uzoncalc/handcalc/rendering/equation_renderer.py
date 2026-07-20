@@ -2,14 +2,14 @@ from __future__ import annotations
 
 from typing import Any, Mapping
 
-import numpy as np
-
 from .. import ir
 from ..transformers import transform_ir
 from .value_renderer import is_array_value, should_render_runtime_value, value_to_ir
 
 SYMBOL_COLON = ":"
 SYMBOL_COMMA = ","
+SYMBOL_ATTRIBUTE_SEPARATOR = "."
+_UNRESOLVED = object()
 
 
 def build_equation_parts(
@@ -17,16 +17,23 @@ def build_equation_parts(
     locals_map: Mapping[str, Any],
     value: Any,
     *,
+    enable_formula_expression: bool = True,
     enable_substitution: bool = True,
 ) -> list[ir.MathNode]:
     """构建方程的各部分（表达式、替换值、结果值）。"""
     expr_node = style_array_vars(expr_node, locals_map)
-    parts: list[ir.MathNode] = [expr_node]
+    parts: list[ir.MathNode] = []
+    if enable_formula_expression:
+        parts.append(expr_node)
 
     if enable_substitution:
         # 仅替换公式中的变量节点，不直接展示复杂运行期对象 repr。
-        substituted = substitute_vars(expr_node, locals_map)
-        if substituted != expr_node:
+        substituted = substitute_vars(
+            expr_node,
+            locals_map,
+            resolve_subscript_values=not should_render_runtime_value(value),
+        )
+        if substituted != expr_node and substituted not in parts:
             parts.append(substituted)
 
     if should_render_runtime_value(value):
@@ -53,6 +60,7 @@ def build_equation_parts_for_assignment(
     value: Any,
     locals_map: Mapping[str, Any],
     *,
+    enable_formula_expression: bool = True,
     enable_substitution: bool = True,
 ) -> list[ir.MathNode]:
     """为赋值语句构建方程各部分。"""
@@ -64,25 +72,58 @@ def build_equation_parts_for_assignment(
                 rhs_styled,
                 locals_map,
                 value,
+                enable_formula_expression=enable_formula_expression,
                 enable_substitution=enable_substitution,
-            )[1:]
+            )
         )
-        parts.insert(1, rhs_styled)
     elif should_render_runtime_value(value):
         parts.append(value_to_ir(value))
     return parts
 
 
-def substitute_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.MathNode:
-    """Replace variables with runtime values when available (conservative)."""
+def substitute_vars(
+    node: ir.MathNode,
+    locals_map: Mapping[str, Any],
+    *,
+    resolve_subscript_values: bool = True,
+) -> ir.MathNode:
+    """Replace renderable value-position variables with runtime values.
+
+    Args:
+        node: MathIR expression to transform.
+        locals_map: Runtime local variables captured from the calculation frame.
+        resolve_subscript_values: Whether a whole subscript expression may be
+            evaluated to its final runtime element.
+
+    Returns:
+        A transformed MathIR expression.
+
+    Raises:
+        No exceptions are intentionally raised; unsafe substitutions are skipped.
+    """
 
     def _repl(n: ir.MathNode) -> ir.MathNode | None:
-        resolved = _try_resolve_subscript(n, locals_map)
+        resolved = (
+            _try_resolve_subscript(n, locals_map)
+            if resolve_subscript_values
+            else None
+        )
         if resolved is not None:
             return resolved
 
         if isinstance(n, ir.Mi) and n.name in locals_map:
-            return value_to_ir(locals_map[n.name])
+            value = locals_map[n.name]
+            if should_render_runtime_value(value):
+                return value_to_ir(value)
+            return None
+
+        if isinstance(n, ir.Mi):
+            attribute_value = _try_resolve_attribute_path(n.name, locals_map)
+            if (
+                attribute_value is not _UNRESOLVED
+                and should_render_runtime_value(attribute_value)
+            ):
+                return value_to_ir(attribute_value)
 
         return None
 
@@ -92,6 +133,7 @@ def substitute_vars(node: ir.MathNode, locals_map: Mapping[str, Any]) -> ir.Math
         should_descend=lambda parent, field_name: not (
             isinstance(parent, ir.MSub) and field_name == "base"
         ),
+        should_descend_child=_should_descend_substitution_child,
     )
 
 
@@ -112,6 +154,26 @@ def is_private_lhs(lhs: Any) -> bool:
     return isinstance(lhs, ir.Mi) and lhs.name.startswith("_")
 
 
+def _try_resolve_attribute_path(name: str, locals_map: Mapping[str, Any]) -> Any:
+    """按 locals 中的根对象解析属性访问路径，失败时返回未解析标记。"""
+    if SYMBOL_ATTRIBUTE_SEPARATOR not in name:
+        return _UNRESOLVED
+
+    root_name, *attribute_names = name.split(SYMBOL_ATTRIBUTE_SEPARATOR)
+    if not root_name or not attribute_names or root_name not in locals_map:
+        return _UNRESOLVED
+
+    current_value = locals_map[root_name]
+    for attribute_name in attribute_names:
+        if not attribute_name:
+            return _UNRESOLVED
+        try:
+            current_value = getattr(current_value, attribute_name)
+        except AttributeError:
+            return _UNRESOLVED
+    return current_value
+
+
 def _try_resolve_subscript(
     node: ir.MathNode, locals_map: Mapping[str, Any]
 ) -> ir.MathNode | None:
@@ -123,7 +185,7 @@ def _try_resolve_subscript(
         return None
 
     base_value = locals_map.get(base.name)
-    if base_value is None or not isinstance(base_value, (list, tuple, np.ndarray, dict)):
+    if base_value is None or not _is_subscriptable_value(base_value):
         return None
 
     index = _ir_to_index(node.subscript, locals_map)
@@ -131,9 +193,49 @@ def _try_resolve_subscript(
         return None
 
     try:
-        return value_to_ir(base_value[index])
+        value = base_value[index]
     except Exception:
         return None
+    if not should_render_runtime_value(value):
+        return None
+    return value_to_ir(value)
+
+
+def _should_descend_substitution_child(
+    parent: ir.MathNode, field_name: str, child: ir.MathNode, child_index: int
+) -> bool:
+    """Return whether a child is in a value-position substitution context.
+
+    Args:
+        parent: Parent MathIR node.
+        field_name: Dataclass field that owns the child.
+        child: Child MathIR node.
+        child_index: Child index inside the owning list field.
+
+    Returns:
+        ``False`` for function/method call targets; otherwise ``True``.
+
+    Raises:
+        No exceptions are raised.
+    """
+    if isinstance(parent, ir.MCall) and field_name == "children" and child_index == 0:
+        return False
+    return True
+
+
+def _is_subscriptable_value(value: Any) -> bool:
+    """Return True when a runtime value supports safe subscript attempts.
+
+    Args:
+        value: Runtime value used as a subscript base.
+
+    Returns:
+        Whether the value exposes ``__getitem__``.
+
+    Raises:
+        No exceptions are raised.
+    """
+    return hasattr(value, "__getitem__")
 
 
 def _ir_to_index(node: ir.MathNode, locals_map: Mapping[str, Any]) -> Any | None:

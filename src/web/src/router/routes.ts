@@ -1,7 +1,7 @@
 import type { ExtendedRouteRecordRaw } from './types'
 
 const NormalLayout = () => import('../layouts/normalLayout/normalLayout.vue')
-// const SinglePageLayout = () => import('../layouts/singlePageLayout/singlePageLayout.vue')
+const SinglePageLayout = () => import('../layouts/singlePageLayout/singlePageLayout.vue')
 
 /**
  * 使用说明
@@ -16,24 +16,13 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
     path: '/',
     component: NormalLayout,
     meta: {
-      label: 'dashboardPage.index', // '我的收藏',
+      label: 'dashboardPage.index',
       icon: 'terminal',
-      // 不缓存
-      noCache: false
+      noCache: true,
+      noMenu: true
     },
-    // 填绝对路径，若是相对路径，则相对于当前路由
-    redirect: '/index',
-    children: [
-      {
-        name: 'dashboardIndex',
-        path: 'index',
-        meta: {
-          label: 'dashboardPage.newCalcReport',
-          icon: 'terminal'
-        },
-        component: () => import('pages/dashboard/dashboardIndex.vue')
-      }
-    ]
+    redirect: '/calc-report/list',
+    children: []
   },
   {
     name: 'User',
@@ -69,7 +58,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
     redirect: '/calc-report/list',
     children: [
       {
-        name: 'calcReportList',
+        name: 'CalcReportList',
         path: 'list',
         meta: {
           icon: 'assignment',
@@ -79,14 +68,32 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         component: () => import('pages/calcReport/list/CalcReportList.vue')
       },
       {
-        name: 'editCalcReport',
+        name: 'CalcReportNew',
         path: 'new',
         meta: {
           icon: 'add_box',
           label: 'calcReportPage.editCalcReport',
           noMenu: true
         },
-        component: () => import('pages/calcReport/edit/editCalcReport.vue')
+        component: () => import('pages/calcReport/workbench/CalcReportWorkbench.vue')
+      },
+      {
+        name: 'CalcReportWorkspace',
+        path: ':reportOid/workspace',
+        meta: { icon: 'code', label: 'calcWorkspace.workspace', noMenu: true, noCache: true },
+        component: () => import('pages/calcReport/workbench/CalcReportWorkbench.vue')
+      },
+      {
+        name: 'CalcReportRun',
+        path: ':reportOid/run',
+        meta: { icon: 'play_circle', label: 'calcWorkspace.run', noMenu: true, noCache: true },
+        component: () => import('pages/calcExecution/CalcReportRun.vue')
+      },
+      {
+        name: 'CalcReportVersions',
+        path: ':reportOid/versions',
+        meta: { icon: 'history', label: 'calcWorkspace.versions', noMenu: true, noCache: true },
+        component: () => import('pages/calcReport/version/CalcReportVersions.vue')
       }
     ]
   },
@@ -101,7 +108,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
     redirect: '/calc-report-instance/list',
     children: [
       {
-        name: 'calcReportInstanceList',
+        name: 'CalcReportInstanceList',
         path: 'list',
         meta: {
           icon: 'list_alt',
@@ -109,27 +116,35 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
           noCache: true
         },
         component: () => import('pages/calcReportInstance/list/InstanceList.vue')
+      },
+      {
+        name: 'CalcReportInstanceDetail',
+        path: ':instanceOid',
+        meta: {
+          icon: 'description',
+          label: 'calcWorkspace.instanceDetail',
+          noMenu: true,
+          noCache: true
+        },
+        component: () => import('pages/calcReportInstance/InstanceDetail.vue')
       }
     ]
   },
   {
-    name: 'reportViewerContainer',
-    path: '/calc-report',
+    name: 'CalcExecutionManagement',
+    path: '/calc-execution',
     component: NormalLayout,
     meta: {
-      label: 'calcReportPage.calcManagement',
-      icon: 'article'
+      label: 'calcWorkspace.executionHistory',
+      icon: 'history'
     },
-    redirect: '/calc-report/view',
+    redirect: '/calc-execution/list',
     children: [
       {
-        name: 'calcReportViewer',
-        path: 'view',
-        meta: {
-          icon: 'view_carousel',
-          label: 'calcReportPage.calcReportViewer'
-        },
-        component: () => import('pages/calcReport/viewer/calcReportViewer.vue')
+        name: 'CalcExecutionHistory',
+        path: 'list',
+        meta: { icon: 'history', label: 'calcWorkspace.executionHistory', noCache: true },
+        component: () => import('pages/calcExecution/ExecutionHistory.vue')
       }
     ]
   },
@@ -154,6 +169,26 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
   //     }
   //   ]
   // },
+  {
+    name: 'UserManagement',
+    path: '/user-management',
+    component: NormalLayout,
+    meta: {
+      label: 'userManagement.title',
+      icon: 'manage_accounts',
+      access: ['admin'],
+      denies: ['desktop-api']
+    },
+    redirect: '/user-management/index',
+    children: [
+      {
+        name: 'UserManagementIndex',
+        path: 'index',
+        meta: { label: 'userManagement.title', icon: 'manage_accounts', noCache: true },
+        component: () => import('pages/userManagement/UserManagementIndex.vue')
+      }
+    ]
+  },
   {
     name: 'Sponsor',
     path: '/sponsor',
@@ -203,6 +238,38 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
 
 // 静态 routes
 export const constantRoutes: ExtendedRouteRecordRaw[] = [
+  {
+    name: 'PublicShares',
+    path: '/public',
+    component: SinglePageLayout,
+    meta: { label: 'calcWorkspace.sharedReport', icon: 'share', noMenu: true, anonymous: true },
+    children: [
+      {
+        name: 'CalcReportSharedImport',
+        path: '/calc-report/shared/import',
+        meta: {
+          label: 'calcWorkspace.importSharedReport',
+          icon: 'download',
+          noMenu: true,
+          noCache: true,
+          anonymous: true
+        },
+        component: () => import('pages/calcReport/shared/SharedImport.vue')
+      },
+      {
+        name: 'CalcReportInstanceShared',
+        path: '/calc-report-instance/shared/:token',
+        meta: {
+          label: 'calcWorkspace.sharedInstance',
+          icon: 'share',
+          noMenu: true,
+          noCache: true,
+          anonymous: true
+        },
+        component: () => import('pages/calcReportInstance/SharedInstanceDetail.vue')
+      }
+    ]
+  },
   {
     name: 'Login',
     path: '/login',

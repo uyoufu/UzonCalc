@@ -1,5 +1,6 @@
 /* UzonCalc template theme styles */
 body {
+  font-family: var(--uz-font-body);
   margin: var(--uz-page-margin);
   line-height: var(--uz-line-height-body);
   color: var(--uz-text-color);
@@ -49,14 +50,4 @@ div {
 
 span {
   display: inline;
-}
-
-ul,
-ol {
-  margin: var(--uz-space-lg) 0;
-  padding-left: 2em;
-}
-
-li {
-  margin: 0.3em 0;
 }

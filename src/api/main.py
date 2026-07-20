@@ -1,3 +1,5 @@
+"""Create and run the UzonCalc HTTP API application."""
+
 import os
 import time
 import sys
@@ -15,10 +17,14 @@ os.chdir(HERE)
 from app.db.init_db import init_database
 from app.db.manager import get_db_manager
 from app.utils.dynamic_loader import load_routers_from_directory
-from app.exception.custom_exception import CustomException, raise_ex
+from app.exception.custom_exception import CustomException
 from app.response.response_result import fail
-from app.controller.depends import get_request_token
 from app.i18n import _
+from app.middleware.authentication import (
+    allow_anonymous,
+    authenticate_non_api_request,
+    require_route_authentication,
+)
 from app.middleware.i18n import i18n_middleware
 from app.schedule.scheduler import start_scheduler, shutdown_scheduler
 from app.middleware.vue_spa import use_vue_spa_middleware
@@ -28,10 +34,11 @@ from app.mcp.startup import (
     init_tool_search,
     close_tool_search,
 )
+from app.service.playwright_service import close_playwright_service
+from app.sandbox.core.backend_factory import close_sandbox_executor
+from app.service.calc_execution_service import expire_orphaned_executions
 
-from utils.jwt_helper import verify_jwt
-
-from fastapi import FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, HTTPException, Request
 from fastapi.concurrency import asynccontextmanager
 from fastapi.staticfiles import StaticFiles
 from fastapi.middleware.cors import CORSMiddleware
@@ -57,6 +64,9 @@ async def lifespan(app: FastAPI):
     if not db_initialized:
         raise RuntimeError("Database initialization failed during startup")
 
+    async with get_db_manager().session() as session:
+        await expire_orphaned_executions(session)
+
     # migrations
     # run_migrations()
 
@@ -78,6 +88,12 @@ async def lifespan(app: FastAPI):
 
         # 释放工具搜索资源
         await close_tool_search()
+
+        # 释放 Playwright 浏览器缓存
+        await close_playwright_service()
+
+        # 终止仍在运行的计算会话并关闭远程连接池
+        await close_sandbox_executor()
     except Exception as e:
         logger.error(f"Database shutdown error: {e}")
 
@@ -88,12 +104,15 @@ async def lifespan(app: FastAPI):
 # 将 MCP 的 lifespan 与主应用的 lifespan 进行合并，使得两者的生命周期能够正确管理
 combined_lifespans = combine_lifespans(lifespan)
 
-app = FastAPI(lifespan=combined_lifespans)
+app = FastAPI(
+    lifespan=combined_lifespans,
+    dependencies=[Depends(require_route_authentication)],
+)
 
-logger.info(f"Load controllers ...")
+logger.info("Load controllers ...")
 # 这部分为路由配置，每增加一个路由，都需要在这里进行配置
 load_routers_from_directory("app/controller", app)
-logger.info(f"All controllers loaded!")
+logger.info("All controllers loaded!")
 
 # region 函数名用作 operationId, 参考 https://fastapi.org.cn/advanced/path-operation-advanced-configuration/#openapi-operationid
 from fastapi.routing import APIRoute
@@ -114,7 +133,7 @@ def use_route_names_as_operation_ids(app: FastAPI) -> None:
 use_route_names_as_operation_ids(app)
 # endregion
 
-logger.info(f"Initialize directories ...")
+logger.info("Initialize directories ...")
 # 设置静态目录
 # 若目录不存在，则创建一个
 if not os.path.exists("data/public"):
@@ -132,54 +151,20 @@ init_dirs = [
 for dir_name in init_dirs:
     if not os.path.exists(dir_name):
         os.makedirs(dir_name)
-logger.info(f"Directories initialized!")
+logger.info("Directories initialized!")
 
 
 # 中间件，先添加，后执行
-# 添加鉴权中间件
 @app.middleware("http")
 async def authentication(request: Request, call_next: Callable):
-    # 忽略根路径和静态文件路径
-    if request.url.path == "/":
-        return await call_next(request)
-
-    # # 允许 CORS 预检请求通过，不做鉴权
-    # if request.method == "OPTIONS":
-    #     return await call_next(request)
-
-    # 如果是桌面端，则忽略所有非 api 路径
-    if app_config.is_desktop and not request.url.path.startswith("/api/"):
-        return await call_next(request)
-
-    # 忽略文件路径
-    ignore_starts = [
-        "/api/v1/user/sign-in",  # sign-in 不需要鉴权
-        "/api/v1/system-info/version",  # 获取版本号不需要鉴权
-        "/api/v1/system-info/desktop-auto-login",  # 桌面端自动登录信息不需要鉴权
-        "/public",
-        "/docs",
-        "/redoc",
-        "/openapi.json",
-        "/favicon.ico",
-    ]
-    for ignore_start in ignore_starts:
-        if request.url.path.startswith(ignore_start):
-            return await call_next(request)
-
-    # 获取 token 并验证
-    try:
-        token = get_request_token(request)
-        if not verify_jwt(token):
-            raise_ex(_("Authorization failed!"), 401)
-    except CustomException:
-        raise
-
-    return await call_next(request)
+    """Authenticate mounted non-API applications outside FastAPI dependencies."""
+    return await authenticate_non_api_request(request, call_next)
 
 
 # # 添加异常捕获中间件
 @app.middleware("http")
 async def catch_exception(request: Request, call_next):
+    """Convert application and framework exceptions into response envelopes."""
     try:
         response = await call_next(request)
     except Exception as e:
@@ -201,6 +186,7 @@ async def catch_exception(request: Request, call_next):
 
 @app.middleware("http")
 async def use_i18n(request: Request, call_next: Callable):
+    """Select request-local gettext translations before route execution."""
     return await i18n_middleware(request, call_next)
 
 
@@ -215,6 +201,7 @@ async def use_i18n(request: Request, call_next: Callable):
 
 @app.middleware("http")
 async def add_process_time_header(request: Request, call_next):
+    """Measure request latency and expose it in a response header."""
     start_time = time.time()
 
     logger.debug(f"Start processing request: [{request.url}]")
@@ -246,6 +233,7 @@ app.add_middleware(
 if not os.path.exists("data/www/index.html"):
 
     @app.get("/")
+    @allow_anonymous
     async def home():
         """
         根路由

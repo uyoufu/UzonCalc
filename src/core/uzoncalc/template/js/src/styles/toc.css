@@ -25,7 +25,7 @@
 }
 
 .toc-number {
-  font-weight: 600;
+  font-weight: 400;
   white-space: nowrap;
   padding-right: var(--uz-space-xs);
   background: var(--uz-bg-color);
@@ -59,8 +59,8 @@
   min-width: 1em;
 }
 
-.toc-page[data-page-placeholder="true"] {
-  font-family: inherit;
+.toc-page[data-page-placeholder='true'] {
+  font-family: var(--uz-font-body);
   background-color: var(--uz-bg-color-placeholder);
   padding: 0 0.25em;
   border-radius: 2px;

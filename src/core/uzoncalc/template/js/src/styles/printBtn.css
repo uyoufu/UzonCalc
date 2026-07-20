@@ -5,31 +5,6 @@
   top: var(--uz-space-md);
   right: var(--uz-space-md);
   z-index: 1000;
-  border: 1px solid var(--uz-border-color-muted);
-  border-radius: var(--uz-radius-md);
-  padding: var(--uz-space-sm) var(--uz-space-sm);
-  color: var(--uz-text-color-strong);
-  background-color: var(--uz-bg-color);
-  box-shadow: var(--uz-shadow-medium);
-  font: inherit;
-  line-height: var(--uz-line-height-ui);
-  cursor: pointer;
-}
-
-.uz-print-button:hover {
-  border-color: var(--uz-focus-color);
-  color: var(--uz-link-color);
-}
-
-.uz-print-button:focus-visible {
-  outline: none;
-  border-color: var(--uz-focus-color);
-  box-shadow: var(--uz-focus-shadow);
-}
-
-.uz-print-button:active {
-  background-color: var(--uz-bg-color-soft);
-  transform: translateY(1px);
 }
 
 @media print {

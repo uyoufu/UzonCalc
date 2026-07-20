@@ -212,7 +212,13 @@ ast_print.ast
 output/
 logs/
 publish
-ai-examples/
+dev_examples/
 
 .fake
 .superpowers/
+
+# AI assistant artifacts
+context-snapshot.json
+data/
+test-results/
+session-log.md

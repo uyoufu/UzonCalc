@@ -11,7 +11,7 @@
 param(
     [string]$OutputDir,
     [string]$ApiOutputName = "UzonCalc-Portable",
-    [string]$PythonVersion = "3.11.9",
+    [string]$PythonVersion = "3.13.14",
     [string]$PythonCacheRoot
 )
 
@@ -133,6 +133,15 @@ function Copy-DirectoryContents {
     }
 }
 
+function Resolve-ArchivePath {
+    param([string]$OutputDirectory)
+
+    $parentDirectory = Split-Path -Path $OutputDirectory -Parent
+    $leafName = Split-Path -Path $OutputDirectory -Leaf
+
+    return (Join-Path $parentDirectory "$leafName.zip")
+}
+
 function Get-LatestReleaseExe {
     param(
         [string]$ReleaseDirectory,
@@ -172,8 +181,10 @@ $sourceConfig = Join-RepoPath $tauriDir "config.toml"
 $cargoManifest = Join-RepoPath $tauriDir "Cargo.toml"
 $appVersion = Get-CargoPackageVersion $cargoManifest
 $resolvedOutputDir = Resolve-OutputPath $repoRoot $OutputDir $appVersion
+$archivePath = Resolve-ArchivePath $resolvedOutputDir
 
 Assert-IsInsidePath $resolvedOutputDir $repoRoot
+Assert-IsInsidePath $archivePath $repoRoot
 Assert-PathExists $webDir "Web 目录"
 Assert-PathExists $tauriDir "Tauri 目录"
 Assert-PathExists $apiBuildScript "API 构建脚本"
@@ -283,6 +294,39 @@ Copy-DirectoryContents $apiPortableDir $resolvedOutputDir
 
 $totalSize = (Get-ChildItem -LiteralPath $resolvedOutputDir -Recurse -Force | Measure-Object -Property Length -Sum).Sum / 1MB
 
+Write-Step "打包 zip 文件"
+Write-Info "zip 文件: $archivePath"
+
+if (Test-Path -LiteralPath $archivePath) {
+    Remove-Item -LiteralPath $archivePath -Force
+}
+
+$archiveParent = Split-Path -Path $archivePath -Parent
+Push-Location $archiveParent
+try {
+    Compress-Archive -Path (Split-Path -Path $resolvedOutputDir -Leaf) -DestinationPath $archivePath
+}
+finally {
+    Pop-Location
+}
+
+$archiveSize = (Get-Item -LiteralPath $archivePath).Length / 1MB
+
+Write-Step "上传 zip 文件"
+$onedoCommand = Get-Command onedo -ErrorAction SilentlyContinue
+if ($onedoCommand) {
+    Write-Info "检测到 onedo，开始上传: $archivePath"
+    Invoke-ExternalCommand "zip 文件上传失败" {
+        onedo minio soft -p $archivePath
+    }
+    Write-Info "zip 文件上传完成。"
+}
+else {
+    Write-Info "未找到 onedo，跳过上传。"
+}
+
 Write-Step "构建完成"
 Write-Info "整包目录: $resolvedOutputDir"
 Write-Info "总大小: $([Math]::Round($totalSize, 2)) MB"
+Write-Info "zip 文件: $archivePath"
+Write-Info "zip 大小: $([Math]::Round($archiveSize, 2)) MB"

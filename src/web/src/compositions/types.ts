@@ -18,17 +18,18 @@ export interface IRequestPagination {
  */
 export type TTableFilterObject = {
   filter?: string
-} & Record<string, string | object | number>
+} & Record<string, string | object | number | boolean>
 
 /**
  * 初始化表格的参数
  */
-export interface IQTableInitParams {
+export interface IQTableInitParams<T extends object = Record<string, unknown>> {
   sortBy?: string,
   descending?: boolean,
+  rowsPerPage?: number,
   filterFactor?: (filter: string) => Promise<TTableFilterObject> | TTableFilterObject, // 过滤因子
   getRowsNumberCount?: (filterObj: TTableFilterObject) => Promise<number> | number, // 请求数据总数
   onRequest?: (filterObj: TTableFilterObject, pagination: IRequestPagination)
-    => Promise<Array<object>> | Array<object>, // 请求数据
+    => Promise<T[]> | T[], // 请求数据
   preventRequestWhenMounted?: boolean // 在挂载时请求数据
 }

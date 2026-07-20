@@ -3,9 +3,9 @@ from typing import Optional
 
 from .field_names import FieldNames
 from .recording_state import RecordingState
-from .ast_to_step import AstToStepConverter
+from .ast_to_step_converter import AstToStepConverter
 from .recording_injector import RecordingInjector
-from .call_filters import should_hide_call
+from .call_filters import CallFilterRegistry, get_call_filter_registry
 from . import ir
 
 # description:
@@ -14,11 +14,24 @@ from . import ir
 
 
 class AstNodeVisitor(ast.NodeTransformer):
-    def __init__(self) -> None:
+    def __init__(self, call_filter_registry: CallFilterRegistry | None = None) -> None:
+        """Initialize an AST visitor with a stable call-filter snapshot.
+
+        Args:
+            call_filter_registry: Optional registry to snapshot for this traversal.
+
+        Returns:
+            None.
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
         super().__init__()
         self._state = RecordingState()
         self._converter = AstToStepConverter()
         self._injector = RecordingInjector()
+        registry = call_filter_registry or get_call_filter_registry()
+        self._call_filter_registry = registry.snapshot()
 
     def _visit_body_scope(self, node: ast.AST, body_attr: str = "body") -> ast.AST:
         """通用的作用域访问方法，处理带有 body 的节点"""
@@ -150,11 +163,8 @@ class AstNodeVisitor(ast.NodeTransformer):
             setattr(node, FieldNames.skip_record, True)
             return node
 
-        if isinstance(node.value, ast.Call):
-            # 检查是否应该隐藏该函数调用（如 UI 等）
-            if should_hide_call(node.value):
-                return node
-            # 其他函数调用 -> 不记录
+        if self._is_unrecorded_call_expression(node.value):
+            # 裸调用语句只保留副作用；await func() 在 AST 中会包一层 Await。
             return node
 
         # Pure string literal statement (non-docstring) -> text output.
@@ -212,13 +222,45 @@ class AstNodeVisitor(ast.NodeTransformer):
             return [node, record_call]
 
         # General expression statement -> math output.
+        temp_var = (
+            f"__uzon_expr_value_{getattr(node, 'lineno', 0)}_"
+            f"{getattr(node, 'col_offset', 0)}__"
+        )
+        temp_target = ast.Name(id=temp_var, ctx=ast.Store())
+        ast.copy_location(temp_target, node)
+        temp_assign = ast.Assign(targets=[temp_target], value=node.value)
+        ast.copy_location(temp_assign, node)
+
+        value_node = ast.Name(id=temp_var, ctx=ast.Load())
+        ast.copy_location(value_node, node)
+
         step = self._converter.convert_expr(node.value)
         record_call = self._injector.make_record_call(
-            node, step=step, include_locals=True
+            node,
+            step=step,
+            value_node=value_node,
+            include_locals=True,
         )
-        return [node, record_call]
+        return [temp_assign, record_call]
 
     # region 内部方法
+    def _is_unrecorded_call_expression(self, node: ast.expr) -> bool:
+        """判断表达式语句是否为不需要记录的函数调用。
+
+        Args:
+            node: 表达式语句的值节点。
+
+        Returns:
+            如果表达式是 ``func()`` 或 ``await func()`` 形式则返回 True。
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
+        if isinstance(node, ast.Call):
+            return True
+
+        return isinstance(node, ast.Await) and isinstance(node.value, ast.Call)
+
     def _should_hide_assignment(self, node: ast.Assign) -> bool:
         """
         检查赋值语句是否应该被隐藏
@@ -230,11 +272,11 @@ class AstNodeVisitor(ast.NodeTransformer):
         # 处理 await 表达式: await UI(...)
         if isinstance(rhs, ast.Await):
             if isinstance(rhs.value, ast.Call):
-                return should_hide_call(rhs.value)
+                return self._call_filter_registry.should_hide_call(rhs.value)
         
         # 处理普通调用: UI(...)
         if isinstance(rhs, ast.Call):
-            return should_hide_call(rhs)
+            return self._call_filter_registry.should_hide_call(rhs)
         
         return False
     

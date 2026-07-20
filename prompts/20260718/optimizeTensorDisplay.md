@@ -1,0 +1,12 @@
+# 优化张量显示效果
+
+修复以下两个问题
+
+1. 优化 uzoncal 生成的计算书中，`a5 = np.array([[1, 2, 3], [4, 5, 6]])` 会渲染为 `<math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mrow><mi class="array-var" mathvariant="bold">a5</mi></mrow><mo>=</mo><mrow><mi mathvariant="italic">np</mi><mo>.</mo><mtext class="function-name">array</mtext><mo>(</mo><mrow class="array-value"><mo>[</mo><mtable class="array-matrix"><mtr class="array-matrix-row"><mtd class="array-matrix-cell"><mn>1</mn></mtd><mtd class="array-matrix-cell"><mn>2</mn></mtd><mtd class="array-matrix-cell"><mn>3</mn></mtd></mtr><mtr class="array-matrix-row"><mtd class="array-matrix-cell"><mn>4</mn></mtd><mtd class="array-matrix-cell"><mn>5</mn></mtd><mtd class="array-matrix-cell"><mn>6</mn></mtd></mtr></mtable><mo>]</mo></mrow><mo>)</mo></mrow><mo>=</mo><mrow><mtext>&lt;module 'numpy' from '/home/gmx/dev/uzoncalc/.venv/lib/python3.12/site-packages/numpy/__init__.py'&gt;</mtext><mo>.</mo><mtext class="function-name">array</mtext><mo>(</mo><mrow class="array-value"><mo>[</mo><mtable class="array-matrix"><mtr class="array-matrix-row"><mtd class="array-matrix-cell"><mn>1</mn></mtd><mtd class="array-matrix-cell"><mn>2</mn></mtd><mtd class="array-matrix-cell"><mn>3</mn></mtd></mtr><mtr class="array-matrix-row"><mtd class="array-matrix-cell"><mn>4</mn></mtd><mtd class="array-matrix-cell"><mn>5</mn></mtd><mtd class="array-matrix-cell"><mn>6</mn></mtd></mtr></mtable><mo>]</mo></mrow><mo>)</mo></mrow><mo>=</mo><mrow class="array-value"><mo>[</mo><mtable class="array-matrix"><mtr class="array-matrix-row"><mtd class="array-matrix-cell"><mn>1</mn></mtd><mtd class="array-matrix-cell"><mn>2</mn></mtd><mtd class="array-matrix-cell"><mn>3</mn></mtd></mtr><mtr class="array-matrix-row"><mtd class="array-matrix-cell"><mn>4</mn></mtd><mtd class="array-matrix-cell"><mn>5</mn></mtd><mtd class="array-matrix-cell"><mn>6</mn></mtd></mtr></mtable><mo>]</mo></mrow></mrow></math>`, 期望中，表达式和值应是一样的，最终且不重复显示
+
+2. 对于 `value = a5[index1, index2]`, 应先显示表达式，再显示值替换，但现在显示结果为 `<p><math xmlns="http://www.w3.org/1998/Math/MathML"><mrow><mrow><mi mathvariant="italic">value</mi></mrow><mo>=</mo><mrow><msub><mrow><mi class="array-var" mathvariant="bold">a5</mi></mrow><mrow><mi mathvariant="italic">index1</mi><mo>,</mo><mi mathvariant="italic">index2</mi></mrow></msub></mrow><mo>=</mo><mrow><mtext>2</mtext></mrow></mrow></math></p>`, 缺失了下标的值替换过程
+
+## 相关文件
+
+1. /home/gmx/dev/uzoncalc/dev_examples/tensor.py
+2. /home/gmx/dev/uzoncalc/src/core/uzoncalc/handcalc/

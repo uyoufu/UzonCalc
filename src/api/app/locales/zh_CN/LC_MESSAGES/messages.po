@@ -1,3 +1,4 @@
+
 msgid ""
 msgstr ""
 "Project-Id-Version: uzoncalc-api 0.1.0\n"
@@ -7,10 +8,11 @@ msgstr ""
 "Last-Translator: \n"
 "Language: zh_CN\n"
 "Language-Team: zh_CN\n"
-"MIME-Version: 1.0\n"
-"Content-Type: text/plain; charset=UTF-8\n"
-"Content-Transfer-Encoding: 8bit\n"
 "Plural-Forms: nplurals=1; plural=0;\n"
+"MIME-Version: 1.0\n"
+"Content-Type: text/plain; charset=utf-8\n"
+"Content-Transfer-Encoding: 8bit\n"
+"Generated-By: Babel 2.18.0\n"
 
 msgid "Authorization failed!"
 msgstr "认证失败！"
@@ -42,12 +44,14 @@ msgstr "用户名已存在"
 msgid "Old password is incorrect"
 msgstr "旧密码错误"
 
+#, python-brace-format
 msgid "User setting with key '{key}' not found"
 msgstr "未找到键为 '{key}' 的用户设置"
 
 msgid "This endpoint is only available in desktop mode"
 msgstr "该接口仅在桌面模式下可用"
 
+#, python-brace-format
 msgid "Failed to select file: {error}"
 msgstr "选择文件失败：{error}"
 
@@ -96,6 +100,7 @@ msgstr "报告源码文件不存在"
 msgid "Report or category not found"
 msgstr "报告或分类不存在"
 
+#, python-brace-format
 msgid "Duplicate report name: '{name}'"
 msgstr "报告名称重复：'{name}'"
 
@@ -108,20 +113,331 @@ msgstr "报告名称必填"
 msgid "categoryOid is required for creating new report"
 msgstr "创建新报告时 categoryOid 必填"
 
+#, python-brace-format
 msgid "Report name '{name}' already exists"
 msgstr "报告名称 '{name}' 已存在"
 
+#, python-brace-format
 msgid "Report name '{name}' already exists and cannot duplicate another report"
 msgstr "报告名称 '{name}' 已存在，不能与其他报告重名"
 
+#, python-brace-format
 msgid "Copy report failed: {error}"
 msgstr "复制报告失败：{error}"
 
 msgid "lineLength must be greater than 0"
 msgstr "lineLength 必须大于 0"
 
+#, python-brace-format
 msgid "Black format failed: {error}"
 msgstr "Black 格式化失败：{error}"
 
 msgid "Python formatting failed"
 msgstr "Python 格式化失败"
+
+msgid "A .uzc archive is required"
+msgstr "必须上传 .uzc 归档"
+
+msgid "Administrator role is required"
+msgstr "需要管理员角色"
+
+msgid "Bundle execution artifact not found"
+msgstr "未找到 Bundle 执行产物"
+
+msgid "Calculation instance not found"
+msgstr "计算实例不存在"
+
+msgid "Calculation result file not found"
+msgstr "计算结果文件不存在"
+
+msgid "Cannot reuse a file without an existing workspace"
+msgstr "没有现有工作区时不能复用文件"
+
+msgid "Category contains active reports"
+msgstr "分类中仍有活动报告"
+
+msgid "Category order contains duplicates"
+msgstr "分类排序包含重复项"
+
+msgid "Configured sandbox backend is unavailable"
+msgstr "配置的沙箱后端不可用"
+
+msgid "Dependency SOURCE artifact not found"
+msgstr "未找到依赖 SOURCE 产物"
+
+msgid "Dependency alias must be unique"
+msgstr "依赖别名必须唯一"
+
+msgid "Dependency component key collision"
+msgstr "依赖组件键冲突"
+
+msgid "Dependency cycle detected"
+msgstr "检测到依赖循环"
+
+msgid "Dependency latest version is not published"
+msgstr "依赖的 latest 版本尚未发布"
+
+msgid "Dependency report is unavailable"
+msgstr "依赖报告不可用"
+
+msgid "Dependency report not found"
+msgstr "依赖报告不存在"
+
+msgid "Dependency version not found"
+msgstr "依赖版本不存在"
+
+msgid "Dynamic calcdeps imports are not supported"
+msgstr "不支持动态导入 calcdeps"
+
+msgid "Execution artifact build failed"
+msgstr "执行产物构建失败"
+
+msgid "Execution artifact is not ready"
+msgstr "执行产物尚未就绪"
+
+msgid "Execution artifact not found"
+msgstr "执行产物不存在"
+
+msgid "Execution artifacts not found"
+msgstr "执行产物不存在"
+
+msgid "Execution has no cached result"
+msgstr "执行没有缓存结果"
+
+msgid "Execution input history not found"
+msgstr "执行输入历史不存在"
+
+msgid "Execution not found"
+msgstr "执行记录不存在"
+
+msgid "Execution process was lost"
+msgstr "执行进程已丢失"
+
+msgid "Execution provenance is incomplete"
+msgstr "执行来源信息不完整"
+
+msgid "Execution result path is invalid"
+msgstr "执行结果路径无效"
+
+msgid "Execution session is no longer active"
+msgstr "执行会话已失效"
+
+msgid "Execution source artifact not found"
+msgstr "执行 SOURCE 产物不存在"
+
+msgid "Execution source type is invalid"
+msgstr "执行来源类型无效"
+
+msgid "First workspace save requires report metadata and revision zero"
+msgstr "首次保存工作区必须提供报告信息且 revision 为零"
+
+msgid "Instance category contains active instances"
+msgstr "实例分类中仍有活动实例"
+
+msgid "Instance category not found"
+msgstr "实例分类不存在"
+
+msgid "Instance revision conflict"
+msgstr "实例版本冲突"
+
+msgid "Invalid recipient identifier"
+msgstr "无效的接收用户标识"
+
+msgid "Invalid report identifier"
+msgstr "无效的报告标识"
+
+msgid "Only approved versions can be shared"
+msgstr "仅审核通过的版本可以分享"
+
+msgid "READY build has no output artifact"
+msgstr "READY 构建缺少输出产物"
+
+msgid "Report cannot depend on itself"
+msgstr "报告不能依赖自身"
+
+msgid "Report has no latest published version"
+msgstr "报告没有 latest 发布版本"
+
+msgid "Report identifier already exists"
+msgstr "报告标识已存在"
+
+msgid "Report metadata is only accepted on the first workspace save"
+msgstr "报告信息仅能在首次保存工作区时提供"
+
+msgid "Report name already exists in this category"
+msgstr "该分类中已存在同名报告"
+
+msgid "Report version already exists"
+msgstr "报告版本已存在"
+
+msgid "Report version not found"
+msgstr "报告版本不存在"
+
+msgid "Reused workspace file does not exist"
+msgstr "要复用的工作区文件不存在"
+
+msgid "SOURCE artifact not found"
+msgstr "SOURCE 产物不存在"
+
+msgid "Share link is no longer available"
+msgstr "分享链接已不可用"
+
+msgid "Share link is not available to this user"
+msgstr "当前用户无权使用该分享链接"
+
+msgid "Share link is unavailable"
+msgstr "分享链接不可用"
+
+msgid "Share link not found"
+msgstr "分享链接不存在"
+
+msgid "Share link use limit has been reached"
+msgstr "分享链接已达到使用次数上限"
+
+msgid "Share recipient not found"
+msgstr "分享接收用户不存在"
+
+msgid "Shared SOURCE artifact not found"
+msgstr "分享的 SOURCE 产物不存在"
+
+msgid "Shared dependency closure is incomplete"
+msgstr "分享依赖闭包不完整"
+
+msgid "Shared dependency report not found"
+msgstr "分享依赖报告不存在"
+
+msgid "Shared dependency version is not approved"
+msgstr "分享依赖版本尚未审核通过"
+
+msgid "Shared dependency version not found"
+msgstr "分享依赖版本不存在"
+
+msgid "Shared report is unavailable"
+msgstr "分享报告不可用"
+
+msgid "UZC archive exceeds the upload limit"
+msgstr "UZC 归档超过上传限制"
+
+msgid "Version artifact not found"
+msgstr "版本产物不存在"
+
+msgid "Workspace Python source is invalid"
+msgstr "工作区 Python 源码无效"
+
+msgid "Workspace SOURCE artifact not found"
+msgstr "工作区 SOURCE 产物不存在"
+
+msgid "Workspace artifact not found"
+msgstr "工作区产物不存在"
+
+msgid "Workspace contains duplicate paths"
+msgstr "工作区包含重复路径"
+
+msgid "Workspace contains undeclared uploads"
+msgstr "工作区包含未声明的上传文件"
+
+msgid "Workspace file hash does not match its declaration"
+msgstr "工作区文件哈希与声明不一致"
+
+msgid "Workspace file is too large"
+msgstr "工作区文件过大"
+
+msgid "Workspace file not found"
+msgstr "工作区文件不存在"
+
+msgid "Workspace not found"
+msgstr "工作区不存在"
+
+msgid "Workspace snapshot is invalid"
+msgstr "工作区快照无效"
+
+msgid "Workspace upload filename is missing or duplicated"
+msgstr "工作区上传文件名缺失或重复"
+
+msgid "Workspace upload is missing a declared file"
+msgstr "工作区上传缺少已声明文件"
+
+msgid "Workspace was modified by another request"
+msgstr "工作区已被其他请求修改"
+
+msgid "calcbook entryPath does not exist in the workspace"
+msgstr "calcbook entryPath 在工作区中不存在"
+
+msgid "calcbook entryPath is invalid"
+msgstr "calcbook entryPath 无效"
+
+msgid "calcbook entryPath must point to a Python file under src"
+msgstr "calcbook entryPath 必须指向 src 下的 Python 文件"
+
+msgid "calcbook formatVersion must be a positive integer"
+msgstr "calcbook formatVersion 必须是正整数"
+
+msgid "calcbook.json must contain an object"
+msgstr "calcbook.json 必须包含对象"
+
+msgid "calcbook.json must contain valid UTF-8 JSON"
+msgstr "calcbook.json 必须包含有效的 UTF-8 JSON"
+
+msgid "calcdeps import uses an undeclared dependency alias"
+msgstr "calcdeps 导入使用了未声明的依赖别名"
+
+msgid "calcdeps import uses an undeclared selector"
+msgstr "calcdeps 导入使用了未声明的选择器"
+
+msgid "versionName is required for version execution"
+msgstr "按版本执行时必须提供 versionName"
+
+msgid "UZC archive is not a valid ZIP file"
+msgstr "UZC 归档不是有效的 ZIP 文件"
+
+msgid "UZC archive contains too many files"
+msgstr "UZC 归档包含过多文件"
+
+msgid "UZC archive contains duplicate paths"
+msgstr "UZC 归档包含重复路径"
+
+msgid "UZC archive expands beyond the size limit"
+msgstr "UZC 归档解压后超过大小限制"
+
+msgid "UZC archive manifest is missing"
+msgstr "UZC 归档缺少清单"
+
+msgid "UZC archive manifest is invalid"
+msgstr "UZC 归档清单无效"
+
+msgid "UZC archive entry path is invalid"
+msgstr "UZC 归档入口路径无效"
+
+msgid "UZC archive file size is inconsistent"
+msgstr "UZC 归档文件大小不一致"
+
+msgid "UZC archive entry source is missing"
+msgstr "UZC 归档入口源码缺失"
+
+msgid "UZC archive contains an unsafe path"
+msgstr "UZC 归档包含不安全路径"
+
+msgid "UZC archive contains a non-regular file"
+msgstr "UZC 归档包含非普通文件"
+
+msgid "Encrypted UZC archives are not supported"
+msgstr "不支持加密的 UZC 归档"
+
+msgid "UZC archive contains an oversized file"
+msgstr "UZC 归档包含超大文件"
+
+msgid "UZC archive has a suspicious compression ratio"
+msgstr "UZC 归档压缩比异常"
+
+msgid "UZC archive source path is invalid"
+msgstr "UZC 归档源码路径无效"
+
+msgid "Python formatter is unavailable"
+msgstr "Python 格式化工具不可用"
+
+#, python-brace-format
+msgid "Ruff format failed: {error}"
+msgstr "Ruff 格式化失败：{error}"
+
+msgid "A revoked share link cannot be edited"
+msgstr "已撤销的分享链接不能编辑"

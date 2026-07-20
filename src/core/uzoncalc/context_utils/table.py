@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
-    from .elements import Props
+    from .element_models import AutoLabel, Props
 
 
 # 表格单元格支持任意值，渲染时统一通过 str() 转为显示文本。
@@ -27,7 +27,7 @@ class Td:
         # 复用通用 HTML 渲染函数，避免属性拼接逻辑重复。
         from .elements import h
 
-        return h("td", children=_format_td_cell_value(self.value), classes=self.classes)
+        return h("td", children=_render_cell_value(self.value), classes=self.classes)
 
 
 @dataclass
@@ -54,6 +54,7 @@ def table(
     title: str | None = None,
     props: Props | None = None,
     persist: bool = False,
+    label: AutoLabel | None = None,
 ) -> str:
     """渲染表格 HTML，rows 会统一转换为 Tr/Td 模型处理。"""
     from .elements import h
@@ -62,8 +63,19 @@ def table(
     header_rows = _normalize_header_rows(headers)
     body_rows = _normalize_body_rows(rows)
 
-    if title:
-        children.append(h("caption", children=title))
+    if title or label is not None:
+        caption_children: list[str] = []
+        if label is not None:
+            caption_children.append(label.source_html())
+        if title:
+            caption_children.append(title)
+        children.append(
+            h(
+                "caption",
+                children=caption_children,
+                classes="uzoncalc-label-caption uzoncalc-label-caption-table whitespace-nowrap",
+            )
+        )
 
     if header_rows:
         thead_rows = []
@@ -76,7 +88,13 @@ def table(
         tbody_rows = [body_row.to_html() for body_row in body_rows]
         children.append(h("tbody", children="".join(tbody_rows)))
 
-    return h("table", children=children, classes=classes, props=props, persist=persist)
+    return h(
+        "table",
+        children=children,
+        classes=classes,
+        props=props,
+        persist=persist,
+    )
 
 
 def Table(
@@ -86,8 +104,14 @@ def Table(
     *,
     title: str | None = None,
     props: Props | None = None,
-) -> None:
-    """渲染并记录表格 HTML。"""
+) -> str:
+    """
+    渲染并记录表格 HTML。
+    该函数不会渲染方程，因为已经在 CallFilterRegistry 中注册了忽略 Table 函数。
+    """
+    from .elements import LabelKind, create_auto_label
+
+    label = create_auto_label(LabelKind.TABLE)
     table(
         headers=headers,
         rows=rows,
@@ -95,7 +119,9 @@ def Table(
         classes=classes,
         props=props,
         persist=True,
+        label=label,
     )
+    return label.reference_html()
 
 
 def th(
@@ -110,7 +136,7 @@ def th(
 
     return h(
         "th",
-        children=str(value),
+        children=_render_cell_value(value),
         classes=classes,
         props=props(rowspan=rowspan, colspan=colspan),
     )
@@ -164,11 +190,26 @@ def _render_body_cell(value: TableCellValue | Td) -> str:
     return Td(value=value).to_html()
 
 
-def _format_td_cell_value(value: TableCellValue) -> str:
-    """格式化 td 单元格显示文本。"""
+def _render_cell_value(value: TableCellValue) -> str:
+    """Render a table value while preserving explicitly trusted HTML.
 
-    from ..handcalc.rendering.value_renderer import render_value_text
+    Args:
+        value: Value stored in a table cell.
 
+    Returns:
+        Escaped, precision-aware text or the original trusted HTML fragment.
+
+    Raises:
+        No exceptions are intentionally raised.
+    """
+    from ..handcalc.rendering.value_renderer import (
+        render_html_fragment,
+        render_value_text,
+    )
+
+    html_fragment = render_html_fragment(value)
+    if html_fragment is not None:
+        return html_fragment
     return render_value_text(value)
 
 
@@ -178,3 +219,17 @@ def _wrap_header_cell(value: Any) -> str:
     if text.startswith("<th"):
         return text
     return th(text)
+
+
+__all__ = [
+    "Table",
+    "TableBodyRows",
+    "TableCellValue",
+    "TableHeaderRows",
+    "Td",
+    "Tr",
+    "table",
+    "td",
+    "th",
+    "tr",
+]

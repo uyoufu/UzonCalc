@@ -4,7 +4,7 @@ input {
   padding: var(--uz-space-xs) var(--uz-space-md);
   border-radius: var(--uz-radius-sm);
   font-size: 1em;
-  font-family: inherit;
+  font-family: var(--uz-font-body);
 }
 
 input:focus {

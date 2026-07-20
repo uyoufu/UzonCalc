@@ -1,11 +1,6 @@
 """测试 show/hide 的嵌套作用域功能"""
 
-from pathlib import Path
-import sys
-
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
-
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 @uzon_calc()
@@ -33,8 +28,6 @@ async def test_nested_scope():
     
     show()
     i = 9  # 应该显示
-    
-    save("../output/test_nested_scope.html")
 
 
 if __name__ == "__main__":

@@ -6,6 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PAGE_TITLE</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/default.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.css">
 
     CUSTOM_HEADS
 
@@ -13,8 +14,8 @@
         CUSTOM_STYLES
     </style>
     <style>
-        body {
-            font-family: BODY_FONT_FAMILY;
+        :root {
+            --uz-font-body-option: BODY_FONT_FAMILY;
         }
 
         /*正文内容：显示与打印分开*/
@@ -41,72 +42,28 @@
             @top-left {
                 content: "PAGE_TITLE";
                 font-size: 10pt;
-                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
+                font-family: var(--uz-font-page);
             }
 
             @bottom-center {
                 content: "—— " counter(page) " ——";
                 font-size: 10pt;
-                font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif, "Microsoft YaHei";
+                font-family: var(--uz-font-page);
             }
         }
     </style>
+    <script>
+        tailwind.config = {
+            corePlugins: {
+                preflight: false,
+            },
+        };
+    </script>
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <style>
-        /* 修复 Tailwind CSS 重置标题样式的问题 - 按照论文格式设置标题大小 */
-        h1 {
-            font-size: 2em !important;
-            line-height: 1.3 !important;
-            margin-top: 0.67em !important;
-            margin-bottom: 0.67em !important;
-            font-weight: 600 !important;
-        }
-
-        h2 {
-            font-size: 1.5em !important;
-            line-height: 1.35 !important;
-            margin-top: 0.83em !important;
-            margin-bottom: 0.83em !important;
-            font-weight: 600 !important;
-        }
-
-        h3 {
-            font-size: 1.17em !important;
-            line-height: 1.4 !important;
-            margin-top: 1em !important;
-            margin-bottom: 1em !important;
-            font-weight: 600 !important;
-        }
-
-        h4 {
-            font-size: 1em !important;
-            line-height: 1.4 !important;
-            margin-top: 1.33em !important;
-            margin-bottom: 1.33em !important;
-            font-weight: 600 !important;
-        }
-
-        h5 {
-            font-size: 0.83em !important;
-            line-height: 1.5 !important;
-            margin-top: 1.67em !important;
-            margin-bottom: 1.67em !important;
-            font-weight: 600 !important;
-        }
-
-        h6 {
-            font-size: 0.67em !important;
-            line-height: 1.5 !important;
-            margin-top: 2.33em !important;
-            margin-bottom: 2.33em !important;
-            font-weight: 600 !important;
-        }
-    </style>
 </head>
 
 <body>
-    <button type="button" class="uz-print-button" aria-label="打印文档" onclick="window.print()">
+    <button type="button" class="uz-print-button" aria-label="打印文档">
         🖨️
     </button>
     <div class="content" page-margin="PAGE_MARGIN" page-size="PAGE_SIZE">
@@ -115,10 +72,10 @@
         <!--CONTENT_END_MARK-->
     </div>
 
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
-    <script>hljs.highlightAll();</script>
+    <script defer src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <script defer src="https://cdn.jsdelivr.net/npm/katex@0.16.22/dist/katex.min.js"></script>
     <!--template.js 从 ./js 模块中编译-->
-    <script src="https://calc.uzoncloud.com/scripts/template.js"></script>
+    <script defer src="TEMPLATE_SCRIPT_SRC"></script>
 </body>
 
 </html>

@@ -1,11 +1,16 @@
-from core.uzoncalc.context_options import ContextOptions
-from core.uzoncalc.context_utils import doc
-from core.uzoncalc.template.utils import generate_custom_heads
+from uzoncalc.context_options import ContextOptions
+from uzoncalc.context_utils import doc
+from uzoncalc.template.utils import generate_custom_heads
 
 
 class DummyContext:
     def __init__(self):
         self.options = ContextOptions()
+        self.contents = []
+
+    def append_content(self, content: str):
+        """记录写入正文的 HTML 片段。"""
+        self.contents.append(content)
 
 
 def test_head_hash_is_stable_for_equivalent_content():
@@ -86,3 +91,15 @@ def test_generate_custom_heads_renders_hash_based_entries():
         html
         == '<script crossorigin="anonymous" integrity="sha256-abc" src="https://example.com/app.js"></script>'
     )
+
+
+def test_toc_renders_escaped_title_attribute(monkeypatch):
+    ctx = DummyContext()
+    monkeypatch.setattr(doc, "get_current_instance", lambda: ctx)
+
+    doc.toc('A < B & "C"')
+
+    html = "".join(ctx.contents)
+    assert 'data-toc-title="A &lt; B &amp; &quot;C&quot;"' in html
+    assert "A &lt; B &amp; &quot;C&quot;" in html
+    assert 'A < B & "C"' not in html

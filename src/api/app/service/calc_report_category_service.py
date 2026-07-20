@@ -1,346 +1,337 @@
-"""
-计算分类服务层
-负责计算分类的业务逻辑处理
-"""
+"""Database services for calculation-report categories."""
 
-from typing import List, cast
+import datetime
+from typing import cast
+
+from sqlalchemy import case, func, select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy import select, func
 
-from app.db.models.calc_report_category import CalcReportCategory
-from app.controller.calc.calc_dto import CategoryInfoReqDTO, CategoryInfoResDTO
-from app.exception.custom_exception import raise_ex
-from app.utils.path_manager import (
-    create_category_directory,
-    rename_category_directory,
-    delete_category_directory,
+from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_report_dto import (
+    CalcReportCategoryReqDTO,
+    CalcReportCategoryResDTO,
+    CategoryOrderDTO,
+    CategoryStateDTO,
 )
-from config import logger
+from app.db.models.calc_report import CalcReport
+from app.db.models.calc_report_category import CalcReportCategory
+from app.exception.custom_exception import raise_ex
+
+_LFU_AGING_EPOCH_SECONDS = 7 * 24 * 60 * 60
 
 
-async def get_all_categories(
+def _current_aging_epoch(now: datetime.datetime | None = None) -> int:
+    """Return the current deterministic seven-day LFU aging epoch.
+
+    Args:
+        now: Optional UTC time override used by tests.
+
+    Returns:
+        A monotonically increasing integer epoch.
+
+    Raises:
+        None.
+    """
+    current = now or datetime.datetime.now(datetime.timezone.utc)
+    return int(current.timestamp()) // _LFU_AGING_EPOCH_SECONDS
+
+
+async def list_categories(
     user_id: int, session: AsyncSession
-) -> List[CategoryInfoResDTO]:
-    """
-    获取当前用户的所有计算分类
-
-    :param user_id: 用户 ID
-    :param session: 数据库会话
-    :return: 分类信息列表
-    """
-    result = await session.execute(
-        select(CalcReportCategory)
-        .where(
-            (CalcReportCategory.userId == user_id) & (CalcReportCategory.status == 1)
+) -> list[CalcReportCategoryResDTO]:
+    """List active categories with derived active report counts."""
+    rows = (
+        await session.execute(
+            select(
+                CalcReportCategory,
+                func.count(CalcReport.id),
+            )
+            .outerjoin(
+                CalcReport,
+                (CalcReport.categoryId == CalcReportCategory.id)
+                & CalcReport.deletedAt.is_(None),
+            )
+            .where(
+                CalcReportCategory.userId == user_id,
+                CalcReportCategory.deletedAt.is_(None),
+            )
+            .group_by(CalcReportCategory.id)
+            .order_by(
+                case((CalcReportCategory.isPinned.is_(True), 0), else_=1),
+                case(
+                    (
+                        CalcReportCategory.isPinned.is_(True),
+                        CalcReportCategory.manualOrder,
+                    ),
+                    else_=-CalcReportCategory.frequencyCount,
+                ),
+                CalcReportCategory.lastUsedAt.desc(),
+                CalcReportCategory.id,
+            )
         )
-        .order_by(CalcReportCategory.order)
-    )
-    categories = result.scalars().all()
-
-    return [
-        CategoryInfoResDTO.model_validate(category, from_attributes=True)
-        for category in categories
-    ]
+    ).all()
+    return [_category_response(category, count) for category, count in rows]
 
 
-async def get_category_by_oid(
+async def get_category(
     user_id: int, category_oid: str, session: AsyncSession
-) -> CategoryInfoResDTO:
-    """
-    根据 OID 获取单个计算分类
-
-    :param user_id: 用户 ID
-    :param category_oid: 分类 OID
-    :param session: 数据库会话
-    :return: 分类信息
-    """
-    result = await session.execute(
+) -> CalcReportCategory:
+    """Load one active owned category or raise a stable not-found error."""
+    category = await session.scalar(
         select(CalcReportCategory).where(
-            (CalcReportCategory.oid == category_oid)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
+            CalcReportCategory.oid == category_oid,
+            CalcReportCategory.userId == user_id,
+            CalcReportCategory.deletedAt.is_(None),
         )
     )
-    category = result.scalars().first()
-
-    if not category:
-        raise_ex("Category not found", code=404)
-
-    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
-
-
-async def get_category_by_id(
-    user_id: int, category_id: int, session: AsyncSession
-) -> CategoryInfoResDTO:
-    """
-    根据 ID 获取单个计算分类
-
-    :param user_id: 用户 ID
-    :param category_id: 分类 ID
-    :param session: 数据库会话
-    :return: 分类信息
-    """
-    result = await session.execute(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.id == category_id)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
+    if category is None:
+        raise_ex(
+            "Category not found",
+            code=404,
+            error_code=CalcErrorCode.CATEGORY_NOT_FOUND,
         )
-    )
-    category = result.scalars().first()
-
-    if not category:
-        raise_ex("Category not found", code=404)
-
-    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
+    return cast(CalcReportCategory, category)
 
 
 async def create_category(
-    user_id: int, data: CategoryInfoReqDTO, session: AsyncSession
-) -> CategoryInfoResDTO:
-    """
-    创建新的计算分类
-
-    :param user_id: 用户 ID
-    :param data: 分类数据
-    :param session: 数据库会话
-    :return: 创建的分类信息
-    """
-    # 检查分类名称是否已存在（仅检查状态为 1 的分类）
-    existing = await session.scalar(
-        select(func.count(CalcReportCategory.id)).where(
-            (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.name == data.name)
-            & (CalcReportCategory.status == 1)
+    user_id: int,
+    request: CalcReportCategoryReqDTO,
+    session: AsyncSession,
+) -> CalcReportCategoryResDTO:
+    """Create an active category at the end of the user's ordering."""
+    duplicate = await session.scalar(
+        select(CalcReportCategory.id).where(
+            CalcReportCategory.userId == user_id,
+            CalcReportCategory.name == request.name.strip(),
+            CalcReportCategory.deletedAt.is_(None),
         )
     )
-    if existing and existing > 0:
-        raise_ex("Category name already exists", code=400)
-
-    # 获取下一个排序号（最大 order + 1）
-    max_order = await session.scalar(
-        select(func.max(CalcReportCategory.order)).where(
-            CalcReportCategory.userId == user_id
+    if duplicate is not None:
+        raise_ex("Category name already exists", code=409)
+    maximum = await session.scalar(
+        select(func.max(CalcReportCategory.manualOrder)).where(
+            CalcReportCategory.userId == user_id,
+            CalcReportCategory.deletedAt.is_(None),
         )
     )
-    next_order = (max_order or 0) + 1
-
-    # 创建新分类
     category = CalcReportCategory(
         userId=user_id,
-        name=data.name,
-        description=data.description,
-        order=next_order,
-        total=0,
+        name=request.name.strip(),
+        description=request.description,
+        manualOrder=(maximum or 0) + 1,
+        agingEpoch=_current_aging_epoch(),
     )
-
-    if not create_category_directory(user_id, data.name):
-        logger.error(f"创建分类目录失败: userId={user_id}, name={data.name}")
-        raise_ex("Failed to create category directory", code=500)
-
     session.add(category)
     await session.commit()
     await session.refresh(category)
-
-    logger.info(f"分类创建成功: userId={user_id}, categoryId={category.oid}")
-
-    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
+    return _category_response(category, 0)
 
 
 async def update_category(
-    user_id: int, category_oid: str, data: CategoryInfoReqDTO, session: AsyncSession
-) -> CategoryInfoResDTO:
-    """
-    更新计算分类信息
-
-    :param user_id: 用户 ID
-    :param category_id: 分类 ID
-    :param data: 更新的分类数据
-    :param session: 数据库会话
-    :return: 更新后的分类信息
-    """
-    # 查询分类（确保属于当前用户）
-    result = await session.execute(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.oid == category_oid)
-            & (CalcReportCategory.userId == user_id)
+    user_id: int,
+    category_oid: str,
+    request: CalcReportCategoryReqDTO,
+    session: AsyncSession,
+) -> CalcReportCategoryResDTO:
+    """Update category display metadata."""
+    category = await get_category(user_id, category_oid, session)
+    duplicate = await session.scalar(
+        select(CalcReportCategory.id).where(
+            CalcReportCategory.userId == user_id,
+            CalcReportCategory.name == request.name.strip(),
+            CalcReportCategory.id != category.id,
+            CalcReportCategory.deletedAt.is_(None),
         )
     )
-    category = result.scalars().first()
-
-    if not category:
-        raise_ex("Category not found", code=404)
-
-    category = cast(CalcReportCategory, category)
-    old_name = category.name
-
-    # 检查新名称是否与其他分类冲突
-    if data.name != category.name:
-        existing = await session.scalar(
-            select(func.count(CalcReportCategory.id)).where(
-                (CalcReportCategory.userId == user_id)
-                & (CalcReportCategory.name == data.name)
-                & (CalcReportCategory.oid != category_oid)
-                & (CalcReportCategory.status == 1)
-            )
-        )
-        if existing and existing > 0:
-            raise_ex("Category name already exists", code=400)
-
-    if old_name != data.name:
-        if not rename_category_directory(user_id, old_name, data.name):
-            logger.error(
-                f"重命名分类目录失败: userId={user_id}, oldName={old_name}, newName={data.name}"
-            )
-            raise_ex("Failed to rename category directory", code=400)
-
-    # 更新分类信息
-    category.name = data.name
-    category.description = data.description
-
+    if duplicate is not None:
+        raise_ex("Category name already exists", code=409)
+    category.name = request.name.strip()
+    category.description = request.description
     await session.commit()
     await session.refresh(category)
+    count = await session.scalar(
+        select(func.count(CalcReport.id)).where(
+            CalcReport.categoryId == category.id, CalcReport.deletedAt.is_(None)
+        )
+    )
+    return _category_response(category, count or 0)
 
-    logger.info(f"分类更新成功: userId={user_id}, categoryId={category_oid}")
 
-    return CategoryInfoResDTO.model_validate(category, from_attributes=True)
+async def reorder_categories(
+    user_id: int, orders: list[CategoryOrderDTO], session: AsyncSession
+) -> list[CalcReportCategoryResDTO]:
+    """Atomically apply explicit sort orders to all listed owned categories."""
+    if len({order.categoryOid for order in orders}) != len(orders):
+        raise_ex("Category order contains duplicates", code=400)
+    categories = {
+        category.oid: category
+        for category in (
+            await session.scalars(
+                select(CalcReportCategory).where(
+                    CalcReportCategory.userId == user_id,
+                    CalcReportCategory.oid.in_([order.categoryOid for order in orders]),
+                    CalcReportCategory.deletedAt.is_(None),
+                )
+            )
+        ).all()
+    }
+    if len(categories) != len(orders):
+        raise_ex(
+            "Category not found",
+            code=404,
+            error_code=CalcErrorCode.CATEGORY_NOT_FOUND,
+        )
+    for order in orders:
+        category = categories[order.categoryOid]
+        category.isPinned = True
+        category.manualOrder = order.manualOrder
+    await session.commit()
+    return await list_categories(user_id, session)
 
 
-async def update_categories_order(
-    user_id: int, category_oids: List[str], session: AsyncSession
-) -> None:
+async def update_category_state(
+    user_id: int,
+    category_oid: str,
+    request: CategoryStateDTO,
+    session: AsyncSession,
+) -> CalcReportCategoryResDTO:
+    """Update one category's pin and visibility state.
+
+    Args:
+        user_id: Authenticated category owner.
+        category_oid: Public category identifier.
+        request: Optional pin and visibility changes.
+        session: Active database session.
+
+    Returns:
+        The updated category response.
+
+    Raises:
+        CustomException: If the category does not exist.
     """
-    更新分类的排序顺序
+    category = await get_category(user_id, category_oid, session)
+    if request.isPinned is not None:
+        category.isPinned = request.isPinned
+        if request.isPinned:
+            maximum = await session.scalar(
+                select(func.max(CalcReportCategory.manualOrder)).where(
+                    CalcReportCategory.userId == user_id,
+                    CalcReportCategory.isPinned.is_(True),
+                    CalcReportCategory.deletedAt.is_(None),
+                )
+            )
+            category.manualOrder = (maximum or 0) + 1
+    if request.isHidden is not None:
+        category.isHidden = request.isHidden
+    await session.commit()
+    count = await session.scalar(
+        select(func.count(CalcReport.id)).where(
+            CalcReport.categoryId == category.id, CalcReport.deletedAt.is_(None)
+        )
+    )
+    return _category_response(category, count or 0)
 
-    :param user_id: 用户 ID
-    :param category_ids: 分类 ID 列表（按新的顺序排列）
-    :param session: 数据库会话
+
+async def record_category_access(
+    user_id: int, category_oid: str, session: AsyncSession
+) -> CalcReportCategoryResDTO:
+    """Age automatic category counts and record one category activation.
+
+    Args:
+        user_id: Authenticated category owner.
+        category_oid: Public category identifier being activated.
+        session: Active database session.
+
+    Returns:
+        The accessed category after LFU-Aging is applied.
+
+    Raises:
+        CustomException: If the category does not exist.
     """
-    if not category_oids:
-        raise_ex("Category IDs list cannot be empty", code=400)
-
-    try:
-        # 查询所有分类（确保属于当前用户且状态为 1）
-        result = await session.execute(
+    selected_category = await get_category(user_id, category_oid, session)
+    current_epoch = _current_aging_epoch()
+    categories = (
+        await session.scalars(
             select(CalcReportCategory).where(
-                (CalcReportCategory.userId == user_id)
-                & (CalcReportCategory.oid.in_(category_oids))
-                & (CalcReportCategory.status == 1)
+                CalcReportCategory.userId == user_id,
+                CalcReportCategory.isPinned.is_(False),
+                CalcReportCategory.isHidden.is_(False),
+                CalcReportCategory.deletedAt.is_(None),
             )
         )
-        categories = {cat.oid: cat for cat in result.scalars().all()}
-
-        # 验证所有 ID 都存在
-        if len(categories) != len(category_oids):
-            raise_ex("Some categories not found", code=404)
-
-        # 更新排序
-        for order, category_id in enumerate(category_oids):
-            categories[category_id].order = order
-
-        await session.commit()
-
-        logger.info(f"分类排序更新成功: userId={user_id}")
-    except Exception as e:
-        await session.rollback()
-        if hasattr(e, "detail"):
-            raise e
-        logger.error(f"更新分类排序失败: {str(e)}")
-        raise_ex("Failed to update categories order", code=500)
+    ).all()
+    for category in categories:
+        elapsed_epochs = max(0, min(31, current_epoch - category.agingEpoch))
+        if elapsed_epochs:
+            category.frequencyCount >>= elapsed_epochs
+            category.agingEpoch = current_epoch
+    if not selected_category.isPinned and not selected_category.isHidden:
+        selected_category.frequencyCount += 1
+        selected_category.agingEpoch = current_epoch
+        selected_category.lastUsedAt = datetime.datetime.now(datetime.timezone.utc)
+    await session.commit()
+    count = await session.scalar(
+        select(func.count(CalcReport.id)).where(
+            CalcReport.categoryId == selected_category.id,
+            CalcReport.deletedAt.is_(None),
+        )
+    )
+    return _category_response(selected_category, count or 0)
 
 
 async def delete_category(
     user_id: int, category_oid: str, session: AsyncSession
 ) -> None:
-    """
-    删除分类（逻辑删除，将 status 设为 0）
-
-    :param user_id: 用户 ID
-    :param category_oid: 分类 ID
-    :param session: 数据库会话
-    """
-    # 查询分类
-    result = await session.execute(
-        select(CalcReportCategory).where(
-            (CalcReportCategory.oid == category_oid)
-            & (CalcReportCategory.userId == user_id)
-            & (CalcReportCategory.status == 1)
+    """Soft-delete an empty category while preserving report ownership."""
+    category = await get_category(user_id, category_oid, session)
+    report_count = await session.scalar(
+        select(func.count(CalcReport.id)).where(
+            CalcReport.categoryId == category.id, CalcReport.deletedAt.is_(None)
         )
     )
-    category = result.scalars().first()
-
-    if not category:
-        raise_ex("Category not found", code=404)
-
-    category = cast(CalcReportCategory, category)
-
-    # 检查分类是否为空
-    if category.total > 0:
-        raise_ex("Cannot delete non-empty category", code=400)
-
-    if not delete_category_directory(user_id, category.name):
-        logger.error(f"删除分类目录失败: userId={user_id}, name={category.name}")
-        raise_ex("Cannot delete non-empty category directory", code=400)
-
-    # 逻辑删除：设置 status 为 0
-    category.status = 0
+    if report_count:
+        raise_ex("Category contains active reports", code=409)
+    category.deletedAt = datetime.datetime.now(datetime.timezone.utc)
     await session.commit()
-
-    logger.info(f"分类删除成功: userId={user_id}, categoryId={category_oid}")
 
 
 async def get_or_create_default_category(
-    user_id: int, default_category_name: str, session: AsyncSession
-) -> CategoryInfoResDTO:
-    """
-    获取或创建默认分类
-    如果用户没有任何有效分类，则使用默认名称创建一个分类后返回
-    如果已有分类，则返回第一个分类（按 order 排序）
-
-    :param user_id: 用户 ID
-    :param default_category_name: 默认分类名称
-    :param session: 数据库会话
-    :return: 分类信息
-    """
-    # 查询用户是否有有效分类
-    result = await session.execute(
-        select(CalcReportCategory)
-        .where(
-            (CalcReportCategory.userId == user_id) & (CalcReportCategory.status == 1)
+    user_id: int, name: str, session: AsyncSession
+) -> CalcReportCategoryResDTO:
+    """Return an active named category or create it for first-use flows."""
+    category = await session.scalar(
+        select(CalcReportCategory).where(
+            CalcReportCategory.userId == user_id,
+            CalcReportCategory.name == name,
+            CalcReportCategory.deletedAt.is_(None),
         )
-        .order_by(CalcReportCategory.order)
-        .limit(1)
     )
-    category = result.scalars().first()
-
-    # 如果已有分类，直接返回第一个
-    if category:
-        logger.debug(f"用户已有分类: userId={user_id}, categoryOid={category.oid}")
-        return CategoryInfoResDTO.model_validate(category, from_attributes=True)
-
-    # 如果没有分类，创建默认分类
-    logger.info(
-        f"用户无分类，创建默认分类: userId={user_id}, name={default_category_name}"
-    )
-
-    new_category = CalcReportCategory(
-        userId=user_id,
-        name=default_category_name,
-        description=None,
-        order=1,
-        total=0,
-    )
-
-    if not create_category_directory(user_id, default_category_name):
-        logger.error(
-            f"创建默认分类目录失败: userId={user_id}, name={default_category_name}"
+    if category is None:
+        return await create_category(
+            user_id, CalcReportCategoryReqDTO(name=name), session
         )
-        raise_ex("Failed to create default category directory", code=500)
+    count = await session.scalar(
+        select(func.count(CalcReport.id)).where(
+            CalcReport.categoryId == category.id, CalcReport.deletedAt.is_(None)
+        )
+    )
+    return _category_response(category, count or 0)
 
-    session.add(new_category)
-    await session.commit()
-    await session.refresh(new_category)
 
-    logger.info(f"默认分类创建成功: userId={user_id}, categoryOid={new_category.oid}")
-
-    return CategoryInfoResDTO.model_validate(new_category, from_attributes=True)
+def _category_response(
+    category: CalcReportCategory, report_count: int
+) -> CalcReportCategoryResDTO:
+    """Convert a category model and aggregate count to its public DTO."""
+    return CalcReportCategoryResDTO(
+        categoryOid=category.oid,
+        name=category.name,
+        description=category.description,
+        manualOrder=category.manualOrder,
+        isPinned=category.isPinned,
+        isHidden=category.isHidden,
+        frequencyCount=category.frequencyCount,
+        lastUsedAt=category.lastUsedAt,
+        reportCount=report_count,
+        createdAt=category.createdAt,
+        updatedAt=category.updatedAt,
+    )

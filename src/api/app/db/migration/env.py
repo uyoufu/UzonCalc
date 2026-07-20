@@ -19,8 +19,7 @@ api_dir = current_dir.parents[2]
 if str(api_dir) not in sys.path:
     sys.path.insert(0, str(api_dir))
 
-from app.db.models import BaseModel  # noqa: E402
-from app.db.models.user_input_history import Base as UserInputBase  # noqa: E402
+from app.db.models import Base  # noqa: E402
 from app.db.migration.migrations_helper import _convert_url_to_async  # noqa: E402
 from config import app_config  # noqa: E402
 
@@ -36,7 +35,7 @@ config.set_main_option(
     ),
 )
 
-target_metadata = [BaseModel.metadata, UserInputBase.metadata]
+target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:

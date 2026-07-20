@@ -8,6 +8,7 @@ pub mod locale;
 pub mod server;
 pub mod tray;
 pub mod welcome;
+mod window_size;
 
 use config::{app_config_paths, load_app_config, AppConfig};
 use locale::{app_title, set_current_locale};
@@ -62,6 +63,7 @@ pub fn run() {
                 main_window.label().to_string(),
                 tray_state,
             );
+            window_size::setup_window_size_persistence(&main_window, shared_state.clone());
             app.manage(shared_state.clone());
             log::info!("starting language service");
             spawn_language_server(shared_state);
@@ -112,6 +114,11 @@ fn create_main_window(
 
     if let Some(url) = app_config.webview_url() {
         window_config.url = url;
+    }
+
+    if let Some((width, height)) = app_config.window_size() {
+        window_config.width = f64::from(width);
+        window_config.height = f64::from(height);
     }
 
     window_config.title = app_title();

@@ -6,6 +6,7 @@
     "build": "bun build ./src/index.ts --outfile ./dist/template.js --format iife --target browser"
   },
   "devDependencies": {
+    "@playwright/test": "^1.60.0",
     "@types/bun": "latest"
   },
   "peerDependencies": {

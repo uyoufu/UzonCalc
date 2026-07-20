@@ -1,7 +1,7 @@
 import { defineBoot } from '#q-app/wrappers'
 import type { QuasarLanguage } from 'quasar'
 import { Lang } from 'quasar'
-import { useSessionStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core'
 import { messages } from 'src/i18n'
 
 // relative path to your node_modules/quasar/..
@@ -11,7 +11,7 @@ const langList = import.meta.glob('/node_modules/quasar/lang/*.js')
 // import.meta.glob('../../node_modules/quasar/lang/(de|fr).js')
 
 export default defineBoot(async () => {
-  const localeStorage = useSessionStorage('locale', 'zh-CN')
+  const localeStorage = useLocalStorage('locale', 'zh-CN')
   const messagesKeys = Object.keys(messages)
   const locale = messagesKeys.find(key => key === localeStorage.value) || 'zh-CN'
   localeStorage.value = locale

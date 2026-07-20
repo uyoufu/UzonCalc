@@ -1,70 +1,36 @@
 from __future__ import annotations
 
 import base64
-from dataclasses import dataclass, field, replace
+from dataclasses import replace
 import html
+import inspect
 import io
-from typing import Any, Iterable, List, Protocol
+from typing import Any, List, Protocol
 
 from ..globals import get_current_instance
+from .element_models import AutoLabel, HtmlFragment, ISavefig, LabelKind, Props
+from .markdown import get_markdown
 
 
-class ISavefig(Protocol):
-    """
-    支持保存为图片的 Matplotlib 绘图对象协议。
-    """
+class _StringRenderable(Protocol):
+    """Structural type for figure content that can render itself as text."""
 
-    def savefig(self, *args: Any, **kwargs: Any) -> Any:
-        """
-        保存当前绘图内容到目标缓冲区或文件。
-        """
+    def __str__(self) -> str:
+        """Return the HTML or text representation."""
         ...
 
 
-@dataclass
-class Props:
-    """
-    HTML element properties class.
-
-    Supports standard HTML attributes and custom attributes.
-
-    Example:
-        Props(id="my-id", classes="foo bar", styles={"color": "red"})
-        Props(id="my-id", data_value="123")
-    """
-
-    class_str: str | None = None
-    style: dict[str, str] | None = None
-    id: str | None = None
-    custom: dict[str, Any] = field(default_factory=dict)
-
-    def to_dict(self) -> dict[str, str]:
-        """
-        Convert Props to a dictionary of HTML attributes.
-
-        :return: Dictionary mapping attribute names to their string values.
-        """
-        attrs: dict[str, str] = {}
-
-        # Handle id
-        if self.id:
-            attrs["id"] = self.id
-
-        # Handle classes
-        if self.class_str:
-            attrs["class"] = self.class_str
-
-        # Handle styles
-        if self.style:
-            attrs["style"] = "; ".join(f"{k}: {v}" for k, v in self.style.items())
-
-        # Handle custom attributes
-        for key, value in self.custom.items():
-            if value is not None:
-                # Convert underscores to hyphens for HTML attributes
-                # e.g. data_value -> data-value
-                attrs[key.replace("_", "-")] = str(value)
-        return attrs
+def create_auto_label(kind: LabelKind) -> AutoLabel:
+    """按当前上下文配置创建自动编号标签。"""
+    ctx = get_current_instance()
+    serial_number = ctx.get_serial_number()
+    prefix_settings = ctx.options.prefix_settings
+    prefix = (
+        prefix_settings.figure_prefix
+        if kind is LabelKind.FIGURE
+        else prefix_settings.table_prefix
+    )
+    return AutoLabel(kind=kind, label_id=f"{kind.value}-{serial_number}", prefix=prefix)
 
 
 def props(**kwargs) -> Props:
@@ -266,8 +232,10 @@ def p(
     return h("p", content, classes=classes, props=props, persist=persist)
 
 
-def P(content: str | List[str], *, props: Props | None = None):
-    p(content, props=props, persist=True)
+def P(
+    content: str | List[str], *, classes: str | None = None, props: Props | None = None
+):
+    p(content, classes=classes, props=props, persist=True)
 
 
 def div(
@@ -326,6 +294,34 @@ def Row(content: str | List[str], *, props: Props | None = None, tag: str = "div
     row(content, props=props, tag=tag, persist=True)
 
 
+def Figure(
+    content: str | List[str] | _StringRenderable,
+    caption: str | None = None,
+) -> str:
+    label = create_auto_label(LabelKind.FIGURE)
+    caption_children: list[str] = [str(label.source_html())]
+    if caption:
+        caption_children.append(caption)
+
+    if not isinstance(content, (str, list)):
+        content = str(content)
+
+    h(
+        "figure",
+        [
+            div(content, classes="uzoncalc-figure-body"),
+            h(
+                "figcaption",
+                caption_children,
+                classes="uzoncalc-label-caption uzoncalc-label-caption-figure",
+            ),
+        ],
+        classes="uzoncalc-figure-wrapper",
+        persist=True,
+    )
+    return label.reference_html()
+
+
 def img(
     src: str,
     classes: str | None = None,
@@ -355,16 +351,12 @@ def Img(
     width: str | int | None = None,
     height: str | int | None = None,
     props: Props | None = None,
-):
-    img(
-        src,
-        classes=classes,
-        alt=alt,
-        width=width,
-        height=height,
-        props=props,
-        persist=True,
+) -> str:
+    img_props = _extend_props(
+        props, {"src": src, "alt": alt, "width": width, "height": height}
     )
+    image_html = h("img", classes=classes, props=img_props, is_self_closing=True)
+    return Figure(image_html, alt)
 
 
 def input(content: str, persist: bool = False):
@@ -375,21 +367,21 @@ def Input(content: str):
     input(content, persist=True)
 
 
-def code(content: str, language: str | None = None):
-    lines = _trim_empty_lines(content.split("\n"))
+def code(content: str, language: str | None = None, persist: bool = False):
+    cleaned_content = inspect.cleandoc(content)
     lang_class = f"language-{language}" if language else ""
-    code_html = h("code", children="\n".join(lines), classes=lang_class)
-    return h("pre", children=code_html, classes="my-2")
+    code_html = h("code", children=cleaned_content, classes=lang_class)
+    return h("pre", children=code_html, classes="my-2 ml-8", persist=persist)
 
 
 def Code(content: str, language: str | None = None):
-    get_current_instance().append_content(code(content, language=language))
+    code(content, language=language, persist=True)
 
 
 def info(content: str, persist: bool = False):
     classes = (
-        "flex flex-row items-center bg-blue-100 border border-blue-400 "
-        "text-blue-700 px-4 py-3 rounded relative"
+        "flex flex-row items-center bg-blue-100 "
+        "text-blue-500 px-4 py-3 rounded relative"
     )
     return div(content, classes=classes, persist=persist)
 
@@ -398,8 +390,29 @@ def Info(content: str):
     info(content, persist=True)
 
 
+def markdown(content: str, persist: bool = False):
+    """
+    render markdown content
+    :param content: markdown content
+    :param trim: whether to trim start and end of content
+    :return: html content
+    """
+    md = get_markdown()
+
+    # 移除 content 开头的空行（含仅空白字符的行）
+    cleaned_content = inspect.cleandoc(content)
+    markdown_html = md.render(cleaned_content)
+    # 不能直接使用 p 标签，因为 p 标签中无法包含列表等元素
+    return div(markdown_html, persist=persist)
+
+
+def Markdown(content: str):
+    markdown(content, persist=True)
+
+
 def laTex(content: str, persist: bool = False):
-    return h("latex", children=content, persist=persist)
+    """渲染块级 LaTeX 公式，交由 HTML 模板中的 KaTeX 运行时排版。"""
+    return h("latex", children=html.escape(content), classes="latex", persist=persist)
 
 
 def LaTex(content: str):
@@ -410,24 +423,37 @@ def plot(fig: ISavefig, width=None, persist: bool = False):
     """
     将 Matplotlib 图形渲染为内嵌 PNG 图片。
     """
-    # 通过内存缓冲区导出图片，避免生成临时文件。
-    buf = io.BytesIO()
-    fig.savefig(buf, format="png", bbox_inches="tight")
-    buf.seek(0)
-    image_base64 = base64.b64encode(buf.getvalue()).decode("ascii")
+    image_base64 = base64.b64encode(_save_plot_to_bytes(fig)).decode("ascii")
     return img(f"data:image/png;base64,{image_base64}", width=width, persist=persist)
 
 
-def Plot(fig: ISavefig | bytes | bytearray | memoryview, width=None):
+def Plot(
+    fig: ISavefig | bytes | bytearray | memoryview,
+    *,
+    width=None,
+    caption: str = "",
+):
     """
     将 Matplotlib 图形或 PNG 二进制内容追加到当前文档。
     """
     if isinstance(fig, (bytes, bytearray, memoryview)):
         # 二进制内容直接编码为 data URL，避免误传给 Figure 渲染逻辑。
         image_base64 = base64.b64encode(fig).decode("ascii")
-        Img(f"data:image/png;base64,{image_base64}", width=width)
-        return
-    plot(fig, width=width, persist=True)
+        return Img(f"data:image/png;base64,{image_base64}", width=width)
+    image_base64 = base64.b64encode(_save_plot_to_bytes(fig)).decode("ascii")
+    return Img(
+        f"data:image/png;base64,{image_base64}",
+        width=width,
+        alt=caption,
+    )
+
+
+def _save_plot_to_bytes(fig: ISavefig) -> bytes:
+    """将 Matplotlib 图形保存为 PNG 二进制内容。"""
+    buf = io.BytesIO()
+    fig.savefig(buf, format="png", bbox_inches="tight")
+    buf.seek(0)
+    return buf.getvalue()
 
 
 def _merge_classes(element_props: Props | None, classes: str | None) -> Props | None:
@@ -450,13 +476,7 @@ def _extend_props(element_props: Props | None, attrs: dict[str, Any]) -> Props:
 def _props_to_html(element_props: Props | None) -> str:
     if element_props is None:
         return ""
-    attrs = element_props.to_dict()
-    if not attrs:
-        return ""
-    attr_text = " ".join(
-        f'{key}="{html.escape(value, quote=True)}"' for key, value in attrs.items()
-    )
-    return f" {attr_text}"
+    return element_props.to_html_attrs()
 
 
 def _children_to_html(children: str | List[str] | None) -> str:
@@ -467,10 +487,54 @@ def _children_to_html(children: str | List[str] | None) -> str:
     return str(children)
 
 
-def _trim_empty_lines(lines: Iterable[str]) -> list[str]:
-    trimmed = list(lines)
-    while trimmed and trimmed[0].strip() == "":
-        trimmed.pop(0)
-    while trimmed and trimmed[-1].strip() == "":
-        trimmed.pop()
-    return trimmed
+__all__ = [
+    "AutoLabel",
+    "Br",
+    "Code",
+    "Div",
+    "Figure",
+    "H",
+    "H1",
+    "H2",
+    "H3",
+    "H4",
+    "H5",
+    "H6",
+    "HtmlFragment",
+    "Img",
+    "Info",
+    "Input",
+    "ISavefig",
+    "LabelKind",
+    "LaTex",
+    "Markdown",
+    "P",
+    "Plot",
+    "Props",
+    "Row",
+    "Span",
+    "Subtitle",
+    "Title",
+    "br",
+    "code",
+    "div",
+    "h",
+    "h1",
+    "h2",
+    "h3",
+    "h4",
+    "h5",
+    "h6",
+    "img",
+    "info",
+    "input",
+    "laTex",
+    "markdown",
+    "p",
+    "plot",
+    "props",
+    "row",
+    "span",
+    "subtitle",
+    "title",
+]

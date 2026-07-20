@@ -44,6 +44,7 @@ class TextStep:
     ) -> None:
         if ctx.options.skip_content:
             return
+
         content = str(value if value is not None else self.text)
         render_html(ctx, html.escape(content))
 
@@ -67,8 +68,11 @@ class ExprStep:
             self.expr or ir.mtext(""),
             locals_map or {},
             value,
+            enable_formula_expression=ctx.options.enable_formula_expression,
             enable_substitution=ctx.options.enable_substitution,
         )
+        if not parts:
+            return
         render_html(ctx, ir.equation(parts).to_mathml_xml())
 
 
@@ -99,8 +103,11 @@ class EquationStep:
             self.rhs,
             value,
             locals_map,
+            enable_formula_expression=ctx.options.enable_formula_expression,
             enable_substitution=ctx.options.enable_substitution,
         )
+        if len(parts) <= 1:
+            return
         render_html(ctx, ir.equation(parts).to_mathml_xml())
 
 

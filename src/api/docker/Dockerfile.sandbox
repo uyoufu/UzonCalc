@@ -1,0 +1,16 @@
+FROM python:3.12-slim
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1
+
+RUN useradd --create-home --uid 10001 sandbox
+WORKDIR /opt/uzoncalc
+
+COPY src/core ./src/core
+COPY src/api ./src/api
+RUN pip install --no-cache-dir ./src/core ./src/api
+
+USER sandbox
+WORKDIR /work
+
+CMD ["python", "-m", "app.sandbox.worker"]

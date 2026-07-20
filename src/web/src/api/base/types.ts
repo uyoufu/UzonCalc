@@ -31,6 +31,7 @@ export interface IResponseData<T> {
   ok: boolean,
   status?: string,
   retcode?: number
+  errorCode?: string
 }
 
 /**

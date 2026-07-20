@@ -1,4 +1,6 @@
-from pydantic import BaseModel, Field
+import datetime
+
+from pydantic import Field
 from typing import Optional, List
 
 from app.controller.dto_base import BaseDTO
@@ -16,12 +18,15 @@ class UserSignInDTO(BaseDTO):
 
 
 class UserInfoDTO(BaseDTO):
+    """Return identity and profile fields safe for the current session."""
+
     oid: str
     id: int
     username: str
-    name: str | None
+    nickName: str | None
     avatar: str | None
     status: UserStatus
+    roles: List[str]
 
 
 class UserSignInResponseDTO(BaseDTO):
@@ -69,10 +74,10 @@ class ChangePasswordDTO(BaseDTO):
     newPassword: str
 
 
-class ChangePasswordResponseDTO(BaseDTO):
-    """修改密码响应数据模型"""
+class UserProfileUpdateDTO(BaseDTO):
+    """Update the current user's editable profile fields."""
 
-    newPassword: str
+    nickName: str = Field(min_length=1, max_length=50)
 
 
 class UserDetailDTO(BaseDTO):
@@ -81,9 +86,9 @@ class UserDetailDTO(BaseDTO):
     id: int
     oid: str
     username: str
-    name: str | None
+    nickName: str | None
     avatar: str | None
     roles: List[str]
     status: int
-    createAt: str | None
+    createdAt: datetime.datetime
     isSuperAdmin: bool

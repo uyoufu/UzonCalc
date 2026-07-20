@@ -1,0 +1,65 @@
+/* UzonCalc template shared floating button styles */
+.uz-outline-toggle,
+.uz-print-button {
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 6px;
+  color: var(--uz-text-color-strong);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow:
+    0 10px 26px rgba(43, 59, 78, 0.12),
+    inset 0 1px 0 rgba(255, 255, 255, 0.75);
+  font: inherit;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.uz-outline-toggle:hover,
+.uz-print-button:hover {
+  border-color: rgba(52, 152, 219, 0.42);
+  color: var(--uz-link-color);
+  background: rgba(255, 255, 255, 0.92);
+}
+
+.uz-outline-toggle:focus-visible,
+.uz-print-button:focus-visible {
+  outline: none;
+  border-color: rgba(52, 152, 219, 0.62);
+  box-shadow:
+    var(--uz-focus-shadow),
+    0 10px 26px rgba(43, 59, 78, 0.12);
+}
+
+.uz-outline-toggle:active,
+.uz-print-button:active {
+  background: rgba(255, 255, 255, 0.96);
+  transform: translateY(1px);
+}
+
+.uz-print-button:disabled {
+  cursor: wait;
+}
+
+.uz-print-button[data-loading="true"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.uz-print-button[data-loading="true"]::before {
+  width: 0.78rem;
+  height: 0.78rem;
+  border: 2px solid rgba(52, 152, 219, 0.22);
+  border-top-color: var(--uz-link-color);
+  border-radius: 50%;
+  content: "";
+  animation: uz-print-spinner 0.72s linear infinite;
+}
+
+@keyframes uz-print-spinner {
+  to {
+    transform: rotate(360deg);
+  }
+}

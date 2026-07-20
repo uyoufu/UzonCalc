@@ -5,7 +5,6 @@ import inspect
 import ast
 import textwrap
 
-sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 
 def debug_function():
@@ -17,7 +16,7 @@ def debug_function():
 
 
 if __name__ == "__main__":
-    from core.uzoncalc.handcalc.ast_visitor import AstNodeVisitor
+    from uzoncalc.handcalc.ast_visitor import AstNodeVisitor
     
     print("=" * 60)
     print("第1步：获取原始函数信息")

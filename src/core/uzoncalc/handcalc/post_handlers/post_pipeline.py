@@ -2,10 +2,10 @@
 
 from typing import List
 from .base_post_handler import BasePostHandler
-from .parentheses_simplify import ParenthesesSimplify
+from .comparison_symbol import ComparisonSymbol
 from .swap_symbol import SwapSymbol
 from .swap_alias import SwapAlias
-from .subscripting import Subscripting
+from .script_notation import ScriptNotation
 from .format_url import FormatUrl
 
 
@@ -15,10 +15,10 @@ def get_default_post_handlers() -> List[BasePostHandler]:
     按优先级执行（数值越小越靠前），同优先级按类名稳定排序
     """
     handlers: List[BasePostHandler] = [
-        ParenthesesSimplify(),
+        ComparisonSymbol(),
         SwapSymbol(),
         SwapAlias(),
-        Subscripting(),
+        ScriptNotation(),
         FormatUrl(),
     ]
 

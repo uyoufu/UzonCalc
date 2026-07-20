@@ -1,6 +1,6 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "uzon-calc",
+  "productName": "uzoncalc",
   "version": "0.1.0",
   "identifier": "com.uzoncloud.calc",
   "build": {

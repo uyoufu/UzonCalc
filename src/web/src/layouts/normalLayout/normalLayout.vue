@@ -24,7 +24,7 @@
         <q-scroll-area class="page__scroll-area full-height full-width" :thumb-style="thumbStyle"
           :content-style="contentStyle" :content-active-style="contentActiveStyle">
           <router-view v-slot="{ Component }">
-            <transition appear enter-active-class="animated fadeInDown">
+            <transition appear enter-active-class="animated">
               <keep-alive :include="cachedViews">
                 <component :is="Component" :key="getRouteId($route.fullPath, $route.query)" />
               </keep-alive>

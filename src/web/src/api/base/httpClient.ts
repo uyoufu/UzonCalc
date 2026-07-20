@@ -69,8 +69,9 @@ export default class HttpClient {
     axiosInstance.interceptors.request.use(
       (config) => {
         const store = useUserInfoStore()
-        // 自动添加 token
-        config.headers.Authorization = 'Bearer ' + store.token
+        // 匿名请求不能携带空 Bearer 头，否则可选认证接口会将其视为无效凭据。
+        if (store.token) config.headers.Authorization = `Bearer ${store.token}`
+        else delete config.headers.Authorization
         return config
       },
       (error) => {
@@ -84,8 +85,7 @@ export default class HttpClient {
     axiosInstance.interceptors.response.use(
       async (response) => {
         // 有可能后端返回的是流
-        if (response.headers['content-type'] === 'application/octet-stream') {
-          console.log('response is stream:', response)
+        if (!this.isResponseEnvelope(response.data)) {
           return response
         }
 
@@ -120,6 +120,14 @@ export default class HttpClient {
         }
 
         const response = error.response as AxiosResponse
+        const contentType = response.headers['content-type']
+        if (response.data instanceof Blob && typeof contentType === 'string' && contentType.includes('application/json')) {
+          try {
+            response.data = JSON.parse(await response.data.text())
+          } catch {
+            // Keep the original Blob when a malformed error body cannot be decoded.
+          }
+        }
         // eslint-disable-next-line @typescript-eslint/no-unsafe-enum-comparison
         if (response.status === StatusCode.ClientErrorUnauthorized) {
           // 退出登录
@@ -142,6 +150,16 @@ export default class HttpClient {
     )
   }
 
+  /**
+   * 判断响应值是否为后端统一响应信封。
+   *
+   * @param value 待判断的响应值。
+   * @returns 当响应包含统一信封字段时返回 true。
+   */
+  private isResponseEnvelope(value: unknown): value is IResponseData<unknown> {
+    return typeof value === 'object' && value !== null && 'ok' in value && 'code' in value && 'data' in value
+  }
+
   // 退出登录
   private async logout() {
     const store = useUserInfoStore()
@@ -161,15 +179,8 @@ export default class HttpClient {
   // #region 对请求返回值的data进行解构，方便前端使用
   private destructureAxiosResponse<R>(response: AxiosResponse<IResponseData<R>>): IResponseData<R> {
     let data = response.data
-    // console.log('destructureAxiosResponse:', response)
-    // 如果是流，要单独处理
-    if (response.headers['content-type'] === 'application/octet-stream') {
-      data = {
-        data: response.data as unknown as R,
-        code: StatusCode.SuccessOK,
-        message: 'ok',
-        ok: true
-      }
+    if (!this.isResponseEnvelope(data)) {
+      data = { data: response.data as unknown as R, code: StatusCode.SuccessOK, message: 'ok', ok: true }
     }
     data.axiosResponse = response
 
@@ -214,6 +225,30 @@ export default class HttpClient {
     setDataToCache(url, config, dataResult.data)
 
     return dataResult
+  }
+
+  /**
+   * 获取不使用 JSON 信封包装的 Blob 内容。
+   *
+   * @param url 请求地址。
+   * @param config Axios 请求配置。
+   * @returns 原始 Blob 响应。
+   */
+  async getBlob<D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<AxiosResponse<Blob>> {
+    config = this.formatConfig(config)
+    return await this._axios.get<Blob, AxiosResponse<Blob>, D>(url, { ...config, responseType: 'blob' })
+  }
+
+  /**
+   * 获取 POST 请求返回的不使用 JSON 信封包装的 Blob 内容。
+   *
+   * @param url 请求地址。
+   * @param config Axios 请求配置。
+   * @returns 原始 Blob 响应。
+   */
+  async postBlob<D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<AxiosResponse<Blob>> {
+    config = this.formatConfig(config)
+    return await this._axios.post<Blob, AxiosResponse<Blob>, D>(url, config?.data, { ...config, responseType: 'blob' })
   }
 
   /**

@@ -8,7 +8,6 @@ import sys
 from types import ModuleType
 from typing import Optional, Any
 
-
 _dynamic_import_lock = asyncio.Lock()
 
 
@@ -89,12 +88,18 @@ class DynamicImportSession:
     """
 
     def __init__(
-        self, *, module_name: str, script_path: str, package_root: Optional[str] = None
+        self,
+        *,
+        module_name: str,
+        script_path: str,
+        package_root: Optional[str] = None,
+        source_root: Optional[str] = None,
     ):
         self.module_name = module_name
         self.script_path = os.path.abspath(script_path)
         self.script_dir = os.path.dirname(self.script_path)
         self.package_root = os.path.abspath(package_root) if package_root else None
+        self.source_root = os.path.abspath(source_root) if source_root else None
 
         self._inserted_sys_paths: list[str] = []
         self._locked: bool = False
@@ -123,10 +128,17 @@ class DynamicImportSession:
                 sys.path.insert(0, self.package_root)
                 self._inserted_sys_paths.append(self.package_root)
 
+            if self.source_root and self.source_root not in sys.path:
+                sys.path.insert(0, self.source_root)
+                self._inserted_sys_paths.append(self.source_root)
+
             if self.script_dir and self.script_dir not in sys.path:
                 sys.path.insert(0, self.script_dir)
                 self._inserted_sys_paths.append(self.script_dir)
 
+            parent_module = self.module_name.rpartition(".")[0]
+            if parent_module:
+                importlib.import_module(parent_module)
             spec = importlib.util.spec_from_file_location(
                 self.module_name, self.script_path
             )

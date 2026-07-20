@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass, asdict
 import asyncio
+from enum import StrEnum
 from typing import TYPE_CHECKING
 
 from ..utils_core.dot_dict import DotDict, deep_update
@@ -10,7 +11,9 @@ if TYPE_CHECKING:
 from ..globals import get_current_instance
 
 
-class FieldType:
+class FieldType(StrEnum):
+    """Supported UI field kinds serialized to the frontend as strings."""
+
     text = "text"
     number = "number"
     selectOne = "selectOne"
@@ -90,7 +93,7 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
             field.value = get_inputs(ctx, title, field)
 
         # 2. 生成信号
-        ctx.interaction.set_input_feature()
+        ctx.interaction.set_input_future()
 
         # 3. 返回结果
         window = Window(title=title, fields=fields, caption=caption)
@@ -121,3 +124,6 @@ async def UI(title: str, fields: list[Field], caption: str | None = None) -> Dot
 
         # 返回结果
         return DotDict(ctx.vars.get(title, {}))
+
+
+__all__ = ["Field", "FieldType", "UI", "UIPayloads", "Window"]

@@ -23,7 +23,7 @@ math .array-var {
   color: var(--uz-text-color-math);
 }
 
-math mi[mathvariant="bold"] {
+math mi[mathvariant='bold'] {
   font-family: var(--uz-font-math-zh);
   font-weight: 700;
 }
@@ -38,11 +38,25 @@ math .function-name {
   font-style: normal;
 }
 
-math[display="inline"] {
+math .array-value {
+  white-space: nowrap;
+}
+
+math .array-matrix {
+  vertical-align: middle;
+}
+
+math .array-matrix-cell {
+  padding: var(--uz-space-xs);
+  text-align: center;
+  white-space: nowrap;
+}
+
+math[display='inline'] {
   margin: 0 var(--uz-space-2xs);
 }
 
-math[display="block"] {
+math[display='block'] {
   margin: var(--uz-space-lg) 0;
 }
 
@@ -56,6 +70,14 @@ msup > :nth-child(2) {
   line-height: 1;
 }
 
+msubsup > :nth-child(2) {
+  margin-left: var(--uz-space-2xs);
+}
+
+msubsup > :nth-child(3) {
+  margin-left: var(--uz-space-2xs);
+}
+
 mfrac,
 mfrac * {
   font-size: inherit;
@@ -66,7 +88,7 @@ mrow {
   padding-top: 2px;
 }
 
-math > mrow {
+math > mrow:not(.array-value) {
   display: inline-flex;
   flex-wrap: wrap;
   align-items: baseline;

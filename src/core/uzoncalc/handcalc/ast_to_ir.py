@@ -8,13 +8,14 @@ from . import ir
 from .converters.call_rendering import render_call
 from .converters.operator_rendering import (
     BINOP_INFIX,
+    BinOpChildSide,
     CMP_OPS,
+    OperatorContext,
     UNARY_OPS,
-    maybe_parenthesize_left,
-    maybe_parenthesize_right,
+    apply_operator_context_parentheses,
 )
 from .converters.subscript_rendering import render_subscript
-from .converters.unit_expression import try_fold_mixed_unit_expr
+from .converters.unit_product import try_render_unit_product_expr
 
 
 def _unparse(node: ast.AST) -> str:
@@ -34,6 +35,10 @@ def target_to_ir(node: ast.AST) -> ir.MathNode:
     return ir.mtext(_unparse(node))
 
 
+# 使用 singledispatch 实现，支持扩展新的 AST 节点类型
+# 将 AST 节点转换为 Math Intermediate Representation 节点
+
+
 @singledispatch
 def expr_to_ir(node: ast.AST) -> ir.MathNode:
     """
@@ -43,6 +48,14 @@ def expr_to_ir(node: ast.AST) -> ir.MathNode:
     """
     # 默认回退：对于未知类型，使用 unparse
     return ir.mtext(_unparse(node))
+
+
+def _expr_to_ir_with_context(
+    node: ast.AST, operator_context: OperatorContext | None = None
+) -> ir.MathNode:
+    """使用父算符上下文渲染表达式，并在必要时补充括号。"""
+    node_ir = expr_to_ir(node)
+    return apply_operator_context_parentheses(node, node_ir, operator_context)
 
 
 @expr_to_ir.register(ast.Name)
@@ -64,21 +77,27 @@ def _expr_unary(node: ast.UnaryOp) -> ir.MathNode:
     symbol = UNARY_OPS.get(type(node.op))
     if symbol is None:
         return ir.mtext(_unparse(node))
-    return ir.mrow([ir.mo(symbol), expr_to_ir(node.operand)])
+    return ir.mrow([ir.mo(symbol), _expr_to_ir_with_context(node.operand)])
 
 
 @expr_to_ir.register(ast.BinOp)
 def _expr_binop(node: ast.BinOp) -> ir.MathNode:
     # 特殊处理单位表达式
-    mixed_unit = try_fold_mixed_unit_expr(node, expr_to_ir=expr_to_ir)
-    if mixed_unit is not None:
-        return mixed_unit
+    unit_product = try_render_unit_product_expr(
+        node, expr_to_ir=_expr_to_ir_with_context
+    )
+    if unit_product is not None:
+        return unit_product
 
     op_type = type(node.op)
 
     # 转换左右子节点，并根据操作符优先级补充必要括号
-    left = maybe_parenthesize_left(node.left, op_type, expr_to_ir(node.left))
-    right = maybe_parenthesize_right(node.right, op_type, expr_to_ir(node.right))
+    left = _expr_to_ir_with_context(
+        node.left, OperatorContext(op_type, BinOpChildSide.LEFT)
+    )
+    right = _expr_to_ir_with_context(
+        node.right, OperatorContext(op_type, BinOpChildSide.RIGHT)
+    )
 
     # 中缀操作符
     symbol = BINOP_INFIX.get(op_type)
@@ -100,23 +119,23 @@ def _expr_boolop(node: ast.BoolOp) -> ir.MathNode:
     for idx, value in enumerate(node.values):
         if idx:
             items.append(ir.mo(op))
-        items.append(expr_to_ir(value))
+        items.append(_expr_to_ir_with_context(value))
     return ir.mrow(items)
 
 
 @expr_to_ir.register(ast.Compare)
 def _expr_compare(node: ast.Compare) -> ir.MathNode:
-    items: List[ir.MathNode] = [expr_to_ir(node.left)]
+    items: List[ir.MathNode] = [_expr_to_ir_with_context(node.left)]
     for op, comparator in zip(node.ops, node.comparators):
         items.append(ir.mo(CMP_OPS.get(type(op), op.__class__.__name__)))
-        items.append(expr_to_ir(comparator))
+        items.append(_expr_to_ir_with_context(comparator))
     return ir.mrow(items)
 
 
 @expr_to_ir.register(ast.Call)
 def _expr_call(node: ast.Call) -> ir.MathNode:
     # 函数调用的参数、特殊函数和方法调用格式化拆到 converters/call_rendering.py
-    return render_call(node, expr_to_ir=expr_to_ir, unparse=_unparse)
+    return render_call(node, expr_to_ir=_expr_to_ir_with_context, unparse=_unparse)
 
 
 @expr_to_ir.register(ast.List)
@@ -141,7 +160,7 @@ def _expr_attribute(node: ast.Attribute) -> ir.MathNode:
     # value 是 Call 时，这是一个字段访问
     if isinstance(node.value, ast.Call):
         # 字段名渲染为斜体
-        return ir.mrow([expr_to_ir(node.value), ir.mi(f".{node.attr}")])
+        return ir.mrow([_expr_to_ir_with_context(node.value), ir.mi(f".{node.attr}")])
     return ir.mi(_unparse(node))
 
 
@@ -152,9 +171,49 @@ def _expr_subscript(node: ast.Subscript) -> ir.MathNode:
 
 def _sequence_to_array(elements: list[ast.expr]) -> ir.MathNode:
     """列表/元组按数组值样式渲染。"""
+    if _is_rectangular_two_dimensional_sequence(elements):
+        return _sequence_to_matrix_array(elements)
+
     items: List[ir.MathNode] = []
     for idx, element in enumerate(elements):
         if idx:
             items.append(ir.mo(","))
-        items.append(expr_to_ir(element))
+        items.append(_expr_to_ir_with_context(element))
     return ir.mrow_array([ir.mo("["), *items, ir.mo("]")])
+
+
+def _is_rectangular_two_dimensional_sequence(elements: list[ast.expr]) -> bool:
+    """判断 AST 序列是否为可矩阵化的二维矩形数组。"""
+    if not elements:
+        return False
+    first_row = elements[0]
+    if not isinstance(first_row, (ast.List, ast.Tuple)):
+        return False
+
+    first_row_length = len(first_row.elts)
+    for row in elements:
+        if not isinstance(row, (ast.List, ast.Tuple)):
+            return False
+        if len(row.elts) != first_row_length:
+            return False
+        if any(_is_ast_sequence(cell) for cell in row.elts):
+            return False
+    return True
+
+
+def _sequence_to_matrix_array(elements: list[ast.expr]) -> ir.MathNode:
+    """将二维矩形 AST 序列渲染为 MathML 矩阵。"""
+    rows: list[ir.MTr] = []
+    for row in elements:
+        if not isinstance(row, (ast.List, ast.Tuple)):
+            raise ValueError("Matrix rows must be list or tuple expressions")
+        rows.append(
+            ir.mtr([ir.mtd([_expr_to_ir_with_context(cell)]) for cell in row.elts])
+        )
+    children: list[ir.MathNode] = [ir.mo("["), ir.mtable(rows), ir.mo("]")]
+    return ir.mrow_array(children)
+
+
+def _is_ast_sequence(node: ast.expr) -> bool:
+    """判断 AST 节点是否为 list/tuple 序列。"""
+    return isinstance(node, (ast.List, ast.Tuple))

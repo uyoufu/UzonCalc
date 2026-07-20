@@ -2,14 +2,9 @@
 
 from __future__ import annotations
 
-import re
-import re
-from typing import TYPE_CHECKING, Optional
-
+from ...handler_protocols import HandlerContext
 from .base_post_handler import BasePostHandler
-
-if TYPE_CHECKING:
-    from ...context import CalcContext
+from .dom_utils import PostHandlerNode
 
 
 class SwapAlias(BasePostHandler):
@@ -23,16 +18,18 @@ class SwapAlias(BasePostHandler):
 
     priority = 10
 
-    def handle(self, data: str, ctx: Optional[CalcContext] = None) -> str:
+    def handle(
+        self, post_node: PostHandlerNode, ctx: HandlerContext | None = None
+    ) -> None:
         if ctx is None:
-            return data
+            return
 
         aliases = ctx.options.aliases
         if not aliases:
-            return data
+            return
 
         # 过滤无效项：空 key、key/value 非字符串等
-        replacements: list[tuple[str, str]] = []
+        replacements: dict[str, str] = {}
         for key, value in aliases.items():
             if value is None:
                 continue
@@ -40,16 +37,10 @@ class SwapAlias(BasePostHandler):
                 value = str(value)
             if key == value:
                 continue
-            replacements.append((key, value))
+            replacements[key] = value
 
         if not replacements:
-            return data
+            return
 
-        for key, value in replacements:
-            # 仅替换作为元素完整文本内容出现的 key（即 >key< 形式）
-            # 避免替换标签名（如 <math>）或属性值（如 mathvariant）中的子串
-            pattern = '>' + re.escape(key) + '<'
-            replacement = '>' + value + '<'
-            data = data.replace(pattern, replacement)
-
-        return data
+        post_node.replace_text(lambda text: replacements.get(text, text))
+        post_node.replace_tail(lambda text: replacements.get(text, text))

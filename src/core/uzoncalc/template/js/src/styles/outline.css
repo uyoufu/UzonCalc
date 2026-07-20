@@ -1,0 +1,111 @@
+/* UzonCalc template outline preview styles */
+.uz-outline-toggle {
+  /* 与打印按钮同行固定，便于快速展开或关闭右侧大纲。 */
+  position: fixed;
+  top: var(--uz-space-md);
+  right: calc(var(--uz-space-md) + 2rem);
+  z-index: 1001;
+}
+
+.uz-outline-preview {
+  /* 右侧固定大纲不占用正文打印布局。 */
+  position: fixed;
+  top: 2.5rem;
+  right: var(--uz-space-md);
+  z-index: 1000;
+  width: min(18rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 7rem);
+  margin: 0;
+  padding: var(--uz-space-lg);
+  overflow-y: auto;
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  border-radius: 8px;
+  color: var(--uz-text-color);
+  background: rgba(255, 255, 255, 0.82);
+  backdrop-filter: blur(14px) saturate(1.2);
+  box-shadow:
+    0 18px 48px rgba(43, 59, 78, 0.16),
+    0 2px 10px rgba(43, 59, 78, 0.08),
+    inset 0 1px 0 rgba(255, 255, 255, 0.8);
+}
+
+.uz-outline-preview.uz-outline-collapsed {
+  display: none;
+}
+
+.uz-outline-title {
+  margin: 0 0 var(--uz-space-sm);
+  padding-bottom: var(--uz-space-sm);
+  border-bottom: 1px solid rgba(43, 59, 78, 0.1);
+  color: var(--uz-text-color-strong);
+  font-weight: 600;
+  letter-spacing: 0;
+}
+
+.uz-outline-nav {
+  display: flex;
+  flex-direction: column;
+  gap: 0.15rem;
+  margin: 0;
+}
+
+.uz-outline-link {
+  display: block;
+  margin: 0;
+  padding: 0.28rem var(--uz-space-sm);
+  overflow: hidden;
+  border-left: 3px solid transparent;
+  border-radius: var(--uz-radius-sm);
+  color: var(--uz-text-color-muted);
+  line-height: 1.35;
+  text-decoration: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition:
+    background-color 0.16s ease,
+    border-color 0.16s ease,
+    color 0.16s ease;
+}
+
+.uz-outline-link:hover {
+  color: var(--uz-link-color);
+  background: rgba(52, 152, 219, 0.08);
+  text-decoration: none;
+}
+
+.uz-outline-link-active {
+  border-left-color: var(--uz-link-color);
+  color: var(--uz-text-color-strong);
+  background: rgba(52, 152, 219, 0.12);
+  font-weight: 600;
+}
+
+.uz-outline-level-1 {
+  padding-left: 1rem;
+}
+
+.uz-outline-level-2 {
+  padding-left: 1.6rem;
+}
+
+.uz-outline-level-3,
+.uz-outline-level-4 {
+  padding-left: 2.2rem;
+}
+
+@media (max-width: 640px) {
+  .uz-outline-preview {
+    top: 2.5rem;
+    left: var(--uz-space-md);
+    right: var(--uz-space-md);
+    width: auto;
+    max-height: calc(100vh - 6rem);
+  }
+}
+
+@media print {
+  .uz-outline-preview,
+  .uz-outline-toggle {
+    display: none;
+  }
+}

@@ -4,11 +4,12 @@ import html
 from dataclasses import dataclass
 from typing import Any
 
-import numpy as np
 import pint
 
 from ...globals import get_current_instance
+from ...context_utils.element_models import HtmlFragment
 from .. import ir
+from .value_normalizer import normalize_renderable_value
 
 FLOAT_PRECISION = 12  # 浮点数清理精度（消除浮点误差）
 SYMBOL_COMMA = ","
@@ -26,26 +27,24 @@ class FormattedQuantity:
 
 def should_render_runtime_value(value: Any) -> bool:
     """仅展示稳定、可读的运行期值，避免复杂对象 repr 污染计算书。"""
-    if value is None:
-        return False
-    if isinstance(value, ir.MathNode):
-        return True
     if isinstance(value, FormattedQuantity):
         return True
-    if isinstance(value, (int, float, str)):
-        return True
-    if isinstance(value, (list, tuple, np.ndarray, pint.Quantity)):
-        return True
-    return False
+    return normalize_renderable_value(value) is not None
 
 
 def is_array_value(value: Any) -> bool:
     """判断运行期值是否应按数组样式展示。"""
-    return isinstance(value, (list, tuple, np.ndarray))
+    normalized_value = normalize_renderable_value(value)
+    return isinstance(normalized_value, list)
 
 
 def value_to_ir(value: Any) -> ir.MathNode:
     """将 Python 运行期值转换为 MathIR。"""
+    normalized_value = normalize_renderable_value(value)
+    if normalized_value is None and not isinstance(value, FormattedQuantity):
+        return ir.mtext("")
+    value = normalized_value if normalized_value is not None else value
+
     if isinstance(value, ir.MathNode):
         return value
 
@@ -60,25 +59,16 @@ def value_to_ir(value: Any) -> ir.MathNode:
     if isinstance(value, str):
         return ir.mtext(value)
 
-    if isinstance(value, (list, tuple)):
-        items: list[ir.MathNode] = []
-        for idx, item in enumerate(value):
-            if idx:
-                items.append(ir.mo(SYMBOL_COMMA))
-            items.append(value_to_ir(item))
-        return ir.mrow_array(
-            [ir.mo(SYMBOL_LEFT_BRACKET), *items, ir.mo(SYMBOL_RIGHT_BRACKET)]
-        )
-
-    if isinstance(value, np.ndarray):
-        return value_to_ir(value.tolist())
+    if isinstance(value, list):
+        return _array_to_ir(value)
 
     if isinstance(value, pint.Quantity):
         # 使用 format_number 处理浮点数精度问题
         magnitude = value.magnitude
+        normalized_magnitude = normalize_renderable_value(magnitude)
         formatted_magnitude = (
-            format_number(magnitude)
-            if isinstance(magnitude, (int, float))
+            format_number(normalized_magnitude)
+            if isinstance(normalized_magnitude, (int, float))
             else str(magnitude)
         )
         return _quantity_to_ir(formatted_magnitude, str(value.units))
@@ -95,6 +85,9 @@ def render_value_text(value: Any) -> str:
         return html.escape(_math_node_to_text(value))
     if isinstance(value, FormattedQuantity):
         return html.escape(f"{value.magnitude} {value.units}")
+    normalized_value = normalize_renderable_value(value)
+    if normalized_value is not None:
+        value = normalized_value
     if isinstance(value, str):
         return html.escape(value)
     if isinstance(value, (int, float)):
@@ -115,11 +108,25 @@ def render_value_fragment(value: Any) -> str:
     """Render a runtime value for f-string mixed HTML output."""
     if value is None:
         return ""
+    html_fragment = render_html_fragment(value)
+    if html_fragment is not None:
+        return html_fragment
     if isinstance(value, ir.MathNode):
         return value.to_mathml_xml()
-    if isinstance(value, (FormattedQuantity, pint.Quantity)):
+    if should_render_runtime_value(value):
         return value_to_ir(value).to_mathml_xml()
     return render_value_text(value)
+
+
+def render_html_fragment(value: Any) -> str | None:
+    """若值是可信 HTML 片段则返回原始 HTML，否则返回 None。"""
+    if isinstance(value, HtmlFragment):
+        return value.__html__()
+    html_method = getattr(value, "__html__", None)
+    if callable(html_method):
+        return str(html_method())
+    return None
+
 
 def format_runtime_value(value: Any, format_spec: str) -> Any:
     """Apply an f-string format spec without choosing the final output format."""
@@ -142,6 +149,50 @@ def apply_format_spec(value: Any, format_spec: str) -> Any:
 
 def _quantity_to_ir(magnitude: str, units: str) -> ir.MathNode:
     return ir.mrow([ir.mn(magnitude), ir.mo(""), ir.mu(units)])
+
+
+def _array_to_ir(value: list[Any] | tuple[Any, ...]) -> ir.MathNode:
+    """Render a Python sequence as a one-dimensional array or matrix."""
+    if _is_rectangular_two_dimensional_array(value):
+        return _matrix_array_to_ir(value)
+
+    items: list[ir.MathNode] = []
+    for idx, item in enumerate(value):
+        if idx:
+            items.append(ir.mo(SYMBOL_COMMA))
+        items.append(value_to_ir(item))
+    return ir.mrow_array(
+        [ir.mo(SYMBOL_LEFT_BRACKET), *items, ir.mo(SYMBOL_RIGHT_BRACKET)]
+    )
+
+
+def _is_rectangular_two_dimensional_array(value: list[Any] | tuple[Any, ...]) -> bool:
+    """Return True when a sequence can be displayed as a rectangular matrix."""
+    if not value:
+        return False
+    if not all(_is_runtime_sequence(row) for row in value):
+        return False
+
+    first_row_length = len(value[0])
+    for row in value:
+        if len(row) != first_row_length:
+            return False
+        if any(_is_runtime_sequence(cell) for cell in row):
+            return False
+    return True
+
+
+def _matrix_array_to_ir(value: list[Any] | tuple[Any, ...]) -> ir.MathNode:
+    """Render a rectangular two-dimensional sequence with MathML table rows."""
+    rows = [ir.mtr([ir.mtd([value_to_ir(cell)]) for cell in row]) for row in value]
+    return ir.mrow_array(
+        [ir.mo(SYMBOL_LEFT_BRACKET), ir.mtable(rows), ir.mo(SYMBOL_RIGHT_BRACKET)]
+    )
+
+
+def _is_runtime_sequence(value: Any) -> bool:
+    """Return True for runtime sequence containers that represent arrays."""
+    return isinstance(value, (list, tuple))
 
 
 def _math_node_to_text(value: ir.MathNode) -> str:

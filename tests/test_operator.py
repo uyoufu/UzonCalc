@@ -1,4 +1,4 @@
-from core.uzoncalc import *
+from uzoncalc import *
 
 
 @uzon_calc()
@@ -27,8 +27,6 @@ async def sheet():
 
     "混合运算："
     i = a + b * c - d / e + f**2
-
-    save("../output/test_operator.html")
 
 
 if __name__ == "__main__":

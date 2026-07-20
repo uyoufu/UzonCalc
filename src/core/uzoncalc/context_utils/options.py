@@ -25,6 +25,42 @@ def hide():
 # endregion
 
 
+# region enable/disable f-string equation rendering
+def enable_fstring_equation():
+    """启用 f-string 表达式的方程渲染。"""
+    ctx = get_current_instance()
+    ctx.options.enable_fstring_equation = True
+
+
+def disable_fstring_equation():
+    """禁用 f-string 表达式的方程渲染，仅显示表达式值。"""
+    ctx = get_current_instance()
+    ctx.options.enable_fstring_equation = False
+
+
+# endregion
+
+
+# region enable/disable formula expression rendering
+def enable_formula_expression():
+    """
+    enable formula expression rendering
+    """
+    ctx = get_current_instance()
+    ctx.options.enable_formula_expression = True
+
+
+def disable_formula_expression():
+    """
+    disable formula expression rendering
+    """
+    ctx = get_current_instance()
+    ctx.options.enable_formula_expression = False
+
+
+# endregion
+
+
 # region enable/disable variable substitution in equations
 def enable_substitution():
     """
@@ -45,33 +81,13 @@ def disable_substitution():
 # endregion
 
 
-# region fstring equation
-def enable_fstring_equation():
-    """
-    enable fstring equation rendering
-    """
-    ctx = get_current_instance()
-    ctx.options.enable_fstring_equation = True
-
-
-def disable_fstring_equation():
-    """
-    disable fstring equation rendering
-    """
-    ctx = get_current_instance()
-    ctx.options.enable_fstring_equation = False
-
-
-# endregion
-
-
 # region inline
 def inline(separator: str = " "):
     ctx = get_current_instance()
     ctx.start_inline(separator)
 
 
-def endInline():
+def end_inline():
     ctx = get_current_instance()
     ctx.end_inline()
 
@@ -107,3 +123,43 @@ def decimal(float_precision: int):
 
 
 # endregion
+
+
+# region figure/table prefix
+def figure_prefix(prefix: str = "Figure"):
+    """
+    set figure prefix
+    :param prefix: figure prefix, default is "Figure"
+    """
+    ctx = get_current_instance()
+    ctx.options.prefix_settings.figure_prefix = prefix
+
+
+def table_prefix(prefix: str = "Table"):
+    """
+    set table prefix
+    :param prefix: table prefix, default is "Table"
+    """
+    ctx = get_current_instance()
+    ctx.options.prefix_settings.table_prefix = prefix
+
+
+# endregion
+
+
+__all__ = [
+    "alias",
+    "decimal",
+    "disable_formula_expression",
+    "disable_fstring_equation",
+    "disable_substitution",
+    "enable_formula_expression",
+    "enable_fstring_equation",
+    "enable_substitution",
+    "end_inline",
+    "figure_prefix",
+    "hide",
+    "inline",
+    "show",
+    "table_prefix",
+]

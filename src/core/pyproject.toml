@@ -4,12 +4,42 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "uzoncalc"
-version = "1.2.0"
+version = "1.3.3"
 description = "UzonCalc is a tool for writing engineering calculation documents using Python. With it, you can write calculation reports as smoothly as writing Python, and benefit from the full Python ecosystem and AI assistance."
 readme = { file = "uzoncalc/README.md", content-type = "text/markdown" }
 authors = [{ name = "uyoufu", email = "uyoufu@uzoncloud.com" }]
-requires-python = ">=3.10"
-dependencies = ["pint", "numpy", "openpyxl", "xlwings", "matplotlib>=3.10.8"]
+requires-python = ">=3.13"
+dependencies = [
+    "pint",
+    "markdown-it-pyrs>=0.4.0",
+    "lxml>=6.0.2",
+    "pillow>=12.1.1",
+    "pygments>=2.19.2",
+]
+
+[project.optional-dependencies]
+scientific = [
+    "numpy",
+    "matplotlib>=3.10.8",
+    "svg-py>=1.10.0",
+]
+excel = [
+    "openpyxl",
+    "xlwings",
+]
+toc = [
+    "pymupdf>=1.27.2.3",
+    "playwright>=1.60.0",
+]
+all = [
+    "numpy",
+    "matplotlib>=3.10.8",
+    "svg-py>=1.10.0",
+    "openpyxl",
+    "xlwings",
+    "pymupdf>=1.27.2.3",
+    "playwright>=1.60.0",
+]
 
 [project.urls]
 Homepage = "https://github.com/uyoufu/UzonCalc"
@@ -22,16 +52,44 @@ uzoncalc = "uzoncalc.cli:main"
 include-package-data = false
 
 [tool.setuptools.packages.find]
-# 仅发现带 __init__.py 的真实包，避免把重构残留目录打进发行包。
 where = ["."]
 include = ["uzoncalc*"]
-namespaces = false
+# 仅发现带 __init__.py 的真实包，避免把重构残留目录打进发行包。
+# namespaces = false
 
 [tool.setuptools.package-data]
 "uzoncalc.template" = ["*.html", "*.css"]
 
 [dependency-groups]
 # 核心包测试依赖，与发布运行依赖分离。
-test = ["astpretty>=3.0.0", "pytest>=9.0.3"]
+test = [
+    "anyio>=4.12.1",
+    "astpretty>=3.0.0",
+    "basedpyright>=1.36.1",
+    "hypothesis>=6.148.7",
+    "matplotlib>=3.10.8",
+    "numpy",
+    "openpyxl",
+    "playwright>=1.60.0",
+    "pymupdf>=1.27.2.3",
+    "pytest>=9.0.3",
+    "ruff>=0.14.10",
+    "svg-py>=1.10.0",
+    "xlwings",
+]
 # 核心包构建/发布依赖，只在发布流程中显式启用。
 publish = ["build>=1.3.0", "twine>=6.2.0"]
+
+[tool.basedpyright]
+pythonVersion = "3.13"
+typeCheckingMode = "standard"
+include = ["uzoncalc"]
+venvPath = "../.."
+venv = ".venv"
+
+[tool.ruff]
+target-version = "py313"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E9", "F63", "F7", "F82"]

@@ -23,9 +23,9 @@
     color: var(--uz-text-color-print) !important;
   }
 
-  math mi[mathvariant="italic"],
+  math mi[mathvariant='italic'],
   math mi:not([mathvariant]) {
-    font-family: inherit !important;
+    font-family: var(--uz-font-body) !important;
     font-style: italic !important;
   }
 
@@ -43,7 +43,6 @@
     page-break-after: avoid;
   }
 
-  pre,
   blockquote,
   .plot-container {
     page-break-inside: avoid;

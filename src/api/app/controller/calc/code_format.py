@@ -1,8 +1,8 @@
 from fastapi import APIRouter
 
 from app.controller.calc.code_format_dto import (
-    PythonBlackFormatReqDTO,
-    PythonBlackFormatResDTO,
+    PythonRuffFormatReqDTO,
+    PythonRuffFormatResDTO,
 )
 from app.response.response_result import ResponseResult, ok
 from app.service import code_format_service
@@ -13,12 +13,10 @@ router = APIRouter(
 )
 
 
-@router.post("/python/black")
-async def format_python_with_black(
-    data: PythonBlackFormatReqDTO,
-) -> ResponseResult[PythonBlackFormatResDTO]:
-    """
-    使用 Black 格式化 Python 代码
-    """
-    result = await code_format_service.format_python_with_black(data)
+@router.post("/python/ruff")
+async def format_python_with_ruff(
+    data: PythonRuffFormatReqDTO,
+) -> ResponseResult[PythonRuffFormatResDTO]:
+    """Format Python source with the server's isolated Ruff formatter."""
+    result = await code_format_service.format_python_with_ruff(data)
     return ok(data=result)

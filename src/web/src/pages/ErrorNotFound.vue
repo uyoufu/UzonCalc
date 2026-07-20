@@ -7,7 +7,7 @@
         Oops. Nothing here...
       </div>
 
-      <q-btn class="q-mt-xl" color="white" text-color="secondary" unelevated to="/" label="Go Home" no-caps />
+      <CommonBtn class="q-mt-xl" color="white" text-color="secondary" unelevated to="/" label="Go Home" no-caps />
     </div>
   </div>
 </template>

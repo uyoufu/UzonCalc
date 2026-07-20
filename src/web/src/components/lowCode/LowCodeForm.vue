@@ -4,7 +4,8 @@
       <template v-for="field in validFields" :key="field.name">
         <q-input v-if="isMatchedType(field, commonInputTypes)" outlined class="q-mb-sm low-code__field q-px-xs"
           :class="[fieldClass, field.classes]" standout dense v-model="fieldsModel[field.name]"
-          :type="(field.type as any)" :label="field.label" :placeholder="field.placeholder" :disable="field.disable">
+          :type="(field.type as any)" :label="field.label" :placeholder="field.placeholder" :hint="field.hint"
+          :autofocus="field.autofocus" :disable="field.disable">
           <template v-if="field.icon" v-slot:prepend>
             <q-icon :name="field.icon" />
           </template>
@@ -13,7 +14,8 @@
 
         <q-input v-if="isMatchedType(field, ['number'])" outlined class="q-mb-sm low-code__field q-px-xs"
           :class="[fieldClass, field.classes]" standout dense v-model.number="fieldsModel[field.name]" type="number"
-          :label="field.label" :placeholder="field.placeholder" :disable="field.disable">
+          :label="field.label" :placeholder="field.placeholder" :hint="field.hint" :autofocus="field.autofocus"
+          :disable="field.disable">
           <template v-if="field.icon" v-slot:prepend>
             <q-icon :name="field.icon" />
           </template>
@@ -22,8 +24,8 @@
 
         <q-input v-if="isMatchedType(field, ['textarea'])" outlined class="q-mb-sm low-code__field q-px-xs"
           :class="[fieldClass, field.classes]" standout dense v-model="fieldsModel[field.name]" type="textarea"
-          :autogrow="!field.disableAutoGrow" :label="field.label" :disable="field.disable"
-          :placeholder="field.placeholder || '按 Enter 可换行'">
+          :autogrow="!field.disableAutoGrow" :label="field.label" :hint="field.hint" :autofocus="field.autofocus"
+          :disable="field.disable" :placeholder="field.placeholder || '按 Enter 可换行'">
           <template v-if="field.icon" v-slot:prepend>
             <q-icon :name="field.icon" />
           </template>
@@ -38,9 +40,9 @@
 
         <q-select v-if="isMatchedType(field, ['selectOne', 'selectMany'])" class="q-mb-sm low-code__field q-px-xs"
           :class="[fieldClass, field.classes]" outlined v-model="fieldsModel[field.name]" :options="field.options"
-          :label="field.label" :disable="field.disable" dense :option-label="field.optionLabel"
-          :option-value="field.optionValue" options-dense :multiple="isMatchedType(field, 'selectMany')"
-          :map-options="field.mapOptions" :emit-value="field.emitValue">
+          :label="field.label" :hint="field.hint" :autofocus="field.autofocus" :disable="field.disable" dense
+          options-dense :option-label="field.optionLabel" :option-value="field.optionValue"
+          :multiple="isMatchedType(field, 'selectMany')" :map-options="field.mapOptions" :emit-value="field.emitValue">
           <AsyncTooltip :tooltip="field.tooltip" />
           <template v-slot:option="{ itemProps, opt, selected, toggleOption }">
             <q-item v-bind="itemProps">
@@ -218,7 +220,6 @@ function initFieldsModel() {
   }
 }
 initFieldsModel()
-console.log('fieldsModel:', fieldsModel.value, fields)
 
 onMounted(async () => {
   // 初始化数据源

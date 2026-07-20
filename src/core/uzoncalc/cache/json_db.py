@@ -16,6 +16,8 @@ class JsonDB:
             with open(json_path, "r", encoding="utf-8") as f:
                 self.data = json.load(f)
         else:
+            # 创建父级目录
+            os.makedirs(os.path.dirname(json_path), exist_ok=True)
             self.data = {}
 
     def __get_key(self, key: Any) -> str:

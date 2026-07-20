@@ -1,41 +1,115 @@
-import datetime
-from typing import Any
+"""Saved calculation-report instance table definition."""
 
-from sqlalchemy import JSON, DateTime, String, Text
+import datetime
+
+from sqlalchemy import (
+    Boolean,
+    BigInteger,
+    CheckConstraint,
+    DateTime,
+    ForeignKey,
+    ForeignKeyConstraint,
+    Index,
+    JSON,
+    String,
+    Text,
+    text,
+    true,
+)
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import BaseModel
 
 
 class CalcReportInstance(BaseModel):
-    """
-    计算实例
-    仅当手动保存时，才会被更新
-    """
+    """Persist a reproducible saved result backed by an immutable bundle."""
 
     __tablename__ = "calc_report_instance"
+    __table_args__ = (
+        ForeignKeyConstraint(
+            ["reportId", "sourceVersionId"],
+            ["calc_report_version.reportId", "calc_report_version.id"],
+            name="fk_calc_report_instance_source_version",
+            ondelete="RESTRICT",
+        ),
+        CheckConstraint("revision >= 1", name="revision_positive"),
+        Index(
+            "ix_calc_report_instance_user_deleted_updated",
+            "userId",
+            "deletedAt",
+            "updatedAt",
+        ),
+    )
 
-    userId: Mapped[int] = mapped_column(nullable=False, index=True)
-    categoryId: Mapped[int] = mapped_column(nullable=False, index=True)
-    # 来源计算报告 ID
-    reportId: Mapped[int] = mapped_column(nullable=False, index=True)
-    # 来源报告名称快照，用于列表展示
-    reportName: Mapped[str | None] = mapped_column(String(100), nullable=True)
-
-    # 状态：0-删除，1-正常
-    status: Mapped[int] = mapped_column(nullable=False, default=1)
-    name: Mapped[str] = mapped_column(String(100))
-    description: Mapped[str | None] = mapped_column(Text, nullable=True)
-    # 默认参数值
-    defaults: Mapped[dict[str, dict[str, Any]]] = mapped_column(JSON, default={})
-    # 保存后的 HTML 相对路径，例如 public/calc-instances/1/xxx/hash.html
-    resultPath: Mapped[str | None] = mapped_column(String(500), nullable=True)
-
-    version: Mapped[int] = mapped_column(nullable=False, default=1)
-    lastModified: Mapped[datetime.datetime] = mapped_column(
-        DateTime(timezone=True),
-        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+    userId: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    categoryId: Mapped[int] = mapped_column(
+        ForeignKey(
+            "calc_report_instance_category.id",
+            name="fk_report_instance_category",
+            ondelete="RESTRICT",
+        ),
         nullable=False,
-        index=True,
-        comment="最近一次修改时间，自动更新",
+    )
+    reportId: Mapped[int] = mapped_column(
+        ForeignKey("calc_report.id", ondelete="RESTRICT"), nullable=False
+    )
+    sourceVersionId: Mapped[int | None] = mapped_column(nullable=True)
+    bundleId: Mapped[int] = mapped_column(
+        ForeignKey("calc_execution_bundle.id", ondelete="RESTRICT"), nullable=False
+    )
+    executionId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_execution.id", ondelete="SET NULL"), nullable=True
+    )
+    reportName: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    name: Mapped[str] = mapped_column(String(100), nullable=False)
+    description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    defaults: Mapped[dict] = mapped_column(JSON, nullable=False, default=dict)
+    inputWindows: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    resultPath: Mapped[str] = mapped_column(String(500), nullable=False)
+    revision: Mapped[int] = mapped_column(
+        BigInteger, nullable=False, default=1, server_default="1"
+    )
+    updatedAt: Mapped[datetime.datetime] = mapped_column(
+        DateTime(timezone=True),
+        nullable=False,
+        default=lambda: datetime.datetime.now(datetime.timezone.utc),
+        onupdate=lambda: datetime.datetime.now(datetime.timezone.utc),
+    )
+    deletedAt: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+
+
+class CalcReportInstanceShare(BaseModel):
+    """Persist a revocable anonymous share for one saved calculation instance."""
+
+    __tablename__ = "calc_report_instance_share"
+    __table_args__ = (
+        Index(
+            "ix_calc_report_instance_share_instance_revoked",
+            "instanceId",
+            "revokedAt",
+        ),
+        Index(
+            "uq_calc_report_instance_share_active_instance",
+            "instanceId",
+            unique=True,
+            sqlite_where=text('"revokedAt" IS NULL AND "isEnabled" IS TRUE'),
+            postgresql_where=text('"revokedAt" IS NULL AND "isEnabled" IS TRUE'),
+        ),
+    )
+
+    instanceId: Mapped[int] = mapped_column(
+        ForeignKey("calc_report_instance.id", ondelete="CASCADE"), nullable=False
+    )
+    createdByUserId: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    revokedAt: Mapped[datetime.datetime | None] = mapped_column(
+        DateTime(timezone=True), nullable=True
+    )
+    isEnabled: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default=true()
     )

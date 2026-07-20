@@ -10,10 +10,13 @@ from __future__ import annotations
 import ast
 from typing import Callable, Optional, Set
 
-
 # 函数调用过滤器类型定义
 # 返回 True 表示应该隐藏该函数调用
 CallFilterFunction = Callable[[ast.Call], bool]
+
+
+class CallFilterError(RuntimeError):
+    """Wrap a custom call-filter failure with source location context."""
 
 
 class CallFilterRegistry:
@@ -33,8 +36,11 @@ class CallFilterRegistry:
         self.register_simple("UI")
 
         # 可以添加更多内置过滤器
-        # self.register_simple("hide")
-        # self.register_simple("show")
+        self.register_simple("hide")
+        self.register_simple("show")
+        self.register_simple("Table")
+        self.register_simple("Echarts")
+        self.register_simple("Img")
 
     def register_simple(self, func_name: str) -> None:
         """
@@ -85,9 +91,11 @@ class CallFilterRegistry:
             try:
                 if filter_func(node):
                     return True
-            except Exception:
-                # 过滤器异常时不隐藏，保证安全
-                continue
+            except Exception as exc:
+                location = f"line {getattr(node, 'lineno', '?')}, column {getattr(node, 'col_offset', '?')}"
+                raise CallFilterError(
+                    f"Call filter {filter_func!r} failed at {location}"
+                ) from exc
 
         return False
 
@@ -116,6 +124,20 @@ class CallFilterRegistry:
             函数名列表
         """
         return list(self._simple_filters)
+
+    def snapshot(self) -> "CallFilterRegistry":
+        """Create an isolated registry snapshot for one instrumentation run.
+
+        Returns:
+            Registry containing copies of the current simple and advanced filters.
+
+        Raises:
+            No exceptions are intentionally raised.
+        """
+        snapshot = object.__new__(CallFilterRegistry)
+        snapshot._simple_filters = set(self._simple_filters)
+        snapshot._advanced_filters = list(self._advanced_filters)
+        return snapshot
 
 
 # 全局函数调用过滤器注册表实例

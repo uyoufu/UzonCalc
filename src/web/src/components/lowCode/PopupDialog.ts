@@ -7,7 +7,9 @@ import LowCodeDialog from './LowCodeDialog.vue'
  * 弹出对话框
  */
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-export async function showDialog<T = Record<string, any>>(dialogParams: IPopupDialogParams): Promise<IDialogResult<T>> {
+export async function showDialog<T = Record<string, any>>(
+  dialogParams: IPopupDialogParams
+): Promise<IDialogResult<T>> {
   // 修改默认值：fields
   dialogParams.fields.forEach((field) => {
     if (!field.type) field.type = LowCodeFieldType.text

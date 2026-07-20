@@ -1,3 +1,5 @@
+"""Create the in-memory asyncio scheduler and register API maintenance jobs."""
+
 import datetime
 from apscheduler.executors.asyncio import AsyncIOExecutor
 from apscheduler.jobstores.memory import MemoryJobStore
@@ -62,10 +64,12 @@ def _register_schedule_jobs():
 
     # 导入具体的定时任务类
     from .jobs.tmp_file_cleaner import TmpFileCleanerScheduleJob
+    from .jobs.calc_cache_cleaner import CalcCacheCleanerScheduleJob
 
     # 在这里添加需要注册的任务类
     job_classes = [
         TmpFileCleanerScheduleJob,  # 临时文件清理任务
+        CalcCacheCleanerScheduleJob,
         # 可以在这里添加更多任务...
     ]
 

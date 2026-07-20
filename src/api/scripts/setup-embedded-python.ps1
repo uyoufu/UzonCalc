@@ -6,7 +6,7 @@
 # ============================================
 
 param(
-    [string]$PythonVersion = "3.11.9",
+    [string]$PythonVersion = "3.13.14",
     [string]$TargetDir = "dist\python-embedded",
     [string]$CacheRoot
 )
@@ -87,6 +87,19 @@ function Test-PipAvailable {
     return $LASTEXITCODE -eq 0
 }
 
+function Get-DependencyHashPart {
+    param(
+        [string]$Path,
+        [string]$FallbackName
+    )
+
+    if (Test-Path -LiteralPath $Path) {
+        return (Get-FileHash -LiteralPath $Path -Algorithm SHA256).Hash.ToLowerInvariant()
+    }
+
+    return "missing-$FallbackName"
+}
+
 # ============================================
 # 1. 下载嵌入式 Python
 # ============================================
@@ -100,37 +113,37 @@ $zipFile = Join-Path $env:TEMP "python-embedded.zip"
 $getPipUrl = "https://bootstrap.pypa.io/get-pip.py"
 $getPipFile = Join-Path $env:TEMP "get-pip.py"
 $requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
-$requirementsHash = "no-requirements"
-if (Test-Path -LiteralPath $requirementsFile) {
-    $requirementsHash = (Get-FileHash -LiteralPath $requirementsFile -Algorithm SHA256).Hash.ToLowerInvariant()
-}
+$corePyprojectFile = Join-Path $CORE_PROJECT_ROOT "pyproject.toml"
+$dependencyHashParts = @(
+    (Get-DependencyHashPart -Path $requirementsFile -FallbackName "api-requirements"),
+    (Get-DependencyHashPart -Path $corePyprojectFile -FallbackName "core-pyproject")
+)
+$requirementsHash = $dependencyHashParts -join "-"
 
-$cacheKey = "v2-$PythonVersion-$arch-$requirementsHash"
+$cacheKey = "v3-$PythonVersion-$arch-$requirementsHash"
 $cacheDir = Join-Path $CacheRoot $cacheKey
 $cachePythonExe = Join-Path $cacheDir "python.exe"
+$cacheHit = $false
 
 Write-Info "Python cache root: $CacheRoot"
 Write-Info "Python cache key: $cacheKey"
 
 if (Test-Path -LiteralPath $cachePythonExe) {
-    Write-Info "检测到缓存的嵌入式 Python 环境，直接复制到目标目录..."
+    Write-Info "检测到缓存的嵌入式 Python 环境，复制到目标目录..."
     Remove-DirectoryIfExists -Path $EMBED_DIR
     Copy-DirectoryContents -Source $cacheDir -Destination $EMBED_DIR
 
     $pythonExe = Join-Path $EMBED_DIR "python.exe"
-    Write-Info "========================================="
-    Write-Info "嵌入式 Python 环境设置完成（来自缓存）！"
-    Write-Info "========================================="
-    Write-Host ""
-    Write-Host "Python 路径: $EMBED_DIR" -ForegroundColor Cyan
-    Write-Host "Python 可执行文件: $pythonExe" -ForegroundColor Cyan
-    Write-Host ""
-    return
+    $cacheHit = $true
+    Write-Info "缓存环境复制完成，将继续刷新本地 workspace 包。"
 }
 
 $downloadedPython = $false
 
-if (Test-Path $pythonExe) {
+if ($cacheHit) {
+    Write-Info "使用缓存的嵌入式 Python，跳过下载和解压。"
+}
+elseif (Test-Path $pythonExe) {
     Write-Info "检测到已缓存的嵌入式 Python: $EMBED_DIR"
     Write-Info "跳过下载和解压，继续检查配置并安装依赖..."
 }
@@ -262,53 +275,101 @@ if (-not (Test-Path $sitePackages)) {
 # 6. 安装依赖
 # ============================================
 
-Write-Info "安装项目依赖..."
+Write-Info "安装第三方依赖..."
 
 $pythonExe = Join-Path $EMBED_DIR "python.exe"
 $requirementsFile = Join-Path $PROJECT_ROOT "requirements.txt"
 
-if (Test-Path $requirementsFile) {
-    $filteredRequirementsFile = Join-Path $env:TEMP "uzoncalc-api-requirements.txt"
-    $requirementsContent = Get-Content -LiteralPath $requirementsFile |
-        Where-Object { $_ -notmatch '^\s*-e\s+file:' }
+if ($cacheHit) {
+    Write-Info "使用缓存环境，跳过第三方依赖安装。"
+}
+else {
+    if (Test-Path $requirementsFile) {
+        $filteredRequirementsFile = Join-Path $env:TEMP "uzoncalc-api-requirements.txt"
+        $requirementsContent = Get-Content -LiteralPath $requirementsFile |
+            Where-Object {
+                $_ -notmatch '^\s*-e\s+file:' -and
+                $_ -notmatch '^\s*uzoncalc(?:\[[^]]+\])?\s*(?:[#;].*)?$'
+            }
 
-    $requirementsContent | Set-Content -LiteralPath $filteredRequirementsFile -Encoding UTF8
+        $requirementsContent | Set-Content -LiteralPath $filteredRequirementsFile -Encoding UTF8
+
+        try {
+            Invoke-PipInstall -Arguments @("install", "-r", $filteredRequirementsFile)
+            Assert-LastCommandSucceeded -Message "API 依赖安装命令执行失败。"
+        }
+        catch {
+            Write-Error-Message "API 依赖安装失败: $_"
+            throw
+        }
+        finally {
+            if (Test-Path -LiteralPath $filteredRequirementsFile) {
+                Remove-Item -LiteralPath $filteredRequirementsFile -Force
+            }
+        }
+
+        Write-Info "API 依赖安装完成"
+    }
+    else {
+        Write-Host "  未找到 requirements.txt，跳过 API 依赖安装" -ForegroundColor Yellow
+    }
 
     try {
-        Invoke-PipInstall -Arguments @("install", "-r", $filteredRequirementsFile)
-        Assert-LastCommandSucceeded -Message "依赖安装命令执行失败。"
+        Write-Info "安装核心包第三方依赖..."
+        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "${CORE_PROJECT_ROOT}[all]")
+        Assert-LastCommandSucceeded -Message "核心包依赖安装命令执行失败。"
 
-        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $CORE_PROJECT_ROOT)
-        Assert-LastCommandSucceeded -Message "uzoncalc 安装命令执行失败。"
-
-        Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", $PROJECT_ROOT)
-        Assert-LastCommandSucceeded -Message "uzoncalc-api 安装命令执行失败。"
+        & $pythonExe -m pip uninstall -y uzoncalc
+        Assert-LastCommandSucceeded -Message "缓存环境临时核心包卸载失败。"
     }
     catch {
-        Write-Error-Message "依赖安装失败: $_"
+        Write-Error-Message "核心包依赖安装失败: $_"
         throw
-    }
-    finally {
-        if (Test-Path -LiteralPath $filteredRequirementsFile) {
-            Remove-Item -LiteralPath $filteredRequirementsFile -Force
-        }
     }
 
     Write-Info "依赖安装完成"
-}
-else {
-    Write-Host "  未找到 requirements.txt，跳过依赖安装" -ForegroundColor Yellow
 }
 
 # ============================================
 # 7. 写入缓存
 # ============================================
 
-Write-Info "写入嵌入式 Python 缓存..."
-Ensure-Directory -Path $CacheRoot
-Remove-DirectoryIfExists -Path $cacheDir
-Copy-DirectoryContents -Source $EMBED_DIR -Destination $cacheDir
-Write-Info "缓存完成: $cacheDir"
+if ($cacheHit) {
+    Write-Info "当前环境来自缓存，跳过缓存写入。"
+}
+else {
+    Write-Info "写入嵌入式 Python 缓存..."
+    Ensure-Directory -Path $CacheRoot
+    Remove-DirectoryIfExists -Path $cacheDir
+    Copy-DirectoryContents -Source $EMBED_DIR -Destination $cacheDir
+    Write-Info "缓存完成: $cacheDir"
+}
+
+# ============================================
+# 8. 安装本地 workspace 包
+# ============================================
+
+Write-Info "安装本地 workspace 包..."
+
+try {
+    Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", "--force-reinstall", $CORE_PROJECT_ROOT)
+    Assert-LastCommandSucceeded -Message "uzoncalc 安装命令执行失败。"
+
+    Invoke-PipInstall -Arguments @("install", "--no-build-isolation", "--no-deps", "--force-reinstall", $PROJECT_ROOT)
+    Assert-LastCommandSucceeded -Message "uzoncalc-api 安装命令执行失败。"
+}
+catch {
+    Write-Error-Message "本地 workspace 包安装失败: $_"
+    throw
+}
+
+Write-Info "已安装的本地包版本:"
+& $pythonExe -m pip show uzoncalc uzoncalc-api
+Assert-LastCommandSucceeded -Message "本地包版本检查失败。"
+
+Write-Info "检查 Python 依赖一致性..."
+& $pythonExe -m pip check
+Assert-LastCommandSucceeded -Message "Python 依赖一致性检查失败。"
 
 # ============================================
 # 完成
