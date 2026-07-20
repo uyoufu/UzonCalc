@@ -2,12 +2,14 @@
 
 import type { CalcInstance, CalcInstanceCategory } from 'src/api/calc/types'
 import { listInstanceCategories } from 'src/api/calc/categories'
-import { deleteInstance, revokeInstanceShare, shareInstance, updateInstance } from 'src/api/calc/instances'
+import {
+  deleteInstance,
+  revokeInstanceShare,
+  shareInstance,
+  updateInstance
+} from 'src/api/calc/instances'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
-import type {
-  deleteRowByIdType,
-  updateExistOneType
-} from 'src/compositions/qTableUtils'
+import type { deleteRowByIdType, updateExistOneType } from 'src/compositions/qTableUtils'
 import { t } from 'src/i18n/helpers'
 import { confirmOperation } from 'src/utils/dialog'
 import { useInstanceListDialogs } from '../compositions/useInstanceListDialogs'
@@ -28,10 +30,12 @@ export interface InstanceContextMenuOptions {
 export function useInstanceContextMenu(options: InstanceContextMenuOptions) {
   const router = useRouter()
   const { openInstanceDialog } = useInstanceListDialogs()
-  const categoryOptions = computed(() => options.categories.value.map((category) => ({
-    label: category.name,
-    value: category.categoryOid
-  })))
+  const categoryOptions = computed(() =>
+    options.categories.value.map((category) => ({
+      label: category.name,
+      value: category.categoryOid
+    }))
+  )
 
   /**
    * Refresh instance categories after a deletion changes derived counts.
@@ -81,7 +85,7 @@ export function useInstanceContextMenu(options: InstanceContextMenuOptions) {
    * @throws Propagates confirmation, instance, and category errors.
    */
   async function onDeleteInstance(instance: CalcInstance): Promise<void> {
-    if (!await confirmOperation(t('global.deleteConfirmation'), instance.name)) return
+    if (!(await confirmOperation(t('global.deleteConfirmation'), instance.name))) return
     await deleteInstance(instance.instanceOid)
     options.deleteInstanceRow(instance.instanceOid, 'instanceOid')
     await refreshCategories()
@@ -90,13 +94,19 @@ export function useInstanceContextMenu(options: InstanceContextMenuOptions) {
   /** Enable anonymous access and patch the returned token into the row. */
   async function onShareInstance(instance: CalcInstance): Promise<void> {
     const response = await shareInstance(instance.instanceOid)
-    options.updateInstanceRow({ ...instance, isShared: true, shareToken: response.data.token }, 'instanceOid')
+    options.updateInstanceRow(
+      { ...instance, isShared: true, shareToken: response.data.token },
+      'instanceOid'
+    )
   }
 
   /** Copy the stable anonymous frontend URL for an active share. */
   async function onCopyShareLink(instance: CalcInstance): Promise<void> {
     if (!instance.shareToken) return
-    const url = new URL(`/calc-report-instance/shared/${instance.shareToken}`, window.location.origin)
+    const url = new URL(
+      `/calc-report-instance/shared/${instance.shareToken}`,
+      window.location.origin
+    )
     await navigator.clipboard.writeText(url.toString())
   }
 
@@ -121,9 +131,30 @@ export function useInstanceContextMenu(options: InstanceContextMenuOptions) {
       color: 'grey-9',
       onClick: onEditInstance
     },
-    { name: 'share', label: t('global.share'), icon: 'share', color: 'primary', vif: (instance) => !instance.isShared, onClick: onShareInstance },
-    { name: 'copy-share-link', label: t('calcWorkspace.copyShareLink'), icon: 'content_copy', color: 'primary', vif: (instance) => instance.isShared, onClick: onCopyShareLink },
-    { name: 'revoke-share', label: t('calcWorkspace.revokeShare'), icon: 'link_off', color: 'warning', vif: (instance) => instance.isShared, onClick: onRevokeShare },
+    {
+      name: 'share',
+      label: t('global.share'),
+      icon: 'share',
+      color: 'primary',
+      vif: (instance) => !instance.isShared,
+      onClick: onShareInstance
+    },
+    {
+      name: 'copy-share-link',
+      label: t('calcWorkspace.copyShareLink'),
+      icon: 'content_copy',
+      color: 'primary',
+      vif: (instance) => instance.isShared,
+      onClick: onCopyShareLink
+    },
+    {
+      name: 'revoke-share',
+      label: t('calcWorkspace.revokeShare'),
+      icon: 'link_off',
+      color: 'warning',
+      vif: (instance) => instance.isShared,
+      onClick: onRevokeShare
+    },
     {
       name: 'delete',
       label: t('global.delete'),

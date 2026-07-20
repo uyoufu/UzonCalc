@@ -12,7 +12,8 @@
         <div class="q-pa-sm q-gutter-md">
           <section v-for="windowInfo in instance.inputWindows" :key="windowInfo.title">
             <div class="text-subtitle2 q-mb-xs">{{ windowInfo.title }}</div>
-            <LowCodeForm :fields="windowInfo.fields" sync-value one-column :disable="true" :disable-default-btns="['ok', 'cancel']" />
+            <LowCodeForm :fields="windowInfo.fields" sync-value one-column :disable="true"
+              :disable-default-btns="['ok', 'cancel']" />
           </section>
         </div>
       </q-scroll-area>
@@ -38,13 +39,40 @@ onMounted(async () => { instance.value = (await getSharedInstance(String(route.p
 </script>
 
 <style scoped>
-.shared-instance { min-height: 620px; height: 100%; background: #fff; }
-.shared-instance__header { min-height: 58px; }
-.shared-instance__body { min-height: 0; }
-.shared-instance__inputs { width: 330px; min-width: 330px; }
-.shared-instance iframe { width: 100%; height: 100%; border: 0; }
+.shared-instance {
+  min-height: 620px;
+  height: 100%;
+  background: #fff;
+}
+
+.shared-instance__header {
+  min-height: 58px;
+}
+
+.shared-instance__body {
+  min-height: 0;
+}
+
+.shared-instance__inputs {
+  width: 330px;
+  min-width: 330px;
+}
+
+.shared-instance iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
 @media (max-width: 760px) {
-  .shared-instance__body { flex-direction: column; }
-  .shared-instance__inputs { width: 100%; min-width: 0; height: 360px; }
+  .shared-instance__body {
+    flex-direction: column;
+  }
+
+  .shared-instance__inputs {
+    width: 100%;
+    min-width: 0;
+    height: 360px;
+  }
 }
 </style>
