@@ -21,5 +21,10 @@ function onHelpLoadError(): void {
 </script>
 
 <style scoped>
-.uzoncalc-help { width: 100%; height: 100%; min-height: 620px; border: 0; }
+.uzoncalc-help {
+  width: 100%;
+  height: 100%;
+  min-height: 620px;
+  border: 0;
+}
 </style>

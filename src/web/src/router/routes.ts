@@ -94,7 +94,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
         path: ':reportOid/versions',
         meta: { icon: 'history', label: 'calcWorkspace.versions', noMenu: true, noCache: true },
         component: () => import('pages/calcReport/version/CalcReportVersions.vue')
-      },
+      }
     ]
   },
   {
@@ -247,13 +247,25 @@ export const constantRoutes: ExtendedRouteRecordRaw[] = [
       {
         name: 'CalcReportSharedImport',
         path: '/calc-report/shared/import',
-        meta: { label: 'calcWorkspace.importSharedReport', icon: 'download', noMenu: true, noCache: true, anoymous: true },
+        meta: {
+          label: 'calcWorkspace.importSharedReport',
+          icon: 'download',
+          noMenu: true,
+          noCache: true,
+          anoymous: true
+        },
         component: () => import('pages/calcReport/shared/SharedImport.vue')
       },
       {
         name: 'CalcReportInstanceShared',
         path: '/calc-report-instance/shared/:token',
-        meta: { label: 'calcWorkspace.sharedInstance', icon: 'share', noMenu: true, noCache: true, anoymous: true },
+        meta: {
+          label: 'calcWorkspace.sharedInstance',
+          icon: 'share',
+          noMenu: true,
+          noCache: true,
+          anoymous: true
+        },
         component: () => import('pages/calcReportInstance/SharedInstanceDetail.vue')
       }
     ]
@@ -301,4 +313,3 @@ export const exceptionRoutes: ExtendedRouteRecordRaw[] = [
     component: () => import('pages/ErrorNotFound.vue')
   }
 ]
-

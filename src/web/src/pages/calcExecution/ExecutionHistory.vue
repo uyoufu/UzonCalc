@@ -3,16 +3,17 @@
     <q-table flat dense class="full-height" row-key="executionId" :rows="executions" :columns="columns"
       :loading="loading" v-model:pagination="pagination" :filter="filter" binary-state-sort @request="onTableRequest">
       <template #top>
-        <div class="text-subtitle1">{{ t('calcWorkspace.executionHistory') }}</div><q-space /><CommonBtn flat dense
-          icon="refresh" @click="refreshTable" />
+        <div class="text-subtitle1">{{ t('calcWorkspace.executionHistory') }}</div><q-space />
+        <CommonBtn flat dense icon="refresh" @click="refreshTable" />
       </template>
       <template #body-cell-status="slotProps"><q-td :props="slotProps"><q-chip dense square
             :color="statusColor(slotProps.row.status)" text-color="white">{{ slotProps.row.status
             }}</q-chip></q-td></template>
-      <template #body-cell-actions="slotProps"><q-td :props="slotProps"><CommonBtn flat dense icon="info"
-            @click="openExecutionDetailDialog(slotProps.row)" /><CommonBtn
-            v-if="activeExecutionStatuses.has(slotProps.row.status)" flat dense icon="stop" color="negative"
-            @click="onTerminate(slotProps.row)" /></q-td></template>
+      <template #body-cell-actions="slotProps"><q-td :props="slotProps">
+          <CommonBtn flat dense icon="info" @click="openExecutionDetailDialog(slotProps.row)" />
+          <CommonBtn v-if="activeExecutionStatuses.has(slotProps.row.status)" flat dense icon="stop" color="negative"
+            @click="onTerminate(slotProps.row)" />
+        </q-td></template>
     </q-table>
   </div>
 </template>
@@ -27,11 +28,12 @@ import { t } from 'src/i18n/helpers'
 import { useExecutionDetailDialog } from './compositions/useExecutionDetailDialog'
 import { useQTable } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
+import { formatDate } from 'src/utils/format'
 
 const { openExecutionDetailDialog } = useExecutionDetailDialog()
 const activeExecutionStatuses = new Set<ExecutionStatus>([ExecutionStatus.Pending, ExecutionStatus.Running])
 const columns: ComputedRef<QTableColumn<CalcExecution>[]> = computed(() => [
-  { name: 'createdAt', label: t('calcWorkspace.startedAt'), field: 'createdAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true },
+  { name: 'createdAt', label: t('calcWorkspace.startedAt'), field: 'createdAt', format: (value) => formatDate(value), align: 'left', sortable: true },
   { name: 'reportOid', label: 'Report OID', field: 'reportOid', align: 'left' },
   { name: 'sourceType', label: t('calcWorkspace.executionSource'), field: (row) => row.resolvedVersion ? `${row.sourceType}:${row.resolvedVersion}` : row.sourceType, align: 'left' },
   { name: 'backendMode', label: t('calcWorkspace.backend'), field: 'backendMode', align: 'left' },

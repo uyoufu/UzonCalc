@@ -54,6 +54,7 @@ import SearchInput from 'src/components/searchInput/SearchInput.vue'
 import type { IContextMenuItem } from 'src/components/contextMenu/types'
 import type { IQTablePagination } from 'src/compositions/types'
 import { t } from 'src/i18n/helpers'
+import { formatDate } from 'src/utils/format'
 
 defineProps<{
   reports: CalcReport[]
@@ -76,7 +77,7 @@ const columns: ComputedRef<QTableColumn<CalcReport>[]> = computed(() => [
   { name: 'latestVersionName', label: t('calcWorkspace.latestVersion'), field: (row) => row.latestVersionName || '-', align: 'left' },
   { name: 'originType', label: t('calcWorkspace.origin'), field: (row) => t(`calcWorkspace.origins.${row.originType}`), align: 'left' },
   { name: 'state', label: t('calcWorkspace.state'), field: 'publishState', align: 'left' },
-  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true },
+  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => formatDate(value), align: 'left', sortable: true },
   { name: 'favorite', label: '', field: 'isFavorite', align: 'center' }
 ])
 /** Map publish state to a restrained status color. */

@@ -33,6 +33,7 @@ import { listVersions, restoreWorkspaceVersion, setLatestVersion } from 'src/api
 import { confirmOperation } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 import { useQTable } from 'src/compositions/qTableUtils'
+import { formatDate } from 'src/utils/format'
 
 const route = useRoute()
 const router = useRouter()
@@ -40,7 +41,7 @@ const reportOid = computed(() => String(route.params.reportOid || ''))
 const columns: ComputedRef<QTableColumn<CalcReportVersion>[]> = computed(() => [
   { name: 'versionName', label: t('calcWorkspace.version'), field: 'versionName', align: 'left', sortable: true },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
-  { name: 'createdAt', label: t('calcWorkspace.publishedAt'), field: 'createdAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true },
+  { name: 'createdAt', label: t('calcWorkspace.publishedAt'), field: 'createdAt', format: (value) => formatDate(value), align: 'left', sortable: true },
   { name: 'actions', label: '', field: 'versionOid', align: 'right' }
 ])
 const {
@@ -80,5 +81,4 @@ function replaceLatestVersion(latestVersion: CalcReportVersion): void {
 .version-toolbar {
   min-height: 48px;
 }
-
 </style>

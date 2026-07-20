@@ -45,7 +45,8 @@ export default {
     editor: {
       index: {
         formatTooltip: 'Format (Alt + Shift + F)',
-        pleaseInputReportName: 'Please enter report name (only letters, numbers, underscores, and cannot start with a number)',
+        pleaseInputReportName:
+          'Please enter report name (only letters, numbers, underscores, and cannot start with a number)',
         runTooltip: 'Run (F5)',
         saveFailed: 'Save failed',
         saveSuccess: 'Saved successfully',
@@ -119,7 +120,8 @@ export default {
     myCalcs: 'My calculations',
     newCalcReport: 'New calculation',
     newCalcReportTooltip: 'Create a new calculation report',
-    pleaseInputCalcReportName: 'Please enter calculation report name (valid filename, cannot contain : * ? " < > | etc.)',
+    pleaseInputCalcReportName:
+      'Please enter calculation report name (valid filename, cannot contain : * ? " < > | etc.)',
     reportTemplate: 'Report template',
     viewer: {
       applyDevLocalFilePath: 'Open with this path',
@@ -177,7 +179,8 @@ export default {
     categories: 'Report categories',
     categoryName: 'Category',
     close: 'Close',
-    closeRunningTabConfirm: 'The calculation is still waiting for input. Closing this tab will terminate it. Continue?',
+    closeRunningTabConfirm:
+      'The calculation is still waiting for input. Closing this tab will terminate it. Continue?',
     closeTab: 'Close tab',
     collapseTree: 'Collapse file tree',
     continueRun: 'Continue',
@@ -191,7 +194,8 @@ export default {
     defaultSelectorRequired: 'The default selector must be included in the selected versions.',
     dependencies: 'Dependencies',
     dependencyAliasExists: 'The dependency alias already exists.',
-    dependencyAliasInvalid: 'The alias must start with a letter or underscore and contain only letters, numbers, and underscores.',
+    dependencyAliasInvalid:
+      'The alias must start with a letter or underscore and contain only letters, numbers, and underscores.',
     dependencyReferenceCopied: 'Dependency reference copied',
     dependencyReferenceCopyFailed: 'Failed to copy dependency reference',
     dependencyVersion: 'Dependency version',
@@ -338,7 +342,8 @@ export default {
   },
   categoryList: {
     deleteCategory: 'Delete category',
-    deleteCategoryConfirm: 'Are you sure you want to delete category "{label}"? This action cannot be undone.',
+    deleteCategoryConfirm:
+      'Are you sure you want to delete category "{label}"? This action cannot be undone.',
     deleteCategorySuccess: 'Category "{label}" deleted successfully',
     field_cover: 'Cover',
     field_description: 'Description',
@@ -350,7 +355,8 @@ export default {
     modifyCategorySuccess: 'Category updated successfully',
     newCategory: 'New category',
     newCategorySuccess: 'Category added successfully',
-    onlyLettersNumbersUnderscoresAndCannotStartWithNumber: 'Only letters, numbers and underscores are allowed, and cannot start with a number',
+    onlyLettersNumbersUnderscoresAndCannotStartWithNumber:
+      'Only letters, numbers and underscores are allowed, and cannot start with a number',
     youCanRightClickToAddNewCategory: 'You can right-click to add a new category'
   },
   collapseLeft: {
@@ -465,7 +471,7 @@ export default {
     renameDepartment: 'Rename department',
     resetPassword: 'Reset password',
     status: 'Status',
-    title: 'Users and departments',
+    title: 'Users management',
     username: 'Username'
   },
   userMenu: {
@@ -515,3 +521,4 @@ export default {
     totalItems: '... and {count} {unit} in total'
   }
 }
+

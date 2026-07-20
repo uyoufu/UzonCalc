@@ -466,7 +466,7 @@ export default {
     renameDepartment: '重命名部门',
     resetPassword: '重置密码',
     status: '状态',
-    title: '用户与部门',
+    title: '用户管理',
     username: '用户名'
   },
   userMenu: {

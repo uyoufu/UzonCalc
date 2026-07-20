@@ -107,6 +107,12 @@ export function useReportContextMenu() {
 
 1. 采用 dense 样式，提高布局密度。 `<q-select dense options-dense>` q-select 需要同步设置 `options-dense`
 
+## 通用工具函数
+
+通过工具函数定义于 src/utils/ 目录中。
+
+- `src/utils/format.ts formatDate`：统一使用该函数格式化日期
+
 ## 数据请求与更新
 
 1. 不要在 OnMounted 中请求所有数据，而是按需获取

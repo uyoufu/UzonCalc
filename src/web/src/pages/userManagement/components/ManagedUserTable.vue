@@ -4,10 +4,13 @@
     <template #top-left>
       <CommonBtn icon="person_add" :label="t('userManagement.addUser')" @click="onCreateUser" />
     </template>
-    <template #top-right><SearchInput v-model="filter" /></template>
+    <template #top-right>
+      <SearchInput v-model="filter" />
+    </template>
     <template #body-cell-status="tableProps">
-      <q-td :props="tableProps"><q-chip dense square :color="tableProps.row.status === UserStatus.Active ? 'positive' : 'grey-7'"
-        text-color="white">{{ statusLabel(tableProps.row.status) }}</q-chip></q-td>
+      <q-td :props="tableProps"><q-chip dense square
+          :color="tableProps.row.status === UserStatus.Active ? 'positive' : 'grey-7'" text-color="white">{{
+            statusLabel(tableProps.row.status) }}</q-chip></q-td>
     </template>
     <template #body-cell-username="tableProps">
       <q-td :props="tableProps">{{ tableProps.row.username }}</q-td>
@@ -31,13 +34,14 @@ import { showDialog } from 'src/components/lowCode/PopupDialog'
 import { useQTable } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
 import { t } from 'src/i18n/helpers'
+import { formatDate } from 'src/utils/format'
 
 const props = defineProps<{ departmentOid: string | null; departments: DepartmentNode[] }>()
 const columns: ComputedRef<QTableColumn<ManagedUser>[]> = computed(() => [
   { name: 'username', label: t('userManagement.username'), field: 'username', align: 'left', sortable: true },
   { name: 'nickName', label: t('userPage.nickName'), field: (user) => user.nickName || '-', align: 'left', sortable: true },
   { name: 'status', label: t('userManagement.status'), field: 'status', align: 'left', sortable: true },
-  { name: 'createdAt', label: t('userManagement.createdAt'), field: 'createdAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true }
+  { name: 'createdAt', label: t('userManagement.createdAt'), field: 'createdAt', format: (value) => formatDate(value), align: 'left', sortable: true }
 ])
 
 /** Convert table text and selected subtree into API filters. */

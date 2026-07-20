@@ -51,6 +51,7 @@ import { confirmOperation } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
 import { useQTable } from 'src/compositions/qTableUtils'
 import type { IRequestPagination, TTableFilterObject } from 'src/compositions/types'
+import { formatDate } from 'src/utils/format'
 
 const categories = ref<CalcInstanceCategory[]>([])
 const selectedCategoryOid = ref<string | null>(null)
@@ -60,7 +61,7 @@ const columns: ComputedRef<QTableColumn<CalcInstance>[]> = computed(() => [
   { name: 'reportName', label: t('calcWorkspace.reportName'), field: (row) => row.reportName || '-', align: 'left', sortable: true },
   { name: 'sourceVersion', label: t('calcWorkspace.version'), field: (row) => row.sourceVersion || ExecutionSourceType.Workspace, align: 'left' },
   { name: 'description', label: t('calcWorkspace.description'), field: (row) => row.description || '-', align: 'left' },
-  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => new Date(String(value)).toLocaleString(), align: 'left', sortable: true }
+  { name: 'updatedAt', label: t('global.lastModified'), field: 'updatedAt', format: (value) => formatDate(value), align: 'left', sortable: true }
 ])
 
 /** Load categories and their derived counts. */
