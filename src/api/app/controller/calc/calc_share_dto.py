@@ -20,6 +20,7 @@ class ShareLinkCreateDTO(BaseDTO):
     canShare: bool = False
     expiresAt: datetime.datetime | None = None
     maxUseCount: int | None = Field(default=None, ge=1)
+    note: str | None = Field(default=None, max_length=500)
 
     @model_validator(mode="after")
     def validate_recipients(self) -> "ShareLinkCreateDTO":
@@ -67,6 +68,9 @@ class ShareLinkResDTO(BaseDTO):
     accessType: ShareAccessType
     canEdit: bool
     canShare: bool
+    recipientUserOids: list[str] = Field(default_factory=list)
+    recipientDepartmentOids: list[str] = Field(default_factory=list)
+    note: str | None = None
     expiresAt: datetime.datetime | None
     revokedAt: datetime.datetime | None
     maxUseCount: int | None
@@ -87,6 +91,7 @@ class SharePreviewResDTO(BaseDTO):
     totalSize: int
     canEdit: bool
     canShare: bool
+    note: str | None = None
     recentExecution: CalcExecutionResDTO | None = None
 
 
@@ -128,7 +133,9 @@ class SharedReportResDTO(BaseDTO):
     shareOid: str
     reportName: str
     qualifiedName: str
+    sharedBy: str
     description: str | None
+    note: str | None = None
     versionName: str
     sharedAt: datetime.datetime
     canEdit: bool

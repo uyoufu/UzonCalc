@@ -11,7 +11,7 @@ attrs==25.4.0
 authlib==1.6.8
 babel==2.18.0
 beartype==0.22.9
-black==26.1.0
+ruff==0.15.22
 build==1.4.2
 cachetools==7.0.1
 caio==0.9.25

@@ -240,7 +240,7 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
 export const constantRoutes: ExtendedRouteRecordRaw[] = [
   {
     name: 'PublicShares',
-    path: '/',
+    path: '/public',
     component: NormalLayout,
     meta: { label: 'calcWorkspace.sharedReport', icon: 'share', noMenu: true, anoymous: true },
     children: [

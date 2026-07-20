@@ -18,6 +18,8 @@ from app.db.models import (
 )
 from app.db.models.enums import ArtifactKind
 from app.service import calc_report_archive_service, calc_report_share_service
+from uzoncalc.cli_core import cli_archive_runtime
+from uzoncalc.cli_core.cli_archive import create_uzc_archive
 from app.service.calc_report_artifact_service import ArtifactFile, artifact_store
 from app.service.calc_report_workspace_service import _get_or_create_source_artifact
 from config import app_config
@@ -86,6 +88,7 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                                 b'{"formatVersion":1,"entryPath":"src/main.py"}',
                             ),
                             ArtifactFile("src/main.py", f"VALUE = {patch}\n".encode()),
+                            ArtifactFile("src/api.py", f"VALUE = {patch}\n".encode()),
                         ],
                         {"formatVersion": 1, "entryPath": "src/main.py"},
                         [],
@@ -131,7 +134,11 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                         ),
                         ArtifactFile(
                             "src/main.py",
-                            b"from calcdeps.dependency.api import VALUE\n",
+                            b"from calcdeps.dependency.api import VALUE\n"
+                            b"from uzoncalc import uzon_calc\n\n"
+                            b"@uzon_calc()\n"
+                            b"async def sheet():\n"
+                            b"    return VALUE\n",
                         ),
                     ],
                     {"formatVersion": 1, "entryPath": "src/main.py"},
@@ -160,6 +167,21 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     ShareLinkCreateDTO(versionName="2.0.0"),
                     session,
                 )
+                updated_share = await calc_report_share_service.update_share_link(
+                    owner.id,
+                    share.shareOid,
+                    ShareLinkCreateDTO(
+                        versionName="2.0.0", canEdit=True, note="review copy"
+                    ),
+                    session,
+                )
+                listed_shares = await calc_report_share_service.list_share_links(
+                    owner.id, root_report.oid, session
+                )
+                assert updated_share.token is None
+                assert updated_share.canEdit is True
+                assert updated_share.note == "review copy"
+                assert listed_shares[0].note == "review copy"
                 imported = await calc_report_share_service.import_share(
                     receiver.id,
                     share.token or "",
@@ -203,6 +225,12 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     session=session,
                 )
                 try:
+                    selected_entries = []
+                    monkeypatch.setattr(
+                        cli_archive_runtime, "view", selected_entries.append
+                    )
+                    cli_archive_runtime.run_v3_archive(exported.path)
+                    assert [entry.__name__ for entry in selected_entries] == ["sheet"]
                     archive_import = (
                         await calc_report_archive_service.import_archive_closure(
                             archive_receiver.id,
@@ -228,6 +256,32 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                 assert archive_root.canEdit is False
                 assert archive_root.canShare is True
                 assert archive_target.userId == archive_receiver.id
+
+                script_path = tmp_path / "standalone.py"
+                script_path.write_text(
+                    "from uzoncalc import uzon_calc\n\n"
+                    "@uzon_calc()\n"
+                    "async def sheet():\n"
+                    "    return 1\n",
+                    encoding="utf-8",
+                )
+                cli_archive_path = create_uzc_archive(
+                    script_path, tmp_path / "standalone.png"
+                )
+                cli_import = await calc_report_archive_service.import_archive_closure(
+                    archive_receiver.id,
+                    ShareImportDTO(
+                        categoryOid=archive_category.oid, name="CLI imported"
+                    ),
+                    cli_archive_path.read_bytes(),
+                    session,
+                )
+                cli_report = await session.scalar(
+                    select(CalcReport).where(CalcReport.oid == cli_import.reportOid)
+                )
+                assert cli_import.importedReportCount == 1
+                assert cli_report.name == "CLI imported"
+                assert cli_report.entryPath == "src/standalone.py"
         finally:
             await engine.dispose()
 

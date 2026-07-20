@@ -5,10 +5,16 @@
       <div class="text-body2 text-grey-7 q-mt-xs">{{ preview?.reportDescription }}</div>
       <q-separator class="q-my-md" />
       <dl v-if="preview" class="shared-page__summary">
-        <dt>{{ t('calcWorkspace.version') }}</dt><dd>{{ preview.versionName }}</dd>
-        <dt>{{ t('calcWorkspace.dependencies') }}</dt><dd>{{ preview.dependencyCount }}</dd>
-        <dt>{{ t('calcWorkspace.archiveSize') }}</dt><dd>{{ formatBytes(preview.totalSize) }}</dd>
-        <dt>{{ t('calcWorkspace.permissions') }}</dt><dd>{{ permissionLabel }}</dd>
+        <dt>{{ t('calcWorkspace.version') }}</dt>
+        <dd>{{ preview.versionName }}</dd>
+        <dt>{{ t('calcWorkspace.dependencies') }}</dt>
+        <dd>{{ preview.dependencyCount }}</dd>
+        <dt>{{ t('calcWorkspace.archiveSize') }}</dt>
+        <dd>{{ formatBytes(preview.totalSize) }}</dd>
+        <dt>{{ t('calcWorkspace.permissions') }}</dt>
+        <dd>{{ permissionLabel }}</dd>
+        <dt v-if="preview.note">{{ t('calcWorkspace.shareNote') }}</dt>
+        <dd v-if="preview.note">{{ preview.note }}</dd>
       </dl>
       <template v-if="userStore.token">
         <q-select v-model="categoryOid" dense options-dense outlined emit-value map-options class="q-mt-md"
@@ -124,15 +130,56 @@ function formatBytes(value: number): string {
 </script>
 
 <style scoped>
-.shared-page { min-height: 620px; background: #fff; overflow: hidden; }
-.shared-page__details { width: 340px; min-width: 340px; border-right: 1px solid #e4e7ec; }
-.shared-page__summary { display: grid; grid-template-columns: 1fr auto; gap: 10px 18px; margin: 0; }
-.shared-page__summary dt { color: #66736d; }
-.shared-page__summary dd { margin: 0; text-align: right; }
-.shared-page__result iframe { width: 100%; height: 100%; border: 0; background: white; }
+.shared-page {
+  min-height: 620px;
+  background: #fff;
+  overflow: hidden;
+}
+
+.shared-page__details {
+  width: 340px;
+  min-width: 340px;
+  border-right: 1px solid #e4e7ec;
+}
+
+.shared-page__summary {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 10px 18px;
+  margin: 0;
+}
+
+.shared-page__summary dt {
+  color: #66736d;
+}
+
+.shared-page__summary dd {
+  margin: 0;
+  text-align: right;
+}
+
+.shared-page__result iframe {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: white;
+}
+
 @media (max-width: 760px) {
-  .shared-page { flex-direction: column; overflow: auto; }
-  .shared-page__details { width: 100%; min-width: 0; border-right: 0; border-bottom: 1px solid #e4e7ec; }
-  .shared-page__result { min-height: 520px; }
+  .shared-page {
+    flex-direction: column;
+    overflow: auto;
+  }
+
+  .shared-page__details {
+    width: 100%;
+    min-width: 0;
+    border-right: 0;
+    border-bottom: 1px solid #e4e7ec;
+  }
+
+  .shared-page__result {
+    min-height: 520px;
+  }
 }
 </style>

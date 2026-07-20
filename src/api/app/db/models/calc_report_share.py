@@ -10,6 +10,7 @@ from sqlalchemy import (
     ForeignKeyConstraint,
     Integer,
     SmallInteger,
+    String,
     Boolean,
     false,
 )
@@ -57,6 +58,7 @@ class CalcReportShareLink(BaseModel):
     canShare: Mapped[bool] = mapped_column(
         Boolean, nullable=False, default=False, server_default=false()
     )
+    note: Mapped[str | None] = mapped_column(String(500), nullable=True)
     createdByUserId: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )

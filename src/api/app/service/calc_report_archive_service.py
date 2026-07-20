@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import datetime
 import hashlib
-from io import BytesIO
 import shutil
 import tempfile
 from dataclasses import dataclass
@@ -13,7 +12,6 @@ from typing import cast
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from PIL import Image
 
 from app.controller.calc.calc_error import CalcErrorCode
 from app.controller.calc.calc_share_dto import ShareImportDTO, ShareImportResDTO
@@ -45,6 +43,7 @@ from uzoncalc.cli_core.cli_workspace_archive import (
     read_workspace_archive,
     write_workspace_archive,
 )
+from uzoncalc.cli_core.cli_thumbnail import render_workspace_archive_thumbnail
 
 _ARCHIVE_KIND = "uzoncalc.report-closure"
 
@@ -89,11 +88,23 @@ async def export_version_closure(
     closure = await _collect_shared_closure(root_report, root_version, session)
     files: dict[str, bytes] = {}
     report_nodes: list[dict] = []
+    root_files: dict[str, bytes] | None = None
+    root_files_prefix = ""
+    root_entry_path = ""
     for node in closure:
         node_key = _archive_node_key(node)
         prefix = f"reports/{node_key}/"
-        for artifact_file in artifact_store.read_all(node.artifact.storageKey):
+        artifact_files = list(artifact_store.read_all(node.artifact.storageKey))
+        workspace_files = {
+            artifact_file.path: artifact_file.content
+            for artifact_file in artifact_files
+        }
+        for artifact_file in artifact_files:
             files[f"{prefix}{artifact_file.path}"] = artifact_file.content
+        if node.version.id == root_version.id:
+            root_files = workspace_files
+            root_files_prefix = prefix
+            root_entry_path = node.artifact.manifest["calcbook"]["entryPath"]
         report_nodes.append(
             {
                 "nodeKey": node_key,
@@ -111,6 +122,11 @@ async def export_version_closure(
                 "artifactHash": node.artifact.contentHash,
             }
         )
+    if root_files is None:
+        raise ValueError("导出闭包缺少根计算书")
+    thumbnail_png, auto_view_entry = render_workspace_archive_thumbnail(
+        root_files, root_entry_path
+    )
     manifest = {
         "kind": _ARCHIVE_KIND,
         "createdAt": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -118,12 +134,17 @@ async def export_version_closure(
             next(node for node in closure if node.version.id == root_version.id)
         ),
         "permissions": {"canEdit": can_edit, "canShare": can_share},
+        "executable": {
+            "filesPrefix": root_files_prefix,
+            "entryPath": root_entry_path,
+            "autoViewEntry": auto_view_entry,
+        },
         "reports": report_nodes,
     }
     temp_dir = Path(tempfile.mkdtemp(prefix="uzoncalc-export-"))
     archive_path = temp_dir / "report.png"
     try:
-        write_workspace_archive(archive_path, _default_thumbnail_png(), manifest, files)
+        write_workspace_archive(archive_path, thumbnail_png, manifest, files)
     except Exception:
         shutil.rmtree(temp_dir, ignore_errors=True)
         raise
@@ -575,6 +596,17 @@ def _validate_manifest(
         isinstance(permissions.get(key), bool) for key in ("canEdit", "canShare")
     ):
         raise ValueError("归档权限声明无效")
+    executable = manifest.get("executable")
+    if (
+        not isinstance(executable, dict)
+        or not isinstance(executable.get("filesPrefix"), str)
+        or not isinstance(executable.get("entryPath"), str)
+        or (
+            executable.get("autoViewEntry") is not None
+            and not isinstance(executable.get("autoViewEntry"), str)
+        )
+    ):
+        raise ValueError("归档可执行入口声明无效")
     node_keys: set[str] = set()
     versions_by_report: set[tuple[str, str]] = set()
     prefixes: set[str] = set()
@@ -586,6 +618,7 @@ def _validate_manifest(
         "filesPrefix": str,
         "calcbook": dict,
         "dependencies": list,
+        "artifactHash": str,
         "isRoot": bool,
         "isLatest": bool,
     }
@@ -616,6 +649,10 @@ def _validate_manifest(
     roots = [node for node in nodes if node["isRoot"]]
     if len(roots) != 1 or roots[0]["nodeKey"] != root_node_key:
         raise ValueError("归档根报告声明无效")
+    if executable["filesPrefix"] != roots[0]["filesPrefix"] or executable[
+        "entryPath"
+    ] != roots[0]["calcbook"].get("entryPath"):
+        raise ValueError("归档可执行入口与根报告不一致")
     report_keys = {node["reportKey"] for node in nodes}
     if any(
         declaration["targetReportOid"] not in report_keys
@@ -650,17 +687,3 @@ def _safe_filename(value: str) -> str:
         character if character.isalnum() else "-" for character in value
     )
     return sanitized.strip("-")[:60] or "report"
-
-
-def _default_thumbnail_png() -> bytes:
-    """Generate the neutral PNG used when a report has no rendered cover.
-
-    Returns:
-        Standards-compliant 2-by-2 PNG bytes with valid chunk CRC values.
-
-    Raises:
-        OSError: If Pillow cannot encode the in-memory PNG.
-    """
-    output = BytesIO()
-    Image.new("RGB", (2, 2), color="white").save(output, format="PNG")
-    return output.getvalue()

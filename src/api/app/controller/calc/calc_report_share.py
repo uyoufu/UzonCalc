@@ -119,6 +119,21 @@ async def list_calc_report_shares(
     )
 
 
+@router.put("/shares/{shareOid}")
+async def update_calc_report_share(
+    shareOid: str,
+    request: ShareLinkCreateDTO,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[ShareLinkResDTO]:
+    """Replace settings for one active share link owned by the current user."""
+    return ok(
+        data=await calc_report_share_service.update_share_link(
+            tokenPayloads.id, shareOid, request, session
+        )
+    )
+
+
 @router.delete("/shares/{shareOid}")
 async def revoke_calc_report_share(
     shareOid: str,

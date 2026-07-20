@@ -1,29 +1,21 @@
 """UzonCalc CLI archive packaging helpers."""
 
 import ast
-from functools import partial
+import hashlib
 import json
 from pathlib import Path
-from typing import BinaryIO
-import zipfile
 
 from .cli_archive_analysis import analyze_archive_script
-from .cli_png_container import write_png_zip_container
 from .cli_thumbnail import (
     THUMBNAIL_HEIGHT,
     THUMBNAIL_WIDTH,
     render_archive_thumbnail,
 )
+from .cli_workspace_archive import write_workspace_archive
 
 _ARCHIVE_SUFFIX = ".uzc"
-_ARCHIVE_BUNDLE_DIR = "__uzoncalc_bundle__"
-_ARCHIVE_SOURCE_DIR = f"{_ARCHIVE_BUNDLE_DIR}/src"
-_ARCHIVE_MANIFEST_PATH = f"{_ARCHIVE_BUNDLE_DIR}/manifest.json"
-_MANIFEST_ENTRY_PATH = "entry_path"
-_MANIFEST_AUTO_VIEW_ENTRY = "auto_view_entry"
-_MANIFEST_FORMAT_VERSION = "format_version"
-_MANIFEST_THUMBNAIL = "thumbnail"
-_ARCHIVE_FORMAT_VERSION = 2
+_REPORT_ARCHIVE_KIND = "uzoncalc.report-closure"
+_SCRIPT_FILES_PREFIX = "reports/root/"
 
 
 def _module_file_candidates(source_root: Path, module_parts: list[str]) -> list[Path]:
@@ -219,107 +211,22 @@ def _collect_archive_source_files(
     )
 
 
-def _build_archive_main_source(auto_view_entry: str | None) -> str:
-    """生成 .uzc 归档的 __main__.py 源码。
+def _resolve_archive_source_root(script_path: Path) -> Path:
+    """Resolve the import root while preserving an enclosing Python package.
 
     Args:
-        auto_view_entry: 缺少源文件 __main__ 入口时需要自动 view() 的函数名。
+        script_path: Absolute calculation entry path.
 
     Returns:
-        可写入归档根目录 __main__.py 的 Python 源码。
+        Directory to expose on ``sys.path`` when the archive runs.
 
     Raises:
         None.
     """
-    auto_entry_repr = repr(auto_view_entry)
-    return f'''"""UzonCalc .uzc archive runner."""
-
-import json
-import runpy
-import sys
-import tempfile
-import zipfile
-from pathlib import Path
-
-
-_ARCHIVE_SOURCE_DIR = "{_ARCHIVE_SOURCE_DIR}"
-_ARCHIVE_MANIFEST_PATH = "{_ARCHIVE_MANIFEST_PATH}"
-_MANIFEST_ENTRY_PATH = "{_MANIFEST_ENTRY_PATH}"
-_AUTO_VIEW_ENTRY = {auto_entry_repr}
-
-
-def _run_archive():
-    """Extract and run the bundled UzonCalc report script."""
-    archive_path = Path(sys.argv[0]).resolve()
-    with tempfile.TemporaryDirectory(prefix="uzoncalc-uzc-") as temp_dir:
-        temp_root = Path(temp_dir)
-        with zipfile.ZipFile(archive_path) as archive:
-            archive.extractall(temp_root)
-        manifest_path = temp_root / _ARCHIVE_MANIFEST_PATH
-        manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-        source_root = temp_root / _ARCHIVE_SOURCE_DIR
-        entry_path = source_root / manifest[_MANIFEST_ENTRY_PATH]
-
-        sys.path.insert(0, str(source_root))
-        sys.argv[0] = str(entry_path)
-        if _AUTO_VIEW_ENTRY is None:
-            runpy.run_path(str(entry_path), run_name="__main__")
-            return
-
-        module_globals = runpy.run_path(
-            str(entry_path),
-            run_name="_uzoncalc_bundled_script",
-        )
-        from uzoncalc import view
-
-        view(module_globals[_AUTO_VIEW_ENTRY])
-
-
-if __name__ == "__main__":
-    _run_archive()
-'''
-
-
-def _write_archive_zip_payload(
-    archive_file: BinaryIO,
-    *,
-    auto_view_entry: str | None,
-    manifest: dict[str, object],
-    source_root: Path,
-    source_files: list[Path],
-) -> None:
-    """Write the executable ZIP members at the stream's current offset.
-
-    Args:
-        archive_file: Seekable binary stream positioned inside the PNG chunk.
-        auto_view_entry: Entry automatically passed to ``view`` when required.
-        manifest: Internal archive metadata serialized into the ZIP payload.
-        source_root: Root used to calculate bundled relative source paths.
-        source_files: Entry script and recursively collected local dependencies.
-
-    Returns:
-        None.
-
-    Raises:
-        OSError: When a source file or output stream cannot be read or written.
-        RuntimeError: When ZIP creation fails.
-    """
-    with zipfile.ZipFile(
-        archive_file,
-        "w",
-        compression=zipfile.ZIP_DEFLATED,
-    ) as archive:
-        archive.writestr("__main__.py", _build_archive_main_source(auto_view_entry))
-        archive.writestr(
-            _ARCHIVE_MANIFEST_PATH,
-            json.dumps(manifest, ensure_ascii=False, indent=2),
-        )
-        for source_file in source_files:
-            relative_source_path = source_file.relative_to(source_root).as_posix()
-            archive.write(
-                source_file,
-                f"{_ARCHIVE_SOURCE_DIR}/{relative_source_path}",
-            )
+    package_dir = script_path.parent
+    while package_dir.joinpath("__init__.py").is_file():
+        package_dir = package_dir.parent
+    return package_dir.resolve()
 
 
 def create_uzc_archive(
@@ -359,33 +266,67 @@ def create_uzc_archive(
         if output_path
         else script_path.with_suffix(_ARCHIVE_SUFFIX)
     )
-    if archive_path.suffix != _ARCHIVE_SUFFIX:
+    if archive_path.suffix.lower() not in {_ARCHIVE_SUFFIX, ".png"}:
         archive_path = archive_path.with_suffix(_ARCHIVE_SUFFIX)
     archive_path.parent.mkdir(parents=True, exist_ok=True)
 
-    source_root = script_path.parent.resolve()
+    source_root = _resolve_archive_source_root(script_path)
     auto_view_entry = None if analysis.has_main_guard else first_entry_name
     source_files = _collect_archive_source_files(source_root, script_path)
     thumbnail_png = render_archive_thumbnail(analysis.preview)
+    entry_relative_path = script_path.relative_to(source_root).as_posix()
+    calcbook = {"formatVersion": 1, "entryPath": f"src/{entry_relative_path}"}
+    source_contents = {
+        f"src/{source_file.relative_to(source_root).as_posix()}": source_file.read_bytes()
+        for source_file in source_files
+    }
+    source_contents["calcbook.json"] = (
+        json.dumps(calcbook, ensure_ascii=False, indent=2) + "\n"
+    ).encode("utf-8")
+    artifact_hash = hashlib.sha256(
+        b"".join(
+            path.encode("utf-8") + b"\0" + content
+            for path, content in sorted(source_contents.items())
+        )
+    ).hexdigest()
+    report_key = artifact_hash[:24]
     manifest = {
-        _MANIFEST_ENTRY_PATH: script_path.relative_to(source_root).as_posix(),
-        _MANIFEST_AUTO_VIEW_ENTRY: auto_view_entry,
-        _MANIFEST_FORMAT_VERSION: _ARCHIVE_FORMAT_VERSION,
-        _MANIFEST_THUMBNAIL: {
+        "kind": _REPORT_ARCHIVE_KIND,
+        "rootNodeKey": "root",
+        "permissions": {"canEdit": True, "canShare": True},
+        "executable": {
+            "filesPrefix": _SCRIPT_FILES_PREFIX,
+            "entryPath": f"src/{entry_relative_path}",
+            "autoViewEntry": auto_view_entry,
+        },
+        "reports": [
+            {
+                "nodeKey": "root",
+                "reportKey": report_key,
+                "name": script_path.stem,
+                "description": None,
+                "cover": None,
+                "versionName": "1.0.0",
+                "versionDescription": None,
+                "isRoot": True,
+                "isLatest": True,
+                "filesPrefix": _SCRIPT_FILES_PREFIX,
+                "calcbook": calcbook,
+                "dependencies": [],
+                "artifactHash": artifact_hash,
+            }
+        ],
+        "thumbnail": {
             "entry_name": analysis.preview.entry_name,
             "title": analysis.preview.title,
             "width": THUMBNAIL_WIDTH,
             "height": THUMBNAIL_HEIGHT,
         },
     }
-
-    zip_payload_writer = partial(
-        _write_archive_zip_payload,
-        auto_view_entry=auto_view_entry,
-        manifest=manifest,
-        source_root=source_root,
-        source_files=source_files,
-    )
-    write_png_zip_container(archive_path, thumbnail_png, zip_payload_writer)
+    files = {
+        f"{_SCRIPT_FILES_PREFIX}{path}": content
+        for path, content in source_contents.items()
+    }
+    write_workspace_archive(archive_path, thumbnail_png, manifest, files)
 
     return archive_path

@@ -44,7 +44,7 @@
         v-model:current-path="selectedPath" :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value"
         :report-oid="reportOid" :is-desktop-api="isDesktopApi"
         @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory" @upload="onUploadResources"
-        @rename="onRenamePath" @delete="onDeletePath" @entry="draft.setEntryPath"
+        @rename="onRenamePath" @delete="onDeletePath" @entry="onSetEntryPath"
         @dependencies="onOpenDependencyDialog" />
       <main class="col workspace-main column no-wrap">
         <WorkspaceTabs :tabs="workspaceTabs.tabs.value" :active-tab-id="workspaceTabs.activeTabId.value"
@@ -59,6 +59,7 @@
             <q-separator />
             <WorkspaceCodeEditor v-if="selectedFile.isText && selectedFile.text !== null" class="col"
               :path="selectedFile.path" :content="selectedFile.text" :open-paths="workspaceTabs.openFilePaths.value"
+              :workspace-files="draft.files.value.filter((file) => file.isText).map((file) => ({ path: file.path, content: file.text || '' }))"
               @change="draft.updateText" />
             <div v-else-if="isImage && objectUrl" class="col column items-center justify-center resource-preview">
               <img :src="objectUrl" :alt="selectedFile.path">
@@ -100,7 +101,7 @@ import { WorkspaceConflictResolution } from './workspaceConflict'
 import { BuildStatus, CalcErrorCode, PublishState, type CalcReport, type CalcReportCategory } from 'src/api/calc/types'
 import { getWorkspace, saveWorkspace } from 'src/api/calc/workspace'
 import { listReportCategories } from 'src/api/calc/categories'
-import { formatPythonByBlack } from 'src/api/codeFormat'
+import { formatPythonByRuff } from 'src/api/codeFormat'
 import { getApiFailure } from '../../shared/apiFailure'
 import { confirmOperation, notifyError, notifySuccess } from 'src/utils/dialog'
 import { t } from 'src/i18n/helpers'
@@ -282,10 +283,26 @@ function onDeletePath(path: string): void {
   }
 }
 
-/** Format the active Python file through the backend Black endpoint. */
+/** Validate and select a decorated Python workspace entry. */
+async function onSetEntryPath(path: string): Promise<void> {
+  const file = draft.files.value.find((candidate) => candidate.path === path)
+  if (!file) return
+  try {
+    await draft.ensureFileLoaded(file)
+    if (!file.text || !/^\s*@uzon_calc(?:\s*\(|\s*$)/m.test(file.text)) {
+      notifyError(t('calcWorkspace.entryDecoratorRequired'))
+      return
+    }
+    draft.setEntryPath(path)
+  } catch (error) {
+    notifyError(getApiFailure(error).message)
+  }
+}
+
+/** Format the active Python file through the backend Ruff endpoint. */
 async function onFormatFile(): Promise<void> {
   if (!activeFile.value?.text) return
-  const response = await formatPythonByBlack({ code: activeFile.value.text })
+  const response = await formatPythonByRuff({ code: activeFile.value.text })
   draft.updateText(activeFile.value.path, response.data.formattedCode)
 }
 

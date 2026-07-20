@@ -1,5 +1,5 @@
 import { monaco } from 'src/boot/monaco-editor'
-import { formatPythonByBlack } from 'src/api/codeFormat'
+import { formatPythonByRuff } from 'src/api/codeFormat'
 
 interface UzonCalcCompletion {
   label: string;
@@ -664,7 +664,7 @@ export function registerUzoncalcProviders() {
     provideDocumentFormattingEdits: async (model) => {
       try {
         const sourceCode = model.getValue()
-        const result = await formatPythonByBlack({
+        const result = await formatPythonByRuff({
           code: sourceCode
         })
 

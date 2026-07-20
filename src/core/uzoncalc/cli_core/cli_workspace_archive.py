@@ -15,6 +15,7 @@ from .cli_png_container import read_png_zip_container, write_png_zip_container
 
 ARCHIVE_FORMAT_VERSION = 3
 ARCHIVE_MANIFEST_PATH = "__uzoncalc_bundle__/manifest.json"
+ARCHIVE_MAIN_PATH = "__main__.py"
 _MAX_COMPRESSION_RATIO = 200
 
 
@@ -59,6 +60,9 @@ def write_workspace_archive(
     }
     if len(normalized_files) != len(files):
         raise ValueError("归档包含规范化后重复的路径")
+    if ARCHIVE_MAIN_PATH in normalized_files:
+        raise ValueError("归档内容不能覆盖内置运行入口")
+    normalized_files[ARCHIVE_MAIN_PATH] = _build_archive_main_source().encode("utf-8")
     archive_manifest = dict(manifest)
     archive_manifest["formatVersion"] = ARCHIVE_FORMAT_VERSION
     archive_manifest["files"] = [
@@ -81,6 +85,24 @@ def write_workspace_archive(
                 archive.writestr(path, content)
 
     write_png_zip_container(output_path, thumbnail_png, write_payload)
+
+
+def _build_archive_main_source() -> str:
+    """Build the stable Python entrypoint embedded in every v3 archive.
+
+    Returns:
+        Python source that delegates archive execution to the installed core package.
+
+    Raises:
+        None.
+    """
+    return (
+        '"""Execute an exported UzonCalc v3 archive."""\n\n'
+        "import sys\n\n"
+        "from uzoncalc.cli_core.cli_archive_runtime import run_v3_archive\n\n\n"
+        'if __name__ == "__main__":\n'
+        "    run_v3_archive(sys.argv[0])\n"
+    )
 
 
 def read_workspace_archive(
@@ -154,9 +176,10 @@ def read_workspace_archive(
             if path in declared_paths or path not in by_name:
                 raise ValueError("归档文件声明重复或缺失")
             content = archive.read(by_name[path])
-            if declaration.get("size") != len(content) or declaration.get(
-                "sha256"
-            ) != hashlib.sha256(content).hexdigest():
+            if (
+                declaration.get("size") != len(content)
+                or declaration.get("sha256") != hashlib.sha256(content).hexdigest()
+            ):
                 raise ValueError("归档文件哈希校验失败")
             files[path] = content
             declared_paths.add(path)

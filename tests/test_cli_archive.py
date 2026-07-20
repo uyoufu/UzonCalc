@@ -12,6 +12,7 @@ import pytest
 
 from uzoncalc import cli
 from uzoncalc.cli_core import cli_thumbnail
+from uzoncalc.cli_core import cli_archive_runtime
 from uzoncalc.cli_core.cli_archive_analysis import (
     ArchiveEntryPreview,
     analyze_archive_script,
@@ -154,7 +155,8 @@ def test_workspace_archive_v3_round_trip_supports_both_extensions(tmp_path, suff
     archive = read_workspace_archive(output_path.read_bytes())
     assert archive.manifest["formatVersion"] == 3
     assert archive.manifest["canEdit"] is False
-    assert archive.files == files
+    assert {path: archive.files[path] for path in files} == files
+    assert "__main__.py" in archive.files
 
 
 def test_workspace_archive_v3_rejects_manifest_hash_tampering(tmp_path):
@@ -171,9 +173,12 @@ def test_workspace_archive_v3_rejects_manifest_hash_tampering(tmp_path):
     payload = read_png_zip_container(output_path.read_bytes())
     source = BytesIO(payload)
     rewritten = BytesIO()
-    with zipfile.ZipFile(source) as input_archive, zipfile.ZipFile(
-        rewritten, "w", compression=zipfile.ZIP_DEFLATED
-    ) as output_archive:
+    with (
+        zipfile.ZipFile(source) as input_archive,
+        zipfile.ZipFile(
+            rewritten, "w", compression=zipfile.ZIP_DEFLATED
+        ) as output_archive,
+    ):
         for info in input_archive.infolist():
             content = input_archive.read(info)
             if info.filename == "executable/src/main.py":
@@ -300,11 +305,12 @@ def test_zip_command_requires_uzon_calc_entry(tmp_path, capsys):
     assert not archive_path.exists()
 
 
-def test_zip_archive_runs_existing_main_guard_like_python_file(tmp_path):
-    """已有 __main__ 入口时，python report.uzc 应按原脚本入口执行。"""
+@pytest.mark.parametrize("suffix", [".png", ".uzc"])
+def test_zip_archive_runs_existing_main_guard_like_python_file(tmp_path, suffix):
+    """已有 __main__ 入口时，两种 v3 导出文件均应支持 Python 直接执行。"""
     _write_uzoncalc_stub(tmp_path)
     script_path = tmp_path / "report.py"
-    archive_path = tmp_path / "report.uzc"
+    archive_path = tmp_path / f"report{suffix}"
     script_path.write_text(
         "\n".join(
             [
@@ -313,11 +319,11 @@ def test_zip_archive_runs_existing_main_guard_like_python_file(tmp_path):
                 "import uzoncalc",
                 "",
                 "@uzoncalc.uzon_calc()",
-                "def sheet():",
+                "async def sheet():",
                 "    return message()",
                 "",
                 "if __name__ == '__main__':",
-                "    print('main:' + sheet() + ':' + sys.argv[1])",
+                "    print('main:' + message() + ':' + sys.argv[1])",
                 "",
             ]
         ),
@@ -327,7 +333,7 @@ def test_zip_archive_runs_existing_main_guard_like_python_file(tmp_path):
         "def message():\n    return 'hello'\n", encoding="utf-8"
     )
 
-    assert cli.main(["zip", "-p", str(script_path)]) == 0
+    assert cli.main(["zip", "-p", str(script_path), "-o", str(archive_path)]) == 0
 
     result = subprocess.run(
         [sys.executable, str(archive_path), "arg-value"],
@@ -339,7 +345,9 @@ def test_zip_archive_runs_existing_main_guard_like_python_file(tmp_path):
     assert result.stdout.strip() == "main:hello:arg-value"
 
 
-def test_zip_archive_adds_view_main_for_single_entry_without_main_guard(tmp_path):
+def test_zip_archive_adds_view_main_for_single_entry_without_main_guard(
+    tmp_path, monkeypatch
+):
     """没有 __main__ 入口且只有一个计算入口时，归档应自动调用 view(entry)。"""
     _write_uzoncalc_stub(tmp_path)
     script_path = tmp_path / "report.py"
@@ -350,8 +358,8 @@ def test_zip_archive_adds_view_main_for_single_entry_without_main_guard(tmp_path
                 "from nested.calc import message",
                 "from uzoncalc import uzon_calc",
                 "",
-                "@uzon_calc",
-                "def sheet():",
+                "@uzon_calc()",
+                "async def sheet():",
                 "    return message()",
                 "",
             ]
@@ -367,14 +375,15 @@ def test_zip_archive_adds_view_main_for_single_entry_without_main_guard(tmp_path
 
     assert cli.main(["zip", "-p", str(script_path), "-o", str(archive_path)]) == 0
 
-    result = subprocess.run(
-        [sys.executable, str(archive_path)],
-        check=True,
-        text=True,
-        capture_output=True,
-    )
+    selected_entries = []
+    monkeypatch.setattr(cli_archive_runtime, "view", selected_entries.append)
 
-    assert result.stdout.strip() == "view:auto-main"
+    cli_archive_runtime.run_v3_archive(archive_path)
+
+    assert [entry.__name__ for entry in selected_entries] == ["sheet"]
+    selected_entries.clear()
+    assert cli.main(["run", str(archive_path)]) == 0
+    assert [entry.__name__ for entry in selected_entries] == ["sheet"]
 
 
 def test_zip_archive_is_valid_png_with_embedded_zip(tmp_path):
@@ -399,7 +408,7 @@ def test_zip_archive_is_valid_png_with_embedded_zip(tmp_path):
                 "from uzoncalc import uzon_calc",
                 "",
                 "@uzon_calc",
-                "def sheet():",
+                "async def sheet():",
                 "    H1('结构计算缩略图')",
                 "    return 'thumbnail'",
                 "",
@@ -422,7 +431,7 @@ def test_zip_archive_is_valid_png_with_embedded_zip(tmp_path):
         manifest = json.loads(
             archive.read("__uzoncalc_bundle__/manifest.json").decode("utf-8")
         )
-    assert manifest["format_version"] == 2
+    assert manifest["formatVersion"] == 3
     assert manifest["thumbnail"] == {
         "entry_name": "sheet",
         "title": "结构计算缩略图",
@@ -570,7 +579,7 @@ def test_zip_archive_collects_static_local_imports_only(tmp_path):
 
     assert "__main__.py" in names
     assert "__uzoncalc_bundle__/manifest.json" in names
-    assert "__uzoncalc_bundle__/src/report.py" in names
-    assert "__uzoncalc_bundle__/src/package/__init__.py" in names
-    assert "__uzoncalc_bundle__/src/package/tool.py" in names
-    assert "__uzoncalc_bundle__/src/unused.py" not in names
+    assert "reports/root/src/report.py" in names
+    assert "reports/root/src/package/__init__.py" in names
+    assert "reports/root/src/package/tool.py" in names
+    assert "reports/root/src/unused.py" not in names

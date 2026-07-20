@@ -9,7 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import cast
 
-from sqlalchemy import func, or_, select, update
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
@@ -44,7 +44,6 @@ from app.db.models.calc_report import (
 )
 from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_category import CalcReportCategory
-from app.db.models.calc_report_dependency import CalcReportDependency
 from app.db.models.calc_report_share import (
     CalcReportShareDepartment,
     CalcReportShareLink,
@@ -61,6 +60,7 @@ from app.db.models.enums import (
 from app.db.models.object_id import ObjectId
 from app.db.models.user import User, UserStatus
 from app.exception.custom_exception import CustomException, raise_ex
+from app.i18n import _
 from app.service.calc_report_artifact_service import artifact_store
 from app.service.calc_report_workspace_service import (
     _get_or_create_source_artifact,
@@ -121,6 +121,7 @@ async def create_share_link(
         maxUseCount=request.maxUseCount,
         canEdit=request.canEdit,
         canShare=request.canShare,
+        note=request.note.strip() if request.note and request.note.strip() else None,
         createdByUserId=user_id,
     )
     session.add(link)
@@ -133,7 +134,14 @@ async def create_share_link(
         )
     await session.commit()
     await session.refresh(link)
-    return _share_link_response(link, report, version, token=token)
+    return _share_link_response(
+        link,
+        report,
+        version,
+        token=token,
+        recipient_user_oids=[recipient.oid for recipient in recipients],
+        recipient_department_oids=[department.oid for department in departments],
+    )
 
 
 async def list_share_links(
@@ -151,7 +159,86 @@ async def list_share_links(
             .order_by(CalcReportShareLink.createdAt.desc())
         )
     ).all()
-    return [_share_link_response(link, report, version) for link, version in rows]
+    responses = []
+    for link, version in rows:
+        recipient_user_oids, recipient_department_oids = await _share_recipient_oids(
+            link.id, session
+        )
+        responses.append(
+            _share_link_response(
+                link,
+                report,
+                version,
+                recipient_user_oids=recipient_user_oids,
+                recipient_department_oids=recipient_department_oids,
+            )
+        )
+    return responses
+
+
+async def update_share_link(
+    user_id: int,
+    share_oid: str,
+    request: ShareLinkCreateDTO,
+    session: AsyncSession,
+) -> ShareLinkResDTO:
+    """Replace the editable settings of one active owned share link.
+
+    Args:
+        user_id: Current owner database identifier.
+        share_oid: Public share-link identifier.
+        request: Complete replacement settings.
+        session: Active database session.
+
+    Returns:
+        Updated link metadata without exposing its bearer token.
+
+    Raises:
+        CustomException: If ownership, version, recipients, or link state is invalid.
+    """
+    link, report, _current_version = await _get_owned_share(user_id, share_oid, session)
+    if link.revokedAt is not None:
+        raise_ex(_("A revoked share link cannot be edited"), code=409)
+    version = await _get_version(report, request.versionName, session)
+    await _collect_shared_closure(report, version, session)
+    recipients = await _resolve_recipients(request.recipientUserOids, session)
+    departments = await _resolve_departments(request.recipientDepartmentOids, session)
+    link.versionId = version.id
+    link.accessType = DbShareAccessType[request.accessType.name].value
+    link.expiresAt = request.expiresAt
+    link.maxUseCount = request.maxUseCount
+    link.canEdit = request.canEdit
+    link.canShare = request.canShare
+    link.note = request.note.strip() if request.note and request.note.strip() else None
+    link.previewExecutionId = None
+    await session.execute(
+        delete(CalcReportShareRecipient).where(
+            CalcReportShareRecipient.shareLinkId == link.id
+        )
+    )
+    await session.execute(
+        delete(CalcReportShareDepartment).where(
+            CalcReportShareDepartment.shareLinkId == link.id
+        )
+    )
+    session.add_all(
+        [
+            CalcReportShareRecipient(shareLinkId=link.id, userId=recipient.id)
+            for recipient in recipients
+        ]
+        + [
+            CalcReportShareDepartment(shareLinkId=link.id, departmentId=department.id)
+            for department in departments
+        ]
+    )
+    await session.commit()
+    return _share_link_response(
+        link,
+        report,
+        version,
+        recipient_user_oids=[recipient.oid for recipient in recipients],
+        recipient_department_oids=[department.oid for department in departments],
+    )
 
 
 async def revoke_share_link(
@@ -181,6 +268,7 @@ async def preview_share(
         totalSize=sum(node.artifact.totalSize for node in closure),
         canEdit=link.canEdit,
         canShare=link.canShare,
+        note=link.note,
     )
 
 
@@ -325,7 +413,9 @@ async def list_available_shares(
             qualifiedName=(
                 f"{owner.nickName or owner.username}/{category.name}/{report.name}"
             ),
+            sharedBy=owner.nickName or owner.username,
             description=report.description,
+            note=link.note,
             versionName=_version_name(version),
             sharedAt=link.createdAt,
             canEdit=link.canEdit,
@@ -395,9 +485,12 @@ async def get_report_sync_status(
     locator = decrypt_persisted_secret(sync_source.sourceLocator)
     if locator.startswith("remote:"):
         try:
-            _archive_bytes, source_report_oid, upstream_version_name, artifact_hash = (
-                await _get_remote_sync_snapshot(locator.removeprefix("remote:"))
-            )
+            (
+                _archive_bytes,
+                source_report_oid,
+                upstream_version_name,
+                artifact_hash,
+            ) = await _get_remote_sync_snapshot(locator.removeprefix("remote:"))
             if source_report_oid != sync_source.sourceReportOid:
                 raise ValueError("remote source identity changed")
             state = (
@@ -460,9 +553,12 @@ async def synchronize_report(
     if locator.startswith("remote:"):
         from app.service import calc_report_archive_service
 
-        archive_bytes, source_report_oid, upstream_version_name, artifact_hash = (
-            await _get_remote_sync_snapshot(locator.removeprefix("remote:"))
-        )
+        (
+            archive_bytes,
+            source_report_oid,
+            upstream_version_name,
+            artifact_hash,
+        ) = await _get_remote_sync_snapshot(locator.removeprefix("remote:"))
         if source_report_oid != sync_source.sourceReportOid:
             raise_ex("Synchronized source identity changed", code=409)
         if artifact_hash != sync_source.sourceArtifactHash:
@@ -529,9 +625,10 @@ async def _get_remote_sync_snapshot(
     """
     from app.service import calc_report_archive_service, remote_share_service
 
-    archive_bytes, _canonical_source = (
-        await remote_share_service.fetch_remote_share_archive(source)
-    )
+    (
+        archive_bytes,
+        _canonical_source,
+    ) = await remote_share_service.fetch_remote_share_archive(source)
     report_oid, version_name, artifact_hash = (
         calc_report_archive_service.inspect_archive_root(archive_bytes)
     )
@@ -1265,6 +1362,8 @@ def _share_link_response(
     version: CalcReportVersion,
     *,
     token: str | None = None,
+    recipient_user_oids: list[str] | None = None,
+    recipient_department_oids: list[str] | None = None,
 ) -> ShareLinkResDTO:
     """Convert share/version/report models to a public response."""
     return ShareLinkResDTO(
@@ -1274,6 +1373,9 @@ def _share_link_response(
         accessType=ShareAccessType[DbShareAccessType(link.accessType).name],
         canEdit=link.canEdit,
         canShare=link.canShare,
+        recipientUserOids=recipient_user_oids or [],
+        recipientDepartmentOids=recipient_department_oids or [],
+        note=link.note,
         expiresAt=link.expiresAt,
         revokedAt=link.revokedAt,
         maxUseCount=link.maxUseCount,
@@ -1281,6 +1383,50 @@ def _share_link_response(
         createdAt=link.createdAt,
         token=token,
     )
+
+
+async def _share_recipient_oids(
+    share_link_id: int, session: AsyncSession
+) -> tuple[list[str], list[str]]:
+    """Resolve public recipient identifiers for one share link.
+
+    Args:
+        share_link_id: Internal share-link identifier.
+        session: Active database session.
+
+    Returns:
+        User OIDs and department OIDs in stable order.
+
+    Raises:
+        SQLAlchemyError: If recipient lookup fails.
+    """
+    user_oids = list(
+        (
+            await session.scalars(
+                select(User.oid)
+                .join(
+                    CalcReportShareRecipient,
+                    CalcReportShareRecipient.userId == User.id,
+                )
+                .where(CalcReportShareRecipient.shareLinkId == share_link_id)
+                .order_by(User.id)
+            )
+        ).all()
+    )
+    department_oids = list(
+        (
+            await session.scalars(
+                select(Department.oid)
+                .join(
+                    CalcReportShareDepartment,
+                    CalcReportShareDepartment.departmentId == Department.id,
+                )
+                .where(CalcReportShareDepartment.shareLinkId == share_link_id)
+                .order_by(Department.id)
+            )
+        ).all()
+    )
+    return user_oids, department_oids
 
 
 def _version_name(version: CalcReportVersion) -> str:

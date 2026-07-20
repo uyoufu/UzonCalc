@@ -45,8 +45,7 @@ export default {
     editor: {
       index: {
         formatTooltip: 'Format (Alt + Shift + F)',
-        pleaseInputReportName:
-          'Please enter report name (only letters, numbers, underscores, and cannot start with a number)',
+        pleaseInputReportName: 'Please enter report name (only letters, numbers, underscores, and cannot start with a number)',
         runTooltip: 'Run (F5)',
         saveFailed: 'Save failed',
         saveSuccess: 'Saved successfully',
@@ -120,8 +119,7 @@ export default {
     myCalcs: 'My calculations',
     newCalcReport: 'New calculation',
     newCalcReportTooltip: 'Create a new calculation report',
-    pleaseInputCalcReportName:
-      'Please enter calculation report name (valid filename, cannot contain : * ? " < > | etc.)',
+    pleaseInputCalcReportName: 'Please enter calculation report name (valid filename, cannot contain : * ? " < > | etc.)',
     reportTemplate: 'Report template',
     viewer: {
       applyDevLocalFilePath: 'Open with this path',
@@ -179,12 +177,12 @@ export default {
     categories: 'Report categories',
     categoryName: 'Category',
     close: 'Close',
-    closeRunningTabConfirm:
-      'The calculation is still waiting for input. Closing this tab will terminate it. Continue?',
+    closeRunningTabConfirm: 'The calculation is still waiting for input. Closing this tab will terminate it. Continue?',
     closeTab: 'Close tab',
     collapseTree: 'Collapse file tree',
     continueRun: 'Continue',
     copyDependencyReference: 'Copy dependency reference',
+    copyLink: 'Copy link',
     copyReference: 'Copy reference',
     copyReport: 'Copy report',
     copyShareLink: 'Copy share link',
@@ -194,8 +192,7 @@ export default {
     defaultSelectorRequired: 'The default selector must be included in the selected versions.',
     dependencies: 'Dependencies',
     dependencyAliasExists: 'The dependency alias already exists.',
-    dependencyAliasInvalid:
-      'The alias must start with a letter or underscore and contain only letters, numbers, and underscores.',
+    dependencyAliasInvalid: 'The alias must start with a letter or underscore and contain only letters, numbers, and underscores.',
     dependencyReferenceCopied: 'Dependency reference copied',
     dependencyReferenceCopyFailed: 'Failed to copy dependency reference',
     dependencyVersion: 'Dependency version',
@@ -207,6 +204,7 @@ export default {
     editDependency: 'Edit dependency',
     editInstance: 'Edit instance',
     editMetadata: 'Edit metadata',
+    entryDecoratorRequired: 'The entry file must contain an @uzon_calc decorator',
     executionHistory: 'Execution history',
     executionOutdated: 'This result uses older source. Run again to update it.',
     executionRiskMessage: 'The report code will run locally. Confirm that you trust its source.',
@@ -299,11 +297,14 @@ export default {
     setLatest: 'Set latest',
     share: 'Share',
     sharedAt: 'Shared at',
+    sharedBy: 'Shared by',
     sharedInstance: 'Shared calculation instance',
     sharedReport: 'Shared report',
     sharedReports: 'Shared with me',
     shareLink: 'Share link',
+    shareNote: 'Note',
     shareReport: 'Share report',
+    shareUpdated: 'Share settings updated',
     showCategory: 'Show category',
     showHiddenCategories: 'Show hidden categories',
     showInExplorer: 'Show in file explorer',
@@ -342,8 +343,7 @@ export default {
   },
   categoryList: {
     deleteCategory: 'Delete category',
-    deleteCategoryConfirm:
-      'Are you sure you want to delete category "{label}"? This action cannot be undone.',
+    deleteCategoryConfirm: 'Are you sure you want to delete category "{label}"? This action cannot be undone.',
     deleteCategorySuccess: 'Category "{label}" deleted successfully',
     field_cover: 'Cover',
     field_description: 'Description',
@@ -355,8 +355,7 @@ export default {
     modifyCategorySuccess: 'Category updated successfully',
     newCategory: 'New category',
     newCategorySuccess: 'Category added successfully',
-    onlyLettersNumbersUnderscoresAndCannotStartWithNumber:
-      'Only letters, numbers and underscores are allowed, and cannot start with a number',
+    onlyLettersNumbersUnderscoresAndCannotStartWithNumber: 'Only letters, numbers and underscores are allowed, and cannot start with a number',
     youCanRightClickToAddNewCategory: 'You can right-click to add a new category'
   },
   collapseLeft: {
@@ -521,4 +520,3 @@ export default {
     totalItems: '... and {count} {unit} in total'
   }
 }
-

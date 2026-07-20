@@ -215,12 +215,16 @@ export interface ShareLink {
   accessType: ShareAccessType
   canEdit: boolean
   canShare: boolean
+  recipientUserOids: string[]
+  recipientDepartmentOids: string[]
+  note: string | null
   expiresAt: string | null
   revokedAt: string | null
   maxUseCount: number | null
   useCount: number
   createdAt: string
   token: string | null
+  shareUrl?: string
 }
 
 export interface SharePreview {
@@ -233,6 +237,7 @@ export interface SharePreview {
   totalSize: number
   canEdit: boolean
   canShare: boolean
+  note: string | null
   recentExecution: CalcExecution | null
 }
 
@@ -308,7 +313,9 @@ export interface SharedReport {
   shareOid: string
   reportName: string
   qualifiedName: string
+  sharedBy: string
   description: string | null
+  note: string | null
   versionName: string
   sharedAt: string
   canEdit: boolean

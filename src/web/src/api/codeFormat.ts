@@ -1,18 +1,19 @@
 import { httpClient } from 'src/api/base/httpClient'
 
-export interface IPythonBlackFormatReq {
+export interface IPythonRuffFormatReq {
   code: string
   lineLength?: number
 }
 
-export interface IPythonBlackFormatRes {
+export interface IPythonRuffFormatRes {
   formattedCode: string
   changed: boolean
-  formatter: 'black'
+  formatter: 'ruff'
 }
 
-export function formatPythonByBlack(data: IPythonBlackFormatReq) {
-  return httpClient.post<IPythonBlackFormatRes>('/code-format/python/black', {
+/** Format Python source through the isolated backend Ruff formatter. */
+export function formatPythonByRuff(data: IPythonRuffFormatReq) {
+  return httpClient.post<IPythonRuffFormatRes>('/code-format/python/ruff', {
     data,
     stopNotifyError: true
   })

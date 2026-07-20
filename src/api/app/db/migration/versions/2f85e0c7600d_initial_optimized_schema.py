@@ -1022,6 +1022,7 @@ def upgrade() -> None:
         sa.Column(
             "canShare", sa.Boolean(), server_default=sa.text("0"), nullable=False
         ),
+        sa.Column("note", sa.String(length=500), nullable=True),
         sa.Column("createdByUserId", sa.Integer(), nullable=False),
         sa.Column("previewExecutionId", sa.Integer(), nullable=True),
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),

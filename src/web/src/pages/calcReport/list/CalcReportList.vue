@@ -162,8 +162,11 @@ async function onCategoryAccess(category: CalcReportCategory): Promise<void> {
 
 /** Import a portable file or public share link and refresh the library. */
 async function onOpenImportDialog(kind: 'file' | 'link'): Promise<void> {
+  const defaultCategoryOid = categories.value.some((category) => category.categoryOid === selectedCategoryOid.value)
+    ? String(selectedCategoryOid.value)
+    : undefined
   if (kind === 'link') {
-    const input = await openLinkImportDialog(categoryOptions.value)
+    const input = await openLinkImportDialog(categoryOptions.value, defaultCategoryOid)
     if (!input) return
     const source = resolveBackendShareSource(input.source)
     const preview = (await previewRemoteShare(source)).data
@@ -175,7 +178,7 @@ async function onOpenImportDialog(kind: 'file' | 'link'): Promise<void> {
     await refreshAfterImport()
     return
   }
-  const input = await openImportDialog(categoryOptions.value)
+  const input = await openImportDialog(categoryOptions.value, defaultCategoryOid)
   if (!input) return
 
   await notifyUntil(

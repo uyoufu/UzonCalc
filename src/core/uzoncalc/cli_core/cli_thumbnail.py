@@ -3,11 +3,13 @@
 from io import BytesIO
 import os
 from pathlib import Path
+import tempfile
+from typing import Mapping
 import warnings
 
 from PIL import Image, ImageDraw, ImageFont
 
-from .cli_archive_analysis import ArchiveEntryPreview
+from .cli_archive_analysis import ArchiveEntryPreview, analyze_archive_script
 
 
 THUMBNAIL_WIDTH = 1280
@@ -229,3 +231,42 @@ def render_archive_thumbnail(preview: ArchiveEntryPreview) -> bytes:
     output = BytesIO()
     image.save(output, format="PNG", optimize=True, compress_level=9)
     return output.getvalue()
+
+
+def render_workspace_archive_thumbnail(
+    files: Mapping[str, bytes], entry_path: str
+) -> tuple[bytes, str | None]:
+    """Render a thumbnail and resolve the automatic entry for workspace files.
+
+    Args:
+        files: Workspace files keyed by normalized report-relative paths.
+        entry_path: Python entry path declared by ``calcbook.json``.
+
+    Returns:
+        PNG thumbnail bytes and the entry name to pass to ``view``. The entry name
+        is ``None`` when the script owns an explicit ``__main__`` guard.
+
+    Raises:
+        ValueError: If the entry is missing, invalid UTF-8, lacks ``@uzon_calc``,
+            or declares ambiguous entries without an explicit main guard.
+        OSError: If temporary source or thumbnail output cannot be written.
+        SyntaxError: If the entry source is invalid Python.
+    """
+    source_bytes = files.get(entry_path)
+    if source_bytes is None:
+        raise ValueError("工作区入口文件不存在")
+    try:
+        source = source_bytes.decode("utf-8")
+    except UnicodeDecodeError as error:
+        raise ValueError("工作区入口文件不是 UTF-8 Python 源码") from error
+    with tempfile.TemporaryDirectory(prefix="uzoncalc-thumbnail-") as temp_dir:
+        script_path = Path(temp_dir) / Path(entry_path).name
+        script_path.write_text(source, encoding="utf-8")
+        analysis = analyze_archive_script(script_path)
+    first_entry_name = next(iter(analysis.entry_names), None)
+    if first_entry_name is None or analysis.preview is None:
+        raise ValueError("工作区入口未找到 @uzon_calc 装饰器")
+    if not analysis.has_main_guard and len(analysis.entry_names) > 1:
+        raise ValueError("工作区入口包含多个 @uzon_calc，请添加显式 __main__ 入口")
+    auto_view_entry = None if analysis.has_main_guard else first_entry_name
+    return render_archive_thumbnail(analysis.preview), auto_view_entry

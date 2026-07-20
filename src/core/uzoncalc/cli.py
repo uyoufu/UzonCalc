@@ -5,6 +5,7 @@ UzonCalc CLI 入口
     uzoncalc path/to/script.py
     uzoncalc path/to/script.py --output path/to/output.html
     uzoncalc zip -p path/to/script.py
+    uzoncalc run path/to/report.png
 """
 
 import argparse
@@ -15,6 +16,7 @@ from pathlib import Path
 import sys
 
 from .cli_core.cli_archive import create_uzc_archive
+from .cli_core.cli_archive_runtime import run_v3_archive
 from .http_server import DEFAULT_SERVER_PORT, serve_reloadable_html
 
 # 环境变量名：设置后 doc.save() 将变为空操作
@@ -206,6 +208,47 @@ def _run_zip_command(argv: list[str]) -> int:
     return 0
 
 
+def _build_archive_run_parser() -> argparse.ArgumentParser:
+    """Build the parser for executing one exported v3 archive.
+
+    Args:
+        None.
+
+    Returns:
+        Parser for the ``uzoncalc run`` command.
+
+    Raises:
+        None.
+    """
+    parser = argparse.ArgumentParser(
+        prog="uzoncalc run",
+        description="运行 UzonCalc 导出的 v3 PNG/UZC 计算书",
+    )
+    parser.add_argument("archive", help="要运行的 .png 或 .uzc 计算书归档")
+    return parser
+
+
+def _run_archive_command(argv: list[str]) -> int:
+    """Execute one exported v3 archive from the command line.
+
+    Args:
+        argv: Arguments following the ``run`` subcommand.
+
+    Returns:
+        Zero on success and one when validation or execution fails.
+
+    Raises:
+        SystemExit: If command arguments are invalid.
+    """
+    args = _build_archive_run_parser().parse_args(argv)
+    try:
+        run_v3_archive(args.archive)
+    except Exception as error:
+        print(f"Error: {error}", file=sys.stderr)
+        return 1
+    return 0
+
+
 def _build_legacy_parser() -> argparse.ArgumentParser:
     """创建既有脚本运行命令的参数解析器。
 
@@ -256,6 +299,8 @@ def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
     if argv and argv[0] == "zip":
         return _run_zip_command(argv[1:])
+    if argv and argv[0] == "run":
+        return _run_archive_command(argv[1:])
 
     parser = _build_legacy_parser()
     args = parser.parse_args(argv)

@@ -431,3 +431,13 @@ msgstr "UZC 归档压缩比异常"
 
 msgid "UZC archive source path is invalid"
 msgstr "UZC 归档源码路径无效"
+
+msgid "Python formatter is unavailable"
+msgstr "Python 格式化工具不可用"
+
+#, python-brace-format
+msgid "Ruff format failed: {error}"
+msgstr "Ruff 格式化失败：{error}"
+
+msgid "A revoked share link cannot be edited"
+msgstr "已撤销的分享链接不能编辑"

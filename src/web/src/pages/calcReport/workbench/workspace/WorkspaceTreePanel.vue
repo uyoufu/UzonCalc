@@ -63,7 +63,10 @@ const contextItems: IContextMenuItem<DraggableTreeContextValue>[] = [
 
 /** Copy a normalized workspace-relative reference for source or resource files. */
 async function onCopyReference(node: WorkspaceTreeNode): Promise<void> {
-  await navigator.clipboard.writeText(node.path)
+  const reference = node.kind === 'file' && node.path.startsWith('src/') && node.path.endsWith('.py')
+    ? `from ${node.path.slice(4, -3).replaceAll('/', '.').replace(/\.__init__$/, '')} import *`
+    : node.path
+  await navigator.clipboard.writeText(reference)
   notifySuccess(t('calcWorkspace.referenceCopied'))
 }
 

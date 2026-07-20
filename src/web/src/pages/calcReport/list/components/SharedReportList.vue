@@ -28,11 +28,20 @@ import { formatDate } from 'src/utils/format'
 
 const props = defineProps<{ categories: CalcReportCategory[] }>()
 const columns: ComputedRef<QTableColumn[]> = computed(() => [
-  { name: 'qualifiedName', label: t('calcWorkspace.reportName'), field: 'qualifiedName', align: 'left', sortable: true },
+  { name: 'reportName', label: t('calcWorkspace.reportName'), field: 'reportName', align: 'left', sortable: true },
+  { name: 'sharedBy', label: t('calcWorkspace.sharedBy'), field: 'sharedBy', align: 'left' },
   { name: 'description', label: t('global.description'), field: 'description', align: 'left' },
+  { name: 'note', label: t('calcWorkspace.shareNote'), field: 'note', align: 'left' },
   { name: 'versionName', label: t('calcWorkspace.version'), field: 'versionName', align: 'left', sortable: true },
+  { name: 'permissions', label: t('calcWorkspace.permissions'), field: (row: SharedReport) => permissionLabel(row), align: 'left' },
   { name: 'sharedAt', label: t('calcWorkspace.sharedAt'), field: 'sharedAt', format: (value) => formatDate(value), align: 'left', sortable: true }
 ])
+
+/** Summarize the permissions granted by one shared report. */
+function permissionLabel(report: SharedReport): string {
+  return [report.canEdit ? t('calcWorkspace.canEdit') : '', report.canShare ? t('calcWorkspace.canShare') : '']
+    .filter(Boolean).join(' · ') || t('calcWorkspace.runOnly')
+}
 
 /** Count shares matching the table query. */
 async function getRowsNumberCount(filters: TTableFilterObject): Promise<number> {

@@ -3,7 +3,7 @@
 import { httpClient } from 'src/api/base/httpClient'
 import type { ReportSyncStatus, ShareAccessType, SharedReport, ShareLink, SharePreview } from './types'
 
-export interface ShareLinkInput { versionName: string; accessType: ShareAccessType; recipientUserOids?: string[]; recipientDepartmentOids?: string[]; canEdit: boolean; canShare: boolean; expiresAt?: string | null; maxUseCount?: number | null }
+export interface ShareLinkInput { versionName: string; accessType: ShareAccessType; recipientUserOids?: string[]; recipientDepartmentOids?: string[]; canEdit: boolean; canShare: boolean; expiresAt?: string | null; maxUseCount?: number | null; note?: string | null }
 export interface ShareUserOption { userOid: string; username: string; nickName: string | null }
 export interface ShareDepartmentOption { departmentOid: string; parentOid: string | null; name: string }
 
@@ -11,6 +11,8 @@ export interface ShareDepartmentOption { departmentOid: string; parentOid: strin
 export function createShareLink(reportOid: string, data: ShareLinkInput) { return httpClient.post<ShareLink>(`/calc-report/${reportOid}/shares`, { data }) }
 /** List share links without their secret tokens. */
 export function listShareLinks(reportOid: string) { return httpClient.get<ShareLink[]>(`/calc-report/${reportOid}/shares`) }
+/** Replace the settings of one active share link without rotating its token. */
+export function updateShareLink(shareOid: string, data: ShareLinkInput) { return httpClient.put<ShareLink>(`/calc-report/shares/${shareOid}`, { data }) }
 /** Revoke one share link idempotently. */
 export function revokeShareLink(shareOid: string) { return httpClient.delete<ShareLink>(`/calc-report/shares/${shareOid}`) }
 /** Preview a share without consuming it. */

@@ -123,10 +123,12 @@ export function useCalcReportListDialogs() {
 
   /** Open the custom UZC file-import dialog. */
   async function openImportDialog(
-    categoryOptions: DialogSelectOption[]
+    categoryOptions: DialogSelectOption[],
+    defaultCategoryOid?: string
   ): Promise<ImportUzcDialogInput | null> {
     const result = await showComponentDialog<ImportUzcDialogInput>(ImportUzcDialog, {
-      categoryOptions
+      categoryOptions,
+      defaultCategoryOid
     })
     if (!result.ok) return null
 
@@ -139,14 +141,15 @@ export function useCalcReportListDialogs() {
 
   /** Collect a public share URL and receiver-owned import metadata. */
   async function openLinkImportDialog(
-    categoryOptions: DialogSelectOption[]
+    categoryOptions: DialogSelectOption[],
+    defaultCategoryOid?: string
   ): Promise<ImportLinkDialogInput | null> {
     const result = await showDialog<ImportLinkDialogInput>({
       title: t('calcWorkspace.importLink'),
       oneColumn: true,
       fields: [
         { name: 'source', label: t('calcWorkspace.shareLink'), required: true },
-        { name: 'categoryOid', label: t('calcWorkspace.categoryName'), type: LowCodeFieldType.selectOne, required: true, value: categoryOptions[0]?.value, options: categoryOptions, optionLabel: 'label', optionValue: 'value', emitValue: true, mapOptions: true },
+        { name: 'categoryOid', label: t('calcWorkspace.categoryName'), type: LowCodeFieldType.selectOne, required: true, value: defaultCategoryOid || categoryOptions[0]?.value, options: categoryOptions, optionLabel: 'label', optionValue: 'value', emitValue: true, mapOptions: true },
         { name: 'name', label: t('calcWorkspace.reportName'), required: true },
         { name: 'shouldSync', label: t('calcWorkspace.keepSynchronized'), type: LowCodeFieldType.boolean, value: false }
       ]

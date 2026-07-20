@@ -30,14 +30,15 @@ interface ImportUzcInput {
   archive: File
 }
 
-defineProps<{
+const props = defineProps<{
   categoryOptions: DialogSelectOption[]
+  defaultCategoryOid?: string
 }>()
 
 defineEmits([...useDialogPluginComponent.emits])
 
 const { dialogRef, onDialogHide, onDialogOK, onDialogCancel } = useDialogPluginComponent()
-const categoryOid = ref('')
+const categoryOid = ref(props.defaultCategoryOid || '')
 const name = ref('')
 const archive = ref<File | null>(null)
 const canImport = computed(() => Boolean(categoryOid.value && name.value.trim() && archive.value))
