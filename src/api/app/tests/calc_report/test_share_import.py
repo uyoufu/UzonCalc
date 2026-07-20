@@ -13,6 +13,7 @@ from app.db.models import (
     CalcReportArtifact,
     CalcReportCategory,
     CalcReportDependency,
+    CalcReportShareLink,
     CalcReportVersion,
     User,
 )
@@ -22,6 +23,7 @@ from uzoncalc.cli_core import cli_archive_runtime
 from uzoncalc.cli_core.cli_archive import create_uzc_archive
 from app.service.calc_report_artifact_service import ArtifactFile, artifact_store
 from app.service.calc_report_workspace_service import _get_or_create_source_artifact
+from app.service.secret_storage_service import decrypt_persisted_secret
 from config import app_config
 
 
@@ -178,13 +180,22 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                 listed_shares = await calc_report_share_service.list_share_links(
                     owner.id, root_report.oid, session
                 )
-                assert updated_share.token is None
+                stored_share = await session.scalar(
+                    select(CalcReportShareLink).where(
+                        CalcReportShareLink.oid == share.shareOid
+                    )
+                )
+                assert stored_share is not None
+                assert stored_share.tokenCiphertext != share.token
+                assert decrypt_persisted_secret(stored_share.tokenCiphertext) == share.token
+                assert updated_share.token == share.token
                 assert updated_share.canEdit is True
                 assert updated_share.note == "review copy"
+                assert listed_shares[0].token == share.token
                 assert listed_shares[0].note == "review copy"
                 imported = await calc_report_share_service.import_share(
                     receiver.id,
-                    share.token or "",
+                    share.token,
                     ShareImportDTO(categoryOid=receiver_category.oid),
                     session,
                 )

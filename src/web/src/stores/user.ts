@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { useSessionStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core'
 import type { IUserInfo } from './types'
 import { useRouter } from 'src/router/index'
 import logger from 'loglevel'
@@ -7,12 +7,12 @@ import logger from 'loglevel'
 // options 方式定义
 export const useUserInfoStore = defineStore('userInfo', {
   state: () => ({
-    token: useSessionStorage('token', ''),
-    access: useSessionStorage('access', [] as string[]),
-    secretKey: useSessionStorage('secretKey', ''),
-    installedPlugins: useSessionStorage('installedPlugins', [] as string[]),
-    userInfo: useSessionStorage('userInfo', {} as IUserInfo),
-    locale: useSessionStorage('locale', navigator.language)
+    token: useLocalStorage('token', ''),
+    access: useLocalStorage('access', [] as string[]),
+    secretKey: useLocalStorage('secretKey', ''),
+    installedPlugins: useLocalStorage('installedPlugins', [] as string[]),
+    userInfo: useLocalStorage('userInfo', {} as IUserInfo),
+    locale: useLocalStorage('locale', navigator.language)
   }),
   getters: {
     // 用户数据库的 id
@@ -119,6 +119,9 @@ export const useUserInfoStore = defineStore('userInfo', {
     async logout () {
       this.token = ''
       this.access = []
+      this.secretKey = ''
+      this.installedPlugins = []
+      this.userInfo = {} as IUserInfo
 
       // 重定向到登录页面
       const router = useRouter()

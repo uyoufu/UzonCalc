@@ -1013,6 +1013,7 @@ def upgrade() -> None:
         sa.Column("reportId", sa.Integer(), nullable=False),
         sa.Column("versionId", sa.Integer(), nullable=False),
         sa.Column("tokenHash", sa.CHAR(length=64), nullable=False),
+        sa.Column("tokenCiphertext", sa.Text(), nullable=False),
         sa.Column("accessType", sa.SmallInteger(), nullable=False),
         sa.Column("expiresAt", sa.DateTime(timezone=True), nullable=True),
         sa.Column("revokedAt", sa.DateTime(timezone=True), nullable=True),

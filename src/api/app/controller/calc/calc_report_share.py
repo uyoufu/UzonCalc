@@ -28,7 +28,6 @@ from app.controller.dto_base import PaginationDTO
 from app.response.response_result import ResponseResult, ok
 from app.service import calc_report_archive_service, calc_report_share_service
 from app.db.models.calc_report_share import CalcReportShareLink
-from app.db.models.enums import ShareAccessType as DbShareAccessType
 from app.controller.calc.calc_execution import (
     execution_step_response,
     finalize_execution_step,
@@ -97,7 +96,7 @@ async def create_calc_report_share(
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[ShareLinkResDTO]:
-    """Create a share link and expose its secret token exactly once."""
+    """Create a share link and return its stable owner-visible token."""
     return ok(
         data=await calc_report_share_service.create_share_link(
             tokenPayloads.id, reportOid, request, session
@@ -111,7 +110,7 @@ async def list_calc_report_shares(
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[list[ShareLinkResDTO]]:
-    """List link metadata without returning bearer tokens."""
+    """List owned link metadata with stable owner-visible tokens."""
     return ok(
         data=await calc_report_share_service.list_share_links(
             tokenPayloads.id, reportOid, session
@@ -169,7 +168,7 @@ async def preview_shared_calc_report(
         await calc_report_share_service.record_share_preview_execution(
             link, step.execution, session
         )
-    execution.htmlPath = f"/v1/calc-report/shared/{token}/result"
+    execution.htmlPath = f"/api/v1/calc-report/shared/{token}/result"
     preview.recentExecution = execution
     return ok(data=preview)
 
@@ -188,31 +187,29 @@ async def get_shared_calc_report_result(
 
 
 @router.get("/shared/{token}/archive")
-async def export_public_shared_calc_report(
+async def export_shared_calc_report(
     token: str,
     background_tasks: BackgroundTasks,
+    tokenPayloads: TokenPayloads | None = Depends(get_optional_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> FileResponse:
-    """Stream a public share as a portable v3 archive.
+    """Stream an authorized share as a portable v3 archive.
 
     Args:
-        token: Public share bearer token.
+        token: Share bearer token.
         background_tasks: FastAPI response cleanup queue.
+        tokenPayloads: Optional authenticated recipient claims.
         session: Request database session.
 
     Returns:
         Streaming PNG archive response.
 
     Raises:
-        CustomException: If the token is unavailable or not public.
+        CustomException: If the token is unavailable to the current recipient.
     """
     link, report, version = await calc_report_share_service._authorize_share(
-        None, token, session
+        tokenPayloads.id if tokenPayloads is not None else None, token, session
     )
-    if link.accessType != DbShareAccessType.PUBLIC.value:
-        from app.exception.custom_exception import raise_ex
-
-        raise_ex("Only public shares may be exported by token", code=403)
     await calc_report_share_service._consume_share(link, session)
     await session.commit()
     exported = await calc_report_archive_service.export_version_closure(

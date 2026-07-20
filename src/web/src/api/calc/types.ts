@@ -223,8 +223,7 @@ export interface ShareLink {
   maxUseCount: number | null
   useCount: number
   createdAt: string
-  token: string | null
-  shareUrl?: string
+  token: string
 }
 
 export interface SharePreview {

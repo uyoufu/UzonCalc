@@ -1,9 +1,9 @@
 import { defineStore } from 'pinia'
-import { useSessionStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core'
 
 export const useCalcReportViewerStore = defineStore('calcReportViewer', {
   state: () => ({
-    devFilePath: useSessionStorage('calc-report-viewer-dev-file-path', '')
+    devFilePath: useLocalStorage('calc-report-viewer-dev-file-path', '')
   }),
 
   actions: {

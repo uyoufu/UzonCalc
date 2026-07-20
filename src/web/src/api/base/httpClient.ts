@@ -69,8 +69,9 @@ export default class HttpClient {
     axiosInstance.interceptors.request.use(
       (config) => {
         const store = useUserInfoStore()
-        // 自动添加 token
-        config.headers.Authorization = 'Bearer ' + store.token
+        // 匿名请求不能携带空 Bearer 头，否则可选认证接口会将其视为无效凭据。
+        if (store.token) config.headers.Authorization = `Bearer ${store.token}`
+        else delete config.headers.Authorization
         return config
       },
       (error) => {
@@ -236,6 +237,18 @@ export default class HttpClient {
   async getBlob<D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<AxiosResponse<Blob>> {
     config = this.formatConfig(config)
     return await this._axios.get<Blob, AxiosResponse<Blob>, D>(url, { ...config, responseType: 'blob' })
+  }
+
+  /**
+   * 获取 POST 请求返回的不使用 JSON 信封包装的 Blob 内容。
+   *
+   * @param url 请求地址。
+   * @param config Axios 请求配置。
+   * @returns 原始 Blob 响应。
+   */
+  async postBlob<D = any>(url: string, config?: IAxiosRequestConfig<D>): Promise<AxiosResponse<Blob>> {
+    config = this.formatConfig(config)
+    return await this._axios.post<Blob, AxiosResponse<Blob>, D>(url, config?.data, { ...config, responseType: 'blob' })
   }
 
   /**

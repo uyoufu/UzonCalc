@@ -3,9 +3,10 @@ import { continueExecution, countExecutions, listExecutions, startExecution } fr
 import { countCalcReports, listCalcReports } from 'src/api/calc/reports'
 import { countInstances, listInstances } from 'src/api/calc/instances'
 import { saveWorkspace } from 'src/api/calc/workspace'
+import { downloadRemoteShare, downloadShare, resolveBackendShareSource, resolveShareResultUrl } from 'src/api/calc/shares'
 import { ExecutionSourceType, WorkspaceFileSource } from 'src/api/calc/types'
 
-const httpClientMock = vi.hoisted(() => ({ get: vi.fn(), post: vi.fn(), put: vi.fn() }))
+const httpClientMock = vi.hoisted(() => ({ get: vi.fn(), getBlob: vi.fn(), post: vi.fn(), postBlob: vi.fn(), put: vi.fn() }))
 vi.mock('src/api/base/httpClient', () => ({ httpClient: httpClientMock }))
 
 describe('calculation APIs', () => {
@@ -69,5 +70,32 @@ describe('calculation APIs', () => {
     expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/items', {
       params: { ...pagination, sortBy: 'createdAt' }
     })
+  })
+
+  it('uses source presence as the only frontend share-link discriminator', () => {
+    const backendUrl = 'https://example.com/v1/calc-report/shared/token/preview'
+    const encodedSource = btoa(backendUrl).replaceAll('+', '-').replaceAll('/', '_').replace(/=+$/, '')
+
+    expect(resolveBackendShareSource(`${window.location.origin}/calc-report/shared/import?source=${encodedSource}`)).toBe(backendUrl)
+    expect(resolveBackendShareSource(backendUrl)).toBe(backendUrl)
+  })
+
+  it('uses blob endpoints for local and remote share downloads', async () => {
+    await downloadShare('share-token')
+    expect(httpClientMock.getBlob).toHaveBeenCalledWith('/calc-report/shared/share-token/archive')
+
+    await downloadRemoteShare('https://example.com/v1/calc-report/shared/token/preview')
+    expect(httpClientMock.postBlob).toHaveBeenCalledWith('/calc-report/imports/link/archive', {
+      data: { source: 'https://example.com/v1/calc-report/shared/token/preview' }
+    })
+  })
+
+  it('resolves local result paths against the backend without leaking tokens remotely', () => {
+    expect(resolveShareResultUrl('/api/v1/calc-report/shared/share-token/result', true, 'jwt-token')).toBe(
+      'http://localhost:3345/api/v1/calc-report/shared/share-token/result?token=jwt-token'
+    )
+    expect(resolveShareResultUrl('https://remote.example/api/v1/calc-report/shared/share-token/result', false, 'jwt-token')).toBe(
+      'https://remote.example/api/v1/calc-report/shared/share-token/result'
+    )
   })
 })

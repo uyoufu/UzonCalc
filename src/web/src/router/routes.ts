@@ -1,7 +1,7 @@
 import type { ExtendedRouteRecordRaw } from './types'
 
 const NormalLayout = () => import('../layouts/normalLayout/normalLayout.vue')
-// const SinglePageLayout = () => import('../layouts/singlePageLayout/singlePageLayout.vue')
+const SinglePageLayout = () => import('../layouts/singlePageLayout/singlePageLayout.vue')
 
 /**
  * 使用说明
@@ -241,7 +241,7 @@ export const constantRoutes: ExtendedRouteRecordRaw[] = [
   {
     name: 'PublicShares',
     path: '/public',
-    component: NormalLayout,
+    component: SinglePageLayout,
     meta: { label: 'calcWorkspace.sharedReport', icon: 'share', noMenu: true, anoymous: true },
     children: [
       {

@@ -3,7 +3,7 @@
 from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, Form, Query, UploadFile
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, Response
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
@@ -47,6 +47,27 @@ async def preview_remote_calc_report_link(
     return ok(
         data=await remote_share_service.fetch_remote_share_preview(request.source)
     )
+
+
+@router.post("/imports/link/archive")
+async def download_remote_calc_report_link(
+    request: RemoteShareSourceDTO,
+) -> Response:
+    """Proxy one anonymous remote public-share archive through SSRF controls.
+
+    Args:
+        request: Remote backend share URL.
+
+    Returns:
+        Bounded portable archive bytes.
+
+    Raises:
+        CustomException: If the source is unsafe, unavailable, or too large.
+    """
+    archive_bytes, _canonical_source = await remote_share_service.fetch_remote_share_archive(
+        request.source
+    )
+    return Response(content=archive_bytes, media_type="image/png")
 
 
 @router.post("/imports/link")

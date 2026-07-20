@@ -1,6 +1,6 @@
 import { defineBoot } from '#q-app/wrappers'
 import { createI18n } from 'vue-i18n'
-import { useSessionStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core'
 
 /*
  * All i18n resources specified in the plugin `include` option can be loaded
@@ -27,8 +27,8 @@ declare module 'vue-i18n' {
 /* eslint-enable @typescript-eslint/no-empty-object-type */
 
 function getDefaultLocale(): string {
-  // 判断 session 中是否有 locale，若有，则使用 session 中的 locale
-  const localeStorage = useSessionStorage('locale', '')
+  // 浏览器各页面共享同一语言设置。
+  const localeStorage = useLocalStorage('locale', '')
   const browserLang = localeStorage.value
   if (!browserLang) {
     localeStorage.value = 'zh-CN'

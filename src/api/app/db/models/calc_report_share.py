@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     SmallInteger,
     String,
+    Text,
     Boolean,
     false,
 )
@@ -41,6 +42,7 @@ class CalcReportShareLink(BaseModel):
     reportId: Mapped[int] = mapped_column(Integer, nullable=False)
     versionId: Mapped[int] = mapped_column(nullable=False)
     tokenHash: Mapped[str] = mapped_column(CHAR(64), nullable=False, unique=True)
+    tokenCiphertext: Mapped[str] = mapped_column(Text, nullable=False)
     accessType: Mapped[int] = mapped_column(SmallInteger, nullable=False)
     expiresAt: Mapped[datetime.datetime | None] = mapped_column(
         DateTime(timezone=True), nullable=True

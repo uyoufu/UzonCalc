@@ -1,11 +1,11 @@
 import { defineStore } from 'pinia'
-import { useSessionStorage } from '@vueuse/core'
+import { useLocalStorage } from '@vueuse/core'
 
 // options 方式定义
 export const useSystemInfo = defineStore('systemInfo', {
   state: () => ({
-    isLocalhost: useSessionStorage('isLocalhost', false),
-    version: useSessionStorage('api-version', '0.0.0')
+    isLocalhost: useLocalStorage('isLocalhost', false),
+    version: useLocalStorage('api-version', '0.0.0')
   }),
   getters: {
     // 用户数据库的 id

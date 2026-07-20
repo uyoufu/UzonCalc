@@ -144,7 +144,8 @@ export function useReportContextMenu() {
 ## 样式
 
 - 总体风格为卡片式、响应式、无边框的视觉设计
-- 优先使用 Quasar 工具类，例如 `text-subtitle1`、`text-primary`、`row`、`col`
+- 优先使用 flex 布局
+- 优先使用 Quasar 工具类，例如 `text-subtitle1`、`text-primary`、`row`、`col`, 若无必要，不使用自定义 scss
 - Tailwind 可用于新增布局、间距、响应式和小范围样式补充，存量页面保持现有 Quasar 优先的风格
 - 添加自定义样式前，先保持与现有视觉语言一致
 

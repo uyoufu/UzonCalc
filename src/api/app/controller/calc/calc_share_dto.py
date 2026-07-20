@@ -60,7 +60,7 @@ class ShareLinkCreateDTO(BaseDTO):
 
 
 class ShareLinkResDTO(BaseDTO):
-    """Return share-link metadata without exposing its secret token."""
+    """Return owner-managed share-link metadata with its recoverable token."""
 
     shareOid: str
     reportOid: str
@@ -76,7 +76,7 @@ class ShareLinkResDTO(BaseDTO):
     maxUseCount: int | None
     useCount: int
     createdAt: datetime.datetime
-    token: str | None = None
+    token: str
 
 
 class SharePreviewResDTO(BaseDTO):

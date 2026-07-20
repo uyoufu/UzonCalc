@@ -98,7 +98,7 @@ async def create_share_link(
     request: ShareLinkCreateDTO,
     session: AsyncSession,
 ) -> ShareLinkResDTO:
-    """Create a secret link for a published version and return its token once."""
+    """Create a secret link for a published version and persist its stable token."""
     report = await _get_owned_report(user_id, report_oid, session)
     if not report.canShare:
         raise_ex(
@@ -116,6 +116,7 @@ async def create_share_link(
         reportId=report.id,
         versionId=version.id,
         tokenHash=_token_hash(token),
+        tokenCiphertext=encrypt_persisted_secret(token),
         accessType=access_type.value,
         expiresAt=request.expiresAt,
         maxUseCount=request.maxUseCount,
@@ -138,7 +139,6 @@ async def create_share_link(
         link,
         report,
         version,
-        token=token,
         recipient_user_oids=[recipient.oid for recipient in recipients],
         recipient_department_oids=[department.oid for department in departments],
     )
@@ -191,7 +191,7 @@ async def update_share_link(
         session: Active database session.
 
     Returns:
-        Updated link metadata without exposing its bearer token.
+        Updated owner-managed link metadata with its stable bearer token.
 
     Raises:
         CustomException: If ownership, version, recipients, or link state is invalid.
@@ -203,6 +203,7 @@ async def update_share_link(
     await _collect_shared_closure(report, version, session)
     recipients = await _resolve_recipients(request.recipientUserOids, session)
     departments = await _resolve_departments(request.recipientDepartmentOids, session)
+    is_version_changed = link.versionId != version.id
     link.versionId = version.id
     link.accessType = DbShareAccessType[request.accessType.name].value
     link.expiresAt = request.expiresAt
@@ -210,7 +211,8 @@ async def update_share_link(
     link.canEdit = request.canEdit
     link.canShare = request.canShare
     link.note = request.note.strip() if request.note and request.note.strip() else None
-    link.previewExecutionId = None
+    if is_version_changed:
+        link.previewExecutionId = None
     await session.execute(
         delete(CalcReportShareRecipient).where(
             CalcReportShareRecipient.shareLinkId == link.id
@@ -279,7 +281,7 @@ async def get_or_run_share_preview(
     link, report, version = await _authorize_share(user_id, token, session)
     if link.previewExecutionId is not None:
         execution = await session.get(CalcExecution, link.previewExecutionId)
-        if execution is not None and execution.resultPath:
+        if execution is not None and _existing_execution_result_path(execution):
             return link, await get_execution_step(
                 session, link.createdByUserId, execution.oid
             )
@@ -321,15 +323,33 @@ async def get_share_preview_result_path(
         if link.previewExecutionId is not None
         else None
     )
-    if execution is None or not execution.resultPath:
+    if execution is None:
         raise_ex("Shared report result is unavailable", code=404)
+    result_file = _existing_execution_result_path(execution)
+    if result_file is None:
+        raise_ex("Shared report result is unavailable", code=404)
+    return result_file
+
+
+def _existing_execution_result_path(execution: CalcExecution) -> Path | None:
+    """Return an existing safe result file for one persisted execution.
+
+    Args:
+        execution: Persisted calculation execution.
+
+    Returns:
+        Existing result path, or ``None`` when no usable file remains.
+
+    Raises:
+        CustomException: If the persisted path escapes the application data directory.
+    """
+    if not execution.resultPath:
+        return None
     relative_path = Path(execution.resultPath)
     if relative_path.is_absolute() or ".." in relative_path.parts:
         raise_ex("Shared report result path is invalid", code=500)
     result_file = Path("data") / relative_path
-    if not result_file.is_file():
-        raise_ex("Shared report result is unavailable", code=404)
-    return result_file
+    return result_file if result_file.is_file() else None
 
 
 async def count_available_shares(
@@ -1361,11 +1381,10 @@ def _share_link_response(
     report: CalcReport,
     version: CalcReportVersion,
     *,
-    token: str | None = None,
     recipient_user_oids: list[str] | None = None,
     recipient_department_oids: list[str] | None = None,
 ) -> ShareLinkResDTO:
-    """Convert share/version/report models to a public response."""
+    """Convert share/version/report models to an owner-managed response."""
     return ShareLinkResDTO(
         shareOid=link.oid,
         reportOid=report.oid,
@@ -1381,7 +1400,7 @@ def _share_link_response(
         maxUseCount=link.maxUseCount,
         useCount=link.useCount,
         createdAt=link.createdAt,
-        token=token,
+        token=decrypt_persisted_secret(link.tokenCiphertext),
     )
 
 

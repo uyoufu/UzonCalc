@@ -4,6 +4,7 @@
       <div class="text-h6">{{ preview?.reportName || t('calcWorkspace.sharedReport') }}</div>
       <div class="text-body2 text-grey-7 q-mt-xs">{{ preview?.reportDescription }}</div>
       <q-separator class="q-my-md" />
+
       <dl v-if="preview" class="shared-page__summary">
         <dt>{{ t('calcWorkspace.version') }}</dt>
         <dd>{{ preview.versionName }}</dd>
@@ -16,26 +17,44 @@
         <dt v-if="preview.note">{{ t('calcWorkspace.shareNote') }}</dt>
         <dd v-if="preview.note">{{ preview.note }}</dd>
       </dl>
+
       <template v-if="userStore.token">
         <q-select v-model="categoryOid" dense options-dense outlined emit-value map-options class="q-mt-md"
           :label="t('calcWorkspace.categoryName')" :options="categoryOptions" />
         <q-input v-model="name" dense outlined class="q-mt-sm" :label="t('calcWorkspace.reportName')" />
         <q-toggle v-model="shouldSync" class="q-mt-sm" :label="t('calcWorkspace.keepSynchronized')" />
-        <CommonBtn class="q-mt-md" icon="download" :label="t('global.import')" :loading="isImporting"
-          :disable="!categoryOid || !name" @click="onImport" />
       </template>
+
+      <div class="row q-gutter-sm q-mt-md">
+        <CommonBtn v-if="userStore.token" class="col" icon="move_to_inbox" :label="t('global.import')"
+          :loading="isImporting" :disable="!preview || !categoryOid || !name" @click="onImport" />
+        <CommonBtn class="col" icon="download" :label="t('calcWorkspace.download')" color="secondary"
+          :loading="isDownloading" :disable="!preview" @click="onDownload" />
+      </div>
     </section>
+
     <section class="shared-page__result col">
       <iframe v-if="resultUrl" :src="resultUrl" :title="t('calcWorkspace.recentResult')" />
-      <div v-else class="fit flex flex-center text-grey-6"><q-spinner v-if="isLoading" size="36px" /></div>
+      <div v-else class="fit flex flex-center text-grey-6">
+        <q-spinner v-if="isLoading" size="36px" />
+      </div>
     </section>
   </div>
 </template>
 
 <script setup lang="ts">
-/** Preview a public or authenticated share and optionally import it. */
+/** Preview, download, and optionally import one local or remote report share. */
 import type { CalcReportCategory, SharePreview } from 'src/api/calc/types'
-import { importRemoteShare, importShare, previewRemoteShare, previewShare, resolveBackendShareSource } from 'src/api/calc/shares'
+import {
+  downloadRemoteShare,
+  downloadShare,
+  importRemoteShare,
+  importShare,
+  previewRemoteShare,
+  previewShare,
+  resolveBackendShareSource,
+  resolveShareResultUrl
+} from 'src/api/calc/shares'
 import { listReportCategories } from 'src/api/calc/categories'
 import { useConfig } from 'src/config'
 import { useUserInfoStore } from 'src/stores/user'
@@ -51,42 +70,45 @@ const categoryOid = ref('')
 const name = ref('')
 const shouldSync = ref(false)
 const isImporting = ref(false)
+const isDownloading = ref(false)
 const isLoading = ref(true)
 const shareToken = ref('')
 const backendSource = ref('')
 const isLocalBackend = ref(false)
 
-const categoryOptions = computed(() => categories.value.map((category) => ({ label: category.name, value: category.categoryOid })))
+const categoryOptions = computed(() => categories.value.map((category) => ({
+  label: category.name,
+  value: category.categoryOid
+})))
 const permissionLabel = computed(() => {
   if (!preview.value) return ''
-  return [preview.value.canEdit ? t('calcWorkspace.canEdit') : '', preview.value.canShare ? t('calcWorkspace.canShare') : ''].filter(Boolean).join(' · ') || t('calcWorkspace.runOnly')
+  return [preview.value.canEdit ? t('calcWorkspace.canEdit') : '', preview.value.canShare ? t('calcWorkspace.canShare') : '']
+    .filter(Boolean)
+    .join(' · ') || t('calcWorkspace.runOnly')
 })
 const resultUrl = computed(() => {
   const path = preview.value?.recentExecution?.htmlPath
   if (!path) return ''
-  const url = new URL(path, window.location.origin)
-  if (userStore.token) url.searchParams.set('token', userStore.token)
-  return url.toString()
+  return resolveShareResultUrl(path, isLocalBackend.value, userStore.token)
 })
 
-/** Decode frontend parameters and classify the source backend. */
+/** Decode the frontend source parameter and classify its backend. */
 function resolveShareSource(): void {
   const source = String(route.query.source || '')
   if (!source) throw new Error('Share source is missing')
-  const linkType = String(route.query.linkType || 'backend')
   const frontendUrl = new URL('/calc-report/shared/import', window.location.origin)
-  frontendUrl.searchParams.set('linkType', linkType)
   frontendUrl.searchParams.set('source', source)
   backendSource.value = resolveBackendShareSource(frontendUrl.toString())
   const backendUrl = new URL(backendSource.value)
-  const localApi = new URL(`${useConfig().baseUrl}${useConfig().api}/`, window.location.origin)
+  const config = useConfig()
+  const localApi = new URL(`${config.baseUrl}${config.api}/`, window.location.origin)
   isLocalBackend.value = backendUrl.origin === localApi.origin && backendUrl.pathname.startsWith(localApi.pathname)
-  const match = backendUrl.pathname.match(/\/shared\/([^/]+)\/(?:preview|import|archive)$/)
+  const match = backendUrl.pathname.match(/\/shared\/([^/]+)\/(?:preview|import|archive|result)$/)
   if (!match?.[1]) throw new Error('Share source is invalid')
   shareToken.value = match[1]
 }
 
-/** Load public preview and user-owned import categories only when authenticated. */
+/** Load the share preview and receiver-owned categories when authenticated. */
 async function initialize(): Promise<void> {
   try {
     resolveShareSource()
@@ -107,8 +129,9 @@ onMounted(initialize)
 
 /** Confirm opaque-source risk when needed and import the selected share. */
 async function onImport(): Promise<void> {
-  if (!preview.value || !categoryOid.value) return
-  if (!preview.value.canEdit && !await confirmOperation(t('calcWorkspace.executionRiskTitle'), t('calcWorkspace.executionRiskMessage'))) return
+  if (!preview.value || !categoryOid.value || !userStore.token) return
+  if (!preview.value.canEdit
+    && !await confirmOperation(t('calcWorkspace.executionRiskTitle'), t('calcWorkspace.executionRiskMessage'))) return
   isImporting.value = true
   try {
     const response = isLocalBackend.value
@@ -119,6 +142,35 @@ async function onImport(): Promise<void> {
   } finally {
     isImporting.value = false
   }
+}
+
+/** Download the shared archive without requiring an import destination. */
+async function onDownload(): Promise<void> {
+  if (!preview.value) return
+  isDownloading.value = true
+  try {
+    const response = isLocalBackend.value
+      ? await downloadShare(shareToken.value)
+      : await downloadRemoteShare(backendSource.value)
+    downloadArchiveBlob(response.data, `${sanitizeFilename(preview.value.reportName)}.png`)
+  } finally {
+    isDownloading.value = false
+  }
+}
+
+/** Trigger one browser download and release its temporary object URL. */
+function downloadArchiveBlob(blob: Blob, filename: string): void {
+  const objectUrl = URL.createObjectURL(blob)
+  const anchor = document.createElement('a')
+  anchor.href = objectUrl
+  anchor.download = filename
+  anchor.click()
+  URL.revokeObjectURL(objectUrl)
+}
+
+/** Replace path and control characters that are unsafe in download filenames. */
+function sanitizeFilename(value: string): string {
+  return value.replace(/[<>:"/\\|?*\u0000-\u001F]/g, '_').trim() || 'shared-report'
 }
 
 /** Format an archive footprint for compact display. */
