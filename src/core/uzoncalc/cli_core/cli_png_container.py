@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 import struct
 import tempfile
-from typing import BinaryIO
+from typing import BinaryIO, cast
 import zlib
 
 
@@ -117,7 +117,8 @@ def write_png_zip_container(
             max_size=_SPOOLED_PAYLOAD_MEMORY_LIMIT, mode="w+b"
         ) as payload_file:
             # ZIP offsets must start at zero so the private chunk is independently readable.
-            zip_payload_writer(payload_file)
+            # Typeshed does not model SpooledTemporaryFile as BinaryIO despite its API.
+            zip_payload_writer(cast(BinaryIO, payload_file))
             payload_length = payload_file.seek(0, os.SEEK_END)
             if payload_length > _PNG_CHUNK_MAX_SIZE:
                 raise ValueError(".uzc ZIP 数据超过 PNG 单块 2 GiB 上限")
