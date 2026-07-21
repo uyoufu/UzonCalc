@@ -9,9 +9,13 @@ import zipfile
 from datetime import datetime, timedelta
 from pathlib import Path
 
+from rich.console import Console
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 REPO_ROOT = SCRIPT_DIR.parent
+
+CONSOLE = Console(highlight=False)
 
 
 class BuildError(RuntimeError):
@@ -19,14 +23,13 @@ class BuildError(RuntimeError):
 
 
 def write_info(message: str) -> None:
-    print(f"[INFO] {message}")
+    CONSOLE.print(f"[cyan][INFO][/cyan] {message}")
 
 
 def write_step(message: str) -> None:
-    print()
-    print("========================================")
-    print(message)
-    print("========================================")
+    CONSOLE.print()
+    CONSOLE.rule(f"[bold cyan]{message}[/bold cyan]")
+    CONSOLE.print()
 
 
 def resolve_repo_path(relative_path: str) -> Path:
@@ -54,7 +57,9 @@ def assert_is_inside_path(path: Path, parent_path: Path) -> None:
     try:
         full_path.relative_to(full_parent_path)
     except ValueError as exc:
-        raise BuildError(f"Output path must be inside the repository: {full_path}") from exc
+        raise BuildError(
+            f"Output path must be inside the repository: {full_path}"
+        ) from exc
     if full_path == full_parent_path:
         raise BuildError(f"Output path must be inside the repository: {full_path}")
 
@@ -89,7 +94,9 @@ def get_cargo_package_version(manifest_path: Path) -> str:
     try:
         version = manifest["package"]["version"]
     except KeyError as exc:
-        raise BuildError(f"Rust package version was not found: {manifest_path}") from exc
+        raise BuildError(
+            f"Rust package version was not found: {manifest_path}"
+        ) from exc
     if not isinstance(version, str) or not version:
         raise BuildError(f"Rust package version is invalid: {manifest_path}")
     return version
@@ -109,13 +116,17 @@ def get_latest_release_exe(release_directory: Path, build_started_at: datetime) 
 
 
 def directory_size_mb(directory: Path) -> float:
-    total_size = sum(path.stat().st_size for path in directory.rglob("*") if path.is_file())
+    total_size = sum(
+        path.stat().st_size for path in directory.rglob("*") if path.is_file()
+    )
     return total_size / 1024 / 1024
 
 
 def create_zip_from_directory(source_directory: Path, archive_path: Path) -> None:
     archive_path.parent.mkdir(parents=True, exist_ok=True)
-    with zipfile.ZipFile(archive_path, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+    with zipfile.ZipFile(
+        archive_path, "w", compression=zipfile.ZIP_DEFLATED
+    ) as archive:
         for path in sorted(source_directory.rglob("*")):
             archive.write(path, path.relative_to(source_directory.parent))
 
@@ -164,7 +175,11 @@ def main(argv: list[str] | None = None) -> int:
         if shutil.which("bun") is None:
             raise BuildError("bun was not found. Install Bun first.")
         write_info("node_modules was not found. Installing Web dependencies.")
-        run_command(["bun", "install"], cwd=web_dir, failure_message="Web dependency installation failed")
+        run_command(
+            ["bun", "install"],
+            cwd=web_dir,
+            failure_message="Web dependency installation failed",
+        )
     else:
         write_info("node_modules found. Skipping Web dependency installation.")
 
@@ -200,7 +215,11 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if args.python_cache_root and args.python_cache_root.strip():
         api_build_args.extend(["--python-cache-root", args.python_cache_root])
-    run_command(api_build_args, cwd=REPO_ROOT, failure_message="API portable package build failed")
+    run_command(
+        api_build_args,
+        cwd=REPO_ROOT,
+        failure_message="API portable package build failed",
+    )
     assert_path_exists(api_portable_dir, "API portable package output directory")
 
     write_step("Collect package files")
@@ -235,7 +254,11 @@ def main(argv: list[str] | None = None) -> int:
     write_step("Upload zip archive")
     if shutil.which("onedo"):
         write_info(f"onedo detected. Uploading: {archive_path}")
-        run_command(["onedo", "minio", "soft", "-p", str(archive_path)], cwd=REPO_ROOT, failure_message="zip upload failed")
+        run_command(
+            ["onedo", "minio", "soft", "-p", str(archive_path)],
+            cwd=REPO_ROOT,
+            failure_message="zip upload failed",
+        )
         write_info("zip upload complete.")
     else:
         write_info("onedo was not found. Skipping upload.")
@@ -252,9 +275,9 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except KeyboardInterrupt:
-        print()
-        print("[WARN] Build cancelled.")
+        CONSOLE.print()
+        CONSOLE.print("[yellow][WARN] Build cancelled.[/yellow]")
         raise SystemExit(130)
     except BuildError as exc:
-        print(f"[ERROR] {exc}", file=sys.stderr)
+        CONSOLE.print(f"[red][ERROR] {exc}[/red]", style="red")
         raise SystemExit(1)
