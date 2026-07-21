@@ -16,9 +16,10 @@ from rich.console import Console
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCRIPTS_DIR = REPO_ROOT / "scripts"
-sys.path.insert(0, str(SCRIPTS_DIR))
+if str(SCRIPTS_DIR) not in sys.path:
+    sys.path.insert(0, str(SCRIPTS_DIR))
 
-import update_versions  # noqa: E402
+import update_project_versions  # noqa: E402
 from utils.version_update_models import (  # noqa: E402
     BumpLevel,
     GitCommit,
@@ -195,7 +196,7 @@ def test_main_applies_independent_levels_and_commits_all_release_files(
         "Core": BumpLevel.PATCH,
     }
 
-    exit_code = update_versions.main(
+    exit_code = update_project_versions.main(
         repo_root=repo_root,
         console=Console(record=True, width=120),
         choose_level=lambda plan: choices[plan.config.display_name],
@@ -235,14 +236,14 @@ def test_successful_version_commit_becomes_next_run_baseline(tmp_path: Path) -> 
     """A generated Version commit should prevent an immediate duplicate bump."""
     repo_root = create_release_repository(tmp_path)
     add_project_change(repo_root, "web", "Web feature")
-    update_versions.main(
+    update_project_versions.main(
         repo_root=repo_root,
         choose_level=lambda plan: BumpLevel.PATCH,
         confirm_upgrade=lambda: True,
     )
     head_before_second_run = run_git(repo_root, "rev-parse", "HEAD").stdout.strip()
 
-    exit_code = update_versions.main(
+    exit_code = update_project_versions.main(
         repo_root=repo_root,
         console=Console(record=True, width=120),
         choose_level=lambda plan: pytest.fail("No project should request a level"),
@@ -261,14 +262,14 @@ def test_skip_and_final_cancel_do_not_modify_repository(tmp_path: Path) -> None:
     add_project_change(repo_root, "web", "Web feature")
     original_head = run_git(repo_root, "rev-parse", "HEAD").stdout.strip()
 
-    update_versions.main(
+    update_project_versions.main(
         repo_root=repo_root,
         choose_level=lambda plan: BumpLevel.SKIP,
         confirm_upgrade=lambda: pytest.fail("Skipped plans need no final confirmation"),
     )
     assert run_git(repo_root, "rev-parse", "HEAD").stdout.strip() == original_head
 
-    update_versions.main(
+    update_project_versions.main(
         repo_root=repo_root,
         choose_level=lambda plan: BumpLevel.PATCH,
         confirm_upgrade=lambda: False,
@@ -283,7 +284,7 @@ def test_dirty_worktree_aborts_before_project_selection(tmp_path: Path) -> None:
     write_text(repo_root, "untracked.txt", "pending")
 
     with pytest.raises(VersionUpdateError, match="工作区存在未提交项"):
-        update_versions.main(
+        update_project_versions.main(
             repo_root=repo_root,
             choose_level=lambda plan: pytest.fail("Dirty repositories must not prompt"),
             confirm_upgrade=lambda: pytest.fail("Dirty repositories must not confirm"),
@@ -293,7 +294,7 @@ def test_dirty_worktree_aborts_before_project_selection(tmp_path: Path) -> None:
 def test_prompt_lists_only_three_newest_commit_summaries(monkeypatch) -> None:
     """The selector should use English levels and summarize only recent commits."""
     plan = ProjectUpgradePlan(
-        config=update_versions.PROJECT_CONFIGS[0],
+        config=update_project_versions.PROJECT_CONFIGS[0],
         current_version=SemanticVersion(1, 3, 0),
         baseline_commit="baseline",
         commits=[GitCommit(str(index) * 40, f"Commit {index}") for index in range(5)],
@@ -302,9 +303,9 @@ def test_prompt_lists_only_three_newest_commit_summaries(monkeypatch) -> None:
     question = Mock()
     question.unsafe_ask.return_value = BumpLevel.PATCH
     select = Mock(return_value=question)
-    monkeypatch.setattr(update_versions.questionary, "select", select)
+    monkeypatch.setattr(update_project_versions.questionary, "select", select)
 
-    selected = update_versions.prompt_for_bump_level(plan, console)
+    selected = update_project_versions.prompt_for_bump_level(plan, console)
     output = console.export_text()
     select_options = select.call_args.kwargs
     choices = select_options["choices"]
@@ -340,21 +341,21 @@ def test_prompt_accepts_case_insensitive_filter_and_arrow_navigation(
 ) -> None:
     """Questionary should filter without case sensitivity and navigate from patch."""
     plan = ProjectUpgradePlan(
-        config=update_versions.PROJECT_CONFIGS[0],
+        config=update_project_versions.PROJECT_CONFIGS[0],
         current_version=SemanticVersion(1, 3, 0),
         baseline_commit="baseline",
         commits=[GitCommit("a" * 40, "Web feature")],
     )
-    original_select = update_versions.questionary.select
+    original_select = update_project_versions.questionary.select
     with create_pipe_input() as pipe_input:
         pipe_input.send_text(key_sequence)
         monkeypatch.setattr(
-            update_versions.questionary,
+            update_project_versions.questionary,
             "select",
             partial(original_select, input=pipe_input, output=DummyOutput()),
         )
 
-        selected = update_versions.prompt_for_bump_level(
+        selected = update_project_versions.prompt_for_bump_level(
             plan, Console(record=True, width=120)
         )
 
@@ -364,7 +365,7 @@ def test_prompt_accepts_case_insensitive_filter_and_arrow_navigation(
 def test_prompt_reports_noninteractive_input(monkeypatch) -> None:
     """An unavailable interactive input stream should produce a domain error."""
     plan = ProjectUpgradePlan(
-        config=update_versions.PROJECT_CONFIGS[0],
+        config=update_project_versions.PROJECT_CONFIGS[0],
         current_version=SemanticVersion(1, 3, 0),
         baseline_commit="baseline",
         commits=[GitCommit("a" * 40, "Web feature")],
@@ -372,11 +373,11 @@ def test_prompt_reports_noninteractive_input(monkeypatch) -> None:
     question = Mock()
     question.unsafe_ask.side_effect = EOFError
     monkeypatch.setattr(
-        update_versions.questionary, "select", Mock(return_value=question)
+        update_project_versions.questionary, "select", Mock(return_value=question)
     )
 
     with pytest.raises(VersionUpdateError, match="需要交互式终端"):
-        update_versions.prompt_for_bump_level(
+        update_project_versions.prompt_for_bump_level(
             plan, Console(record=True, width=120)
         )
 
@@ -384,7 +385,7 @@ def test_prompt_reports_noninteractive_input(monkeypatch) -> None:
 def test_upgrade_table_displays_english_bump_level() -> None:
     """The final summary should display the canonical English level name."""
     plan = ProjectUpgradePlan(
-        config=update_versions.PROJECT_CONFIGS[0],
+        config=update_project_versions.PROJECT_CONFIGS[0],
         current_version=SemanticVersion(1, 3, 0),
         baseline_commit="baseline",
         commits=[GitCommit("a" * 40, "Web feature")],
@@ -393,7 +394,7 @@ def test_upgrade_table_displays_english_bump_level() -> None:
     )
     console = Console(record=True, width=120)
 
-    update_versions.render_upgrade_table([plan], console)
+    update_project_versions.render_upgrade_table([plan], console)
 
     output = console.export_text()
     assert "patch" in output
@@ -405,7 +406,7 @@ def test_commit_failure_restores_files_and_index(tmp_path: Path, monkeypatch) ->
     repo_root = create_release_repository(tmp_path)
     add_project_change(repo_root, "web", "Web feature")
     original_package = (repo_root / "src/web/package.json").read_bytes()
-    original_run_git = update_versions.run_git
+    original_run_git = update_project_versions.run_git
 
     def fail_commit(
         target_repo: Path, arguments: list[str], *, check: bool = True
@@ -415,10 +416,10 @@ def test_commit_failure_restores_files_and_index(tmp_path: Path, monkeypatch) ->
             raise VersionUpdateError("commit rejected")
         return original_run_git(target_repo, arguments, check=check)
 
-    monkeypatch.setattr(update_versions, "run_git", fail_commit)
+    monkeypatch.setattr(update_project_versions, "run_git", fail_commit)
 
     with pytest.raises(VersionUpdateError, match="commit rejected"):
-        update_versions.main(
+        update_project_versions.main(
             repo_root=repo_root,
             choose_level=lambda plan: BumpLevel.PATCH,
             confirm_upgrade=lambda: True,
