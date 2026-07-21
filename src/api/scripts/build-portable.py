@@ -8,6 +8,9 @@ import sys
 from datetime import date
 from pathlib import Path
 
+from rich.console import Console
+from rich.panel import Panel
+
 
 SCRIPT_DIR = Path(__file__).resolve().parent
 PROJECT_ROOT = SCRIPT_DIR.parent
@@ -15,21 +18,28 @@ DIST_DIR = PROJECT_ROOT / "dist"
 EMBEDDED_PYTHON_RELATIVE_DIR = Path("dist/python-embedded")
 EMBEDDED_PYTHON_SOURCE_DIR = PROJECT_ROOT / EMBEDDED_PYTHON_RELATIVE_DIR
 
+CONSOLE = Console(highlight=False)
+ERROR_CONSOLE = Console(stderr=True, highlight=False)
+
 
 class BuildError(RuntimeError):
     pass
 
 
 def write_info(message: str) -> None:
-    print(f"[INFO] {message}")
+    CONSOLE.print(f"[cyan][INFO][/cyan] {message}")
+
+
+def write_warn(message: str) -> None:
+    CONSOLE.print(f"[yellow][WARN][/yellow] {message}")
+
+
+def write_error(message: str) -> None:
+    ERROR_CONSOLE.print(f"[red][ERROR][/red] {message}")
 
 
 def write_step(message: str) -> None:
-    print()
-    print("========================================")
-    print(message)
-    print("========================================")
-    print()
+    CONSOLE.print(Panel.fit(message, border_style="blue", padding=(0, 2)))
 
 
 def resolve_full_path(path: Path) -> Path:
@@ -42,12 +52,18 @@ def assert_path_is_inside(path: Path, parent_path: Path, description: str) -> No
     try:
         full_path.relative_to(full_parent_path)
     except ValueError as exc:
-        raise BuildError(f"{description} must be inside {full_parent_path}: {full_path}") from exc
+        raise BuildError(
+            f"{description} must be inside {full_parent_path}: {full_path}"
+        ) from exc
     if full_path == full_parent_path:
-        raise BuildError(f"{description} must be inside {full_parent_path}: {full_path}")
+        raise BuildError(
+            f"{description} must be inside {full_parent_path}: {full_path}"
+        )
 
 
-def assert_paths_are_separate(first_path: Path, second_path: Path, description: str) -> None:
+def assert_paths_are_separate(
+    first_path: Path, second_path: Path, description: str
+) -> None:
     first = resolve_full_path(first_path)
     second = resolve_full_path(second_path)
     try:
@@ -60,7 +76,9 @@ def assert_paths_are_separate(first_path: Path, second_path: Path, description: 
         except ValueError:
             overlaps = False
     if overlaps:
-        raise BuildError(f"{description} cannot contain each other: {first} <-> {second}")
+        raise BuildError(
+            f"{description} cannot contain each other: {first} <-> {second}"
+        )
 
 
 def test_invalid_output_name(name: str) -> bool:
@@ -92,7 +110,7 @@ def copy_item(source_path: Path, output_dir: Path) -> None:
 
 
 def write_start_script(output_dir: Path) -> None:
-    start_script = r'''# UzonCalc API 后台服务启动脚本
+    start_script = r"""# UzonCalc API 后台服务启动脚本
 $ErrorActionPreference = "Stop"
 
 $apiHost = "127.0.0.1"
@@ -187,7 +205,7 @@ if ($exitCode -ne 0) {
 }
 
 pause
-'''
+"""
     (output_dir / "start.ps1").write_text(start_script, encoding="utf-8")
 
 
@@ -283,7 +301,9 @@ def cleanup_output(output_dir: Path) -> None:
     ]
     for pattern in exclude_patterns:
         write_info(f"Clean: {pattern}")
-        for path in sorted(output_dir.rglob("*"), key=lambda item: len(item.parts), reverse=True):
+        for path in sorted(
+            output_dir.rglob("*"), key=lambda item: len(item.parts), reverse=True
+        ):
             if fnmatch.fnmatch(path.name, pattern):
                 if path.is_dir():
                     shutil.rmtree(path, ignore_errors=True)
@@ -292,12 +312,16 @@ def cleanup_output(output_dir: Path) -> None:
 
 
 def directory_size_mb(directory: Path) -> float:
-    total_size = sum(path.stat().st_size for path in directory.rglob("*") if path.is_file())
+    total_size = sum(
+        path.stat().st_size for path in directory.rglob("*") if path.is_file()
+    )
     return total_size / 1024 / 1024
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build the UzonCalc API portable package.")
+    parser = argparse.ArgumentParser(
+        description="Build the UzonCalc API portable package."
+    )
     parser.add_argument("--output-name", default="UzonCalc-Portable")
     parser.add_argument("--python-version", default="3.13.14")
     parser.add_argument("--python-cache-root")
@@ -308,12 +332,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parse_args(argv)
 
     if test_invalid_output_name(args.output_name):
-        raise BuildError(f"OutputName must be a single directory name under dist: {args.output_name}")
+        raise BuildError(
+            f"OutputName must be a single directory name under dist: {args.output_name}"
+        )
 
     output_dir = (DIST_DIR / args.output_name).resolve()
     embedded_python_output_dir = output_dir / EMBEDDED_PYTHON_RELATIVE_DIR
     assert_path_is_inside(output_dir, DIST_DIR, "Output directory")
-    assert_paths_are_separate(output_dir, EMBEDDED_PYTHON_SOURCE_DIR, "Output directory and embedded Python source directory")
+    assert_paths_are_separate(
+        output_dir,
+        EMBEDDED_PYTHON_SOURCE_DIR,
+        "Output directory and embedded Python source directory",
+    )
 
     write_step("Step 1: Setup embedded Python")
     setup_script = SCRIPT_DIR / "setup-embedded-python.py"
@@ -330,7 +360,9 @@ def main(argv: list[str] | None = None) -> int:
     ]
     if args.python_cache_root and args.python_cache_root.strip():
         setup_args.extend(["--cache-root", args.python_cache_root])
-    run_command(setup_args, cwd=PROJECT_ROOT, failure_message="Embedded Python setup failed")
+    run_command(
+        setup_args, cwd=PROJECT_ROOT, failure_message="Embedded Python setup failed"
+    )
 
     write_step("Step 2: Create output directory")
     if output_dir.exists():
@@ -347,7 +379,7 @@ def main(argv: list[str] | None = None) -> int:
             write_info(f"Copy: {item}")
             copy_item(source_path, output_dir)
         else:
-            print(f"  Skip missing item: {item}")
+            write_warn(f"Skip missing item: {item}")
 
     if EMBEDDED_PYTHON_SOURCE_DIR.exists():
         embedded_python_output_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -356,7 +388,7 @@ def main(argv: list[str] | None = None) -> int:
             shutil.rmtree(embedded_python_output_dir)
         shutil.copytree(EMBEDDED_PYTHON_SOURCE_DIR, embedded_python_output_dir)
     else:
-        print(f"  Skip missing item: {EMBEDDED_PYTHON_RELATIVE_DIR}")
+        write_warn(f"Skip missing item: {EMBEDDED_PYTHON_RELATIVE_DIR}")
 
     portable_config_dir = output_dir / "config"
     if portable_config_dir.exists():
@@ -367,7 +399,7 @@ def main(argv: list[str] | None = None) -> int:
             write_info("Remove development config: config/app.dev.ini")
             portable_dev_config.unlink()
     else:
-        print("  Skip missing item: config")
+        write_warn("Skip missing item: config")
 
     for data_dir in ["data/db", "data/public", "data/www", "data/calcs"]:
         (output_dir / data_dir).mkdir(parents=True, exist_ok=True)
@@ -391,9 +423,9 @@ if __name__ == "__main__":
     try:
         raise SystemExit(main())
     except KeyboardInterrupt:
-        print()
-        print("[WARN] Build cancelled.")
+        CONSOLE.print()
+        write_warn("Build cancelled.")
         raise SystemExit(130)
     except BuildError as exc:
-        print(f"[ERROR] {exc}", file=sys.stderr)
+        write_error(str(exc))
         raise SystemExit(1)
