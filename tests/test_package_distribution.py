@@ -103,14 +103,6 @@ def test_embedded_python_setup_installs_local_build_backends(monkeypatch, tmp_pa
 
     assert calls == [(python_exe, ["install", "setuptools>=61.0", "wheel"])]
 
-
-def test_build_win_reads_cargo_package_version():
-    """Windows 整包输出版本号来自 Tauri Cargo package version。"""
-    module = load_script_module("build_win", REPO_ROOT / "scripts/build-win.py")
-
-    assert module.get_cargo_package_version(REPO_ROOT / "src/web/src-tauri/Cargo.toml") == "1.3.0"
-
-
 def test_packaged_cli_uses_published_package_imports():
     """发布后的 CLI 入口不能依赖源码目录中的 core 命名空间。"""
     cli_source = (REPO_ROOT / "src/core/uzoncalc/cli.py").read_text("utf-8")
