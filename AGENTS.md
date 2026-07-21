@@ -18,6 +18,10 @@
 | src/api           | src/api/AGENTS.md           |
 | src/web           | src/web/AGENTS.md           |
 
+## Scripts
+
+- 编写脚本时，默认使用 python, 且使用 rich 库进行输出美化
+
 ## 测试
 
 测试文件应分类保存在各个项目的 tests/ 下的子目录中
