@@ -1,6 +1,6 @@
 {
   "name": "uzoncalc",
-  "version": "0.20.3",
+  "version": "1.4.0",
   "description": "宇正计算（UzonCalc）是一款面向 AI 的计算报告编写软件，采用原生 Python 语法，自动代入变量、自动渲染数学公式、自动排版，支持单位换算、量纲检查、Excel 复用、MathML 输出与 PDF/Word 导出，可生成专业的工程计算报告。AI-friendly calculation report authoring tool with automatic formula rendering, unit conversion, and one-click PDF/Word export. https://github.com/uyoufu/UzonCalc, https://uzoncalc.uzoncloud.com",
   "productName": "宇正计算 | UzonCalc",
   "author": "李有福|uyoufu",
