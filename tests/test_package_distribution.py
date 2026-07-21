@@ -1,3 +1,4 @@
+import importlib.util
 import os
 import re
 import subprocess
@@ -25,22 +26,89 @@ SDIST_REQUIRED_SUFFIXES = {
 FORBIDDEN_RUNTIME_DEPENDENCIES = {"fastapi", "uvicorn", "twine", "build"}
 
 
-def test_power_shell_scripts_reference_current_core_layout():
+def load_script_module(module_name: str, script_path: Path):
+    """按脚本文件路径导入模块，避免要求脚本文件名是合法模块名。"""
+    spec = importlib.util.spec_from_file_location(module_name, script_path)
+    module = importlib.util.module_from_spec(spec)
+    assert spec is not None
+    assert spec.loader is not None
+    spec.loader.exec_module(module)
+    return module
+
+
+def test_build_scripts_reference_current_core_layout():
     """编译和上传脚本应使用 src/core/uzoncalc 目录结构。"""
     publish_script = (REPO_ROOT / "scripts/publish-uzoncalc-core.ps1").read_text("utf-8")
     upload_script = (REPO_ROOT / "scripts/upload-template-js.ps1").read_text("utf-8")
-    setup_script = (REPO_ROOT / "src/api/scripts/setup-embedded-python.ps1").read_text("utf-8-sig")
+    setup_script = (REPO_ROOT / "src/api/scripts/setup-embedded-python.py").read_text("utf-8")
+    build_win_script = (REPO_ROOT / "scripts/build-win.py").read_text("utf-8")
+    build_portable_script = (REPO_ROOT / "src/api/scripts/build-portable.py").read_text("utf-8")
 
     assert 'Join-Path $projectRoot "src/core"' in publish_script
     assert 'Join-Path $projectRoot "src/core/uzoncalc/template/js"' in upload_script
     assert 'Join-Path $projectRoot "src/core/uzoncalc/template/js/dist/template.js"' in upload_script
     assert "bun run build" in upload_script
-    assert 'Join-Path $REPO_ROOT "src/core"' in setup_script
-    assert '& $pythonExe -m pip @Arguments --no-warn-script-location' in setup_script
-    assert "& $pipExe" not in setup_script
+    assert 'CORE_PROJECT_ROOT = REPO_ROOT / "src/core"' in setup_script
+    assert '"--no-build-isolation", f"{CORE_PROJECT_ROOT}[all]"' in setup_script
+    assert 'str(CORE_PROJECT_ROOT)' in setup_script
+    assert 'setup-embedded-python.py' in build_portable_script
+    assert 'build-portable.py' in build_win_script
+    assert "$pipExe" not in setup_script
 
     assert "src/uzoncalc" not in publish_script
     assert "src/uzoncalc" not in upload_script
+
+
+def test_embedded_python_setup_filters_released_uzoncalc_requirement():
+    """便携包依赖安装不得从 PyPI 解析 uzoncalc，应只保留本地源码安装路径。"""
+    module = load_script_module(
+        "setup_embedded_python",
+        REPO_ROOT / "src/api/scripts/setup-embedded-python.py",
+    )
+
+    filtered = module.filter_requirements(
+        [
+            "fastapi==0.134.0",
+            "uzoncalc[all]",
+            "uzoncalc>=1.3.0",
+            "  -e file:///tmp/uzoncalc",
+            "uzoncalc-api==1.3.0",
+        ]
+    )
+
+    assert filtered == ["fastapi==0.134.0", "uzoncalc-api==1.3.0"]
+
+
+def test_embedded_python_version_check_rejects_missing_python(tmp_path):
+    """已存在环境只有版本匹配时才能复用。"""
+    module = load_script_module(
+        "setup_embedded_python",
+        REPO_ROOT / "src/api/scripts/setup-embedded-python.py",
+    )
+
+    assert not module.embedded_python_version_matches(tmp_path / "python.exe", "3.13.14")
+
+
+def test_embedded_python_setup_installs_local_build_backends(monkeypatch, tmp_path):
+    """关闭构建隔离前必须先在嵌入式环境中安装项目声明的构建后端。"""
+    module = load_script_module(
+        "setup_embedded_python_build_backends",
+        REPO_ROOT / "src/api/scripts/setup-embedded-python.py",
+    )
+    calls = []
+    monkeypatch.setattr(module, "pip_install", lambda python_exe, args: calls.append((python_exe, args)))
+
+    python_exe = tmp_path / "python.exe"
+    module.install_build_backend_requirements(python_exe)
+
+    assert calls == [(python_exe, ["install", "setuptools>=61.0", "wheel"])]
+
+
+def test_build_win_reads_cargo_package_version():
+    """Windows 整包输出版本号来自 Tauri Cargo package version。"""
+    module = load_script_module("build_win", REPO_ROOT / "scripts/build-win.py")
+
+    assert module.get_cargo_package_version(REPO_ROOT / "src/web/src-tauri/Cargo.toml") == "1.3.0"
 
 
 def test_packaged_cli_uses_published_package_imports():
