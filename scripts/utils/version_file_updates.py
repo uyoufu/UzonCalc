@@ -8,7 +8,11 @@ import re
 import tomllib
 from pathlib import Path
 
-from version_update_models import ProjectKey, ProjectUpgradePlan, VersionUpdateError
+from utils.version_update_models import (
+    ProjectKey,
+    ProjectUpgradePlan,
+    VersionUpdateError,
+)
 
 
 def replace_unique(text: str, pattern: str, replacement: str, *, source: Path) -> str:

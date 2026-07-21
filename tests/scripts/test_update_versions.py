@@ -4,9 +4,13 @@ from __future__ import annotations
 
 import subprocess
 import sys
+from functools import partial
 from pathlib import Path
+from unittest.mock import Mock
 
 import pytest
+from prompt_toolkit.input import create_pipe_input
+from prompt_toolkit.output import DummyOutput
 from rich.console import Console
 
 
@@ -15,7 +19,7 @@ SCRIPTS_DIR = REPO_ROOT / "scripts"
 sys.path.insert(0, str(SCRIPTS_DIR))
 
 import update_versions  # noqa: E402
-from version_update_models import (  # noqa: E402
+from utils.version_update_models import (  # noqa: E402
     BumpLevel,
     GitCommit,
     ProjectUpgradePlan,
@@ -287,7 +291,7 @@ def test_dirty_worktree_aborts_before_project_selection(tmp_path: Path) -> None:
 
 
 def test_prompt_lists_only_three_newest_commit_summaries(monkeypatch) -> None:
-    """Long project histories should show three summaries and an omitted count."""
+    """The selector should use English levels and summarize only recent commits."""
     plan = ProjectUpgradePlan(
         config=update_versions.PROJECT_CONFIGS[0],
         current_version=SemanticVersion(1, 3, 0),
@@ -295,19 +299,105 @@ def test_prompt_lists_only_three_newest_commit_summaries(monkeypatch) -> None:
         commits=[GitCommit(str(index) * 40, f"Commit {index}") for index in range(5)],
     )
     console = Console(record=True, width=120)
-    monkeypatch.setattr(
-        update_versions.Prompt, "ask", lambda *args, **kwargs: "补丁版本"
-    )
+    question = Mock()
+    question.unsafe_ask.return_value = BumpLevel.PATCH
+    select = Mock(return_value=question)
+    monkeypatch.setattr(update_versions.questionary, "select", select)
 
     selected = update_versions.prompt_for_bump_level(plan, console)
     output = console.export_text()
+    select_options = select.call_args.kwargs
+    choices = select_options["choices"]
 
     assert selected is BumpLevel.PATCH
+    assert [choice.title for choice in choices] == [
+        "major",
+        "minor",
+        "patch",
+        "skip",
+    ]
+    assert [choice.value for choice in choices] == list(BumpLevel)
+    assert select_options["default"] is BumpLevel.PATCH
+    assert select_options["use_arrow_keys"] is True
+    assert select_options["use_search_filter"] is True
+    assert select_options["use_jk_keys"] is False
     assert "Commit 0" in output
     assert "Commit 1" in output
     assert "Commit 2" in output
     assert "Commit 3" not in output
     assert "另有 2 条提交未显示" in output
+
+
+@pytest.mark.parametrize(
+    ("key_sequence", "expected"),
+    [
+        ("MAJOR\r", BumpLevel.MAJOR),
+        ("\x1b[A\r", BumpLevel.MINOR),
+    ],
+)
+def test_prompt_accepts_case_insensitive_filter_and_arrow_navigation(
+    monkeypatch, key_sequence: str, expected: BumpLevel
+) -> None:
+    """Questionary should filter without case sensitivity and navigate from patch."""
+    plan = ProjectUpgradePlan(
+        config=update_versions.PROJECT_CONFIGS[0],
+        current_version=SemanticVersion(1, 3, 0),
+        baseline_commit="baseline",
+        commits=[GitCommit("a" * 40, "Web feature")],
+    )
+    original_select = update_versions.questionary.select
+    with create_pipe_input() as pipe_input:
+        pipe_input.send_text(key_sequence)
+        monkeypatch.setattr(
+            update_versions.questionary,
+            "select",
+            partial(original_select, input=pipe_input, output=DummyOutput()),
+        )
+
+        selected = update_versions.prompt_for_bump_level(
+            plan, Console(record=True, width=120)
+        )
+
+    assert selected is expected
+
+
+def test_prompt_reports_noninteractive_input(monkeypatch) -> None:
+    """An unavailable interactive input stream should produce a domain error."""
+    plan = ProjectUpgradePlan(
+        config=update_versions.PROJECT_CONFIGS[0],
+        current_version=SemanticVersion(1, 3, 0),
+        baseline_commit="baseline",
+        commits=[GitCommit("a" * 40, "Web feature")],
+    )
+    question = Mock()
+    question.unsafe_ask.side_effect = EOFError
+    monkeypatch.setattr(
+        update_versions.questionary, "select", Mock(return_value=question)
+    )
+
+    with pytest.raises(VersionUpdateError, match="需要交互式终端"):
+        update_versions.prompt_for_bump_level(
+            plan, Console(record=True, width=120)
+        )
+
+
+def test_upgrade_table_displays_english_bump_level() -> None:
+    """The final summary should display the canonical English level name."""
+    plan = ProjectUpgradePlan(
+        config=update_versions.PROJECT_CONFIGS[0],
+        current_version=SemanticVersion(1, 3, 0),
+        baseline_commit="baseline",
+        commits=[GitCommit("a" * 40, "Web feature")],
+        bump_level=BumpLevel.PATCH,
+        target_version=SemanticVersion(1, 3, 1),
+    )
+    console = Console(record=True, width=120)
+
+    update_versions.render_upgrade_table([plan], console)
+
+    output = console.export_text()
+    assert "patch" in output
+    assert "补丁版本" not in output
 
 
 def test_commit_failure_restores_files_and_index(tmp_path: Path, monkeypatch) -> None:

@@ -28,17 +28,6 @@ class BumpLevel(Enum):
     PATCH = "patch"
     SKIP = "skip"
 
-    @property
-    def label(self) -> str:
-        """Return the Chinese label displayed in the upgrade table."""
-        labels = {
-            BumpLevel.MAJOR: "主版本",
-            BumpLevel.MINOR: "副版本",
-            BumpLevel.PATCH: "补丁版本",
-            BumpLevel.SKIP: "跳过",
-        }
-        return labels[self]
-
 
 @dataclass(frozen=True, order=True)
 class SemanticVersion:

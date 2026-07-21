@@ -8,14 +8,15 @@ import tomllib
 from collections.abc import Callable
 from pathlib import Path
 
+import questionary
 from rich.console import Console
 from rich.markup import escape
-from rich.prompt import Confirm, Prompt
+from rich.prompt import Confirm
 from rich.table import Table
 
 from cli_utils import run_cli_with_keyboard_interrupt
-from version_file_updates import build_file_updates
-from version_update_models import (
+from utils.version_file_updates import build_file_updates
+from utils.version_update_models import (
     PROJECT_CONFIGS,
     BumpLevel,
     GitCommit,
@@ -255,13 +256,24 @@ def prompt_for_bump_level(plan: ProjectUpgradePlan, console: Console) -> BumpLev
     omitted_count = len(plan.commits) - MAX_COMMIT_SUMMARIES
     if omitted_count > 0:
         console.print(f"  [dim]另有 {omitted_count} 条提交未显示[/dim]")
-    selected_label = Prompt.ask(
-        "选择递增级别",
-        choices=[level.label for level in BumpLevel],
-        default=BumpLevel.PATCH.label,
-        console=console,
-    )
-    return next(level for level in BumpLevel if level.label == selected_label)
+    try:
+        selected_level = questionary.select(
+            "选择递增级别",
+            choices=[
+                questionary.Choice(title=level.value, value=level)
+                for level in BumpLevel
+            ],
+            default=BumpLevel.PATCH,
+            use_arrow_keys=True,
+            use_jk_keys=False,
+            use_search_filter=True,
+            instruction="(方向键切换，输入筛选，Enter 确认)",
+        ).unsafe_ask()
+    except EOFError as exc:
+        raise VersionUpdateError("递增级别选择需要交互式终端") from exc
+    if not isinstance(selected_level, BumpLevel):
+        raise VersionUpdateError("未选择有效的递增级别")
+    return selected_level
 
 
 def choose_project_levels(
@@ -315,7 +327,7 @@ def render_upgrade_table(plans: list[ProjectUpgradePlan], console: Console) -> N
             status,
             str(len(plan.commits)),
             str(plan.current_version),
-            plan.bump_level.label if plan.bump_level else "-",
+            plan.bump_level.value if plan.bump_level else "-",
             str(plan.target_version) if plan.target_version else "-",
             style=style,
         )
