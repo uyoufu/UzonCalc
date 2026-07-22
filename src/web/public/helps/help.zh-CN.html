@@ -505,7 +505,7 @@ if __name__ == "__main__":
 <p>4. 运行</p>
 <div><p>在 CLI 模式下有两种方式运行计算书：</p>
 <ul>
-<li>使用 <code>python example.py</code></li>
+<li>使用 <code>python --serve example.py</code></li>
 <li>使用 <code>uzoncalc example.py</code></li>
 </ul>
 </div>
@@ -513,7 +513,7 @@ if __name__ == "__main__":
 而后者则不需要 <code>if __name__ == "__main__"</code> 语句</p>
 </div>
 <p>当执行如下命令时：</p>
-<pre class="my-2 ml-8"><code class="language-python">python example.py</code></pre>
+<pre class="my-2 ml-8"><code class="language-python">python --serve example.py</code></pre>
 <p>将会出现：`Serving document at: <a href="http://127.0.0.1:32180/`" target="_blank" rel="noopener noreferrer">http://127.0.0.1:32180/`</a> 字样，单击通过浏览器打开即可查看效果。</p>
 <p>这种方式启动的计算书服务不会热重载，当计算书代码发生变化时，需要手动重启服务。</p>
 <div><p>为了方便开发，建议使用 <code>uzoncalc example.py</code> 来运行计算书，当计算书代码发生变化时，会自动重载服务。</p>
@@ -866,10 +866,10 @@ tempArea</code></pre>
 EChart(options)</code></pre>
 <p>示例中的 options 参数参考：<a href="https://echarts.apache.org/examples/zh/editor.html?c=area-stack" target="_blank" rel="noopener noreferrer">https://echarts.apache.org/examples/zh/editor.html?c=area-stack</a></p>
 <figure class="uzoncalc-figure-wrapper">
-<figure id="echart-container-b1bf6bfe" style="width: 100%; height: 400px;" class="break-inside-avoid">
+<figure id="echart-container-e016ee06" style="width: 100%; height: 400px;" class="break-inside-avoid">
     <script>
         (function() {
-            const dom = document.getElementById("echart-container-b1bf6bfe");
+            const dom = document.getElementById("echart-container-e016ee06");
             let chart = null;
             let resizeObserver = null;
 
@@ -940,10 +940,10 @@ EChart(options)</code></pre>
         caption="3D 地球示例",
     )</code></pre>
 <figure class="uzoncalc-figure-wrapper">
-<figure id="echart-container-7deda66e" style="width: 100%; height: 400px;" class="break-inside-avoid">
+<figure id="echart-container-a9e2ae1b" style="width: 100%; height: 400px;" class="break-inside-avoid">
     <script>
         (function() {
-            const dom = document.getElementById("echart-container-7deda66e");
+            const dom = document.getElementById("echart-container-a9e2ae1b");
             let chart = null;
             let resizeObserver = null;
 

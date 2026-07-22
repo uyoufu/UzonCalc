@@ -506,7 +506,7 @@ if __name__ == "__main__":
 <p>4. Run</p>
 <div><p>There are two ways to run a calculation report in CLI mode:</p>
 <ul>
-<li>Use <code>python example.py</code></li>
+<li>Use <code>python --serve example.py</code></li>
 <li>Use <code>uzoncalc example.py</code></li>
 </ul>
 </div>
@@ -514,7 +514,7 @@ if __name__ == "__main__":
 while the latter does not require the <code>if __name__ == "__main__"</code> statement.</p>
 </div>
 <p>When you run the following command:</p>
-<pre class="my-2 ml-8"><code class="language-python">python example.py</code></pre>
+<pre class="my-2 ml-8"><code class="language-python">python --serve example.py</code></pre>
 <p>You will see `Serving document at: <a href="http://127.0.0.1:32180/`" target="_blank" rel="noopener noreferrer">http://127.0.0.1:32180/`</a>.. Click it or open it in a browser to view the result.</p>
 <p>A calculation report service started this way does not hot reload. When the report code changes, the service must be restarted manually.</p>
 <div><p>For convenient development, use <code>uzoncalc example.py</code> to run the calculation report. The service will reload automatically when the report code changes.</p>
@@ -866,10 +866,10 @@ tempArea</code></pre>
 EChart(options)</code></pre>
 <p>The options parameter in this example refers to: <a href="https://echarts.apache.org/examples/zh/editor.html?c=area-stack" target="_blank" rel="noopener noreferrer">https://echarts.apache.org/examples/zh/editor.html?c=area-stack</a></p>
 <figure class="uzoncalc-figure-wrapper">
-<figure id="echart-container-19a3fd6c" style="width: 100%; height: 400px;" class="break-inside-avoid">
+<figure id="echart-container-06ecd94c" style="width: 100%; height: 400px;" class="break-inside-avoid">
     <script>
         (function() {
-            const dom = document.getElementById("echart-container-19a3fd6c");
+            const dom = document.getElementById("echart-container-06ecd94c");
             let chart = null;
             let resizeObserver = null;
 
@@ -940,10 +940,10 @@ EChart(options)</code></pre>
         caption="3D Earth Example",
     )</code></pre>
 <figure class="uzoncalc-figure-wrapper">
-<figure id="echart-container-85970731" style="width: 100%; height: 400px;" class="break-inside-avoid">
+<figure id="echart-container-ac33c846" style="width: 100%; height: 400px;" class="break-inside-avoid">
     <script>
         (function() {
-            const dom = document.getElementById("echart-container-85970731");
+            const dom = document.getElementById("echart-container-ac33c846");
             let chart = null;
             let resizeObserver = null;
 
