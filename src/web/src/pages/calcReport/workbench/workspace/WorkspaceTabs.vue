@@ -30,18 +30,23 @@ import {
   useWorkspaceTabContextMenu,
   type WorkspaceTabMenuCommand
 } from './useWorkspaceTabContextMenu'
+import { isImportableWorkspacePythonPath } from './workspaceReference'
 
 const props = defineProps<{
   tabs: WorkspaceTab[]
   activeTabId: string
   dirtyPaths: string[]
+  referenceSourcePath: string | null
 }>()
 const emit = defineEmits<{
   activate: [tabId: string]
   close: [tabId: string]
   menu: [command: WorkspaceTabMenuCommand, tabId: string]
 }>()
-const contextMenuItems = useWorkspaceTabContextMenu((command, tab) => emit('menu', command, tab.id))
+const contextMenuItems = useWorkspaceTabContextMenu(
+  (command, tab) => emit('menu', command, tab.id),
+  (tab) => Boolean(tab.path && (!isImportableWorkspacePythonPath(tab.path) || props.referenceSourcePath))
+)
 
 /** Return the compact visible label for one tab. */
 function tabLabel(tab: WorkspaceTab): string {

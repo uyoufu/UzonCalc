@@ -6,13 +6,16 @@ import ast
 import copy
 import re
 from dataclasses import dataclass
+from collections.abc import Set
 from typing import Callable
+
+from ..workspace_imports import rewrite_workspace_imports_in_tree
 
 from .ast_validator import validate_ast
 from .ast_visitor import AstNodeVisitor
 from .field_names import FieldNames
 
-INSTRUMENTATION_FORMAT_VERSION = 1
+INSTRUMENTATION_FORMAT_VERSION = 2
 _RESERVED_PREFIX = "__uzon_"
 _MARKER_NAME = "__uzon_mark_preinstrumented__"
 
@@ -45,6 +48,7 @@ def preinstrument_source(
     filename: str,
     scope_key: str,
     dependency_defaults: dict[str, str],
+    workspace_import_roots: Set[str] = frozenset(),
 ) -> PreinstrumentResult:
     """Transform decorated functions and statically scope calcdeps imports.
 
@@ -53,6 +57,7 @@ def preinstrument_source(
         filename: Stable workspace-relative filename used in diagnostics.
         scope_key: Valid Python identifier for this SOURCE artifact scope.
         dependency_defaults: Dependency alias to default selector mapping.
+        workspace_import_roots: Top-level module names provided by the workspace.
 
     Returns:
         Generated source, source-map entries, and transformed function names.
@@ -67,6 +72,11 @@ def preinstrument_source(
     tree = ast.parse(source, filename=filename)
     _reject_reserved_names(tree)
     decorator_names, module_aliases = _discover_uzoncalc_imports(tree)
+    rewrite_workspace_imports_in_tree(
+        tree,
+        source_path=filename,
+        import_roots=workspace_import_roots,
+    )
     tree = _CalcdepsImportRewriter(scope_key, dependency_defaults).visit(tree)
     instrumented: list[tuple[str, int, int]] = []
     for index, node in enumerate(tree.body):

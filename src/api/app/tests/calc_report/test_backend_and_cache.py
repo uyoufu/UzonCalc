@@ -2,6 +2,7 @@
 
 import asyncio
 import datetime
+import json
 import os
 import zipfile
 from pathlib import Path
@@ -27,8 +28,8 @@ from app.schedule.jobs.calc_cache_cleaner import (
     _prune_unreferenced_cache_rows,
     _remove_orphan_hash_directories,
 )
-from app.service import calc_execution_bundle_service
-from app.service.calc_report_artifact_service import ArtifactFile
+from app.service import calc_execution_bundle_service, calc_report_build_service
+from app.service.calc_report_artifact_service import ArtifactFile, ArtifactStore
 
 
 def test_bubblewrap_command_creates_mount_parents(monkeypatch, tmp_path: Path) -> None:
@@ -139,6 +140,42 @@ def test_remote_bundle_keeps_root_relative_code_and_resources(
     assert (destination / "main.py").read_bytes() == b"instrumented"
     assert (destination / "helpers/math.py").read_bytes() == b"helper"
     assert (destination / "assets/logo.txt").read_bytes() == b"logo"
+
+
+def test_instrumented_build_rewrites_workspace_absolute_imports(
+    tmp_path: Path,
+) -> None:
+    """Build output should package-scope absolute imports owned by the workspace."""
+    store = ArtifactStore(tmp_path / "artifacts")
+    calcbook = {"formatVersion": 2, "entryPath": "main.py"}
+    source = store.publish_source(
+        [
+            ArtifactFile(
+                path="calcbook.json",
+                content=json.dumps(calcbook).encode("utf-8"),
+            ),
+            ArtifactFile(path="__init__.py", content=b""),
+            ArtifactFile(path="main.py", content=b"import utils.index\n"),
+            ArtifactFile(path="utils/index.py", content=b"VALUE = 42\n"),
+        ],
+        calcbook,
+        [],
+    )
+
+    output = calc_report_build_service._build_instrumented_sync(
+        str(store.root),
+        source.storage_key,
+        source.content_hash,
+        "test-runtime",
+        source.manifest,
+    )
+
+    output_files = {
+        artifact_file.path: artifact_file.content.decode("utf-8")
+        for artifact_file in store.read_all(output.storage_key)
+    }
+    assert "from .utils import index" in output_files["main.py"]
+    assert "import utils.index" not in output_files["main.py"]
 
 
 def test_cache_cleanup_prunes_old_unreferenced_database_rows() -> None:

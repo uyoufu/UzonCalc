@@ -35,6 +35,7 @@ from uzoncalc.handcalc.preinstrument import (
     INSTRUMENTATION_FORMAT_VERSION,
     preinstrument_source,
 )
+from uzoncalc.workspace_imports import workspace_import_roots
 
 _LEASE_SECONDS = 180
 _POLL_INTERVAL_SECONDS = 0.1
@@ -346,7 +347,24 @@ def _build_instrumented_sync(
     runtime_fingerprint: str,
     source_manifest: dict,
 ) -> PublishedArtifact:
-    """Build and publish one execution artifact inside a helper process."""
+    """Build and publish one execution artifact inside a helper process.
+
+    Args:
+        artifact_root: Root directory of the content-addressed artifact store.
+        source_storage_key: Storage key of the source artifact to transform.
+        source_hash: Stable content hash of the source artifact.
+        runtime_fingerprint: Runtime identity associated with the build output.
+        source_manifest: Validated source manifest containing files and dependencies.
+
+    Returns:
+        Published instrumented artifact metadata.
+
+    Raises:
+        OSError: If source artifacts cannot be read or outputs cannot be published.
+        UnicodeDecodeError: If a Python source file is not valid UTF-8.
+        SyntaxError: If a Python source file cannot be parsed or transformed.
+        ValueError: If an import or dependency declaration cannot be normalized.
+    """
     store = ArtifactStore(Path(artifact_root))
     defaults = {
         dependency["alias"]: next(
@@ -357,6 +375,9 @@ def _build_instrumented_sync(
         for dependency in source_manifest.get("dependencies", [])
     }
     scope_key = f"scope_{source_hash[:16]}"
+    import_roots = workspace_import_roots(
+        file_entry["path"] for file_entry in source_manifest.get("files", [])
+    )
     output_files: list[ArtifactFile] = []
     source_maps: dict[str, list[dict]] = {}
     for source_file in store.read_all(source_storage_key):
@@ -367,6 +388,7 @@ def _build_instrumented_sync(
             filename=source_file.path,
             scope_key=scope_key,
             dependency_defaults=defaults,
+            workspace_import_roots=import_roots,
         )
         output_files.append(
             ArtifactFile(source_file.path, result.source.encode("utf-8"))

@@ -347,6 +347,56 @@ def test_zip_archive_runs_existing_main_guard_like_python_file(tmp_path, suffix)
     assert result.stdout.strip() == "main:hello:arg-value"
 
 
+def test_zip_archive_rewrites_namespace_absolute_imports_and_runs(tmp_path):
+    """Archived local imports should be relative and executable without package markers."""
+    _write_uzoncalc_stub(tmp_path)
+    script_path = tmp_path / "report.py"
+    archive_path = tmp_path / "report.uzc"
+    script_path.write_text(
+        "\n".join(
+            [
+                "import utils.index",
+                "from uzoncalc import uzon_calc",
+                "",
+                "@uzon_calc()",
+                "async def sheet():",
+                "    return utils.index.message()",
+                "",
+                "if __name__ == '__main__':",
+                "    print(utils.index.message())",
+                "",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    utils_dir = tmp_path / "utils"
+    utils_dir.mkdir()
+    utils_dir.joinpath("index.py").write_text(
+        "def message():\n    return 'workspace-utils'\n", encoding="utf-8"
+    )
+    original_source = script_path.read_text(encoding="utf-8")
+
+    assert cli.main(["zip", "-p", str(script_path), "-o", str(archive_path)]) == 0
+
+    with zipfile.ZipFile(archive_path) as archive:
+        archived_source = archive.read("reports/root/report.py").decode("utf-8")
+        names = set(archive.namelist())
+    assert "from .utils import index" in archived_source
+    assert "from . import utils" in archived_source
+    assert "reports/root/utils/index.py" in names
+    assert "reports/root/utils/__init__.py" not in names
+    assert script_path.read_text(encoding="utf-8") == original_source
+
+    result = subprocess.run(
+        [sys.executable, str(archive_path)],
+        check=True,
+        text=True,
+        capture_output=True,
+    )
+
+    assert result.stdout.strip() == "workspace-utils"
+
+
 def test_zip_archive_adds_view_main_for_single_entry_without_main_guard(
     tmp_path, monkeypatch
 ):

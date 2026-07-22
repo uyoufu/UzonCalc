@@ -42,13 +42,14 @@
     <div class="row no-wrap col workspace-body">
       <WorkspaceTreePanel v-show="isTreeVisible" v-model:expanded-paths="expandedPaths"
         v-model:current-path="selectedPath" :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value"
-        :report-oid="reportOid" :is-desktop-api="isDesktopApi"
+        :report-oid="reportOid" :is-desktop-api="isDesktopApi" :reference-source-path="activePythonPath"
         @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory" @upload="onUploadFiles"
         @rename="onRenamePath" @delete="onDeletePath" @entry="onSetEntryPath"
         @dependencies="onOpenDependencyDialog" />
       <main class="col workspace-main column no-wrap">
         <WorkspaceTabs :tabs="workspaceTabs.tabs.value" :active-tab-id="workspaceTabs.activeTabId.value"
-          :dirty-paths="dirtyPaths" @activate="onActivateTab" @close="onCloseTab" @menu="onTabMenuCommand" />
+          :dirty-paths="dirtyPaths" :reference-source-path="activePythonPath"
+          @activate="onActivateTab" @close="onCloseTab" @menu="onTabMenuCommand" />
         <div class="col workspace-tab-content">
           <div v-if="selectedFile" v-show="isFileTabActive" class="full-height column no-wrap">
             <div class="workspace-filebar row items-center q-px-sm">
@@ -139,6 +140,7 @@ const activeFile = computed(() => {
   if (tab?.kind !== WorkspaceTabKind.File || !tab.path) return null
   return draft.files.value.find((file) => file.path === tab.path) || null
 })
+const activePythonPath = computed(() => activeFile.value?.path.endsWith('.py') ? activeFile.value.path : null)
 const isFileTabActive = computed(() => workspaceTabs.activeTab.value?.kind === WorkspaceTabKind.File)
 const isRunTabActive = computed(() => workspaceTabs.activeTab.value?.kind === WorkspaceTabKind.Run)
 const dirtyPaths = computed(() => draft.files.value.filter((file) => file.isDirty).map((file) => file.path))
@@ -228,7 +230,9 @@ async function onTabMenuCommand(command: WorkspaceTabMenuCommandType, tabId: str
   const tab = workspaceTabs.tabs.value.find((candidate) => candidate.id === tabId)
   if (!tab) return
   if (command === WorkspaceTabMenuCommand.CopyReference && tab.path) {
-    await navigator.clipboard.writeText(workspaceReferenceForPath(tab.path))
+    const reference = workspaceReferenceForPath(tab.path, activePythonPath.value)
+    if (!reference) return
+    await navigator.clipboard.writeText(reference)
     notifySuccess(t('calcWorkspace.referenceCopied'))
     return
   }

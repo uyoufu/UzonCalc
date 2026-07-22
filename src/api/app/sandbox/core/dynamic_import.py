@@ -10,7 +10,7 @@ from types import ModuleType
 from typing import Optional, Any
 
 _dynamic_import_lock = asyncio.Lock()
-_RESERVED_IMPORT_ROOTS = {"uzoncalc", "calcdeps", "__uzon_deps__"}
+_BUNDLE_RUNTIME_PACKAGE_NAMES = ("__uzon_deps__",)
 
 
 class _ModuleCache:
@@ -106,7 +106,8 @@ class DynamicImportSession:
         self._inserted_sys_paths: list[str] = []
         self._locked: bool = False
         self._module: Optional[ModuleType] = None
-        self._shadowed_modules: dict[str, ModuleType] = {}
+        self._replaced_private_modules: dict[str, ModuleType] = {}
+        self._installed_runtime_packages: set[str] = set()
         self._baseline_module_names: set[str] = set()
         self._workspace_package_name = (
             module_name.split(".", 1)[0]
@@ -125,21 +126,19 @@ class DynamicImportSession:
 
         spec = None
         try:
-            # 导入环境必须先安装，缓存模块中的延迟导入同样依赖这些路径。
-            if self.package_root and self.package_root not in sys.path:
-                sys.path.insert(0, self.package_root)
-                self._inserted_sys_paths.append(self.package_root)
+            # 托管工作区通过合成包解析相对导入，不污染进程级 sys.path。
+            if not self._workspace_package_name:
+                for import_path in (
+                    self.package_root,
+                    self.source_root,
+                    self.script_dir,
+                ):
+                    if import_path and import_path not in sys.path:
+                        sys.path.insert(0, import_path)
+                        self._inserted_sys_paths.append(import_path)
 
-            if self.source_root and self.source_root not in sys.path:
-                sys.path.insert(0, self.source_root)
-                self._inserted_sys_paths.append(self.source_root)
-
-            if self.script_dir and self.script_dir not in sys.path:
-                sys.path.insert(0, self.script_dir)
-                self._inserted_sys_paths.append(self.script_dir)
-
-            self._shadow_host_modules()
             self._baseline_module_names = set(sys.modules)
+            self._install_bundle_runtime_packages()
             self._install_workspace_package()
 
             if self.module_name == self._workspace_package_name:
@@ -233,8 +232,8 @@ class DynamicImportSession:
         sys.modules[self._workspace_package_name] = package
         spec.loader.exec_module(package)
 
-    def _shadow_host_modules(self) -> None:
-        """Temporarily remove host modules colliding with workspace top-level names.
+    def _install_bundle_runtime_packages(self) -> None:
+        """Install private package roots materialized inside an execution bundle.
 
         Args:
             None.
@@ -243,24 +242,34 @@ class DynamicImportSession:
             None.
 
         Raises:
-            OSError: If the workspace root cannot be scanned.
+            ImportError: If a private package marker cannot be loaded.
         """
-        if not self.source_root:
+        if not self._workspace_package_name or not self.package_root:
             return
-        top_level_names: set[str] = set()
-        for entry in Path(self.source_root).iterdir():
-            if entry.is_file() and entry.suffix == ".py" and entry.stem != "__init__":
-                top_level_names.add(entry.stem)
-            elif entry.is_dir() and entry.name.isidentifier():
-                top_level_names.add(entry.name)
-        top_level_names.difference_update(_RESERVED_IMPORT_ROOTS)
-        for module_name in list(sys.modules):
-            root_name = module_name.split(".", 1)[0]
-            if root_name not in top_level_names:
+        for package_name in _BUNDLE_RUNTIME_PACKAGE_NAMES:
+            init_path = Path(self.package_root) / package_name / "__init__.py"
+            if not init_path.is_file():
                 continue
-            module = sys.modules.pop(module_name, None)
-            if module is not None:
-                self._shadowed_modules[module_name] = module
+            package_prefix = f"{package_name}."
+            for module_name in list(sys.modules):
+                if module_name != package_name and not module_name.startswith(
+                    package_prefix
+                ):
+                    continue
+                module = sys.modules.pop(module_name, None)
+                if module is not None:
+                    self._replaced_private_modules[module_name] = module
+            spec = importlib.util.spec_from_file_location(
+                package_name,
+                init_path,
+                submodule_search_locations=[str(init_path.parent)],
+            )
+            if spec is None or spec.loader is None:
+                raise ImportError(f"Could not load bundle package: {package_name}")
+            package = importlib.util.module_from_spec(spec)
+            sys.modules[package_name] = package
+            self._installed_runtime_packages.add(package_name)
+            spec.loader.exec_module(package)
 
     def _cleanup_import_environment(self) -> None:
         """Remove session modules, restore host modules, and undo inserted paths.
@@ -277,9 +286,17 @@ class DynamicImportSession:
         package_prefix = (
             f"{self._workspace_package_name}." if self._workspace_package_name else ""
         )
+        runtime_prefixes = tuple(
+            f"{package_name}." for package_name in self._installed_runtime_packages
+        )
         for module_name in list(sys.modules):
             if module_name == self._workspace_package_name or (
                 package_prefix and module_name.startswith(package_prefix)
+            ):
+                sys.modules.pop(module_name, None)
+                continue
+            if module_name in self._installed_runtime_packages or module_name.startswith(
+                runtime_prefixes
             ):
                 sys.modules.pop(module_name, None)
                 continue
@@ -293,8 +310,9 @@ class DynamicImportSession:
                 except (OSError, ValueError):
                     continue
                 sys.modules.pop(module_name, None)
-        sys.modules.update(self._shadowed_modules)
-        self._shadowed_modules.clear()
+        sys.modules.update(self._replaced_private_modules)
+        self._replaced_private_modules.clear()
+        self._installed_runtime_packages.clear()
         self._baseline_module_names.clear()
         self._cleanup_sys_path()
 

@@ -60,3 +60,24 @@ async def sheet():
 
     assert "__uzon_deps__.scope_deadbeef.beam.latest.api" in result.source
     assert "__uzon_deps__.scope_deadbeef.beam.v_1_0_0.api" in result.source
+
+
+def test_preinstrument_rewrites_absolute_workspace_imports() -> None:
+    """Managed builds should package-scope every static local absolute import."""
+    source = """
+import utils.index
+import utils.index as index_module
+from utils.index import VALUE
+"""
+
+    result = preinstrument_source(
+        source,
+        filename="main.py",
+        scope_key="scope_workspace",
+        dependency_defaults={},
+        workspace_import_roots={"main", "utils"},
+    )
+
+    assert "from .utils import index as index_module" in result.source
+    assert "from .utils.index import VALUE" in result.source
+    assert "from . import utils" in result.source

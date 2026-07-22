@@ -1,6 +1,7 @@
 /** Workspace-aware Python import completion and definition navigation. */
 
 import { monaco } from 'src/boot/monaco-editor'
+import { workspaceRelativeModuleForPath } from './workspaceReference'
 
 export interface WorkspacePythonFile {
   path: string
@@ -23,11 +24,12 @@ export function registerWorkspacePythonProviders(
     provideCompletionItems(model, position) {
       if (!model.uri.toString().startsWith('inmemory://uzoncalc/')) return { suggestions: [] }
       const linePrefix = model.getLineContent(position.lineNumber).slice(0, position.column - 1)
-      const match = linePrefix.match(/^\s*(?:from|import)\s+([\w.]*)$/)
+      const match = linePrefix.match(/^\s*(from|import)\s+([\w.]*)$/)
       if (!match) return { suggestions: [] }
-      const typedModule = match[1] || ''
+      const importKind = match[1]
+      const typedModule = match[2] || ''
       const currentPath = workspacePathFromModel(model)
-      const suggestions = completionModules(typedModule, currentPath, getFiles())
+      const suggestions = completionModules(typedModule, currentPath, getFiles(), importKind === 'from')
         .filter((moduleName) => moduleName.startsWith(typedModule) && moduleName !== typedModule)
         .map((moduleName) => ({
           label: moduleName,
@@ -82,18 +84,17 @@ function workspaceModules(files: WorkspacePythonFile[]): string[] {
  * @param files Current workspace text files.
  * @returns Module names expressed in the same absolute or relative form.
  */
-function completionModules(typedModule: string, currentPath: string, files: WorkspacePythonFile[]): string[] {
+function completionModules(
+  typedModule: string,
+  currentPath: string,
+  files: WorkspacePythonFile[],
+  isFromImport: boolean
+): string[] {
   const modules = workspaceModules(files)
-  if (!typedModule.startsWith('.')) return modules
-  const level = typedModule.match(/^\.+/)?.[0].length || 0
-  const packageParts = currentPath.split('/').slice(0, -1)
-  const keepCount = packageParts.length - level + 1
-  if (keepCount < 0) return []
-  const packagePrefix = packageParts.slice(0, keepCount).join('.')
-  return modules.flatMap((moduleName) => {
-    if (packagePrefix && moduleName !== packagePrefix && !moduleName.startsWith(`${packagePrefix}.`)) return []
-    const relativeName = packagePrefix ? moduleName.slice(packagePrefix.length).replace(/^\./, '') : moduleName
-    return relativeName ? [`${'.'.repeat(level)}${relativeName}`] : []
+  if (!isFromImport || (typedModule && !typedModule.startsWith('.'))) return modules
+  return files.flatMap((file) => {
+    const relativeModule = workspaceRelativeModuleForPath(file.path, currentPath)
+    return relativeModule ? [relativeModule] : []
   })
 }
 

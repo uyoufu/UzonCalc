@@ -59,12 +59,15 @@ describe('workspace tabs and view state', () => {
     expect(tabs.activeTab.value?.path).toBe('helpers.py')
   })
 
-  it('builds root-relative references and exposes the four tab menu commands', async () => {
-    expect(workspaceReferenceForPath('main.py')).toBe('from main import *')
-    expect(workspaceReferenceForPath('package/__init__.py')).toBe('from package import *')
-    expect(workspaceReferenceForPath('__init__.py')).toBe('from . import *')
-    expect(workspaceReferenceForPath('assets/logo.png')).toBe('assets/logo.png')
-    expect(workspaceReferenceForPath('invalid-name.py')).toBe('invalid-name.py')
+  it('builds package-relative references and exposes the four tab menu commands', async () => {
+    expect(workspaceReferenceForPath('utils/index.py', 'main.py')).toBe('from .utils.index import *')
+    expect(workspaceReferenceForPath('utils/index.py', 'package/main.py')).toBe('from ..utils.index import *')
+    expect(workspaceReferenceForPath('package/helpers.py', 'package/main.py')).toBe('from .helpers import *')
+    expect(workspaceReferenceForPath('package/__init__.py', 'package/main.py')).toBe('from . import *')
+    expect(workspaceReferenceForPath('__init__.py', 'package/main.py')).toBe('from .. import *')
+    expect(workspaceReferenceForPath('main.py', null)).toBeNull()
+    expect(workspaceReferenceForPath('assets/logo.png', null)).toBe('assets/logo.png')
+    expect(workspaceReferenceForPath('invalid-name.py', 'main.py')).toBe('invalid-name.py')
 
     const received: Array<[string, string]> = []
     const items = useWorkspaceTabContextMenu((command, tab) => {

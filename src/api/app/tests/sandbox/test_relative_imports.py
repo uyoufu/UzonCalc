@@ -51,18 +51,24 @@ def test_dynamic_import_session_supports_relative_imports(tmp_path: Path) -> Non
         clear_module_cache(str(entry))
 
 
-def test_dynamic_import_session_prioritizes_absolute_workspace_modules(
+def test_dynamic_import_session_keeps_host_modules_and_sys_path_unchanged(
     tmp_path: Path,
 ) -> None:
-    """A loaded host module must not override an absolute workspace import."""
+    """Relative workspace imports must not replace process-global host imports."""
     (tmp_path / "__init__.py").write_text("", encoding="utf-8")
-    (tmp_path / "values.py").write_text("VALUE = 42\n", encoding="utf-8")
+    (tmp_path / "values").mkdir()
+    (tmp_path / "values" / "index.py").write_text(
+        "VALUE = 42\n", encoding="utf-8"
+    )
     entry = tmp_path / "main.py"
-    entry.write_text("import values\nRESULT = values.VALUE\n", encoding="utf-8")
+    entry.write_text(
+        "from .values.index import VALUE\nRESULT = VALUE\n", encoding="utf-8"
+    )
     host_values = ModuleType("values")
     host_values.VALUE = -1
     original_values = sys.modules.get("values")
     sys.modules["values"] = host_values
+    original_sys_path = list(sys.path)
 
     async def load_module() -> None:
         """Load the entry while the colliding host module is installed."""
@@ -73,10 +79,13 @@ def test_dynamic_import_session_prioritizes_absolute_workspace_modules(
             source_root=str(tmp_path),
         ) as module:
             assert module.RESULT == 42
+            assert sys.modules["values"] is host_values
+            assert sys.path == original_sys_path
 
     try:
         asyncio.run(load_module())
         assert sys.modules["values"] is host_values
+        assert sys.path == original_sys_path
     finally:
         clear_module_cache(str(entry))
         if original_values is None:

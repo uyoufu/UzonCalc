@@ -202,15 +202,7 @@ def _render_cell_value(value: TableCellValue) -> str:
     Raises:
         No exceptions are intentionally raised.
     """
-    from ..handcalc.rendering.value_renderer import (
-        render_html_fragment,
-        render_value_text,
-    )
-
-    html_fragment = render_html_fragment(value)
-    if html_fragment is not None:
-        return html_fragment
-    return render_value_text(value)
+    return str(value)
 
 
 def _wrap_header_cell(value: Any) -> str:

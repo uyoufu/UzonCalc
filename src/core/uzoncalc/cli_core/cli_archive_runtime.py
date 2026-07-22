@@ -2,8 +2,9 @@
 
 from __future__ import annotations
 
-import importlib
 import ast
+import importlib
+import importlib.util
 import runpy
 import sys
 import tempfile
@@ -13,9 +14,9 @@ from typing import Any
 
 from .. import view
 from ..handcalc.preinstrument import _CalcdepsImportRewriter
+from ..workspace_imports import rewrite_workspace_source, workspace_import_roots
 
 from .cli_workspace_archive import ARCHIVE_MAIN_PATH, read_workspace_archive
-from .workspace_contract import RESERVED_IMPORT_ROOTS
 
 
 def run_workspace_archive(archive_path: str | Path) -> None:
@@ -187,15 +188,12 @@ def _write_dependency_node(
         relative_path = archive_name.removeprefix(prefix)
         target = destination / relative_path
         target.parent.mkdir(parents=True, exist_ok=True)
-        target.write_bytes(
-            _rewrite_python_content(content, node)
-            if target.suffix == ".py"
-            else content
-        )
+        target.write_bytes(content)
+    _rewrite_extracted_python_files(destination, node)
 
 
 def _rewrite_extracted_python_files(source_root: Path, node: dict[str, Any]) -> None:
-    """Rewrite calcdeps imports in one already extracted report source tree.
+    """Normalize local and calcdeps imports in one extracted report source tree.
 
     Args:
         source_root: Extracted ``src`` directory.
@@ -208,28 +206,54 @@ def _rewrite_extracted_python_files(source_root: Path, node: dict[str, Any]) -> 
         SyntaxError: If Python parsing or rewriting fails.
         OSError: If rewritten source cannot be read or written.
     """
-    for source_path in source_root.rglob("*.py"):
-        source_path.write_bytes(_rewrite_python_content(source_path.read_bytes(), node))
+    source_paths = sorted(source_root.rglob("*.py"))
+    import_roots = workspace_import_roots(
+        source_path.relative_to(source_root).as_posix()
+        for source_path in source_paths
+    )
+    for source_path in source_paths:
+        relative_path = source_path.relative_to(source_root).as_posix()
+        source_path.write_bytes(
+            _rewrite_python_content(
+                source_path.read_bytes(),
+                node,
+                source_path=relative_path,
+                import_roots=import_roots,
+            )
+        )
 
 
-def _rewrite_python_content(content: bytes, node: dict[str, Any]) -> bytes:
-    """Apply the server's scoped calcdeps import contract to Python bytes.
+def _rewrite_python_content(
+    content: bytes,
+    node: dict[str, Any],
+    *,
+    source_path: str,
+    import_roots: frozenset[str],
+) -> bytes:
+    """Apply workspace-relative and scoped calcdeps imports to Python bytes.
 
     Args:
         content: UTF-8 Python source.
         node: Report node containing dependency declarations and artifact hash.
+        source_path: Report-root-relative source path.
+        import_roots: Top-level Python modules owned by the report.
 
     Returns:
-        Rewritten UTF-8 source, or the original bytes when no dependency exists.
+        Rewritten UTF-8 source.
 
     Raises:
         UnicodeDecodeError: If source is not UTF-8.
         SyntaxError: If source parsing fails.
         ValueError: If dependency defaults are invalid.
     """
+    source = rewrite_workspace_source(
+        content.decode("utf-8"),
+        source_path=source_path,
+        import_roots=import_roots,
+    )
     dependencies = node.get("dependencies", [])
     if not dependencies:
-        return content
+        return source.encode("utf-8")
     defaults: dict[str, str] = {}
     for dependency in dependencies:
         default_selector = next(
@@ -243,7 +267,6 @@ def _rewrite_python_content(content: bytes, node: dict[str, Any]) -> bytes:
         if default_selector is None:
             raise ValueError("归档依赖缺少默认选择器")
         defaults[dependency["alias"]] = default_selector["selectorKey"]
-    source = content.decode("utf-8")
     syntax_tree = ast.parse(source)
     rewritten = _CalcdepsImportRewriter(_archive_scope_key(node), defaults).visit(
         syntax_tree
@@ -355,10 +378,7 @@ def _run_workspace_entry(
     package_name = f"__uzon_workspace_{root_node['artifactHash'][:16]}"
     module_name = ".".join([package_name, *module_parts])
 
-    workspace_root_text = str(workspace_root)
-    sys.path.insert(0, workspace_root_text)
-    shadowed_modules = _shadow_archive_host_modules(workspace_root)
-    baseline_module_names = set(sys.modules)
+    replaced_private_modules = _install_archive_runtime_packages(workspace_root)
     try:
         _install_archive_workspace_package(workspace_root, package_name)
         if module_name != package_name:
@@ -374,13 +394,9 @@ def _run_workspace_entry(
         view(_resolve_named_entry(module, auto_view_entry))
     finally:
         _restore_archive_import_environment(
-            workspace_root,
             package_name,
-            baseline_module_names,
-            shadowed_modules,
+            replaced_private_modules,
         )
-        while workspace_root_text in sys.path:
-            sys.path.remove(workspace_root_text)
 
 
 def _install_archive_workspace_package(
@@ -411,50 +427,63 @@ def _install_archive_workspace_package(
     spec.loader.exec_module(package)
 
 
-def _shadow_archive_host_modules(workspace_root: Path) -> dict[str, ModuleType]:
-    """Remove host modules colliding with archive-local top-level modules.
+def _install_archive_runtime_packages(
+    workspace_root: Path,
+) -> dict[str, ModuleType]:
+    """Install private dependency packages without changing ``sys.path``.
 
     Args:
-        workspace_root: Extracted root-package directory.
+        workspace_root: Extracted archive workspace containing private packages.
 
     Returns:
-        Removed host modules keyed by their original names.
+        Previous private modules to restore after execution.
 
     Raises:
-        OSError: If the workspace root cannot be scanned.
+        ImportError: If a present private package cannot be loaded.
     """
-    local_names = {
-        path.stem if path.is_file() else path.name
-        for path in workspace_root.iterdir()
-        if (
-            path.is_file() and path.suffix == ".py" and path.name != "__init__.py"
-        )
-        or (path.is_dir() and path.name.isidentifier())
-    }
-    local_names.difference_update(RESERVED_IMPORT_ROOTS)
-    shadowed: dict[str, ModuleType] = {}
+    package_name = "__uzon_deps__"
+    init_path = workspace_root / package_name / "__init__.py"
+    if not init_path.is_file():
+        return {}
+    replaced: dict[str, ModuleType] = {}
+    package_prefix = f"{package_name}."
     for module_name in list(sys.modules):
-        if module_name.split(".", 1)[0] not in local_names:
+        if module_name != package_name and not module_name.startswith(package_prefix):
             continue
         module = sys.modules.pop(module_name, None)
         if module is not None:
-            shadowed[module_name] = module
-    return shadowed
+            replaced[module_name] = module
+    spec = importlib.util.spec_from_file_location(
+        package_name,
+        init_path,
+        submodule_search_locations=[str(init_path.parent)],
+    )
+    if spec is None or spec.loader is None:
+        sys.modules.update(replaced)
+        raise ImportError("无法加载归档私有依赖包")
+    package = importlib.util.module_from_spec(spec)
+    sys.modules[package_name] = package
+    try:
+        spec.loader.exec_module(package)
+    except Exception:
+        # 私有包初始化失败时，还原进程在运行前的模块状态。
+        for module_name in list(sys.modules):
+            if module_name == package_name or module_name.startswith(package_prefix):
+                sys.modules.pop(module_name, None)
+        sys.modules.update(replaced)
+        raise
+    return replaced
 
 
 def _restore_archive_import_environment(
-    workspace_root: Path,
     package_name: str,
-    baseline_module_names: set[str],
-    shadowed_modules: dict[str, ModuleType],
+    replaced_private_modules: dict[str, ModuleType],
 ) -> None:
-    """Remove archive modules and restore host module state.
+    """Remove archive-private modules and restore previous private state.
 
     Args:
-        workspace_root: Extracted root-package directory.
         package_name: Synthetic package name used for execution.
-        baseline_module_names: Module names present after host shadowing.
-        shadowed_modules: Host modules removed before execution.
+        replaced_private_modules: Previous private dependency modules.
 
     Returns:
         None.
@@ -464,19 +493,14 @@ def _restore_archive_import_environment(
     """
     package_prefix = f"{package_name}."
     for module_name in list(sys.modules):
-        if module_name == package_name or module_name.startswith(package_prefix):
+        if (
+            module_name == package_name
+            or module_name.startswith(package_prefix)
+            or module_name == "__uzon_deps__"
+            or module_name.startswith("__uzon_deps__.")
+        ):
             sys.modules.pop(module_name, None)
-            continue
-        if module_name in baseline_module_names:
-            continue
-        module_file = getattr(sys.modules.get(module_name), "__file__", None)
-        if module_file:
-            try:
-                Path(module_file).resolve().relative_to(workspace_root)
-            except (OSError, ValueError):
-                continue
-            sys.modules.pop(module_name, None)
-    sys.modules.update(shadowed_modules)
+    sys.modules.update(replaced_private_modules)
 
 
 def _resolve_named_entry(module: ModuleType, entry_name: str):

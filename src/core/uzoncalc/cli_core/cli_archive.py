@@ -14,6 +14,7 @@ from .cli_thumbnail import (
     render_archive_thumbnail,
 )
 from .cli_workspace_archive import write_workspace_archive
+from ..workspace_imports import rewrite_workspace_source, workspace_import_roots
 from .workspace_contract import (
     CALCBOOK_FORMAT_VERSION,
     CALCBOOK_PATH,
@@ -387,6 +388,19 @@ def create_uzc_archive(
         if (source_root / ROOT_PACKAGE_PATH).is_file()
         else b"",
     )
+    import_roots = workspace_import_roots(source_contents)
+    source_contents = {
+        path: (
+            rewrite_workspace_source(
+                content.decode("utf-8"),
+                source_path=path,
+                import_roots=import_roots,
+            ).encode("utf-8")
+            if path.endswith(".py")
+            else content
+        )
+        for path, content in source_contents.items()
+    }
     for resource_file in _collect_explicit_resource_files(
         source_root, resource_paths, archive_path
     ):
