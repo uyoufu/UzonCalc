@@ -103,7 +103,7 @@ if __name__ == "__main__":
 普通 Python 方式：
 
 ```bash
-python example.py
+python --serve example.py
 ```
 
 将会出现：`Serving document at: http://127.0.0.1:32180/` 字样，单击通过浏览器打开即可查看效果。
@@ -114,7 +114,7 @@ python example.py
 uzoncalc example.py
 ```
 
-使用 `python example.py` 时，需要在代码最后调用 `view(sheet)`；使用 `uzoncalc example.py` 时，CLI 会负责启动服务。开发计算书时推荐使用 CLI，它更适合热重载和持续编辑。
+使用 `python --serve example.py` 时，需要在代码最后调用 `view(sheet)`；使用 `uzoncalc example.py` 时，CLI 会负责启动服务。开发计算书时推荐使用 CLI，它更适合热重载和持续编辑。
 
 ## 第一个报告的结构
 

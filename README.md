@@ -99,7 +99,7 @@ if __name__ == "__main__":
 **2. Run**
 
 ```bash
-python example.py
+python --serve example.py
 ```
 
 You will see `Serving document at: http://127.0.0.1:32180/`. Click it or open it in a browser to view the result.

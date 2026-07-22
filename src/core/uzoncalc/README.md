@@ -41,7 +41,7 @@ if __name__ == "__main__":
 **Execution**
 
 ```python
-python example.py
+python --serve example.py
 ```
 
 ## Example

@@ -101,7 +101,7 @@ if __name__ == "__main__":
 Run it as a normal Python script:
 
 ```bash
-python example.py
+python --serve example.py
 ```
 
 You will see output like `Serving document at: http://127.0.0.1:32180/`. Open the URL in a browser to view the result.
@@ -112,7 +112,7 @@ You can also run it with the UzonCalc CLI:
 uzoncalc example.py
 ```
 
-When using `python example.py`, the script needs `view(sheet)` at the end. When using `uzoncalc example.py`, the CLI starts the report service for you. During active development, the CLI workflow is recommended because it is better for hot reload and continuous editing.
+When using `python --serve example.py`, the script needs `view(sheet)` at the end. When using `uzoncalc example.py`, the CLI starts the report service for you. During active development, the CLI workflow is recommended because it is better for hot reload and continuous editing.
 
 ## First Report Structure
 

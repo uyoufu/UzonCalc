@@ -142,7 +142,7 @@ if __name__ == "__main__":
 
     Markdown("""
 在 CLI 模式下有两种方式运行计算书：
-- 使用 `python example.py`
+- 使用 `python --serve example.py`
 - 使用 `uzoncalc example.py`
             """)
 
@@ -155,7 +155,7 @@ if __name__ == "__main__":
 
     Code(
         """
-python example.py
+python --serve example.py
 """,
         "python",
     )

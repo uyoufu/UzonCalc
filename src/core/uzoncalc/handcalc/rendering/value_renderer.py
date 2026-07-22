@@ -82,16 +82,18 @@ def render_value_text(value: Any) -> str:
         return ""
 
     if isinstance(value, ir.MathNode):
-        return html.escape(_math_node_to_text(value))
+        return _math_node_to_text(value)
     if isinstance(value, FormattedQuantity):
-        return html.escape(f"{value.magnitude} {value.units}")
+        return f"{value.magnitude} {value.units}"
     normalized_value = normalize_renderable_value(value)
     if normalized_value is not None:
         value = normalized_value
     if isinstance(value, str):
-        return html.escape(value)
+        return value
+
     if isinstance(value, (int, float)):
-        return html.escape(format_number(value))
+        return format_number(value)
+
     if isinstance(value, pint.Quantity):
         magnitude = value.magnitude
         formatted = (
@@ -99,9 +101,9 @@ def render_value_text(value: Any) -> str:
             if isinstance(magnitude, (int, float))
             else str(magnitude)
         )
-        return html.escape(f"{formatted} {value.units}")
+        return f"{formatted} {value.units}"
 
-    return html.escape(str(value))
+    return str(value)
 
 
 def render_value_fragment(value: Any) -> str:

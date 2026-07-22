@@ -143,7 +143,7 @@ if __name__ == "__main__":
 
     Markdown("""
 There are two ways to run a calculation report in CLI mode:
-- Use `python example.py`
+- Use `python --serve example.py`
 - Use `uzoncalc example.py`
             """)
 
@@ -156,7 +156,7 @@ while the latter does not require the `if __name__ == "__main__"` statement.
 
     Code(
         """
-python example.py
+python --serve example.py
 """,
         "python",
     )

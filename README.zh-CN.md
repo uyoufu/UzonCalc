@@ -99,7 +99,7 @@ if __name__ == "__main__":
 **2. 运行**
 
 ```bash
-python example.py
+python --serve example.py
 ```
 
 将会出现：`Serving document at: http://127.0.0.1:32180/` 字样，单击通过浏览器打开即可查看效果。
