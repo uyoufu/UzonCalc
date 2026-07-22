@@ -646,7 +646,7 @@ async def _get_remote_sync_snapshot(
 
     Raises:
         CustomException: If network validation or download fails.
-        ValueError: If the v3 archive manifest is invalid.
+        ValueError: If the v4 archive manifest is invalid.
     """
     from app.service import calc_report_archive_service, remote_share_service
 

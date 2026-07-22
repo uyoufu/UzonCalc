@@ -492,12 +492,10 @@ def _extract_component_artifact(
     """Extract selected code or resource members into one component mount."""
     with zipfile.ZipFile(_artifact_path(content_hash) / "payload.zip") as archive:
         for name in archive.namelist():
-            is_source_path = name.startswith("src/")
-            if code != is_source_path:
+            is_python_path = name.endswith(".py")
+            if code != is_python_path:
                 continue
             relative = Path(name)
-            if code and not is_entry:
-                relative = Path(*relative.parts[1:])
             destination = base / relative
             destination.parent.mkdir(parents=True, exist_ok=True)
             destination.write_bytes(archive.read(name))

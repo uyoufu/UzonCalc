@@ -1,4 +1,5 @@
 import asyncio
+import hashlib
 import uuid
 from pathlib import Path
 from typing import Any, Callable, Optional, Dict, cast, Awaitable
@@ -184,7 +185,7 @@ def resolve_workspace_module_identity(
 
     Args:
         script_path: Absolute or relative entry script path.
-        package_root: Materialized bundle root containing the ``src`` directory.
+        package_root: Materialized root-package bundle directory.
         execution_id: Unique fallback namespace for a root-level entry.
 
     Returns:
@@ -195,7 +196,7 @@ def resolve_workspace_module_identity(
     """
     script = Path(script_path).resolve()
     if package_root:
-        source_root = (Path(package_root).resolve() / "src").resolve()
+        source_root = Path(package_root).resolve()
         try:
             relative = script.relative_to(source_root)
         except ValueError:
@@ -204,6 +205,9 @@ def resolve_workspace_module_identity(
             module_parts = list(relative.with_suffix("").parts)
             if module_parts[-1] == "__init__":
                 module_parts = module_parts[:-1]
-            if module_parts and all(part.isidentifier() for part in module_parts):
-                return ".".join(module_parts), str(source_root)
+            if all(part.isidentifier() for part in module_parts):
+                root_hash = hashlib.sha256(str(source_root).encode("utf-8")).hexdigest()
+                package_name = f"__uzon_workspace_{root_hash[:16]}"
+                module_name = ".".join([package_name, *module_parts])
+                return module_name, str(source_root)
     return f"uzoncalc_{execution_id.replace('-', '_')}", None

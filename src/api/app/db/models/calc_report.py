@@ -21,6 +21,10 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column
 
+from app.calc_report_workspace_contract import (
+    CALCBOOK_FORMAT_VERSION,
+    DEFAULT_ENTRY_PATH,
+)
 from .base import BaseModel
 
 
@@ -70,11 +74,14 @@ class CalcReport(BaseModel):
     entryPath: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
-        default="src/main.py",
-        server_default="src/main.py",
+        default=DEFAULT_ENTRY_PATH,
+        server_default=DEFAULT_ENTRY_PATH,
     )
     formatVersion: Mapped[int] = mapped_column(
-        SmallInteger, nullable=False, default=1, server_default="1"
+        SmallInteger,
+        nullable=False,
+        default=CALCBOOK_FORMAT_VERSION,
+        server_default=str(CALCBOOK_FORMAT_VERSION),
     )
     workspaceRevision: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, server_default="0"

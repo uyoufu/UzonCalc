@@ -177,13 +177,13 @@ async def import_calc_report_archive(
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[ShareImportResDTO]:
-    """Import one validated v3 PNG or UZC report closure.
+    """Import one validated v4 PNG or UZC report closure.
 
     Args:
         categoryOid: Receiver-owned category identifier.
         name: Optional root report display name.
         shouldSync: Reserved false value for file imports.
-        archive: Uploaded v3 container.
+        archive: Uploaded v4 container.
         tokenPayloads: Authenticated user claims.
         session: Request database session.
 

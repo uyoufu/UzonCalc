@@ -13,6 +13,7 @@
           <CommonBtn flat round dense size="xs" icon="close" :tooltip="t('calcWorkspace.closeTab')"
             @click.stop="emit('close', tab.id)" />
           <q-tooltip v-if="tab.path">{{ tab.path }}</q-tooltip>
+          <ContextMenu :items="contextMenuItems" :value="tab" />
         </div>
       </div>
     </q-scroll-area>
@@ -22,8 +23,13 @@
 <script setup lang="ts">
 /** Render the closable document and execution tabs for a workspace. */
 import CommonBtn from 'src/components/quasarWrapper/buttons/CommonBtn.vue'
+import ContextMenu from 'src/components/contextMenu/ContextMenu.vue'
 import { t } from 'src/i18n/helpers'
 import { WorkspaceTabKind, type WorkspaceTab } from './useWorkspaceTabs'
+import {
+  useWorkspaceTabContextMenu,
+  type WorkspaceTabMenuCommand
+} from './useWorkspaceTabContextMenu'
 
 const props = defineProps<{
   tabs: WorkspaceTab[]
@@ -33,7 +39,9 @@ const props = defineProps<{
 const emit = defineEmits<{
   activate: [tabId: string]
   close: [tabId: string]
+  menu: [command: WorkspaceTabMenuCommand, tabId: string]
 }>()
+const contextMenuItems = useWorkspaceTabContextMenu((command, tab) => emit('menu', command, tab.id))
 
 /** Return the compact visible label for one tab. */
 function tabLabel(tab: WorkspaceTab): string {

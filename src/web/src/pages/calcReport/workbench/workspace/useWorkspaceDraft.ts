@@ -11,6 +11,13 @@ import {
 import { getWorkspaceFile, type WorkspaceUpload } from 'src/api/calc/workspace'
 import type { TreeNodeData } from 'element-plus/es/components/tree/src/tree.type'
 import { computed, ref, type Ref } from 'vue'
+import { isImportableWorkspacePythonPath } from './workspaceReference'
+
+export const CALCBOOK_PATH = 'calcbook.json'
+export const ROOT_PACKAGE_PATH = '__init__.py'
+export const DEFAULT_ENTRY_PATH = 'main.py'
+export const CALCBOOK_FORMAT_VERSION = 2
+const RESERVED_RUNTIME_PATHS = new Set(['manifest.json', '__uzon_deps__'])
 
 const TEXT_EXTENSIONS = new Set([
   'css', 'csv', 'html', 'ini', 'js', 'json', 'md', 'py', 'scss', 'toml', 'ts', 'txt', 'xml', 'yaml', 'yml'
@@ -51,9 +58,7 @@ export function normalizeWorkspacePath(path: string): string {
   if (!normalized || parts.some((part) => !part || part === '.' || part === '..')) {
     throw new Error('Workspace path must be normalized and relative')
   }
-  if (normalized !== 'calcbook.json' && !normalized.startsWith('src/') && !normalized.startsWith('resources/')) {
-    throw new Error('Files must be calcbook.json or live under src/resources')
-  }
+  if (RESERVED_RUNTIME_PATHS.has(parts[0] || '')) throw new Error('Workspace path is reserved by the runtime')
   return normalized
 }
 
@@ -88,24 +93,19 @@ function addTreePath(nodes: Map<string, WorkspaceTreeNode>, targetPath: string, 
 
 /** Validate and normalize a client-created workspace directory path. */
 export function normalizeWorkspaceDirectoryPath(path: string): string {
-  const normalized = path.trim().replaceAll('\\', '/').replace(/^\/+|\/+$/g, '')
-  const parts = normalized.split('/')
-  if (!normalized || parts.some((part) => !part || part === '.' || part === '..')) {
-    throw new Error('Workspace directory path must be normalized and relative')
-  }
-  if (!normalized.startsWith('src/') && !normalized.startsWith('resources/')) {
-    throw new Error('Directories must live under src/resources')
-  }
+  const normalized = normalizeWorkspacePath(path)
+  if ([CALCBOOK_PATH, ROOT_PACKAGE_PATH].includes(normalized)) throw new Error('Workspace package files cannot be directories')
   return normalized
 }
 
 /** Build the default files for a new report workspace. */
 export function createDefaultWorkspaceFiles(): WorkspaceDraftFile[] {
-  const manifest = JSON.stringify({ formatVersion: 1, entryPath: 'src/main.py' }, null, 2) + '\n'
+  const manifest = JSON.stringify({ formatVersion: CALCBOOK_FORMAT_VERSION, entryPath: DEFAULT_ENTRY_PATH }, null, 2) + '\n'
   const source = `from uzoncalc import *\n\n\n@uzon_calc()\nasync def sheet():\n    # Write calculation logic here.\n    pass\n`
   return [
-    createTextDraftFile('calcbook.json', manifest),
-    createTextDraftFile('src/main.py', source)
+    createTextDraftFile(CALCBOOK_PATH, manifest),
+    createTextDraftFile(ROOT_PACKAGE_PATH, ''),
+    createTextDraftFile(DEFAULT_ENTRY_PATH, source)
   ]
 }
 
@@ -131,7 +131,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
   const directories = ref<string[]>([])
   const dependencies = ref<ReportDependency[]>([])
   const workspaceRevision = ref(0)
-  const entryPath = ref('src/main.py')
+  const entryPath = ref(DEFAULT_ENTRY_PATH)
   const isLoading = ref(false)
   const isSaving = ref(false)
   const isDependencyDirty = ref(false)
@@ -162,7 +162,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
   /** Initialize a new report with the canonical default workspace. */
   function initializeNewWorkspace(): void {
     workspaceRevision.value = 0
-    entryPath.value = 'src/main.py'
+    entryPath.value = DEFAULT_ENTRY_PATH
     dependencies.value = []
     directories.value = []
     files.value = createDefaultWorkspaceFiles()
@@ -235,7 +235,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
 
   /** Rename one file or every file below a derived folder. */
   async function renamePath(oldPath: string, newPath: string): Promise<void> {
-    if (oldPath === 'calcbook.json') throw new Error('calcbook.json cannot be renamed')
+    if ([CALCBOOK_PATH, ROOT_PACKAGE_PATH].includes(oldPath)) throw new Error('Workspace package files cannot be renamed')
     const sourceNode = treeNodes.value.find((node) => node.path === oldPath)
     if (!sourceNode) return
     const normalized = sourceNode.kind === 'folder' ? normalizeWorkspaceDirectoryPath(newPath) : normalizeWorkspacePath(newPath)
@@ -248,9 +248,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
     const renamedEntryPath = entryPath.value === oldPath || entryPath.value.startsWith(`${oldPath}/`)
       ? `${normalized}${entryPath.value.slice(oldPath.length)}`
       : entryPath.value
-    if (!renamedEntryPath.startsWith('src/') || !renamedEntryPath.endsWith('.py')) {
-      throw new Error('The entry must remain a Python file under src')
-    }
+    if (!isImportableWorkspacePythonPath(renamedEntryPath)) throw new Error('The entry must remain an importable Python file')
     const excludedPaths = new Set([
       ...matches.map((file) => file.path),
       ...directoryMatches
@@ -275,7 +273,7 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
 
   /** Remove one file or all files below a derived folder. */
   function deletePath(path: string): void {
-    if (path === 'calcbook.json') throw new Error('calcbook.json cannot be deleted')
+    if ([CALCBOOK_PATH, ROOT_PACKAGE_PATH].includes(path)) throw new Error('Workspace package files cannot be deleted')
     if (entryPath.value === path || entryPath.value.startsWith(`${path}/`)) throw new Error('The entry file cannot be deleted')
     files.value = files.value.filter((file) => file.path !== path && !file.path.startsWith(`${path}/`))
     directories.value = directories.value.filter((directory) => directory !== path && !directory.startsWith(`${path}/`))
@@ -308,14 +306,14 @@ export function useWorkspaceDraft(reportOid: Ref<string>) {
 
   /** Set a Python source file as the manifest entry path. */
   function setEntryPath(path: string): void {
-    if (!path.startsWith('src/') || !path.endsWith('.py')) throw new Error('The entry must be a Python file under src')
+    if (!isImportableWorkspacePythonPath(path)) throw new Error('The entry must be an importable Python file')
     entryPath.value = path
-    const manifest = files.value.find((file) => file.path === 'calcbook.json')
+    const manifest = files.value.find((file) => file.path === CALCBOOK_PATH)
     if (!manifest) return
     const current = manifest.text ? JSON.parse(manifest.text) as Record<string, unknown> : {}
-    current.formatVersion = typeof current.formatVersion === 'number' ? current.formatVersion : 1
+    current.formatVersion = CALCBOOK_FORMAT_VERSION
     current.entryPath = path
-    updateText('calcbook.json', JSON.stringify(current, null, 2) + '\n')
+    updateText(CALCBOOK_PATH, JSON.stringify(current, null, 2) + '\n')
   }
 
   /** Replace dependency declarations and mark the workspace dirty. */

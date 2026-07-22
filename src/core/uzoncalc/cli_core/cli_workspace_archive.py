@@ -1,4 +1,4 @@
-"""Read and write secure UzonCalc v3 workspace archives in PNG containers."""
+"""Read and write secure UzonCalc v4 workspace archives in PNG containers."""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ import zipfile
 
 from .cli_png_container import read_png_zip_container, write_png_zip_container
 
-ARCHIVE_FORMAT_VERSION = 3
+ARCHIVE_FORMAT_VERSION = 4
 ARCHIVE_MANIFEST_PATH = "__uzoncalc_bundle__/manifest.json"
 ARCHIVE_MAIN_PATH = "__main__.py"
 _MAX_COMPRESSION_RATIO = 200
@@ -21,10 +21,10 @@ _MAX_COMPRESSION_RATIO = 200
 
 @dataclass(frozen=True)
 class WorkspaceArchive:
-    """Hold a validated v3 manifest and its content files.
+    """Hold a validated v4 manifest and its content files.
 
     Attributes:
-        manifest: Parsed v3 archive manifest.
+        manifest: Parsed v4 archive manifest.
         files: Archive content keyed by normalized POSIX path.
     """
 
@@ -38,7 +38,7 @@ def write_workspace_archive(
     manifest: Mapping[str, object],
     files: Mapping[str, bytes],
 ) -> None:
-    """Write a deterministic v3 workspace archive as PNG or UZC.
+    """Write a deterministic v4 workspace archive as PNG or UZC.
 
     Args:
         output_path: Final ``.png`` or ``.uzc`` path.
@@ -75,7 +75,7 @@ def write_workspace_archive(
     ]
 
     def write_payload(stream) -> None:
-        """Write the v3 ZIP payload to the private PNG chunk stream."""
+        """Write the v4 ZIP payload to the private PNG chunk stream."""
         with zipfile.ZipFile(stream, "w", compression=zipfile.ZIP_DEFLATED) as archive:
             archive.writestr(
                 ARCHIVE_MANIFEST_PATH,
@@ -88,7 +88,7 @@ def write_workspace_archive(
 
 
 def _build_archive_main_source() -> str:
-    """Build the stable Python entrypoint embedded in every v3 archive.
+    """Build the stable Python entrypoint embedded in every v4 archive.
 
     Returns:
         Python source that delegates archive execution to the installed core package.
@@ -97,11 +97,11 @@ def _build_archive_main_source() -> str:
         None.
     """
     return (
-        '"""Execute an exported UzonCalc v3 archive."""\n\n'
+        '"""Execute an exported UzonCalc v4 archive."""\n\n'
         "import sys\n\n"
-        "from uzoncalc.cli_core.cli_archive_runtime import run_v3_archive\n\n\n"
+        "from uzoncalc.cli_core.cli_archive_runtime import run_workspace_archive\n\n\n"
         'if __name__ == "__main__":\n'
-        "    run_v3_archive(sys.argv[0])\n"
+        "    run_workspace_archive(sys.argv[0])\n"
     )
 
 
@@ -112,7 +112,7 @@ def read_workspace_archive(
     max_file_size: int = 25 * 1024 * 1024,
     max_total_size: int = 100 * 1024 * 1024,
 ) -> WorkspaceArchive:
-    """Read and fully validate an untrusted v3 PNG workspace archive.
+    """Read and fully validate an untrusted v4 PNG workspace archive.
 
     Args:
         container_bytes: Complete PNG or UZC bytes.
@@ -162,7 +162,10 @@ def read_workspace_archive(
             manifest = json.loads(archive.read(manifest_info).decode("utf-8"))
         except (UnicodeDecodeError, json.JSONDecodeError) as error:
             raise ValueError("归档 manifest 无效") from error
-        if not isinstance(manifest, dict) or manifest.get("formatVersion") != 3:
+        if (
+            not isinstance(manifest, dict)
+            or manifest.get("formatVersion") != ARCHIVE_FORMAT_VERSION
+        ):
             raise ValueError("归档格式版本不受支持")
         declarations = manifest.get("files")
         if not isinstance(declarations, list) or len(declarations) != len(by_name):

@@ -60,7 +60,8 @@ def _snapshot(
         ),
         files=[
             WorkspaceFileDTO(path="calcbook.json", source=source),
-            WorkspaceFileDTO(path="src/main.py", source=source),
+            WorkspaceFileDTO(path="__init__.py", source=source),
+            WorkspaceFileDTO(path="main.py", source=source),
         ],
     )
 
@@ -95,9 +96,10 @@ def test_first_save_creates_report_and_current_files_can_be_reused(
 
             uploads = {
                 "calcbook.json": json.dumps(
-                    {"formatVersion": 1, "entryPath": "src/main.py"}
+                    {"formatVersion": 2, "entryPath": "main.py"}
                 ).encode(),
-                "src/main.py": b"from uzoncalc import *\n",
+                "__init__.py": b"",
+                "main.py": b"from uzoncalc import *\n",
             }
             first = await save_workspace(
                 user.id, "c" * 24, _snapshot(0), uploads, session
@@ -157,8 +159,9 @@ def test_direct_workspace_edit_is_reconciled_without_publishing_artifact(
             )
             await session.commit()
             uploads = {
-                "calcbook.json": b'{"formatVersion":1,"entryPath":"src/main.py"}',
-                "src/main.py": b"x = 1\n",
+                "calcbook.json": b'{"formatVersion":2,"entryPath":"main.py"}',
+                "__init__.py": b"",
+                "main.py": b"x = 1\n",
             }
             first = await save_workspace(
                 user.id, "c" * 24, _snapshot(0), uploads, session
@@ -168,7 +171,7 @@ def test_direct_workspace_edit_is_reconciled_without_publishing_artifact(
                 / "data/calc-reports"
                 / str(user.id)
                 / ("c" * 24)
-                / "workspace/src/main.py"
+                / "workspace/main.py"
             )
             workspace_file.write_bytes(b"x = 2\n")
 
@@ -207,8 +210,9 @@ def test_stale_workspace_revision_is_rejected(tmp_path: Path, monkeypatch) -> No
             )
             await session.commit()
             uploads = {
-                "calcbook.json": b'{"formatVersion":1,"entryPath":"src/main.py"}',
-                "src/main.py": b"x = 1\n",
+                "calcbook.json": b'{"formatVersion":2,"entryPath":"main.py"}',
+                "__init__.py": b"",
+                "main.py": b"x = 1\n",
             }
             await save_workspace(user.id, "c" * 24, _snapshot(0), uploads, session)
 

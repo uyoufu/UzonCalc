@@ -27,9 +27,9 @@ describe('calculation APIs', () => {
   it('serializes a complete workspace snapshot and preserves upload paths', async () => {
     await saveWorkspace('report-oid', {
       workspaceRevision: 3,
-      files: [{ path: 'src/main.py', source: WorkspaceFileSource.Upload }, { path: 'resources/logo.png', source: WorkspaceFileSource.Current, sha256: 'sha256:value' }],
+      files: [{ path: 'main.py', source: WorkspaceFileSource.Upload }, { path: 'assets/logo.png', source: WorkspaceFileSource.Current, sha256: 'sha256:value' }],
       dependencies: []
-    }, [{ path: 'src/main.py', content: new Blob(['print(1)']) }])
+    }, [{ path: 'main.py', content: new Blob(['print(1)']) }])
 
     const formData = httpClientMock.put.mock.calls[0]?.[1].data as FormData
     const snapshotEntry = formData.get('snapshot')
@@ -38,7 +38,7 @@ describe('calculation APIs', () => {
     expect(httpClientMock.put.mock.calls[0]?.[0]).toBe('/calc-report/report-oid/workspace')
     expect(serializedSnapshot).toMatchObject({ workspaceRevision: 3 })
     expect(formData.get('files')).toBeInstanceOf(Blob)
-    expect(serializedSnapshot.files[0]?.path).toBe('src/main.py')
+    expect(serializedSnapshot.files[0]?.path).toBe('main.py')
   })
 
   it('uses explicit count and items routes with PaginationDTO fields', async () => {

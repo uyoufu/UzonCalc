@@ -49,12 +49,21 @@ export function useWorkspaceTabs() {
 
   /** Close one tab and activate the nearest remaining neighbor. */
   function closeTab(id: string): WorkspaceTab | null {
-    const index = tabs.value.findIndex((tab) => tab.id === id)
-    if (index < 0) return activeTab.value
-    const wasActive = activeTabId.value === id
-    tabs.value.splice(index, 1)
-    if (wasActive) {
-      activeTabId.value = tabs.value[index]?.id || tabs.value[index - 1]?.id || ''
+    return closeTabs([id])
+  }
+
+  /** Close a set of tabs atomically and select one deterministic survivor. */
+  function closeTabs(ids: Iterable<string>, preferredActiveId = ''): WorkspaceTab | null {
+    const closedIds = new Set(ids)
+    if (closedIds.size === 0) return activeTab.value
+    const activeIndex = tabs.value.findIndex((tab) => tab.id === activeTabId.value)
+    const wasActiveClosed = closedIds.has(activeTabId.value)
+    tabs.value = tabs.value.filter((tab) => !closedIds.has(tab.id))
+    if (wasActiveClosed) {
+      const preferredTab = tabs.value.find((tab) => tab.id === preferredActiveId)
+      activeTabId.value = preferredTab?.id
+        || tabs.value[Math.min(Math.max(activeIndex, 0), tabs.value.length - 1)]?.id
+        || ''
     }
     return activeTab.value
   }
@@ -76,8 +85,7 @@ export function useWorkspaceTabs() {
     const removedIds = tabs.value
       .filter((tab) => tab.kind === WorkspaceTabKind.File && tab.path && (tab.path === path || tab.path.startsWith(`${path}/`)))
       .map((tab) => tab.id)
-    removedIds.forEach((id) => closeTab(id))
-    return activeTab.value
+    return closeTabs(removedIds)
   }
 
   /** Restore a validated tab sequence and active identifier. */
@@ -103,6 +111,7 @@ export function useWorkspaceTabs() {
     openRunTab,
     activateTab,
     closeTab,
+    closeTabs,
     renamePath,
     removePath,
     restoreTabs

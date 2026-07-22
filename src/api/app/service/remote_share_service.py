@@ -57,7 +57,7 @@ async def fetch_remote_share_preview(source: str) -> SharePreviewResDTO:
 
 
 async def fetch_remote_share_archive(source: str) -> tuple[bytes, str]:
-    """Download a bounded public v3 archive and return its canonical source.
+    """Download a bounded public v4 archive and return its canonical source.
 
     Args:
         source: Remote backend preview, import, archive, or share base URL.

@@ -92,7 +92,7 @@ def test_state_dtos_serialize_enum_values_as_existing_strings() -> None:
         type=ExecutionSourceType.VERSION, versionName="1.2.3"
     )
     share = ShareLinkCreateDTO(versionName="1.2.3")
-    workspace_file = WorkspaceFileDTO(path="src/main.py")
+    workspace_file = WorkspaceFileDTO(path="main.py")
 
     assert source.model_dump(mode="json") == {
         "type": "version",
@@ -107,7 +107,7 @@ def test_state_dtos_serialize_enum_values_as_existing_strings() -> None:
     [
         lambda: CalcExecutionSourceDTO(type="retired"),
         lambda: ShareLinkCreateDTO(versionName="1.2.3", accessType="retired"),
-        lambda: WorkspaceFileDTO(path="src/main.py", source="retired"),
+        lambda: WorkspaceFileDTO(path="main.py", source="retired"),
     ],
 )
 def test_state_dtos_reject_unknown_values(factory) -> None:

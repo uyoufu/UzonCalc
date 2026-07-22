@@ -91,12 +91,13 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                         [
                             ArtifactFile(
                                 "calcbook.json",
-                                b'{"formatVersion":1,"entryPath":"src/main.py"}',
+                                b'{"formatVersion":2,"entryPath":"main.py"}',
                             ),
-                            ArtifactFile("src/main.py", f"VALUE = {patch}\n".encode()),
-                            ArtifactFile("src/api.py", f"VALUE = {patch}\n".encode()),
+                            ArtifactFile("__init__.py", b""),
+                            ArtifactFile("main.py", f"VALUE = {patch}\n".encode()),
+                            ArtifactFile("api.py", f"VALUE = {patch}\n".encode()),
                         ],
-                        {"formatVersion": 1, "entryPath": "src/main.py"},
+                        {"formatVersion": 2, "entryPath": "main.py"},
                         [],
                     )
                     artifact = await _get_or_create_source_artifact(published, session)
@@ -136,10 +137,11 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     [
                         ArtifactFile(
                             "calcbook.json",
-                            b'{"formatVersion":1,"entryPath":"src/main.py"}',
+                            b'{"formatVersion":2,"entryPath":"main.py"}',
                         ),
+                        ArtifactFile("__init__.py", b""),
                         ArtifactFile(
-                            "src/main.py",
+                            "main.py",
                             b"from calcdeps.dependency.api import VALUE\n"
                             b"from uzoncalc import uzon_calc\n\n"
                             b"@uzon_calc()\n"
@@ -147,7 +149,7 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                             b"    return VALUE\n",
                         ),
                     ],
-                    {"formatVersion": 1, "entryPath": "src/main.py"},
+                    {"formatVersion": 2, "entryPath": "main.py"},
                     declarations,
                 )
                 root_artifact = await _get_or_create_source_artifact(
@@ -256,7 +258,7 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                     monkeypatch.setattr(
                         cli_archive_runtime, "view", selected_entries.append
                     )
-                    cli_archive_runtime.run_v3_archive(exported.path)
+                    cli_archive_runtime.run_workspace_archive(exported.path)
                     assert [entry.__name__ for entry in selected_entries] == ["sheet"]
                     archive_import = (
                         await calc_report_archive_service.import_archive_closure(
@@ -308,7 +310,7 @@ def test_share_import_rebuilds_multi_version_dependency_under_receiver_ownership
                 )
                 assert cli_import.importedReportCount == 1
                 assert cli_report.name == "CLI imported"
-                assert cli_report.entryPath == "src/standalone.py"
+                assert cli_report.entryPath == "standalone.py"
         finally:
             await engine.dispose()
 

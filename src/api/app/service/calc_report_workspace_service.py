@@ -30,6 +30,9 @@ from app.controller.calc.calc_workspace_dto import (
     WorkspaceResDTO,
     WorkspaceSaveDTO,
 )
+from app.calc_report_workspace_contract import (
+    CALCBOOK_FORMAT_VERSION,
+)
 from app.db.models.calc_report import CalcReport
 from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_category import CalcReportCategory
@@ -45,6 +48,7 @@ from app.service.calc_report_artifact_service import (
     ArtifactFile,
     ArtifactValidationError,
     artifact_store,
+    is_importable_workspace_python_path,
     normalize_workspace_path,
     public_hash,
     sha256_text,
@@ -598,16 +602,16 @@ def _manifest_from_directory(
         raise ArtifactValidationError("calcbook.json must contain valid UTF-8 JSON")
     if not isinstance(calcbook, dict):
         raise ArtifactValidationError("calcbook.json must contain an object")
-    format_version = calcbook.get("formatVersion", 1)
-    entry_path = calcbook.get("entryPath", "src/main.py")
-    if not isinstance(format_version, int) or format_version < 1:
-        raise ArtifactValidationError(
-            "calcbook formatVersion must be a positive integer"
-        )
+    format_version = calcbook.get("formatVersion")
+    entry_path = calcbook.get("entryPath")
+    if format_version != CALCBOOK_FORMAT_VERSION:
+        raise ArtifactValidationError("calcbook formatVersion is not supported")
+    if not isinstance(entry_path, str):
+        raise ArtifactValidationError("calcbook entryPath is invalid")
     entry_path = normalize_workspace_path(entry_path)
-    if not entry_path.startswith("src/") or not entry_path.endswith(".py"):
+    if not is_importable_workspace_python_path(entry_path):
         raise ArtifactValidationError(
-            "calcbook entryPath must point to a Python file under src"
+            "calcbook entryPath must identify an importable Python file"
         )
     if entry_path not in {value["path"] for value in file_entries}:
         raise ArtifactValidationError(

@@ -454,13 +454,11 @@ def _write_component(base: Path, component: _ResolvedComponent) -> None:
     """Combine instrumented Python and SOURCE resources at one bundle mount."""
     for file in artifact_store.read_all(component.execution_artifact.storageKey):
         relative = Path(file.path)
-        destination = (
-            base / relative if component.is_entry else base / Path(*relative.parts[1:])
-        )
+        destination = base / relative
         destination.parent.mkdir(parents=True, exist_ok=True)
         destination.write_bytes(file.content)
     for file in artifact_store.read_all(component.source_artifact.storageKey):
-        if file.path.startswith("src/"):
+        if file.path.endswith(".py"):
             continue
         destination = base / file.path
         destination.parent.mkdir(parents=True, exist_ok=True)

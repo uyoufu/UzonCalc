@@ -17,7 +17,7 @@
 </template>
 
 <script setup lang="ts">
-/** Import one portable v3 archive through a Quasar component dialog. */
+/** Import one portable v4 archive through a Quasar component dialog. */
 import { useDialogPluginComponent } from 'quasar'
 import CancelBtn from 'src/components/quasarWrapper/buttons/CancelBtn.vue'
 import OkBtn from 'src/components/quasarWrapper/buttons/OkBtn.vue'

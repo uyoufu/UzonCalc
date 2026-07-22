@@ -26,7 +26,7 @@ export function previewRemoteShare(source: string) { return httpClient.post<Shar
 export function downloadShare(token: string) { return httpClient.getBlob(`/calc-report/shared/${token}/archive`) }
 /** Proxy-download a remote public share through the local SSRF boundary. */
 export function downloadRemoteShare(source: string) { return httpClient.postBlob('/calc-report/imports/link/archive', { data: { source } }) }
-/** Import a cross-backend public share through its v3 archive. */
+/** Import a cross-backend public share through its v4 archive. */
 export function importRemoteShare(source: string, categoryOid: string, name?: string | null, shouldSync = false) { return httpClient.post<{ reportOid: string; versionName: string; importedReportCount: number }>('/calc-report/imports/link', { data: { source, categoryOid, name, shouldSync } }) }
 /** Count same-backend shares available to the current user. */
 export function countSharedReports(query?: string) { return httpClient.get<number>('/calc-report/shared/count', { params: { query } }) }

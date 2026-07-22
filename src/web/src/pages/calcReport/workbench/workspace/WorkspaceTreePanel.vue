@@ -2,8 +2,10 @@
   <aside class="workspace-tree column no-wrap">
     <div class="workspace-tree__toolbar row items-center q-px-xs">
       <CommonBtn flat dense icon="note_add" :tooltip="t('calcWorkspace.newFile')" @click="() => onCreateFile()" />
-      <CommonBtn flat dense icon="upload_file" :tooltip="t('calcWorkspace.uploadResources')"
-        @click="fileInput?.click()" />
+      <CommonBtn flat dense icon="create_new_folder" :tooltip="t('calcWorkspace.newDirectory')"
+        @click="() => onCreateDirectory()" />
+      <CommonBtn flat dense icon="upload_file" :tooltip="t('calcWorkspace.uploadFiles')"
+        @click="() => onUploadClick()" />
       <input ref="fileInput" class="hidden" type="file" multiple @change="onFilesSelected">
       <q-space />
       <CommonBtn flat dense icon="account_tree" :tooltip="t('calcWorkspace.dependencies')"
@@ -35,6 +37,7 @@ import type { TreeNodeData } from 'element-plus/es/components/tree/src/tree.type
 
 import { showCalcReportInExplorer } from 'src/api/desktop'
 import { notifySuccess } from 'src/utils/dialog'
+import { isImportableWorkspacePythonPath, workspaceReferenceForPath } from './workspaceReference'
 
 const props = defineProps<{ nodes: WorkspaceTreeNode[]; entryPath: string; reportOid: string; isDesktopApi: boolean }>()
 const expandedPaths = defineModel<string[]>('expandedPaths', { default: () => [] })
@@ -43,30 +46,29 @@ const emit = defineEmits<{
   select: [path: string]
   create: [path: string]
   createDirectory: [path: string]
-  upload: [files: File[]]
+  upload: [files: File[], targetDirectory: string]
   rename: [oldPath: string, newPath: string]
   delete: [path: string]
   entry: [path: string]
   dependencies: []
 }>()
 const fileInput = ref<HTMLInputElement | null>(null)
+const uploadTargetDirectory = ref('')
 
 const contextItems: IContextMenuItem<DraggableTreeContextValue>[] = [
   { name: 'create-file', label: t('calcWorkspace.newFile'), icon: 'note_add', color: 'grey-9', vif: ({ data }) => asWorkspaceNode(data).kind === 'folder', onClick: ({ data }) => void onCreateFile(asWorkspaceNode(data).path) },
   { name: 'create-directory', label: t('calcWorkspace.newDirectory'), icon: 'create_new_folder', color: 'grey-9', vif: ({ data }) => asWorkspaceNode(data).kind === 'folder', onClick: ({ data }) => void onCreateDirectory(asWorkspaceNode(data).path) },
+  { name: 'upload', label: t('calcWorkspace.uploadFiles'), icon: 'upload_file', color: 'grey-9', vif: ({ data }) => asWorkspaceNode(data).kind === 'folder', onClick: ({ data }) => onUploadClick(asWorkspaceNode(data).path) },
   { name: 'rename', label: t('calcWorkspace.rename'), icon: 'drive_file_rename_outline', color: 'grey-9', vif: ({ data }) => asWorkspaceNode(data).path !== 'calcbook.json', onClick: ({ data }) => onRename(asWorkspaceNode(data)) },
   { name: 'copy-reference', label: t('calcWorkspace.copyReference'), icon: 'content_copy', color: 'primary', onClick: ({ data }) => onCopyReference(asWorkspaceNode(data)) },
   { name: 'show-in-explorer', label: t('calcWorkspace.showInExplorer'), icon: 'folder_open', color: 'grey-9', vif: () => props.isDesktopApi, onClick: ({ data }) => showCalcReportInExplorer(props.reportOid, asWorkspaceNode(data).path) },
-  { name: 'entry', label: t('calcWorkspace.setEntry'), icon: 'play_arrow', color: 'positive', vif: ({ data }) => { const node = asWorkspaceNode(data); return node.kind === 'file' && node.path.startsWith('src/') && node.path.endsWith('.py') }, onClick: ({ data }) => emit('entry', asWorkspaceNode(data).path) },
+  { name: 'entry', label: t('calcWorkspace.setEntry'), icon: 'play_arrow', color: 'positive', vif: ({ data }) => { const node = asWorkspaceNode(data); return node.kind === 'file' && isImportableWorkspacePythonPath(node.path) }, onClick: ({ data }) => emit('entry', asWorkspaceNode(data).path) },
   { name: 'delete', label: t('global.delete'), icon: 'delete', color: 'negative', vif: ({ data }) => { const path = asWorkspaceNode(data).path; return path !== 'calcbook.json' && path !== props.entryPath }, onClick: ({ data }) => emit('delete', asWorkspaceNode(data).path) }
 ]
 
 /** Copy a normalized workspace-relative reference for source or resource files. */
 async function onCopyReference(node: WorkspaceTreeNode): Promise<void> {
-  const reference = node.kind === 'file' && node.path.startsWith('src/') && node.path.endsWith('.py')
-    ? `from ${node.path.slice(4, -3).replaceAll('/', '.').replace(/\.__init__$/, '')} import *`
-    : node.path
-  await navigator.clipboard.writeText(reference)
+  await navigator.clipboard.writeText(workspaceReferenceForPath(node.path))
   notifySuccess(t('calcWorkspace.referenceCopied'))
 }
 
@@ -81,14 +83,14 @@ function onNodeClick(data: TreeNodeData): void {
   emit('select', node.path)
 }
 /** Open the configured path form and emit a confirmed new-file path. */
-async function onCreateFile(parentPath = 'src'): Promise<void> {
+async function onCreateFile(parentPath = ''): Promise<void> {
   const result = await showDialog<{ path: string }>({
     title: t('calcWorkspace.newFile'),
     fields: [{
       name: 'path',
       label: t('calcWorkspace.newFile'),
       type: LowCodeFieldType.text,
-      value: `${parentPath}/`,
+      value: parentPath ? `${parentPath}/` : '',
       autofocus: true
     }],
     oneColumn: true,
@@ -97,14 +99,14 @@ async function onCreateFile(parentPath = 'src'): Promise<void> {
   if (result.ok) emit('create', result.data.path)
 }
 /** Open the configured path form and emit a confirmed session directory. */
-async function onCreateDirectory(parentPath: string): Promise<void> {
+async function onCreateDirectory(parentPath = ''): Promise<void> {
   const result = await showDialog<{ path: string }>({
     title: t('calcWorkspace.newDirectory'),
     fields: [{
       name: 'path',
       label: t('calcWorkspace.newDirectory'),
       type: LowCodeFieldType.text,
-      value: `${parentPath}/`,
+      value: parentPath ? `${parentPath}/` : '',
       autofocus: true
     }],
     oneColumn: true,
@@ -128,11 +130,17 @@ async function onRename(node: WorkspaceTreeNode): Promise<void> {
   })
   if (result.ok) emit('rename', node.path, result.data.path)
 }
-/** Forward selected local files into the resources folder. */
+/** Select local files for a specific workspace-root-relative directory. */
+function onUploadClick(targetDirectory = ''): void {
+  uploadTargetDirectory.value = targetDirectory
+  fileInput.value?.click()
+}
+/** Forward selected local files and their chosen workspace directory. */
 function onFilesSelected(event: Event): void {
   const input = event.target as HTMLInputElement
-  emit('upload', [...(input.files || [])])
+  emit('upload', [...(input.files || [])], uploadTargetDirectory.value)
   input.value = ''
+  uploadTargetDirectory.value = ''
 }
 /** Prevent moving the protected manifest. */
 function allowDrag(node: { data: TreeNodeData }): boolean { return asWorkspaceNode(node.data).path !== 'calcbook.json' }

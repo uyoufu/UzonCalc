@@ -366,12 +366,6 @@ msgstr "calcbook entryPath 在工作区中不存在"
 msgid "calcbook entryPath is invalid"
 msgstr "calcbook entryPath 无效"
 
-msgid "calcbook entryPath must point to a Python file under src"
-msgstr "calcbook entryPath 必须指向 src 下的 Python 文件"
-
-msgid "calcbook formatVersion must be a positive integer"
-msgstr "calcbook formatVersion 必须是正整数"
-
 msgid "calcbook.json must contain an object"
 msgstr "calcbook.json 必须包含对象"
 
@@ -441,3 +435,18 @@ msgstr "Ruff 格式化失败：{error}"
 
 msgid "A revoked share link cannot be edited"
 msgstr "已撤销的分享链接不能编辑"
+
+msgid "calcbook formatVersion is not supported"
+msgstr "calcbook formatVersion 不受支持"
+
+msgid "calcbook entryPath must identify an importable Python file"
+msgstr "calcbook entryPath 必须指向可导入的 Python 文件"
+
+msgid "Workspace root __init__.py is required"
+msgstr "工作区根目录必须包含 __init__.py"
+
+msgid "Workspace path is reserved by the runtime"
+msgstr "工作区路径由运行时保留"
+
+msgid "calcbook metadata does not match calcbook.json"
+msgstr "calcbook 元数据与 calcbook.json 不一致"

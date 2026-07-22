@@ -13,6 +13,12 @@ from dataclasses import dataclass
 from pathlib import Path, PurePosixPath
 from typing import Iterable
 
+from app.calc_report_workspace_contract import (
+    CALCBOOK_FORMAT_VERSION,
+    CALCBOOK_PATH,
+    ROOT_PACKAGE_PATH,
+    RESERVED_RUNTIME_ROOTS,
+)
 from app.controller.calc.calc_state import ArtifactManifestKind
 from config import app_config
 
@@ -59,15 +65,27 @@ def normalize_workspace_path(raw_path: str) -> str:
     path = PurePosixPath(raw_path)
     if path.is_absolute() or any(part in {"", ".", ".."} for part in path.parts):
         raise ArtifactValidationError("Workspace path must be normalized and relative")
-    normalized = path.as_posix()
-    is_calcbook = normalized == "calcbook.json"
-    is_source = len(path.parts) > 1 and path.parts[0] == "src"
-    is_resource = len(path.parts) > 1 and path.parts[0] == "resources"
-    if not (is_calcbook or is_source or is_resource):
-        raise ArtifactValidationError(
-            "Workspace files must be calcbook.json or live under src/resources"
-        )
-    return normalized
+    if path.parts[0] in RESERVED_RUNTIME_ROOTS:
+        raise ArtifactValidationError("Workspace path is reserved by the runtime")
+    return path.as_posix()
+
+
+def is_importable_workspace_python_path(path: str) -> bool:
+    """Return whether a root-relative path identifies a Python module.
+
+    Args:
+        path: Normalized workspace-relative path.
+
+    Returns:
+        Whether the path ends in ``.py`` and every module segment is valid.
+
+    Raises:
+        None.
+    """
+    pure_path = PurePosixPath(path)
+    return pure_path.suffix == ".py" and all(
+        part.isidentifier() for part in pure_path.with_suffix("").parts
+    )
 
 
 def sha256_text(content: bytes) -> str:
@@ -112,6 +130,7 @@ class ArtifactStore:
             OSError: If artifact storage cannot be written.
         """
         normalized_files = self._validate_files(files)
+        self._validate_calcbook(normalized_files, calcbook)
         file_manifest = [
             {
                 "path": artifact_file.path,
@@ -169,18 +188,9 @@ class ArtifactStore:
         seen_paths: set[str] = set()
         total_size = 0
         for artifact_file in files:
-            path = PurePosixPath(artifact_file.path)
-            if (
-                path.is_absolute()
-                or any(part in {"", ".", ".."} for part in path.parts)
-                or len(path.parts) < 2
-                or path.parts[0] != "src"
-                or not path.name.endswith(".py")
-            ):
-                raise ArtifactValidationError(
-                    "Instrumented path must be Python under src"
-                )
-            normalized_path = path.as_posix()
+            normalized_path = normalize_workspace_path(artifact_file.path)
+            if not normalized_path.endswith(".py"):
+                raise ArtifactValidationError("Instrumented path must be a Python file")
             if normalized_path in seen_paths:
                 raise ArtifactValidationError("Duplicate instrumented path")
             seen_paths.add(normalized_path)
@@ -302,9 +312,62 @@ class ArtifactStore:
             raise ArtifactValidationError("Workspace contains too many files")
         if total_size > app_config.calc_report_max_total_size:
             raise ArtifactValidationError("Workspace total size exceeds the limit")
-        if "calcbook.json" not in seen_paths:
+        if CALCBOOK_PATH not in seen_paths:
             raise ArtifactValidationError("calcbook.json is required")
+        if ROOT_PACKAGE_PATH not in seen_paths:
+            raise ArtifactValidationError("Workspace root __init__.py is required")
+        for path in seen_paths:
+            parts = PurePosixPath(path).parts
+            ancestors = {
+                PurePosixPath(*parts[:index]).as_posix()
+                for index in range(1, len(parts))
+            }
+            if ancestors & seen_paths:
+                raise ArtifactValidationError(
+                    f"Workspace file cannot contain child paths: {path}"
+                )
         return sorted(normalized_files, key=lambda item: item.path)
+
+    def _validate_calcbook(
+        self, files: list[ArtifactFile], calcbook: dict
+    ) -> None:
+        """Validate manifest metadata against the persisted calcbook file.
+
+        Args:
+            files: Complete normalized workspace file set.
+            calcbook: Parsed calcbook metadata supplied by the caller.
+
+        Returns:
+            None.
+
+        Raises:
+            ArtifactValidationError: If metadata, file content, or entry is invalid.
+        """
+        calcbook_file = next(file for file in files if file.path == CALCBOOK_PATH)
+        try:
+            persisted_calcbook = json.loads(calcbook_file.content.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as error:
+            raise ArtifactValidationError(
+                "calcbook.json must contain valid UTF-8 JSON"
+            ) from error
+        if not isinstance(calcbook, dict) or persisted_calcbook != calcbook:
+            raise ArtifactValidationError(
+                "calcbook metadata does not match calcbook.json"
+            )
+        if calcbook.get("formatVersion") != CALCBOOK_FORMAT_VERSION:
+            raise ArtifactValidationError("calcbook formatVersion is not supported")
+        entry_path = calcbook.get("entryPath")
+        if not isinstance(entry_path, str):
+            raise ArtifactValidationError("calcbook entryPath is invalid")
+        normalized_entry = normalize_workspace_path(entry_path)
+        if not is_importable_workspace_python_path(normalized_entry):
+            raise ArtifactValidationError(
+                "calcbook entryPath must identify an importable Python file"
+            )
+        if normalized_entry not in {file.path for file in files}:
+            raise ArtifactValidationError(
+                "calcbook entryPath does not exist in the workspace"
+            )
 
     def _write_artifact(
         self,

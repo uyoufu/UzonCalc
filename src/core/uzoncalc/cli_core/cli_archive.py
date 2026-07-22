@@ -3,7 +3,9 @@
 import ast
 import hashlib
 import json
+import os
 from pathlib import Path
+from typing import Iterable
 
 from .cli_archive_analysis import analyze_archive_script
 from .cli_thumbnail import (
@@ -12,6 +14,13 @@ from .cli_thumbnail import (
     render_archive_thumbnail,
 )
 from .cli_workspace_archive import write_workspace_archive
+from .workspace_contract import (
+    CALCBOOK_FORMAT_VERSION,
+    CALCBOOK_PATH,
+    RESERVED_IMPORT_ROOTS,
+    RESERVED_RUNTIME_ROOTS,
+    ROOT_PACKAGE_PATH,
+)
 
 _ARCHIVE_SUFFIX = ".uzc"
 _REPORT_ARCHIVE_KIND = "uzoncalc.report-closure"
@@ -76,9 +85,23 @@ def _resolve_local_module(source_root: Path, module_parts: list[str]) -> Path | 
     Raises:
         None.
     """
-    for candidate_path in _module_file_candidates(source_root, module_parts):
+    if module_parts and module_parts[0] in RESERVED_IMPORT_ROOTS:
+        return None
+    candidates = (
+        [source_root / ROOT_PACKAGE_PATH]
+        if not module_parts
+        else _module_file_candidates(source_root, module_parts)
+    )
+    for candidate_path in candidates:
         if candidate_path.is_file():
-            return candidate_path.resolve()
+            resolved_path = candidate_path.resolve()
+            try:
+                resolved_path.relative_to(source_root)
+            except ValueError as error:
+                raise ValueError("本地导入不能指向工作区外部") from error
+            if _contains_symbolic_link(source_root, candidate_path):
+                raise ValueError("本地导入不能使用符号链接")
+            return resolved_path
     return None
 
 
@@ -122,7 +145,7 @@ def _resolve_import_from_modules(
         package_parts = _current_package_parts(source_root, source_path)
         keep_count = len(package_parts) - import_node.level + 1
         if keep_count < 0:
-            return []
+            raise ValueError("相对导入不能越过工作区根目录")
         module_parts = package_parts[:keep_count] + module_parts
 
     resolved_paths = []
@@ -212,7 +235,7 @@ def _collect_archive_source_files(
 
 
 def _resolve_archive_source_root(script_path: Path) -> Path:
-    """Resolve the import root while preserving an enclosing Python package.
+    """Resolve the entry directory as the root-package workspace.
 
     Args:
         script_path: Absolute calculation entry path.
@@ -223,21 +246,96 @@ def _resolve_archive_source_root(script_path: Path) -> Path:
     Raises:
         None.
     """
-    package_dir = script_path.parent
-    while package_dir.joinpath("__init__.py").is_file():
-        package_dir = package_dir.parent
-    return package_dir.resolve()
+    return script_path.parent.resolve()
+
+
+def _contains_symbolic_link(workspace_root: Path, candidate: Path) -> bool:
+    """Return whether a workspace path traverses a symbolic link.
+
+    Args:
+        workspace_root: Absolute workspace root.
+        candidate: Lexical path located below the workspace root.
+
+    Returns:
+        Whether the candidate or one of its descendants from the root is a symlink.
+
+    Raises:
+        ValueError: If the lexical candidate is outside the workspace root.
+    """
+    relative = Path(os.path.abspath(candidate)).relative_to(workspace_root)
+    current = workspace_root
+    for part in relative.parts:
+        current = current / part
+        if current.is_symlink():
+            return True
+    return False
+
+
+def _collect_explicit_resource_files(
+    workspace_root: Path,
+    resource_paths: Iterable[Path],
+    output_path: Path,
+) -> list[Path]:
+    """Resolve explicit resource files while preserving the workspace boundary.
+
+    Args:
+        workspace_root: Entry-script directory used as the archive root.
+        resource_paths: Repeatable file or recursive directory selections.
+        output_path: Archive output excluded from recursive selections.
+
+    Returns:
+        Deterministically sorted absolute regular-file paths.
+
+    Raises:
+        FileNotFoundError: If a selected resource does not exist.
+        ValueError: If a resource escapes the root, uses symlinks, or is reserved.
+    """
+    collected: set[Path] = set()
+    for resource_path in resource_paths:
+        lexical_path = (
+            resource_path
+            if resource_path.is_absolute()
+            else workspace_root / resource_path
+        )
+        if not lexical_path.exists():
+            raise FileNotFoundError(f"资源路径不存在: {resource_path}")
+        lexical_absolute = Path(os.path.abspath(lexical_path))
+        try:
+            lexical_absolute.relative_to(workspace_root)
+        except ValueError as error:
+            raise ValueError(f"资源路径必须位于工作区内: {resource_path}") from error
+        if _contains_symbolic_link(workspace_root, lexical_absolute):
+            raise ValueError(f"资源路径不能使用符号链接: {resource_path}")
+        candidates = [lexical_absolute] if lexical_absolute.is_file() else lexical_absolute.rglob("*")
+        for candidate in candidates:
+            if candidate.is_symlink():
+                raise ValueError(f"资源目录不能包含符号链接: {candidate}")
+            if not candidate.is_file():
+                continue
+            resolved = candidate.resolve()
+            try:
+                relative = resolved.relative_to(workspace_root)
+            except ValueError as error:
+                raise ValueError(f"资源文件必须位于工作区内: {candidate}") from error
+            if resolved == output_path:
+                continue
+            if relative.parts[0] in RESERVED_RUNTIME_ROOTS or relative.as_posix() == CALCBOOK_PATH:
+                raise ValueError(f"资源路径由归档运行时保留: {relative.as_posix()}")
+            collected.add(resolved)
+    return sorted(collected, key=lambda path: path.relative_to(workspace_root).as_posix())
 
 
 def create_uzc_archive(
     script_path: Path,
     output_path: Path | None = None,
+    resource_paths: Iterable[Path] = (),
 ) -> Path:
     """创建带 PNG 缩略图且可通过 python 运行的 .uzc 归档。
 
     Args:
         script_path: 待打包的 UzonCalc 计算书脚本。
         output_path: 可选的归档输出路径；为空时使用脚本同名 .uzc。
+        resource_paths: 可重复指定的工作区内资源文件或递归目录。
 
     Returns:
         已创建的 .uzc 归档路径。
@@ -275,12 +373,27 @@ def create_uzc_archive(
     source_files = _collect_archive_source_files(source_root, script_path)
     thumbnail_png = render_archive_thumbnail(analysis.preview)
     entry_relative_path = script_path.relative_to(source_root).as_posix()
-    calcbook = {"formatVersion": 1, "entryPath": f"src/{entry_relative_path}"}
+    calcbook = {
+        "formatVersion": CALCBOOK_FORMAT_VERSION,
+        "entryPath": entry_relative_path,
+    }
     source_contents = {
-        f"src/{source_file.relative_to(source_root).as_posix()}": source_file.read_bytes()
+        source_file.relative_to(source_root).as_posix(): source_file.read_bytes()
         for source_file in source_files
     }
-    source_contents["calcbook.json"] = (
+    source_contents.setdefault(
+        ROOT_PACKAGE_PATH,
+        (source_root / ROOT_PACKAGE_PATH).read_bytes()
+        if (source_root / ROOT_PACKAGE_PATH).is_file()
+        else b"",
+    )
+    for resource_file in _collect_explicit_resource_files(
+        source_root, resource_paths, archive_path
+    ):
+        source_contents[resource_file.relative_to(source_root).as_posix()] = (
+            resource_file.read_bytes()
+        )
+    source_contents[CALCBOOK_PATH] = (
         json.dumps(calcbook, ensure_ascii=False, indent=2) + "\n"
     ).encode("utf-8")
     artifact_hash = hashlib.sha256(
@@ -296,7 +409,7 @@ def create_uzc_archive(
         "permissions": {"canEdit": True, "canShare": True},
         "executable": {
             "filesPrefix": _SCRIPT_FILES_PREFIX,
-            "entryPath": f"src/{entry_relative_path}",
+            "entryPath": entry_relative_path,
             "autoViewEntry": auto_view_entry,
         },
         "reports": [

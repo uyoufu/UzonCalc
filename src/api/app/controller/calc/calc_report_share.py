@@ -194,7 +194,7 @@ async def export_shared_calc_report(
     tokenPayloads: TokenPayloads | None = Depends(get_optional_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> FileResponse:
-    """Stream an authorized share as a portable v3 archive.
+    """Stream an authorized share as a portable v4 archive.
 
     Args:
         token: Share bearer token.
@@ -238,7 +238,7 @@ async def export_catalog_shared_calc_report(
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> FileResponse:
-    """Stream an authorized same-backend catalog share as a v3 archive.
+    """Stream an authorized same-backend catalog share as a v4 archive.
 
     Args:
         shareOid: Catalog share public identifier.

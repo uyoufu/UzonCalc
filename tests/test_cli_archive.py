@@ -14,6 +14,7 @@ import pytest
 from uzoncalc import cli
 from uzoncalc.cli_core import cli_thumbnail
 from uzoncalc.cli_core import cli_archive_runtime
+from uzoncalc.cli_core.cli_archive import create_uzc_archive
 from uzoncalc.cli_core.cli_archive_analysis import (
     ArchiveEntryPreview,
     analyze_archive_script,
@@ -136,13 +137,13 @@ def test_png_container_reader_rejects_tampered_crc(tmp_path):
 
 
 @pytest.mark.parametrize("suffix", [".png", ".uzc"])
-def test_workspace_archive_v3_round_trip_supports_both_extensions(tmp_path, suffix):
-    """V3 workspace archives should use identical validated PNG containers."""
+def test_workspace_archive_v4_round_trip_supports_both_extensions(tmp_path, suffix):
+    """V4 workspace archives should use identical validated PNG containers."""
     thumbnail = BytesIO()
     Image.new("RGB", (2, 2), color="white").save(thumbnail, format="PNG")
     output_path = tmp_path / f"report{suffix}"
     files = {
-        "executable/src/main.py": b"print('ok')\n",
+        "executable/main.py": b"print('ok')\n",
         "workspace/root/calcbook.json": b'{"formatVersion": 1}',
     }
 
@@ -154,14 +155,14 @@ def test_workspace_archive_v3_round_trip_supports_both_extensions(tmp_path, suff
     )
 
     archive = read_workspace_archive(output_path.read_bytes())
-    assert archive.manifest["formatVersion"] == 3
+    assert archive.manifest["formatVersion"] == 4
     assert archive.manifest["canEdit"] is False
     assert {path: archive.files[path] for path in files} == files
     assert "__main__.py" in archive.files
 
 
-def test_workspace_archive_v3_rejects_manifest_hash_tampering(tmp_path):
-    """V3 reads should reject content whose declared digest no longer matches."""
+def test_workspace_archive_v4_rejects_manifest_hash_tampering(tmp_path):
+    """V4 reads should reject content whose declared digest no longer matches."""
     thumbnail = BytesIO()
     Image.new("RGB", (2, 2), color="white").save(thumbnail, format="PNG")
     output_path = tmp_path / "report.png"
@@ -169,7 +170,7 @@ def test_workspace_archive_v3_rejects_manifest_hash_tampering(tmp_path):
         output_path,
         thumbnail.getvalue(),
         {"rootReportOid": "0123456789abcdef01234567"},
-        {"executable/src/main.py": b"print('ok')\n"},
+        {"executable/main.py": b"print('ok')\n"},
     )
     payload = read_png_zip_container(output_path.read_bytes())
     source = BytesIO(payload)
@@ -182,7 +183,7 @@ def test_workspace_archive_v3_rejects_manifest_hash_tampering(tmp_path):
     ):
         for info in input_archive.infolist():
             content = input_archive.read(info)
-            if info.filename == "executable/src/main.py":
+            if info.filename == "executable/main.py":
                 content = b"print('tampered')\n"
             output_archive.writestr(info.filename, content)
 
@@ -308,7 +309,7 @@ def test_zip_command_requires_uzon_calc_entry(tmp_path, capsys):
 
 @pytest.mark.parametrize("suffix", [".png", ".uzc"])
 def test_zip_archive_runs_existing_main_guard_like_python_file(tmp_path, suffix):
-    """已有 __main__ 入口时，两种 v3 导出文件均应支持 Python 直接执行。"""
+    """已有 __main__ 入口时，两种 v4 导出文件均应支持 Python 直接执行。"""
     _write_uzoncalc_stub(tmp_path)
     script_path = tmp_path / "report.py"
     archive_path = tmp_path / f"report{suffix}"
@@ -379,7 +380,7 @@ def test_zip_archive_adds_view_main_for_single_entry_without_main_guard(
     selected_entries = []
     monkeypatch.setattr(cli_archive_runtime, "view", selected_entries.append)
 
-    cli_archive_runtime.run_v3_archive(archive_path)
+    cli_archive_runtime.run_workspace_archive(archive_path)
 
     assert [entry.__name__ for entry in selected_entries] == ["sheet"]
     selected_entries.clear()
@@ -432,7 +433,7 @@ def test_zip_archive_is_valid_png_with_embedded_zip(tmp_path):
         manifest = json.loads(
             archive.read("__uzoncalc_bundle__/manifest.json").decode("utf-8")
         )
-    assert manifest["formatVersion"] == 3
+    assert manifest["formatVersion"] == 4
     assert manifest["thumbnail"] == {
         "entry_name": "sheet",
         "title": "结构计算缩略图",
@@ -519,7 +520,7 @@ def test_workspace_thumbnail_uses_supplied_report_metadata(monkeypatch) -> None:
     renderer = Mock(return_value=b"thumbnail")
     monkeypatch.setattr(cli_thumbnail, "render_archive_thumbnail", renderer)
     files = {
-        "src/main.py": (
+        "main.py": (
             "from uzoncalc import uzon_calc\n\n"
             "@uzon_calc\n"
             "def sheet():\n"
@@ -530,7 +531,7 @@ def test_workspace_thumbnail_uses_supplied_report_metadata(monkeypatch) -> None:
     thumbnail_png, auto_view_entry = (
         cli_thumbnail.render_workspace_archive_thumbnail(
             files,
-            "src/main.py",
+            "main.py",
             title="Stored report name",
             description="Stored report description",
         )
@@ -651,7 +652,92 @@ def test_zip_archive_collects_static_local_imports_only(tmp_path):
 
     assert "__main__.py" in names
     assert "__uzoncalc_bundle__/manifest.json" in names
-    assert "reports/root/src/report.py" in names
-    assert "reports/root/src/package/__init__.py" in names
-    assert "reports/root/src/package/tool.py" in names
-    assert "reports/root/src/unused.py" not in names
+    assert "reports/root/report.py" in names
+    assert "reports/root/__init__.py" in names
+    assert "reports/root/package/__init__.py" in names
+    assert "reports/root/package/tool.py" in names
+    assert "reports/root/unused.py" not in names
+
+
+def test_zip_archive_collects_relative_imports_and_explicit_resources(tmp_path):
+    """Relative modules and repeatable file/directory resources should retain root paths."""
+    _write_uzoncalc_stub(tmp_path)
+    script_path = tmp_path / "report.py"
+    script_path.write_text(
+        "from .values import VALUE\n"
+        "from uzoncalc import uzon_calc\n\n"
+        "@uzon_calc()\n"
+        "async def sheet():\n"
+        "    return VALUE\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "values.py").write_text("VALUE = 42\n", encoding="utf-8")
+    assets = tmp_path / "assets"
+    assets.mkdir()
+    (assets / "logo.bin").write_bytes(b"logo")
+    tables = tmp_path / "tables"
+    tables.mkdir()
+    (tables / "input.csv").write_text("x,y\n1,2\n", encoding="utf-8")
+
+    assert cli.main(
+        [
+            "zip",
+            "-p",
+            str(script_path),
+            "-r",
+            "assets/logo.bin",
+            "-r",
+            str(tables),
+        ]
+    ) == 0
+
+    with zipfile.ZipFile(tmp_path / "report.uzc") as archive:
+        names = set(archive.namelist())
+        calcbook = json.loads(archive.read("reports/root/calcbook.json"))
+
+    assert calcbook == {"formatVersion": 2, "entryPath": "report.py"}
+    assert "reports/root/__init__.py" in names
+    assert "reports/root/values.py" in names
+    assert "reports/root/assets/logo.bin" in names
+    assert "reports/root/tables/input.csv" in names
+
+
+def test_zip_archive_rejects_resources_outside_workspace(tmp_path, capsys):
+    """Absolute and relative resource selections must remain under the entry directory."""
+    _write_uzoncalc_stub(tmp_path)
+    script_path = tmp_path / "report.py"
+    script_path.write_text(
+        "from uzoncalc import uzon_calc\n\n@uzon_calc\ndef sheet():\n    return 1\n",
+        encoding="utf-8",
+    )
+    outside_path = tmp_path.parent / f"{tmp_path.name}-outside.txt"
+    outside_path.write_text("outside", encoding="utf-8")
+
+    assert cli.main(
+        ["zip", "-p", str(script_path), "-r", str(outside_path)]
+    ) == 1
+
+    assert "资源路径必须位于工作区内" in capsys.readouterr().err
+
+
+def test_workspace_archive_runs_root_relative_entry(monkeypatch, tmp_path):
+    """The v4 runtime should load a root entry as a package member."""
+    _write_uzoncalc_stub(tmp_path)
+    script_path = tmp_path / "report.py"
+    script_path.write_text(
+        "from .values import VALUE\n"
+        "from uzoncalc import uzon_calc\n\n"
+        "@uzon_calc()\n"
+        "async def sheet():\n"
+        "    return VALUE\n",
+        encoding="utf-8",
+    )
+    (tmp_path / "values.py").write_text("VALUE = 42\n", encoding="utf-8")
+    archive_path = create_uzc_archive(script_path)
+    selected_entries = []
+    monkeypatch.setattr(cli_archive_runtime, "view", selected_entries.append)
+
+    cli_archive_runtime.run_workspace_archive(archive_path)
+
+    assert [entry.__name__ for entry in selected_entries] == ["sheet"]
+    assert selected_entries[0].__wrapped__.__globals__["VALUE"] == 42

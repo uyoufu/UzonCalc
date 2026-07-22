@@ -476,11 +476,11 @@ def upgrade() -> None:
         sa.Column(
             "entryPath",
             sa.String(length=255),
-            server_default="src/main.py",
+            server_default="main.py",
             nullable=False,
         ),
         sa.Column(
-            "formatVersion", sa.SmallInteger(), server_default="1", nullable=False
+            "formatVersion", sa.SmallInteger(), server_default="2", nullable=False
         ),
         sa.Column(
             "workspaceRevision", sa.BigInteger(), server_default="0", nullable=False

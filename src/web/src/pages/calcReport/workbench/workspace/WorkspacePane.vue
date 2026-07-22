@@ -43,12 +43,12 @@
       <WorkspaceTreePanel v-show="isTreeVisible" v-model:expanded-paths="expandedPaths"
         v-model:current-path="selectedPath" :nodes="draft.treeNodes.value" :entry-path="draft.entryPath.value"
         :report-oid="reportOid" :is-desktop-api="isDesktopApi"
-        @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory" @upload="onUploadResources"
+        @select="onSelectFile" @create="onCreateFile" @create-directory="onCreateDirectory" @upload="onUploadFiles"
         @rename="onRenamePath" @delete="onDeletePath" @entry="onSetEntryPath"
         @dependencies="onOpenDependencyDialog" />
       <main class="col workspace-main column no-wrap">
         <WorkspaceTabs :tabs="workspaceTabs.tabs.value" :active-tab-id="workspaceTabs.activeTabId.value"
-          :dirty-paths="dirtyPaths" @activate="onActivateTab" @close="onCloseTab" />
+          :dirty-paths="dirtyPaths" @activate="onActivateTab" @close="onCloseTab" @menu="onTabMenuCommand" />
         <div class="col workspace-tab-content">
           <div v-if="selectedFile" v-show="isFileTabActive" class="full-height column no-wrap">
             <div class="workspace-filebar row items-center q-px-sm">
@@ -94,6 +94,8 @@ import WorkspaceCodeEditor from './WorkspaceCodeEditor.vue'
 import WorkspaceTabs from './WorkspaceTabs.vue'
 import { useWorkspaceDraft, type WorkspaceDraftFile } from './useWorkspaceDraft'
 import { useWorkspaceTabs, WorkspaceTabKind, WORKSPACE_RUN_TAB_ID } from './useWorkspaceTabs'
+import { WorkspaceTabMenuCommand, type WorkspaceTabMenuCommand as WorkspaceTabMenuCommandType } from './useWorkspaceTabContextMenu'
+import { workspaceReferenceForPath } from './workspaceReference'
 import { useWorkspaceViewState } from './useWorkspaceViewState'
 import { useDependencyDialog } from './useDependencyDialog'
 import { useWorkspaceConflictDialog } from './useWorkspaceConflictDialog'
@@ -207,12 +209,40 @@ async function onActivateTab(tabId: string): Promise<void> {
 
 /** Close one file or safely terminate and close the execution tab. */
 async function onCloseTab(tabId: string): Promise<void> {
+  await onCloseTabs([tabId])
+}
+
+/** Close requested tabs after obtaining any required execution-tab approval. */
+async function onCloseTabs(tabIds: string[], preferredActiveId = ''): Promise<void> {
+  const closedIds = new Set(tabIds)
+  if (closedIds.has(WORKSPACE_RUN_TAB_ID) && executionPaneRef.value && !await executionPaneRef.value.requestClose()) return
+  const previousActiveId = workspaceTabs.activeTabId.value
+  const nextTab = workspaceTabs.closeTabs(closedIds, preferredActiveId)
+  if (previousActiveId !== workspaceTabs.activeTabId.value && nextTab?.kind === WorkspaceTabKind.File && nextTab.path) {
+    await onSelectFile(nextTab.path)
+  }
+}
+
+/** Execute one tab-strip context-menu command against its target tab. */
+async function onTabMenuCommand(command: WorkspaceTabMenuCommandType, tabId: string): Promise<void> {
   const tab = workspaceTabs.tabs.value.find((candidate) => candidate.id === tabId)
   if (!tab) return
-  if (tab.id === WORKSPACE_RUN_TAB_ID && executionPaneRef.value && !await executionPaneRef.value.requestClose()) return
-  const wasActive = workspaceTabs.activeTabId.value === tabId
-  const nextTab = workspaceTabs.closeTab(tabId)
-  if (wasActive && nextTab?.kind === WorkspaceTabKind.File && nextTab.path) await onSelectFile(nextTab.path)
+  if (command === WorkspaceTabMenuCommand.CopyReference && tab.path) {
+    await navigator.clipboard.writeText(workspaceReferenceForPath(tab.path))
+    notifySuccess(t('calcWorkspace.referenceCopied'))
+    return
+  }
+  if (command === WorkspaceTabMenuCommand.Close) {
+    await onCloseTabs([tabId])
+    return
+  }
+  if (command === WorkspaceTabMenuCommand.CloseOthers) {
+    await onCloseTabs(workspaceTabs.tabs.value.filter((candidate) => candidate.id !== tabId).map((candidate) => candidate.id), tabId)
+    return
+  }
+  if (command === WorkspaceTabMenuCommand.CloseAll) {
+    await onCloseTabs(workspaceTabs.tabs.value.map((candidate) => candidate.id))
+  }
 }
 
 /** Refresh the preview URL for one loaded binary file. */
@@ -240,11 +270,11 @@ function onCreateDirectory(path: string): void {
   }
 }
 
-/** Add selected local files under resources/. */
-function onUploadResources(localFiles: File[]): void {
+/** Add selected local files under one workspace-root-relative directory. */
+function onUploadFiles(localFiles: File[], targetDirectory: string): void {
   localFiles.forEach((file) => {
     try {
-      draft.addFile(`resources/${file.name}`, file)
+      draft.addFile(targetDirectory ? `${targetDirectory}/${file.name}` : file.name, file)
     } catch (error) {
       notifyError(getApiFailure(error).message)
     }

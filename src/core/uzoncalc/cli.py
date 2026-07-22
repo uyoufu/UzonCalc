@@ -16,7 +16,7 @@ from pathlib import Path
 import sys
 
 from .cli_core.cli_archive import create_uzc_archive
-from .cli_core.cli_archive_runtime import run_v3_archive
+from .cli_core.cli_archive_runtime import run_workspace_archive
 from .http_server import DEFAULT_SERVER_PORT, serve_reloadable_html
 
 # 环境变量名：设置后 doc.save() 将变为空操作
@@ -178,6 +178,13 @@ def _build_zip_parser() -> argparse.ArgumentParser:
         default=None,
         help="输出 PNG/ZIP 格式的 .uzc 文件路径（省略时保存到脚本同目录）",
     )
+    parser.add_argument(
+        "--resource",
+        "-r",
+        action="append",
+        default=[],
+        help="显式加入的工作区内资源文件或递归目录，可重复指定",
+    )
     return parser
 
 
@@ -199,6 +206,7 @@ def _run_zip_command(argv: list[str]) -> int:
         archive_path = create_uzc_archive(
             Path(args.path),
             Path(args.output) if args.output else None,
+            [Path(resource_path) for resource_path in args.resource],
         )
     except Exception as e:
         print(f"Error: {e}", file=sys.stderr)
@@ -209,7 +217,7 @@ def _run_zip_command(argv: list[str]) -> int:
 
 
 def _build_archive_run_parser() -> argparse.ArgumentParser:
-    """Build the parser for executing one exported v3 archive.
+    """Build the parser for executing one exported v4 archive.
 
     Args:
         None.
@@ -222,14 +230,14 @@ def _build_archive_run_parser() -> argparse.ArgumentParser:
     """
     parser = argparse.ArgumentParser(
         prog="uzoncalc run",
-        description="运行 UzonCalc 导出的 v3 PNG/UZC 计算书",
+        description="运行 UzonCalc 导出的 v4 PNG/UZC 计算书",
     )
     parser.add_argument("archive", help="要运行的 .png 或 .uzc 计算书归档")
     return parser
 
 
 def _run_archive_command(argv: list[str]) -> int:
-    """Execute one exported v3 archive from the command line.
+    """Execute one exported v4 archive from the command line.
 
     Args:
         argv: Arguments following the ``run`` subcommand.
@@ -242,7 +250,7 @@ def _run_archive_command(argv: list[str]) -> int:
     """
     args = _build_archive_run_parser().parse_args(argv)
     try:
-        run_v3_archive(args.archive)
+        run_workspace_archive(args.archive)
     except Exception as error:
         print(f"Error: {error}", file=sys.stderr)
         return 1

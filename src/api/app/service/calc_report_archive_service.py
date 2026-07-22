@@ -1,4 +1,4 @@
-"""Export and import portable v3 calculation-report dependency closures."""
+"""Export and import portable v4 calculation-report dependency closures."""
 
 from __future__ import annotations
 
@@ -161,7 +161,7 @@ async def import_archive_closure(
     *,
     sync_locator: str | None = None,
 ) -> ShareImportResDTO:
-    """Validate a v3 archive and reconstruct its complete owned closure.
+    """Validate a v4 archive and reconstruct its complete owned closure.
 
     Args:
         user_id: Receiving user database identifier.
@@ -186,7 +186,7 @@ async def import_archive_closure(
         nodes, root_node, permissions = _validate_manifest(archive)
     except ValueError as error:
         raise_ex(
-            f"Invalid v3 report archive: {error}",
+            f"Invalid v4 report archive: {error}",
             code=400,
             error_code=CalcErrorCode.ARCHIVE_INVALID,
         )
@@ -310,7 +310,7 @@ async def import_archive_closure(
                 sourceArchiveHash=hashlib.sha256(archive_bytes).hexdigest(),
                 sourceArtifactId=imported_artifacts[node["nodeKey"]].id,
                 originMetadata={
-                    "archiveFormat": "v3",
+                    "archiveFormat": "v4",
                     "sourceReportOid": report_key,
                     "sourceVersionName": node["versionName"],
                 },
@@ -353,7 +353,7 @@ async def synchronize_archive_closure(
         user_id: Owner of the imported closure.
         imported_root: Stable local root report to update in place.
         sync_source: Persisted remote synchronization cursor.
-        archive_bytes: Newly downloaded and bounded v3 archive.
+        archive_bytes: Newly downloaded and bounded v4 archive.
         session: Database session used for staging and the final commit.
 
     Returns:
@@ -421,7 +421,7 @@ async def synchronize_archive_closure(
         origin = CalcReportOrigin(
             reportId=imported.id,
             sourceArchiveHash=hashlib.sha256(archive_bytes).hexdigest(),
-            originMetadata={"archiveFormat": "v3", "sourceReportOid": report_key},
+            originMetadata={"archiveFormat": "v4", "sourceReportOid": report_key},
         )
         session.add(origin)
         imported_by_source_key[report_key] = imported
@@ -508,7 +508,7 @@ async def synchronize_archive_closure(
             origin.sourceArtifactId = artifact.id
             origin.sourceArchiveHash = hashlib.sha256(archive_bytes).hexdigest()
             origin.originMetadata = {
-                "archiveFormat": "v3",
+                "archiveFormat": "v4",
                 "sourceReportOid": report_key,
                 "sourceVersionName": node["versionName"],
             }
@@ -530,7 +530,7 @@ def inspect_archive_root(archive_bytes: bytes) -> tuple[str, str, str]:
     """Return portable root identity, version, and source artifact hash.
 
     Args:
-        archive_bytes: Complete bounded v3 archive bytes.
+        archive_bytes: Complete bounded v4 archive bytes.
 
     Returns:
         Source report key, semantic version, and original artifact hash.
