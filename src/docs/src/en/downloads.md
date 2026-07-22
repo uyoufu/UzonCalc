@@ -4,6 +4,18 @@ editLink: false
 description: Download the UzonCalc Windows desktop package to run calculation reports with automatic calculation, formula rendering, and document layout.
 ---
 
+## 1.5.0
+
+> Release date: 2026-07-22
+
+### New Features
+
+1. Isolated execution for calculation notebooks: absolute workspace imports are now automatically rewritten to package-relative form, allowing notebooks to run independently without relying on the full global workspace context.
+
+### Download
+
+[uzoncalc-win-x64-1.5.0.zip](https://oss.uzoncloud.com:2234/public/files/soft/uzoncalc-win-x64-1.5.0.zip)
+
 ## 1.4.0
 
 > Release date: 2026-07-21
