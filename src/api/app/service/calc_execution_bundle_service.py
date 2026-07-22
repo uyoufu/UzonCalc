@@ -32,6 +32,7 @@ from app.sandbox.core.backend_types import PreparedExecutionBundle, RuntimeDescr
 from app.service.calc_report_artifact_service import artifact_store
 from app.service.calc_report_build_service import ensure_instrumented_artifact
 from app.service.calc_report_workspace_service import (
+    ensure_workspace_artifact,
     get_owned_report,
     parse_version_name,
 )
@@ -73,6 +74,8 @@ async def resolve_execution_source(
     resolved_type = ExecutionSourceType[source_type.name]
     version = None
     artifact_id = report.workspaceArtifactId
+    if resolved_type is ExecutionSourceType.WORKSPACE:
+        artifact_id = (await ensure_workspace_artifact(user_id, report, session)).id
     if resolved_type is ExecutionSourceType.LATEST:
         if report.latestVersionId is None:
             raise_ex("Report has no latest published version", code=409)
@@ -226,6 +229,61 @@ async def prepare_execution_bundle(
         manifest=manifest,
     )
     return bundle, prepared
+
+
+async def prepare_retained_execution_bundle(
+    bundle: CalcExecutionBundle,
+    report: CalcReport,
+    session: AsyncSession,
+) -> PreparedExecutionBundle:
+    """Materialize an existing immutable bundle without resolving mutable sources.
+
+    Args:
+        bundle: Bundle retained by an instance or execution slot.
+        report: Report metadata used only for the entry path.
+        session: Database session used to load bundle components.
+
+    Returns:
+        Prepared immutable bundle ready for the configured backend.
+
+    Raises:
+        CustomException: If any retained bundle component is incomplete.
+    """
+    rows = (
+        await session.scalars(
+            select(CalcExecutionBundleComponent).where(
+                CalcExecutionBundleComponent.bundleId == bundle.id
+            )
+        )
+    ).all()
+    components: dict[str, _ResolvedComponent] = {}
+    for row in rows:
+        source_artifact = await session.get(CalcReportArtifact, row.sourceArtifactId)
+        execution_artifact = await session.get(
+            CalcReportArtifact, row.executionArtifactId
+        )
+        if source_artifact is None or execution_artifact is None:
+            raise_ex("Retained execution bundle is incomplete", code=500)
+        components[row.componentKey] = _ResolvedComponent(
+            component_key=row.componentKey,
+            scope_key=row.scopeKey,
+            alias=row.alias,
+            selector_key=row.selectorKey,
+            source_artifact=source_artifact,
+            execution_artifact=execution_artifact,
+            is_entry=row.isEntry,
+        )
+    if not any(component.is_entry for component in components.values()):
+        raise_ex("Retained execution bundle has no entry component", code=500)
+    root = _materialize_bundle(bundle.bundleHash, bundle.manifest, components)
+    entry_path = bundle.manifest.get("entry", {}).get("entryPath", report.entryPath)
+    return PreparedExecutionBundle(
+        oid=bundle.oid,
+        bundle_hash=bundle.bundleHash,
+        root=root,
+        entry_path=entry_path,
+        manifest=bundle.manifest,
+    )
 
 
 async def _expand_dependencies(

@@ -1,7 +1,6 @@
 """Publishing, latest-pointer, and workspace-restore services."""
 
 import ast
-from pathlib import Path
 from typing import cast
 
 from sqlalchemy import select
@@ -20,17 +19,13 @@ from app.db.models.calc_report_version import CalcReportVersion
 from app.db.models.enums import ArtifactKind
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_artifact_service import artifact_store, public_hash
-from app.service.calc_report_service import (
-    get_workspace_projection_path,
-    write_latest_projection,
-)
 from app.service.calc_report_workspace_service import (
+    ensure_workspace_artifact,
     get_owned_report,
     parse_version_name,
     require_editable_report,
     restore_workspace_artifact,
 )
-from config import logger
 
 
 async def publish_version(
@@ -42,12 +37,6 @@ async def publish_version(
     """Publish the current SOURCE after static validation without instrumentation."""
     report = await get_owned_report(user_id, report_oid, session)
     require_editable_report(report)
-    if report.workspaceArtifactId is None:
-        raise_ex(
-            "Workspace not found",
-            code=404,
-            error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
-        )
     try:
         major, minor, patch = parse_version_name(request.versionName)
     except ValueError as error:
@@ -66,8 +55,8 @@ async def publish_version(
             code=409,
             error_code=CalcErrorCode.VERSION_ALREADY_EXISTS,
         )
-    artifact = await session.get(CalcReportArtifact, report.workspaceArtifactId)
-    if artifact is None or artifact.artifactKind != ArtifactKind.SOURCE.value:
+    artifact = await ensure_workspace_artifact(user_id, report, session)
+    if artifact.artifactKind != ArtifactKind.SOURCE.value:
         raise_ex("Workspace SOURCE artifact not found", code=500)
     _validate_publishable_source(artifact)
     version = CalcReportVersion(
@@ -84,8 +73,6 @@ async def publish_version(
     report.latestVersionId = version.id
     await session.commit()
     await session.refresh(version)
-    _materialize_version_projection(user_id, report, version, artifact)
-    write_latest_projection(user_id, report, version)
     return _version_response(version, artifact, is_latest=True)
 
 
@@ -132,7 +119,6 @@ async def set_latest_version(
     artifact = await session.get(CalcReportArtifact, version.sourceArtifactId)
     if artifact is None:
         raise_ex("Version artifact not found", code=500)
-    write_latest_projection(user_id, report, version)
     return _version_response(version, artifact, is_latest=True)
 
 
@@ -281,21 +267,3 @@ def _version_response(
         isLatest=is_latest,
         createdAt=version.createdAt,
     )
-
-
-def _materialize_version_projection(
-    user_id: int,
-    report: CalcReport,
-    version: CalcReportVersion,
-    artifact: CalcReportArtifact,
-) -> None:
-    """Materialize one immutable version directory for human inspection."""
-    target = (
-        get_workspace_projection_path(user_id, report.oid).parent
-        / "version"
-        / f"v_{version.major}_{version.minor}_{version.patch}"
-    )
-    try:
-        artifact_store.materialize(artifact.storageKey, target)
-    except OSError:
-        logger.exception("Failed to materialize report version %s", version.oid)

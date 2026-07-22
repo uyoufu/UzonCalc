@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-import { continueExecution, countExecutions, listExecutions, startExecution } from 'src/api/calc/executions'
+import { continueExecution, getCurrentExecution, startExecution } from 'src/api/calc/executions'
 import { countCalcReports, listCalcReports } from 'src/api/calc/reports'
 import { countInstances, listInstances } from 'src/api/calc/instances'
 import { saveWorkspace } from 'src/api/calc/workspace'
@@ -62,13 +62,9 @@ describe('calculation APIs', () => {
       params: { categoryOid: 'instance-category', ...pagination }
     })
 
-    await countExecutions()
-    expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/count', {
-      params: { reportOid: undefined }
-    })
-    await listExecutions({ ...pagination, sortBy: 'createdAt' })
-    expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/items', {
-      params: { ...pagination, sortBy: 'createdAt' }
+    await getCurrentExecution('report-oid', { type: ExecutionSourceType.Version, versionName: '1.2.3' })
+    expect(httpClientMock.get).toHaveBeenCalledWith('/calc/execution/current', {
+      params: { reportOid: 'report-oid', sourceType: ExecutionSourceType.Version, versionName: '1.2.3' }
     })
   })
 

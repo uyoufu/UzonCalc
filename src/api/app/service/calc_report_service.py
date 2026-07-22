@@ -2,11 +2,11 @@
 
 import datetime
 import hashlib
-import json
 from pathlib import Path
-from typing import Any, cast
+import shutil
+from typing import Any
 
-from sqlalchemy import delete, func, select
+from sqlalchemy import delete, func, or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_error import CalcErrorCode
@@ -32,20 +32,21 @@ from app.db.models.calc_report_dependency import (
 )
 from app.db.models.calc_report_version import CalcReportVersion
 from app.db.models.calc_report_share import CalcReportShareLink
+from app.db.models.calc_report_instance import CalcReportInstance
+from app.db.models.calc_execution import CalcExecution, CalcExecutionSlot
 from app.db.models.enums import ReportOriginType
 from app.db.models.favorite_calc_report import FavoriteCalcReport
 from app.db.models.object_id import ObjectId
 from app.exception.custom_exception import raise_ex
-from app.service.calc_report_artifact_service import artifact_store, public_hash
+from app.service.calc_report_artifact_service import public_hash
 from app.service.calc_report_category_service import get_category
 from app.service.calc_report_build_service import (
     configured_runtime_fingerprint_hint,
     get_build_state,
 )
-from app.service.calc_report_state_service import resolve_publish_state
-from app.service.calc_report_workspace_service import get_owned_report
+from app.service.calc_report_workspace_service import get_owned_report, get_workspace
 from app.service.secret_storage_service import decrypt_persisted_secret
-from config import app_config, logger
+from config import app_config
 
 
 async def count_reports(
@@ -160,12 +161,14 @@ async def copy_report(
 ) -> CalcReportResDTO:
     """Copy an owned workspace and its mutable dependency declarations."""
     source = await get_owned_report(user_id, source_report_oid, session)
-    if source.workspaceArtifactId is None:
+    source_workspace = get_workspace_projection_path(user_id, source_report_oid)
+    if not source_workspace.is_dir():
         raise_ex(
             "Workspace not found",
             code=404,
             error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
         )
+    await get_workspace(user_id, source_report_oid, session)
     category = await get_category(user_id, request.categoryOid, session)
     target_oid = request.reportOid or ObjectId().to_hex()
     if not ObjectId.is_valid(target_oid):
@@ -189,6 +192,8 @@ async def copy_report(
         entryPath=source.entryPath,
         formatVersion=source.formatVersion,
         workspaceRevision=1,
+        workspaceHash=source.workspaceHash,
+        workspaceManifest=source.workspaceManifest,
         workspaceArtifactId=source.workspaceArtifactId,
         originType=ReportOriginType.COPY.value,
         canEdit=source.canEdit,
@@ -235,24 +240,142 @@ async def copy_report(
                     isDefault=selector.isDefault,
                 )
             )
-    await session.commit()
-    artifact = await session.get(CalcReportArtifact, source.workspaceArtifactId)
-    if artifact is not None:
-        _materialize_report_workspace(user_id, target, artifact)
+    target_workspace = get_workspace_projection_path(user_id, target.oid)
+    try:
+        shutil.copytree(source_workspace, target_workspace)
+        await session.commit()
+    except Exception:
+        await session.rollback()
+        shutil.rmtree(target_workspace, ignore_errors=True)
+        raise
     return await _report_response(target, session)
 
 
-async def delete_report(user_id: int, report_oid: str, session: AsyncSession) -> None:
-    """Soft-delete an owned report and remove its favorite association."""
-    report = await get_owned_report(user_id, report_oid, session)
-    report.deletedAt = datetime.datetime.now(datetime.timezone.utc)
+async def delete_report(
+    user_id: int,
+    report_oid: str,
+    session: AsyncSession,
+    *,
+    include_deleted: bool = False,
+) -> None:
+    """Delete an owned report while retaining identities required by instances.
+
+    Args:
+        user_id: Current user database ID.
+        report_oid: Owned report identifier.
+        session: Database session used for dependency checks and deletion.
+        include_deleted: Whether an internal final purge may load a soft-deleted report.
+
+    Returns:
+        None.
+
+    Raises:
+        CustomException: If another report still depends on this report.
+    """
+    report = await get_owned_report(
+        user_id, report_oid, session, include_deleted=include_deleted
+    )
+    dependent_report_count = await session.scalar(
+        select(func.count(CalcReportDependency.id)).where(
+            CalcReportDependency.targetReportId == report.id
+        )
+    )
+    if dependent_report_count:
+        raise_ex(
+            "Report is still referenced by calculation dependencies",
+            code=409,
+            data={"dependentReportCount": dependent_report_count},
+        )
+    version_ids = list(
+        await session.scalars(
+            select(CalcReportVersion.id).where(CalcReportVersion.reportId == report.id)
+        )
+    )
+    share_ids = list(
+        await session.scalars(
+            select(CalcReportShareLink.id).where(
+                CalcReportShareLink.reportId == report.id
+            )
+        )
+    )
+    slot_conditions = [CalcExecutionSlot.reportId == report.id]
+    if version_ids:
+        slot_conditions.append(CalcExecutionSlot.versionId.in_(version_ids))
+    if share_ids:
+        slot_conditions.append(CalcExecutionSlot.shareLinkId.in_(share_ids))
+    slots = list(
+        await session.scalars(select(CalcExecutionSlot).where(or_(*slot_conditions)))
+    )
+    from app.service.calc_execution_service import discard_execution_slot
+
+    for slot in slots:
+        await discard_execution_slot(slot, session)
+        await session.delete(slot)
+    await session.flush()
+    retained_instance_execution_ids = {
+        execution_id
+        for row in await session.execute(
+            select(
+                CalcExecutionSlot.activeExecutionId,
+                CalcExecutionSlot.currentExecutionId,
+            ).where(CalcExecutionSlot.instanceId.is_not(None))
+        )
+        for execution_id in row
+        if execution_id is not None
+    }
+    execution_delete = delete(CalcExecution).where(CalcExecution.reportId == report.id)
+    if retained_instance_execution_ids:
+        execution_delete = execution_delete.where(
+            CalcExecution.id.not_in(retained_instance_execution_ids)
+        )
+    await session.execute(execution_delete)
+    await session.execute(
+        delete(CalcReportShareLink).where(CalcReportShareLink.reportId == report.id)
+    )
     await session.execute(
         delete(FavoriteCalcReport).where(
             FavoriteCalcReport.userId == user_id,
             FavoriteCalcReport.reportId == report.id,
         )
     )
+    instance_count = await session.scalar(
+        select(func.count(CalcReportInstance.id)).where(
+            CalcReportInstance.reportId == report.id
+        )
+    )
+    if instance_count:
+        report.deletedAt = datetime.datetime.now(datetime.timezone.utc)
+        report.workspaceArtifactId = None
+        report.workspaceHash = None
+        report.workspaceManifest = None
+        await session.execute(
+            update(CalcReportOrigin)
+            .where(CalcReportOrigin.reportId == report.id)
+            .values(sourceArtifactId=None)
+        )
+    else:
+        report.latestVersionId = None
+        await session.flush()
+        await session.execute(
+            update(CalcReportOrigin)
+            .where(CalcReportOrigin.sourceReportId == report.id)
+            .values(sourceReportId=None)
+        )
+        if version_ids:
+            await session.execute(
+                update(CalcReportOrigin)
+                .where(CalcReportOrigin.sourceVersionId.in_(version_ids))
+                .values(sourceVersionId=None)
+            )
+        await session.execute(
+            delete(CalcReportVersion).where(CalcReportVersion.reportId == report.id)
+        )
+        await session.delete(report)
     await session.commit()
+    shutil.rmtree(
+        get_workspace_projection_path(user_id, report_oid).parent,
+        ignore_errors=True,
+    )
 
 
 async def set_favorite(
@@ -306,9 +429,14 @@ async def _report_response(
         else BuildStatus.NOT_REQUESTED
     )
     publish_state = (
-        await resolve_publish_state(report, workspace_artifact, session)
-        if workspace_artifact is not None
-        else PublishState.UNPUBLISHED
+        PublishState.PUBLISHED
+        if latest_artifact is not None
+        and latest_artifact.contentHash == report.workspaceHash
+        else (
+            PublishState.UNPUBLISHED_CHANGES
+            if latest is not None
+            else PublishState.UNPUBLISHED
+        )
     )
     is_favorite = (
         await session.get(FavoriteCalcReport, (report.userId, report.id)) is not None
@@ -325,11 +453,9 @@ async def _report_response(
         entryPath=report.entryPath,
         formatVersion=report.formatVersion,
         workspaceRevision=report.workspaceRevision,
-        workspaceArtifactHash=(
-            public_hash(workspace_artifact.contentHash)
-            if workspace_artifact is not None
-            else None
-        ),
+        workspaceHash=public_hash(report.workspaceHash)
+        if report.workspaceHash
+        else None,
         latestVersionName=latest_name,
         latestArtifactHash=(
             public_hash(latest_artifact.contentHash)
@@ -407,37 +533,3 @@ async def _report_sync_state(
         if source_artifact.contentHash == sync_source.sourceArtifactHash
         else ReportSyncState.UPDATE_AVAILABLE
     )
-
-
-def _materialize_report_workspace(
-    user_id: int, report: CalcReport, artifact: CalcReportArtifact
-) -> None:
-    """Materialize a copied report's readable workspace projection."""
-    try:
-        artifact_store.materialize(
-            artifact.storageKey, get_workspace_projection_path(user_id, report.oid)
-        )
-    except OSError:
-        logger.exception("Failed to materialize copied report %s", report.oid)
-
-
-def write_latest_projection(
-    user_id: int, report: CalcReport, version: CalcReportVersion
-) -> None:
-    """Write the recoverable latest.json projection for a report."""
-    report_root = get_workspace_projection_path(user_id, report.oid).parent
-    report_root.mkdir(parents=True, exist_ok=True)
-    temporary = report_root / ".latest.json.tmp"
-    temporary.write_text(
-        json.dumps(
-            {
-                "reportOid": report.oid,
-                "versionName": f"{version.major}.{version.minor}.{version.patch}",
-                "versionOid": version.oid,
-            },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-    temporary.replace(report_root / "latest.json")

@@ -5,7 +5,7 @@ import json
 from pathlib import Path
 
 import pytest
-from sqlalchemy import event
+from sqlalchemy import event, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from app.controller.calc.calc_workspace_dto import (
@@ -13,10 +13,16 @@ from app.controller.calc.calc_workspace_dto import (
     WorkspaceFileDTO,
     WorkspaceSaveDTO,
 )
-from app.controller.calc.calc_state import BuildStatus, WorkspaceFileSource
-from app.db.models import Base, CalcReportCategory, User
+from app.controller.calc.calc_execution_dto import CalcExecutionStartDTO
+from app.controller.calc.calc_state import (
+    BuildStatus,
+    ExecutionSourceType,
+    WorkspaceFileSource,
+)
+from app.db.models import Base, CalcReport, CalcReportCategory, User
 from app.exception.custom_exception import CustomException
 from app.service.calc_report_workspace_service import get_workspace, save_workspace
+from app.service.calc_execution_service import get_current_execution_step
 
 
 def _run(coro):
@@ -104,11 +110,76 @@ def test_first_save_creates_report_and_current_files_can_be_reused(
                 session,
             )
             loaded = await get_workspace(user.id, "c" * 24, session)
+            report = await session.scalar(
+                select(CalcReport).where(CalcReport.oid == "c" * 24)
+            )
+            retained = await get_current_execution_step(
+                session,
+                user.id,
+                CalcExecutionStartDTO(
+                    reportOid="c" * 24,
+                    source={"type": ExecutionSourceType.WORKSPACE},
+                ),
+            )
 
             assert first.workspaceRevision == 1
             assert reused.workspaceRevision == 2
-            assert loaded.sourceArtifactHash == first.sourceArtifactHash
+            assert loaded.workspaceHash == first.workspaceHash
             assert loaded.buildStatus is BuildStatus.NOT_REQUESTED
+            assert report is not None and report.workspaceArtifactId is None
+            assert retained is None
+        await engine.dispose()
+
+    _run(scenario())
+
+
+def test_direct_workspace_edit_is_reconciled_without_publishing_artifact(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """A direct file edit should advance mutable identity but remain unfrozen."""
+    monkeypatch.chdir(tmp_path)
+
+    async def scenario() -> None:
+        """Save a workspace, edit its file directly, and reconcile metadata."""
+        engine, factory = await _create_session_factory()
+        async with factory() as session:
+            user = User(
+                oid="a" * 24,
+                username="owner",
+                password="hash",
+                salt="salt",
+                roles=["regular"],
+            )
+            session.add(user)
+            await session.flush()
+            session.add(
+                CalcReportCategory(oid="b" * 24, userId=user.id, name="Default")
+            )
+            await session.commit()
+            uploads = {
+                "calcbook.json": b'{"formatVersion":1,"entryPath":"src/main.py"}',
+                "src/main.py": b"x = 1\n",
+            }
+            first = await save_workspace(
+                user.id, "c" * 24, _snapshot(0), uploads, session
+            )
+            workspace_file = (
+                tmp_path
+                / "data/calc-reports"
+                / str(user.id)
+                / ("c" * 24)
+                / "workspace/src/main.py"
+            )
+            workspace_file.write_bytes(b"x = 2\n")
+
+            reconciled = await get_workspace(user.id, "c" * 24, session)
+            report = await session.scalar(
+                select(CalcReport).where(CalcReport.oid == "c" * 24)
+            )
+
+            assert reconciled.workspaceRevision == first.workspaceRevision + 1
+            assert reconciled.workspaceHash != first.workspaceHash
+            assert report is not None and report.workspaceArtifactId is None
         await engine.dispose()
 
     _run(scenario())

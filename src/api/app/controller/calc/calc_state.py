@@ -30,6 +30,14 @@ class ExecutionSourceType(StrEnum):
     VERSION = "version"
 
 
+class ExecutionTargetType(StrEnum):
+    """Identify the user-isolated retained execution target."""
+
+    WORKSPACE = "workspace"
+    VERSION = "version"
+    INSTANCE = "instance"
+
+
 class ExecutionStatus(StrEnum):
     """Describe the public lifecycle of a calculation execution."""
 

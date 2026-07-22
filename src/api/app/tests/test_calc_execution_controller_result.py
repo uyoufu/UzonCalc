@@ -45,11 +45,21 @@ def test_finalize_execution_step_builds_public_response(monkeypatch):
         assert user_id == 1
         assert result_path == "public/calcs/1/new.html"
 
+    async def promote_successful_execution(session, execution_oid, user_id):
+        """Verify successful finalization promotes the target slot."""
+        assert execution_oid == "execution-oid"
+        assert user_id == 1
+
     monkeypatch.setattr(calc_execution, "html_cacher", FakeHtmlCacher())
     monkeypatch.setattr(
         calc_execution.calc_execution_service,
         "record_result_path",
         record_result_path,
+    )
+    monkeypatch.setattr(
+        calc_execution.calc_execution_service,
+        "promote_successful_execution",
+        promote_successful_execution,
     )
     now = datetime.datetime.now(datetime.timezone.utc)
     execution = CalcExecution(

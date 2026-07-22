@@ -1,16 +1,17 @@
 """initial optimized schema
 
-Revision ID: 2f85e0c7600d
+Revision ID: 260d5a545b68
 Revises:
-Create Date: 2026-07-18 15:32:14.220059
+Create Date: 2026-07-22 11:12:09.022373
 
 """
 
 from alembic import op
 import sqlalchemy as sa
 
+
 # revision identifiers, used by Alembic.
-revision = "2f85e0c7600d"
+revision = "260d5a545b68"
 down_revision = None
 branch_labels = None
 depends_on = None
@@ -484,6 +485,8 @@ def upgrade() -> None:
         sa.Column(
             "workspaceRevision", sa.BigInteger(), server_default="0", nullable=False
         ),
+        sa.Column("workspaceHash", sa.CHAR(length=64), nullable=True),
+        sa.Column("workspaceManifest", sa.JSON(), nullable=True),
         sa.Column("workspaceArtifactId", sa.Integer(), nullable=True),
         sa.Column("latestVersionId", sa.Integer(), nullable=True),
         sa.Column("originType", sa.SmallInteger(), server_default="1", nullable=False),
@@ -549,7 +552,7 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.PrimaryKeyConstraint("id", name=op.f("pk_calc_report")),
-        sa.UniqueConstraint("oid", name=op.f("uq_calc_report_oid"))
+        sa.UniqueConstraint("oid", name=op.f("uq_calc_report_oid")),
     )
     op.create_index(
         "ix_calc_report_user_deleted_updated",
@@ -719,7 +722,7 @@ def upgrade() -> None:
         sa.Column("userId", sa.Integer(), nullable=False),
         sa.Column("reportId", sa.Integer(), nullable=False),
         sa.Column("entryName", sa.String(length=128), nullable=False),
-        sa.Column("sourceArtifactId", sa.Integer(), nullable=False),
+        sa.Column("sourceHash", sa.CHAR(length=64), nullable=False),
         sa.Column("defaults", sa.JSON(), nullable=False),
         sa.Column("updatedAt", sa.DateTime(timezone=True), nullable=False),
         sa.Column("expiresAt", sa.DateTime(timezone=True), nullable=True),
@@ -736,12 +739,6 @@ def upgrade() -> None:
             ["calc_report.id"],
             name=op.f("fk_input_cache_reportId_calc_report"),
             ondelete="CASCADE",
-        ),
-        sa.ForeignKeyConstraint(
-            ["sourceArtifactId"],
-            ["calc_report_artifact.id"],
-            name=op.f("fk_input_cache_sourceArtifactId_calc_report_artifact"),
-            ondelete="RESTRICT",
         ),
         sa.ForeignKeyConstraint(
             ["userId"],
@@ -892,6 +889,72 @@ def upgrade() -> None:
         postgresql_where=sa.text('"isDefault" IS TRUE'),
     )
     op.create_table(
+        "calc_report_instance",
+        sa.Column("userId", sa.Integer(), nullable=False),
+        sa.Column("categoryId", sa.Integer(), nullable=False),
+        sa.Column("reportId", sa.Integer(), nullable=False),
+        sa.Column("sourceVersionId", sa.Integer(), nullable=True),
+        sa.Column("bundleId", sa.Integer(), nullable=False),
+        sa.Column("reportName", sa.String(length=100), nullable=True),
+        sa.Column("name", sa.String(length=100), nullable=False),
+        sa.Column("description", sa.Text(), nullable=True),
+        sa.Column("defaults", sa.JSON(), nullable=False),
+        sa.Column("inputWindows", sa.JSON(), nullable=False),
+        sa.Column("resultPath", sa.String(length=500), nullable=False),
+        sa.Column("revision", sa.BigInteger(), server_default="1", nullable=False),
+        sa.Column("updatedAt", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("deletedAt", sa.DateTime(timezone=True), nullable=True),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column(
+            "oid",
+            sa.CHAR(length=24),
+            nullable=False,
+            comment="Global 24-character hexadecimal object identifier",
+        ),
+        sa.Column("createdAt", sa.DateTime(timezone=True), nullable=False),
+        sa.CheckConstraint(
+            "revision >= 1", name=op.f("ck_calc_report_instance_revision_positive")
+        ),
+        sa.ForeignKeyConstraint(
+            ["bundleId"],
+            ["calc_execution_bundle.id"],
+            name=op.f("fk_calc_report_instance_bundleId_calc_execution_bundle"),
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["categoryId"],
+            ["calc_report_instance_category.id"],
+            name="fk_report_instance_category",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["reportId", "sourceVersionId"],
+            ["calc_report_version.reportId", "calc_report_version.id"],
+            name="fk_calc_report_instance_source_version",
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["reportId"],
+            ["calc_report.id"],
+            name=op.f("fk_calc_report_instance_reportId_calc_report"),
+            ondelete="RESTRICT",
+        ),
+        sa.ForeignKeyConstraint(
+            ["userId"],
+            ["users.id"],
+            name=op.f("fk_calc_report_instance_userId_users"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_calc_report_instance")),
+        sa.UniqueConstraint("oid", name=op.f("uq_calc_report_instance_oid")),
+    )
+    op.create_index(
+        "ix_calc_report_instance_user_deleted_updated",
+        "calc_report_instance",
+        ["userId", "deletedAt", "updatedAt"],
+        unique=False,
+    )
+    op.create_table(
         "calc_report_origin",
         sa.Column("reportId", sa.Integer(), nullable=False),
         sa.Column("sourceReportId", sa.Integer(), nullable=True),
@@ -936,79 +999,6 @@ def upgrade() -> None:
         sa.UniqueConstraint("reportId", name=op.f("uq_calc_report_origin_reportId")),
     )
     op.create_table(
-        "calc_report_instance",
-        sa.Column("userId", sa.Integer(), nullable=False),
-        sa.Column("categoryId", sa.Integer(), nullable=False),
-        sa.Column("reportId", sa.Integer(), nullable=False),
-        sa.Column("sourceVersionId", sa.Integer(), nullable=True),
-        sa.Column("bundleId", sa.Integer(), nullable=False),
-        sa.Column("executionId", sa.Integer(), nullable=True),
-        sa.Column("reportName", sa.String(length=100), nullable=True),
-        sa.Column("name", sa.String(length=100), nullable=False),
-        sa.Column("description", sa.Text(), nullable=True),
-        sa.Column("defaults", sa.JSON(), nullable=False),
-        sa.Column("inputWindows", sa.JSON(), nullable=False),
-        sa.Column("resultPath", sa.String(length=500), nullable=False),
-        sa.Column("revision", sa.BigInteger(), server_default="1", nullable=False),
-        sa.Column("updatedAt", sa.DateTime(timezone=True), nullable=False),
-        sa.Column("deletedAt", sa.DateTime(timezone=True), nullable=True),
-        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
-        sa.Column(
-            "oid",
-            sa.CHAR(length=24),
-            nullable=False,
-            comment="Global 24-character hexadecimal object identifier",
-        ),
-        sa.Column("createdAt", sa.DateTime(timezone=True), nullable=False),
-        sa.CheckConstraint(
-            "revision >= 1", name=op.f("ck_calc_report_instance_revision_positive")
-        ),
-        sa.ForeignKeyConstraint(
-            ["bundleId"],
-            ["calc_execution_bundle.id"],
-            name=op.f("fk_calc_report_instance_bundleId_calc_execution_bundle"),
-            ondelete="RESTRICT",
-        ),
-        sa.ForeignKeyConstraint(
-            ["categoryId"],
-            ["calc_report_instance_category.id"],
-            name="fk_report_instance_category",
-            ondelete="RESTRICT",
-        ),
-        sa.ForeignKeyConstraint(
-            ["executionId"],
-            ["calc_execution.id"],
-            name=op.f("fk_calc_report_instance_executionId_calc_execution"),
-            ondelete="SET NULL",
-        ),
-        sa.ForeignKeyConstraint(
-            ["reportId", "sourceVersionId"],
-            ["calc_report_version.reportId", "calc_report_version.id"],
-            name="fk_calc_report_instance_source_version",
-            ondelete="RESTRICT",
-        ),
-        sa.ForeignKeyConstraint(
-            ["reportId"],
-            ["calc_report.id"],
-            name=op.f("fk_calc_report_instance_reportId_calc_report"),
-            ondelete="RESTRICT",
-        ),
-        sa.ForeignKeyConstraint(
-            ["userId"],
-            ["users.id"],
-            name=op.f("fk_calc_report_instance_userId_users"),
-            ondelete="CASCADE",
-        ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_calc_report_instance")),
-        sa.UniqueConstraint("oid", name=op.f("uq_calc_report_instance_oid")),
-    )
-    op.create_index(
-        "ix_calc_report_instance_user_deleted_updated",
-        "calc_report_instance",
-        ["userId", "deletedAt", "updatedAt"],
-        unique=False,
-    )
-    op.create_table(
         "calc_report_share_link",
         sa.Column("reportId", sa.Integer(), nullable=False),
         sa.Column("versionId", sa.Integer(), nullable=False),
@@ -1025,7 +1015,6 @@ def upgrade() -> None:
         ),
         sa.Column("note", sa.String(length=500), nullable=True),
         sa.Column("createdByUserId", sa.Integer(), nullable=False),
-        sa.Column("previewExecutionId", sa.Integer(), nullable=True),
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column(
             "oid",
@@ -1053,12 +1042,6 @@ def upgrade() -> None:
             ondelete="RESTRICT",
         ),
         sa.ForeignKeyConstraint(
-            ["previewExecutionId"],
-            ["calc_execution.id"],
-            name=op.f("fk_calc_report_share_link_previewExecutionId_calc_execution"),
-            ondelete="SET NULL",
-        ),
-        sa.ForeignKeyConstraint(
             ["reportId", "versionId"],
             ["calc_report_version.reportId", "calc_report_version.id"],
             name="fk_share_link_report_version",
@@ -1071,14 +1054,15 @@ def upgrade() -> None:
         ),
     )
     op.create_table(
-        "user_input_history",
-        sa.Column("executionId", sa.Integer(), nullable=False),
-        sa.Column("defaults", sa.JSON(), nullable=False),
-        sa.Column("windows", sa.JSON(), nullable=False),
-        sa.Column("inputHistory", sa.JSON(), nullable=False),
-        sa.Column("currentStep", sa.Integer(), server_default="0", nullable=False),
-        sa.Column("totalSteps", sa.Integer(), server_default="0", nullable=False),
-        sa.Column("updatedAt", sa.DateTime(timezone=True), nullable=False),
+        "calc_execution_slot",
+        sa.Column("userId", sa.Integer(), nullable=False),
+        sa.Column("targetType", sa.SmallInteger(), nullable=False),
+        sa.Column("reportId", sa.Integer(), nullable=True),
+        sa.Column("versionId", sa.Integer(), nullable=True),
+        sa.Column("instanceId", sa.Integer(), nullable=True),
+        sa.Column("shareLinkId", sa.Integer(), nullable=True),
+        sa.Column("currentExecutionId", sa.Integer(), nullable=True),
+        sa.Column("activeExecutionId", sa.Integer(), nullable=True),
         sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
         sa.Column(
             "oid",
@@ -1087,17 +1071,90 @@ def upgrade() -> None:
             comment="Global 24-character hexadecimal object identifier",
         ),
         sa.Column("createdAt", sa.DateTime(timezone=True), nullable=False),
+        sa.CheckConstraint(
+            "(targetType = 1 AND reportId IS NOT NULL AND versionId IS NULL AND instanceId IS NULL AND shareLinkId IS NULL) OR (targetType = 2 AND reportId IS NULL AND versionId IS NOT NULL AND instanceId IS NULL AND shareLinkId IS NULL) OR (targetType = 3 AND reportId IS NULL AND versionId IS NULL AND instanceId IS NOT NULL AND shareLinkId IS NULL) OR (targetType = 4 AND reportId IS NULL AND versionId IS NULL AND instanceId IS NULL AND shareLinkId IS NOT NULL)",
+            name=op.f("ck_calc_execution_slot_execution_slot_target_shape"),
+        ),
+        sa.CheckConstraint(
+            "targetType IN (1, 2, 3, 4)",
+            name=op.f("ck_calc_execution_slot_target_type_values"),
+        ),
         sa.ForeignKeyConstraint(
-            ["executionId"],
+            ["activeExecutionId"],
             ["calc_execution.id"],
-            name=op.f("fk_user_input_history_executionId_calc_execution"),
+            name=op.f("fk_calc_execution_slot_activeExecutionId_calc_execution"),
+            ondelete="SET NULL",
+        ),
+        sa.ForeignKeyConstraint(
+            ["currentExecutionId"],
+            ["calc_execution.id"],
+            name=op.f("fk_calc_execution_slot_currentExecutionId_calc_execution"),
+            ondelete="SET NULL",
+        ),
+        sa.ForeignKeyConstraint(
+            ["instanceId"],
+            ["calc_report_instance.id"],
+            name=op.f("fk_calc_execution_slot_instanceId_calc_report_instance"),
             ondelete="CASCADE",
         ),
-        sa.PrimaryKeyConstraint("id", name=op.f("pk_user_input_history")),
-        sa.UniqueConstraint(
-            "executionId", name=op.f("uq_user_input_history_executionId")
+        sa.ForeignKeyConstraint(
+            ["reportId"],
+            ["calc_report.id"],
+            name=op.f("fk_calc_execution_slot_reportId_calc_report"),
+            ondelete="CASCADE",
         ),
-        sa.UniqueConstraint("oid", name=op.f("uq_user_input_history_oid")),
+        sa.ForeignKeyConstraint(
+            ["shareLinkId"],
+            ["calc_report_share_link.id"],
+            name=op.f("fk_calc_execution_slot_shareLinkId_calc_report_share_link"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["userId"],
+            ["users.id"],
+            name=op.f("fk_calc_execution_slot_userId_users"),
+            ondelete="CASCADE",
+        ),
+        sa.ForeignKeyConstraint(
+            ["versionId"],
+            ["calc_report_version.id"],
+            name=op.f("fk_calc_execution_slot_versionId_calc_report_version"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_calc_execution_slot")),
+        sa.UniqueConstraint("oid", name=op.f("uq_calc_execution_slot_oid")),
+    )
+    op.create_index(
+        "uq_execution_slot_instance",
+        "calc_execution_slot",
+        ["userId", "instanceId"],
+        unique=True,
+        sqlite_where=sa.text('"targetType" = 3'),
+        postgresql_where=sa.text('"targetType" = 3'),
+    )
+    op.create_index(
+        "uq_execution_slot_share",
+        "calc_execution_slot",
+        ["userId", "shareLinkId"],
+        unique=True,
+        sqlite_where=sa.text('"targetType" = 4'),
+        postgresql_where=sa.text('"targetType" = 4'),
+    )
+    op.create_index(
+        "uq_execution_slot_version",
+        "calc_execution_slot",
+        ["userId", "versionId"],
+        unique=True,
+        sqlite_where=sa.text('"targetType" = 2'),
+        postgresql_where=sa.text('"targetType" = 2'),
+    )
+    op.create_index(
+        "uq_execution_slot_workspace",
+        "calc_execution_slot",
+        ["userId", "reportId"],
+        unique=True,
+        sqlite_where=sa.text('"targetType" = 1'),
+        postgresql_where=sa.text('"targetType" = 1'),
     )
     op.create_table(
         "calc_report_instance_share",
@@ -1186,11 +1243,38 @@ def upgrade() -> None:
             "shareLinkId", "userId", name=op.f("pk_calc_report_share_recipient")
         ),
     )
+    op.create_table(
+        "user_input_history",
+        sa.Column("executionId", sa.Integer(), nullable=False),
+        sa.Column("defaults", sa.JSON(), nullable=False),
+        sa.Column("windows", sa.JSON(), nullable=False),
+        sa.Column("updatedAt", sa.DateTime(timezone=True), nullable=False),
+        sa.Column("id", sa.Integer(), autoincrement=True, nullable=False),
+        sa.Column(
+            "oid",
+            sa.CHAR(length=24),
+            nullable=False,
+            comment="Global 24-character hexadecimal object identifier",
+        ),
+        sa.Column("createdAt", sa.DateTime(timezone=True), nullable=False),
+        sa.ForeignKeyConstraint(
+            ["executionId"],
+            ["calc_execution.id"],
+            name=op.f("fk_user_input_history_executionId_calc_execution"),
+            ondelete="CASCADE",
+        ),
+        sa.PrimaryKeyConstraint("id", name=op.f("pk_user_input_history")),
+        sa.UniqueConstraint(
+            "executionId", name=op.f("uq_user_input_history_executionId")
+        ),
+        sa.UniqueConstraint("oid", name=op.f("uq_user_input_history_oid")),
+    )
     # ### end Alembic commands ###
 
 
 def downgrade() -> None:
     # ### commands auto generated by Alembic - please adjust! ###
+    op.drop_table("user_input_history")
     op.drop_table("calc_report_share_recipient")
     op.drop_table("calc_report_share_department")
     op.drop_index(
@@ -1204,14 +1288,38 @@ def downgrade() -> None:
         table_name="calc_report_instance_share",
     )
     op.drop_table("calc_report_instance_share")
-    op.drop_table("user_input_history")
+    op.drop_index(
+        "uq_execution_slot_workspace",
+        table_name="calc_execution_slot",
+        sqlite_where=sa.text('"targetType" = 1'),
+        postgresql_where=sa.text('"targetType" = 1'),
+    )
+    op.drop_index(
+        "uq_execution_slot_version",
+        table_name="calc_execution_slot",
+        sqlite_where=sa.text('"targetType" = 2'),
+        postgresql_where=sa.text('"targetType" = 2'),
+    )
+    op.drop_index(
+        "uq_execution_slot_share",
+        table_name="calc_execution_slot",
+        sqlite_where=sa.text('"targetType" = 4'),
+        postgresql_where=sa.text('"targetType" = 4'),
+    )
+    op.drop_index(
+        "uq_execution_slot_instance",
+        table_name="calc_execution_slot",
+        sqlite_where=sa.text('"targetType" = 3'),
+        postgresql_where=sa.text('"targetType" = 3'),
+    )
+    op.drop_table("calc_execution_slot")
     op.drop_table("calc_report_share_link")
+    op.drop_table("calc_report_origin")
     op.drop_index(
         "ix_calc_report_instance_user_deleted_updated",
         table_name="calc_report_instance",
     )
     op.drop_table("calc_report_instance")
-    op.drop_table("calc_report_origin")
     op.drop_index(
         "uq_dependency_selector_default",
         table_name="calc_report_dependency_selector",

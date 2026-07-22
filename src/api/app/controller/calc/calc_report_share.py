@@ -167,9 +167,6 @@ async def preview_shared_calc_report(
         execution = await finalize_execution_step(
             step, None, link.createdByUserId, session
         )
-        await calc_report_share_service.record_share_preview_execution(
-            link, step.execution, session
-        )
     execution.htmlPath = f"/api/v1/calc-report/shared/{token}/result"
     preview.recentExecution = execution
     return ok(data=preview)

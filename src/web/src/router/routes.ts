@@ -130,24 +130,6 @@ export const dynamicRoutes: ExtendedRouteRecordRaw[] = [
       }
     ]
   },
-  {
-    name: 'CalcExecutionManagement',
-    path: '/calc-execution',
-    component: NormalLayout,
-    meta: {
-      label: 'calcWorkspace.executionHistory',
-      icon: 'history'
-    },
-    redirect: '/calc-execution/list',
-    children: [
-      {
-        name: 'CalcExecutionHistory',
-        path: 'list',
-        meta: { icon: 'history', label: 'calcWorkspace.executionHistory', noCache: true },
-        component: () => import('pages/calcExecution/ExecutionHistory.vue')
-      }
-    ]
-  },
   // {
   //   name: 'CalcModule',
   //   path: '/calc-module',

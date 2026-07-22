@@ -64,9 +64,6 @@ class CalcReportShareLink(BaseModel):
     createdByUserId: Mapped[int] = mapped_column(
         ForeignKey("users.id", ondelete="RESTRICT"), nullable=False
     )
-    previewExecutionId: Mapped[int | None] = mapped_column(
-        ForeignKey("calc_execution.id", ondelete="SET NULL"), nullable=True
-    )
 
 
 class CalcReportShareRecipient(Base):

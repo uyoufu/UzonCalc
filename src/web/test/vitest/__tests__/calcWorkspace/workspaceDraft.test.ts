@@ -15,7 +15,7 @@ vi.mock('src/api/calc/workspace', () => ({ getWorkspaceFile: getWorkspaceFileMoc
 const snapshot: WorkspaceSnapshot = {
   reportOid: '67abcdefabcdefabcdefabcd',
   workspaceRevision: 4,
-  sourceArtifactHash: `sha256:${'1'.repeat(64)}`,
+  workspaceHash: `sha256:${'1'.repeat(64)}`,
   entryPath: 'src/main.py',
   formatVersion: 1,
   files: [

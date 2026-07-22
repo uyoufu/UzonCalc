@@ -79,6 +79,8 @@ class CalcReport(BaseModel):
     workspaceRevision: Mapped[int] = mapped_column(
         BigInteger, nullable=False, default=0, server_default="0"
     )
+    workspaceHash: Mapped[str | None] = mapped_column(CHAR(64), nullable=True)
+    workspaceManifest: Mapped[dict | None] = mapped_column(JSON, nullable=True)
     workspaceArtifactId: Mapped[int | None] = mapped_column(
         ForeignKey("calc_report_artifact.id", ondelete="RESTRICT"), nullable=True
     )

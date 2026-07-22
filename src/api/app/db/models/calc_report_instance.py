@@ -59,9 +59,6 @@ class CalcReportInstance(BaseModel):
     bundleId: Mapped[int] = mapped_column(
         ForeignKey("calc_execution_bundle.id", ondelete="RESTRICT"), nullable=False
     )
-    executionId: Mapped[int | None] = mapped_column(
-        ForeignKey("calc_execution.id", ondelete="SET NULL"), nullable=True
-    )
     reportName: Mapped[str | None] = mapped_column(String(100), nullable=True)
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str | None] = mapped_column(Text, nullable=True)

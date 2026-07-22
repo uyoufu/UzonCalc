@@ -27,6 +27,15 @@ class ExecutionSourceType(IntEnum):
     VERSION = 3
 
 
+class ExecutionTargetType(IntEnum):
+    """Identify the retained-result slot targeted by an execution."""
+
+    WORKSPACE = 1
+    VERSION = 2
+    INSTANCE = 3
+    SHARE_PREVIEW = 4
+
+
 class ExecutorType(IntEnum):
     """Identify the sandbox implementation used for an execution."""
 

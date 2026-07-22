@@ -13,13 +13,17 @@ from app.controller.calc.calc_instance_dto import (
     CalcInstanceCreateDTO,
     CalcInstanceListFilterDTO,
     CalcInstanceResDTO,
-    CalcInstanceResultUpdateDTO,
     CalcInstanceShareResDTO,
     CalcInstanceUpdateDTO,
 )
 from app.controller.dto_base import PaginationDTO
-from app.db.models.calc_execution import CalcExecution, CalcExecutionBundle
+from app.db.models.calc_execution import (
+    CalcExecution,
+    CalcExecutionBundle,
+    CalcExecutionSlot,
+)
 from app.db.models.calc_report import CalcReport
+from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_instance import (
     CalcReportInstance,
     CalcReportInstanceShare,
@@ -27,6 +31,7 @@ from app.db.models.calc_report_instance import (
 from app.db.models.calc_report_instance_category import CalcReportInstanceCategory
 from app.db.models.calc_report_version import CalcReportVersion
 from app.db.models.object_id import ObjectId
+from app.db.models.enums import ExecutionSourceType as DbExecutionSourceType
 from app.db.models.user_input_history import UserInputHistory
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_instance_category_service import get_category
@@ -34,6 +39,16 @@ from app.service.share_token_service import (
     create_signed_share_token,
     verify_signed_share_token,
 )
+from app.controller.calc.calc_execution_dto import CalcExecutionStartDTO
+from app.controller.calc.calc_state import ExecutionSourceType
+from app.service.calc_execution_service import (
+    ExecutionStep,
+    discard_execution_slot,
+    get_or_create_instance_execution_slot,
+    get_execution_step,
+    start_execution,
+)
+from app.service.calc_execution_bundle_service import ResolvedExecutionSource
 
 
 async def create_instance(
@@ -57,7 +72,6 @@ async def create_instance(
         reportId=report.id,
         sourceVersionId=execution.resolvedVersionId,
         bundleId=bundle.id,
-        executionId=execution.id,
         reportName=report.name,
         name=request.name.strip(),
         description=request.description,
@@ -179,42 +193,155 @@ async def update_instance(
     return await get_instance(user_id, instance_oid, session)
 
 
-async def update_instance_result(
-    user_id: int,
-    instance_oid: str,
-    request: CalcInstanceResultUpdateDTO,
-    session: AsyncSession,
-) -> CalcInstanceResDTO:
-    """Replace result/provenance from a newer owned execution."""
-    instance = await _get_instance_model(user_id, instance_oid, session)
-    execution, report, bundle, history = await _execution_source(
-        user_id, request.executionId, session
-    )
-    if request.revision != instance.revision:
-        raise_ex("Instance revision conflict", code=409)
-    if not execution.resultPath:
-        raise_ex("Execution has no cached result", code=409)
-    result_path = _persist_result(user_id, instance.oid, execution.resultPath)
-    instance.reportId = report.id
-    instance.sourceVersionId = execution.resolvedVersionId
-    instance.bundleId = bundle.id
-    instance.executionId = execution.id
-    instance.reportName = report.name
-    instance.defaults = history.defaults
-    instance.inputWindows = history.windows
-    instance.resultPath = result_path
-    instance.revision += 1
-    await session.commit()
-    return await _response(instance, session)
-
-
 async def delete_instance(
     user_id: int, instance_oid: str, session: AsyncSession
 ) -> None:
-    """Soft-delete an owned saved instance while retaining reproducibility rows."""
+    """Physically delete an instance and release its retained report identity.
+
+    Args:
+        user_id: Current user database ID.
+        instance_oid: Owned instance identifier.
+        session: Database session used for deletion and final report cleanup.
+
+    Returns:
+        None.
+
+    Raises:
+        CustomException: If the instance does not exist or is not owned by the user.
+    """
     instance = await _get_instance_model(user_id, instance_oid, session)
-    instance.deletedAt = datetime.datetime.now(datetime.timezone.utc)
+    report_id = instance.reportId
+    slot = await session.scalar(
+        select(CalcExecutionSlot).where(
+            CalcExecutionSlot.userId == user_id,
+            CalcExecutionSlot.instanceId == instance.id,
+        )
+    )
+    if slot is not None:
+        await discard_execution_slot(slot, session)
+        await session.delete(slot)
+        await session.flush()
+    await session.delete(instance)
     await session.commit()
+    shutil.rmtree(
+        Path("data/calc-instances") / str(user_id) / instance_oid,
+        ignore_errors=True,
+    )
+    report = await session.get(CalcReport, report_id)
+    remaining_instances = await session.scalar(
+        select(func.count(CalcReportInstance.id)).where(
+            CalcReportInstance.reportId == report_id
+        )
+    )
+    if report is not None and report.deletedAt is not None and not remaining_instances:
+        from app.service.calc_report_service import delete_report
+
+        await delete_report(user_id, report.oid, session, include_deleted=True)
+
+
+async def start_instance_execution(
+    user_id: int,
+    instance_oid: str,
+    defaults: dict,
+    is_silent: bool,
+    session: AsyncSession,
+) -> ExecutionStep:
+    """Start an execution in the instance-owned retained-result slot."""
+    instance = await _get_instance_model(user_id, instance_oid, session)
+    report = await session.get(CalcReport, instance.reportId)
+    if report is None:
+        raise_ex("Calculation report not found", code=404)
+    source_type = (
+        ExecutionSourceType.VERSION
+        if instance.sourceVersionId is not None
+        else ExecutionSourceType.WORKSPACE
+    )
+    version = (
+        await session.get(CalcReportVersion, instance.sourceVersionId)
+        if instance.sourceVersionId is not None
+        else None
+    )
+    version_name = (
+        f"{version.major}.{version.minor}.{version.patch}"
+        if version is not None
+        else None
+    )
+    bundle = await session.get(CalcExecutionBundle, instance.bundleId)
+    source_artifact = (
+        await session.get(CalcReportArtifact, bundle.entrySourceArtifactId)
+        if bundle is not None
+        else None
+    )
+    if bundle is None or source_artifact is None:
+        raise_ex("Calculation instance bundle is incomplete", code=500)
+    slot = await get_or_create_instance_execution_slot(user_id, instance.id, session)
+    return await start_execution(
+        session,
+        user_id,
+        CalcExecutionStartDTO(
+            reportOid=report.oid,
+            source={"type": source_type, "versionName": version_name},
+            defaults=defaults,
+            isSilent=is_silent,
+        ),
+        slot_override=slot,
+        source_override=ResolvedExecutionSource(
+            report=report,
+            source_artifact=source_artifact,
+            source_type=(
+                DbExecutionSourceType.VERSION
+                if instance.sourceVersionId is not None
+                else DbExecutionSourceType.WORKSPACE
+            ),
+            resolved_version=version,
+        ),
+        bundle_override=bundle,
+    )
+
+
+async def get_instance_execution_step(
+    user_id: int,
+    instance_oid: str,
+    session: AsyncSession,
+) -> ExecutionStep | None:
+    """Return the active or retained execution owned by one instance."""
+    instance = await _get_instance_model(user_id, instance_oid, session)
+    slot = await session.scalar(
+        select(CalcExecutionSlot).where(
+            CalcExecutionSlot.userId == user_id,
+            CalcExecutionSlot.instanceId == instance.id,
+        )
+    )
+    if slot is None:
+        return None
+    execution_id = slot.activeExecutionId or slot.currentExecutionId
+    execution = await session.get(CalcExecution, execution_id) if execution_id else None
+    return (
+        await get_execution_step(session, user_id, execution.oid)
+        if execution is not None
+        else None
+    )
+
+
+async def apply_instance_execution_result(
+    user_id: int,
+    instance_oid: str,
+    execution_oid: str,
+    session: AsyncSession,
+) -> CalcInstanceResDTO:
+    """Promote a successful instance execution into its stable saved result."""
+    instance = await _get_instance_model(user_id, instance_oid, session)
+    execution, _, _, history = await _execution_source(user_id, execution_oid, session)
+    if not execution.resultPath:
+        raise_ex("Execution has no cached result", code=409)
+    if execution.bundleId != instance.bundleId:
+        raise_ex("Execution does not belong to this instance", code=409)
+    instance.resultPath = _persist_result(user_id, instance.oid, execution.resultPath)
+    instance.defaults = history.defaults
+    instance.inputWindows = history.windows
+    instance.revision += 1
+    await session.commit()
+    return await _response(instance, session)
 
 
 async def share_instance(
@@ -401,9 +528,15 @@ async def _response(
     category = await session.get(CalcReportInstanceCategory, instance.categoryId)
     report = await session.get(CalcReport, instance.reportId)
     bundle = await session.get(CalcExecutionBundle, instance.bundleId)
+    slot = await session.scalar(
+        select(CalcExecutionSlot).where(
+            CalcExecutionSlot.userId == instance.userId,
+            CalcExecutionSlot.instanceId == instance.id,
+        )
+    )
     execution = (
-        await session.get(CalcExecution, instance.executionId)
-        if instance.executionId is not None
+        await session.get(CalcExecution, slot.currentExecutionId)
+        if slot is not None and slot.currentExecutionId is not None
         else None
     )
     version = (

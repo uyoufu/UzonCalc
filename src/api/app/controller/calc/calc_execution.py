@@ -1,7 +1,5 @@
 """HTTP endpoints for reproducible managed calculation execution."""
 
-from typing import Annotated
-
 from fastapi import APIRouter, Depends
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -16,12 +14,12 @@ from app.controller.calc.calc_state import (
     ExecutorType,
 )
 from app.controller.depends import get_session, get_token_payload
-from app.controller.dto_base import PaginationDTO
 from app.db.models.enums import (
     ExecutionSourceType as DbExecutionSourceType,
     ExecutionStatus as DbExecutionStatus,
     ExecutorType as DbExecutorType,
 )
+from app.db.models.calc_report_instance import CalcReportInstance
 from app.response.response_result import ResponseResult, ok
 from app.sandbox.core.backend_types import SandboxBackendMode
 from app.sandbox.core.execution_result import ExecutionResult
@@ -49,6 +47,26 @@ async def start_calc_execution(
     return ok(data=response)
 
 
+@router.get("/current")
+async def get_current_calc_execution(
+    reportOid: str,
+    sourceType: ExecutionSourceType = ExecutionSourceType.WORKSPACE,
+    versionName: str | None = None,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcExecutionResDTO | None]:
+    """Return the active or last-successful execution for one report target."""
+    step = await calc_execution_service.get_current_execution_step(
+        session,
+        tokenPayloads.id,
+        CalcExecutionStartDTO(
+            reportOid=reportOid,
+            source={"type": sourceType, "versionName": versionName},
+        ),
+    )
+    return ok(data=execution_step_response(step) if step is not None else None)
+
+
 @router.post("/{executionId}/continue")
 async def continue_calc_execution(
     executionId: str,
@@ -64,42 +82,6 @@ async def continue_calc_execution(
         step, request.lastHtmlPath, tokenPayloads.id, session
     )
     return ok(data=response)
-
-
-@router.get("/count")
-async def count_calc_executions(
-    reportOid: str | None = None,
-    tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    session: AsyncSession = Depends(get_session),
-) -> ResponseResult[int]:
-    """Count persisted execution audit records for the current user."""
-    return ok(
-        data=await calc_execution_service.count_executions(
-            session, tokenPayloads.id, reportOid
-        )
-    )
-
-
-@router.get("/items")
-async def list_calc_execution_items(
-    pagination: Annotated[PaginationDTO, Depends()],
-    reportOid: str | None = None,
-    tokenPayloads: TokenPayloads = Depends(get_token_payload),
-    session: AsyncSession = Depends(get_session),
-) -> ResponseResult[list[CalcExecutionResDTO]]:
-    """List one sorted page of persisted execution audit records."""
-    oids = await calc_execution_service.list_execution_oids(
-        session, tokenPayloads.id, pagination, reportOid
-    )
-    items = [
-        execution_step_response(
-            await calc_execution_service.get_execution_step(
-                session, tokenPayloads.id, oid
-            )
-        )
-        for oid in oids
-    ]
-    return ok(data=items)
 
 
 @router.get("/{executionId}")
@@ -142,6 +124,20 @@ async def finalize_execution_step(
     await calc_execution_service.record_result_path(
         session, step.execution.oid, user_id, html_path
     )
+    if step.result.isCompleted:
+        slot = await calc_execution_service.promote_successful_execution(
+            session, step.execution.oid, user_id
+        )
+        if slot is not None and slot.instanceId is not None:
+            instance = await session.get(CalcReportInstance, slot.instanceId)
+            if instance is not None:
+                from app.service.calc_report_instance_service import (
+                    apply_instance_execution_result,
+                )
+
+                await apply_instance_execution_result(
+                    user_id, instance.oid, step.execution.oid, session
+                )
     response = execution_step_response(step)
     response.htmlPath = html_path
     response.updateType = patch.updateType

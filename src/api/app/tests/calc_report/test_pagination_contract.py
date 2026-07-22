@@ -14,7 +14,6 @@ from app.controller.calc.calc_report_dto import CalcReportListFilterDTO
 from app.controller.dto_base import PaginationDTO
 from app.db.models import (
     BaseModel,
-    CalcExecution,
     CalcExecutionBundle,
     CalcReport,
     CalcReportArtifact,
@@ -24,9 +23,7 @@ from app.db.models import (
     FavoriteCalcReport,
     User,
 )
-from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorType
 from app.service import (
-    calc_execution_service,
     calc_report_instance_service,
     calc_report_service,
 )
@@ -45,7 +42,7 @@ def test_pagination_dto_validates_public_query_bounds() -> None:
 
 def test_calc_list_routers_expose_static_count_and_items_paths() -> None:
     """Static pagination routes must be registered ahead of object routes."""
-    routers = [calc_report.router, calc_report_instance.router, calc_execution.router]
+    routers = [calc_report.router, calc_report_instance.router]
     for router in routers:
         get_paths = [
             route.path
@@ -100,14 +97,13 @@ def test_calc_list_openapi_reuses_pagination_dto_on_items_only() -> None:
         "sortBy",
         "descending",
     ]
-    assert parameter_names("/v1/calc/execution/count") == ["reportOid"]
-    assert parameter_names("/v1/calc/execution/items") == [
+    assert parameter_names("/v1/calc/execution/current") == [
         "reportOid",
-        "skip",
-        "limit",
-        "sortBy",
-        "descending",
+        "sourceType",
+        "versionName",
     ]
+    assert "/v1/calc/execution/count" not in schema_paths
+    assert "/v1/calc/execution/items" not in schema_paths
 
 
 def test_pagination_services_split_counts_from_sorted_items() -> None:
@@ -209,32 +205,7 @@ def test_pagination_services_split_counts_from_sorted_items() -> None:
                     createdAt=newer,
                     updatedAt=newer,
                 )
-                first_execution = CalcExecution(
-                    userId=user.id,
-                    reportId=alpha_report.id,
-                    bundleId=bundle.id,
-                    sourceType=ExecutionSourceType.WORKSPACE.value,
-                    executorType=ExecutorType.LOCAL.value,
-                    status=ExecutionStatus.SUCCEEDED.value,
-                    createdAt=older,
-                )
-                second_execution = CalcExecution(
-                    userId=user.id,
-                    reportId=beta_report.id,
-                    bundleId=bundle.id,
-                    sourceType=ExecutionSourceType.WORKSPACE.value,
-                    executorType=ExecutorType.LOCAL.value,
-                    status=ExecutionStatus.FAILED.value,
-                    createdAt=newer,
-                )
-                session.add_all(
-                    [
-                        alpha_instance,
-                        beta_instance,
-                        first_execution,
-                        second_execution,
-                    ]
-                )
+                session.add_all([alpha_instance, beta_instance])
                 await session.commit()
 
                 report_filter = CalcReportListFilterDTO(
@@ -292,17 +263,6 @@ def test_pagination_services_split_counts_from_sorted_items() -> None:
                     "Alpha instance"
                 ]
 
-                assert (
-                    await calc_execution_service.count_executions(session, user.id) == 2
-                )
-                execution_oids = await calc_execution_service.list_execution_oids(
-                    session,
-                    user.id,
-                    PaginationDTO(
-                        skip=0, limit=1, sortBy="createdAt", descending=False
-                    ),
-                )
-                assert execution_oids == [first_execution.oid]
         finally:
             await engine.dispose()
 

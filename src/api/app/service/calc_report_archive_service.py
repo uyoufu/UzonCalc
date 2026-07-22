@@ -23,18 +23,16 @@ from app.db.models.calc_report_version import CalcReportVersion
 from app.db.models.enums import ReportOriginType
 from app.exception.custom_exception import raise_ex
 from app.service.calc_report_artifact_service import ArtifactFile, artifact_store
-from app.service.calc_report_service import write_latest_projection
 from app.service.calc_report_share_service import (
     SharedVersionNode,
     _available_report_name,
     _collect_shared_closure,
 )
-from app.service.calc_report_version_service import _materialize_version_projection
 from app.service.calc_report_workspace_service import (
     _get_or_create_source_artifact,
-    _materialize_workspace_projection,
     _replace_dependencies,
     _resolve_dependencies,
+    materialize_workspace_artifact,
 )
 from app.service.secret_storage_service import encrypt_persisted_secret
 from config import app_config
@@ -330,20 +328,11 @@ async def import_archive_closure(
             )
         )
     await session.commit()
-    for node in nodes:
-        report = imported_reports[node["reportKey"]]
-        _materialize_version_projection(
-            user_id,
-            report,
-            imported_versions[node["nodeKey"]],
-            imported_artifacts[node["nodeKey"]],
-        )
     for report_key, node in chosen_nodes.items():
         report = imported_reports[report_key]
-        version = imported_versions[node["nodeKey"]]
         artifact = imported_artifacts[node["nodeKey"]]
-        _materialize_workspace_projection(user_id, report, artifact)
-        write_latest_projection(user_id, report, version)
+        materialize_workspace_artifact(user_id, report, artifact)
+    await session.commit()
     return ShareImportResDTO(
         reportOid=imported_root.oid,
         versionName=root_node["versionName"],
@@ -529,19 +518,11 @@ async def synchronize_archive_closure(
     sync_source.lastCheckedAt = now
     sync_source.lastSyncedAt = now
     await session.commit()
-    for node in nodes:
-        _materialize_version_projection(
-            user_id,
-            imported_by_source_key[node["reportKey"]],
-            versions[node["nodeKey"]],
-            artifacts[node["nodeKey"]],
-        )
     for report_key, node in chosen_nodes.items():
         report = imported_by_source_key[report_key]
-        version = versions[node["nodeKey"]]
         artifact = artifacts[node["nodeKey"]]
-        _materialize_workspace_projection(user_id, report, artifact)
-        write_latest_projection(user_id, report, version)
+        materialize_workspace_artifact(user_id, report, artifact)
+    await session.commit()
     return root_node["versionName"]
 
 

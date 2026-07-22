@@ -23,7 +23,7 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column
 
 from .base import BaseModel
-from .enums import ExecutionSourceType, ExecutionStatus
+from .enums import ExecutionSourceType, ExecutionStatus, ExecutionTargetType
 
 
 class CalcExecutionBundle(BaseModel):
@@ -187,3 +187,78 @@ class CalcExecution(BaseModel):
     errorCode: Mapped[str | None] = mapped_column(String(64), nullable=True)
     errorMessage: Mapped[str | None] = mapped_column(Text, nullable=True)
     metrics: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+
+
+class CalcExecutionSlot(BaseModel):
+    """Retain one active and one last-successful execution per business target."""
+
+    __tablename__ = "calc_execution_slot"
+    __table_args__ = (
+        CheckConstraint(
+            f"(targetType = {ExecutionTargetType.WORKSPACE.value} AND reportId IS NOT NULL "
+            "AND versionId IS NULL AND instanceId IS NULL AND shareLinkId IS NULL) OR "
+            f"(targetType = {ExecutionTargetType.VERSION.value} AND reportId IS NULL "
+            "AND versionId IS NOT NULL AND instanceId IS NULL AND shareLinkId IS NULL) OR "
+            f"(targetType = {ExecutionTargetType.INSTANCE.value} AND reportId IS NULL "
+            "AND versionId IS NULL AND instanceId IS NOT NULL AND shareLinkId IS NULL) OR "
+            f"(targetType = {ExecutionTargetType.SHARE_PREVIEW.value} AND reportId IS NULL "
+            "AND versionId IS NULL AND instanceId IS NULL AND shareLinkId IS NOT NULL)",
+            name="execution_slot_target_shape",
+        ),
+        CheckConstraint("targetType IN (1, 2, 3, 4)", name="target_type_values"),
+        Index(
+            "uq_execution_slot_workspace",
+            "userId",
+            "reportId",
+            unique=True,
+            sqlite_where=text('"targetType" = 1'),
+            postgresql_where=text('"targetType" = 1'),
+        ),
+        Index(
+            "uq_execution_slot_version",
+            "userId",
+            "versionId",
+            unique=True,
+            sqlite_where=text('"targetType" = 2'),
+            postgresql_where=text('"targetType" = 2'),
+        ),
+        Index(
+            "uq_execution_slot_instance",
+            "userId",
+            "instanceId",
+            unique=True,
+            sqlite_where=text('"targetType" = 3'),
+            postgresql_where=text('"targetType" = 3'),
+        ),
+        Index(
+            "uq_execution_slot_share",
+            "userId",
+            "shareLinkId",
+            unique=True,
+            sqlite_where=text('"targetType" = 4'),
+            postgresql_where=text('"targetType" = 4'),
+        ),
+    )
+
+    userId: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), nullable=False
+    )
+    targetType: Mapped[int] = mapped_column(SmallInteger, nullable=False)
+    reportId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_report.id", ondelete="CASCADE"), nullable=True
+    )
+    versionId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_report_version.id", ondelete="CASCADE"), nullable=True
+    )
+    instanceId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_report_instance.id", ondelete="CASCADE"), nullable=True
+    )
+    shareLinkId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_report_share_link.id", ondelete="CASCADE"), nullable=True
+    )
+    currentExecutionId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_execution.id", ondelete="SET NULL"), nullable=True
+    )
+    activeExecutionId: Mapped[int | None] = mapped_column(
+        ForeignKey("calc_execution.id", ondelete="SET NULL"), nullable=True
+    )

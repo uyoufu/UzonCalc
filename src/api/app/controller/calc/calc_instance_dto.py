@@ -1,6 +1,7 @@
 """DTOs for saved calculation instances and their categories."""
 
 import datetime
+from typing import Any
 
 from pydantic import Field
 
@@ -42,11 +43,12 @@ class CalcInstanceUpdateDTO(BaseDTO):
     description: str | None = None
 
 
-class CalcInstanceResultUpdateDTO(BaseDTO):
-    """Replace saved result/provenance from a newer execution."""
+class CalcInstanceExecutionStartDTO(BaseDTO):
+    """Start one execution from an instance's retained immutable bundle."""
 
-    revision: int = Field(ge=1)
-    executionId: str
+    defaults: dict[str, dict[str, Any]] = Field(default_factory=dict)
+    isSilent: bool = False
+    lastHtmlPath: str | None = None
 
 
 class CalcInstanceResDTO(BaseDTO):

@@ -124,7 +124,7 @@ class WorkspaceResDTO(BaseDTO):
 
     reportOid: str
     workspaceRevision: int
-    sourceArtifactHash: str
+    workspaceHash: str
     entryPath: str
     formatVersion: int
     files: list[WorkspaceFileResDTO]

@@ -39,7 +39,7 @@ class CalcReportResDTO(BaseDTO):
     entryPath: str
     formatVersion: int
     workspaceRevision: int
-    workspaceArtifactHash: str | None
+    workspaceHash: str | None
     latestVersionName: str | None
     latestArtifactHash: str | None
     buildStatus: BuildStatus

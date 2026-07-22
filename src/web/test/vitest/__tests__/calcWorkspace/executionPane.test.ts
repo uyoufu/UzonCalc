@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getCalcReport: vi.fn(),
   listVersions: vi.fn(),
   startExecution: vi.fn(),
+  getCurrentExecution: vi.fn(),
   continueExecution: vi.fn(),
   terminateExecution: vi.fn(),
   getWorkspaceBuild: vi.fn(),
@@ -29,19 +30,24 @@ vi.mock('src/api/calc/workspace', () => ({ getWorkspaceBuild: mocks.getWorkspace
 vi.mock('src/api/calc/executions', () => ({
   startExecution: mocks.startExecution,
   continueExecution: mocks.continueExecution,
-  terminateExecution: mocks.terminateExecution
+  terminateExecution: mocks.terminateExecution,
+  getCurrentExecution: mocks.getCurrentExecution
 }))
-vi.mock('src/api/calc/instances', () => ({ createInstance: mocks.createInstance }))
+vi.mock('src/api/calc/instances', () => ({
+  createInstance: mocks.createInstance,
+  getInstanceExecution: vi.fn(),
+  startInstanceExecution: vi.fn()
+}))
 vi.mock('src/pages/calcExecution/compositions/useSaveInstanceDialog', () => ({
   useSaveInstanceDialog: () => ({ openSaveInstanceDialog: vi.fn() })
 }))
 
-function reportResponse(workspaceArtifactHash: string) {
+function reportResponse(workspaceHash: string) {
   return {
     data: {
       reportOid: 'report-1',
       name: 'Report',
-      workspaceArtifactHash,
+      workspaceHash,
       latestVersionName: null,
       buildStatus: BuildStatus.Ready
     }
@@ -89,6 +95,7 @@ describe('workspace execution pane', () => {
     mocks.getCalcReport.mockResolvedValue(reportResponse('sha256:source-1'))
     mocks.listVersions.mockResolvedValue({ data: [] })
     mocks.startExecution.mockResolvedValue(executionResponse('sha256:source-1'))
+    mocks.getCurrentExecution.mockResolvedValue(executionResponse('sha256:source-1'))
   })
 
   it('refreshes workspace context without starting an execution automatically', async () => {

@@ -9,7 +9,7 @@ export function isWorkspaceExecutionOutdated(
 ): boolean {
   return Boolean(
     execution?.sourceType === ExecutionSourceType.Workspace
-    && report?.workspaceArtifactHash
-    && execution.sourceArtifactHash !== report.workspaceArtifactHash
+    && report?.workspaceHash
+    && execution.sourceArtifactHash !== report.workspaceHash
   )
 }

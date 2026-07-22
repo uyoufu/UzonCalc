@@ -4,21 +4,35 @@ from __future__ import annotations
 
 import datetime
 from dataclasses import dataclass
+from pathlib import Path
+import shutil
 from typing import Any, cast
 
-from sqlalchemy import func, select
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm.attributes import flag_modified
 
 from app.controller.calc.calc_error import CalcErrorCode
 from app.controller.calc.calc_execution_dto import CalcExecutionStartDTO
-from app.controller.dto_base import PaginationDTO
-from app.db.models.calc_execution import CalcExecution, CalcExecutionBundle
+from app.controller.calc.calc_state import (
+    ExecutionSourceType as ApiExecutionSourceType,
+)
+from app.db.models.calc_execution import (
+    CalcExecution,
+    CalcExecutionBundle,
+    CalcExecutionSlot,
+)
 from app.db.models.calc_report import CalcReport
 from app.db.models.calc_report_artifact import CalcReportArtifact
 from app.db.models.calc_report_version import CalcReportVersion
-from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorType
+from app.db.models.enums import (
+    ExecutionSourceType,
+    ExecutionStatus,
+    ExecutionTargetType,
+    ExecutorType,
+)
 from app.db.models.user_input_history import InputCache, UserInputHistory
+from app.db.models.tmp_file import TmpFile
 from app.exception.custom_exception import raise_ex
 from app.sandbox.core.backend_factory import get_sandbox_executor
 from app.sandbox.core.backend_types import RuntimeDescriptor, SandboxBackendMode
@@ -26,7 +40,12 @@ from app.sandbox.core.execution_result import ExecutionResult
 from app.service.calc_execution_bundle_service import (
     ResolvedExecutionSource,
     prepare_execution_bundle,
+    prepare_retained_execution_bundle,
     resolve_execution_source,
+)
+from app.service.calc_report_workspace_service import (
+    get_owned_report,
+    parse_version_name,
 )
 from config import app_config
 
@@ -52,6 +71,9 @@ async def start_execution(
     *,
     use_cached_defaults: bool = True,
     persist_input_cache: bool = True,
+    slot_override: CalcExecutionSlot | None = None,
+    source_override: ResolvedExecutionSource | None = None,
+    bundle_override: CalcExecutionBundle | None = None,
 ) -> ExecutionStep:
     """Resolve, lazily build, bundle, audit, and start one execution."""
     executor = get_sandbox_executor()
@@ -64,14 +86,38 @@ async def start_execution(
             data={"message": str(error)},
             error_code=CalcErrorCode.SANDBOX_BACKEND_UNAVAILABLE,
         )
-    source = await resolve_execution_source(
+    source = source_override or await resolve_execution_source(
         user_id,
         request.reportOid,
         request.source.type,
         request.source.versionName,
         session,
     )
-    bundle, prepared = await prepare_execution_bundle(user_id, source, runtime, session)
+    if bundle_override is not None:
+        if bundle_override.runtimeFingerprint != runtime.fingerprint:
+            raise_ex(
+                "Retained instance runtime is unavailable in the configured backend",
+                code=409,
+            )
+        bundle = bundle_override
+        prepared = await prepare_retained_execution_bundle(
+            bundle_override, source.report, session
+        )
+    else:
+        bundle, prepared = await prepare_execution_bundle(
+            user_id, source, runtime, session
+        )
+    slot = slot_override or await _get_or_create_report_execution_slot(
+        user_id, source, session
+    )
+    if slot.id is not None:
+        locked_slot = await session.get(
+            CalcExecutionSlot, slot.id, with_for_update=True
+        )
+        if locked_slot is not None:
+            slot = locked_slot
+    if slot.activeExecutionId is not None:
+        raise_ex("An execution is already active for this target", code=409)
     execution_artifact = await session.get(
         CalcReportArtifact, bundle.entryExecutionArtifactId
     )
@@ -105,13 +151,8 @@ async def start_execution(
     )
     session.add(execution)
     await session.flush()
-    history = UserInputHistory(
-        executionId=execution.id,
-        defaults=defaults,
-        inputHistory=[{"step": 0, "defaults": defaults}],
-        currentStep=0,
-        totalSteps=0,
-    )
+    slot.activeExecutionId = execution.id
+    history = UserInputHistory(executionId=execution.id, defaults=defaults)
     session.add(history)
     await session.commit()
     try:
@@ -219,8 +260,11 @@ async def terminate_execution(
     execution = await _get_execution(user_id, execution_oid, session)
     if execution.sandboxExecutionId:
         await get_sandbox_executor().terminate(execution.sandboxExecutionId)
-    execution.status = ExecutionStatus.CANCELLED.value
-    execution.completedAt = datetime.datetime.now(datetime.timezone.utc)
+    slot = await _slot_for_execution(execution.id, session)
+    if slot is not None and slot.activeExecutionId == execution.id:
+        slot.activeExecutionId = None
+    _remove_execution_result(execution.resultPath)
+    await session.delete(execution)
     await session.commit()
 
 
@@ -234,6 +278,82 @@ async def record_result_path(
     execution = await _get_execution(user_id, execution_oid, session)
     execution.resultPath = result_path
     await session.commit()
+
+
+async def promote_successful_execution(
+    session: AsyncSession,
+    execution_oid: str,
+    user_id: int,
+) -> CalcExecutionSlot | None:
+    """Promote one completed active execution and delete the previous success."""
+    execution = await _get_execution(user_id, execution_oid, session)
+    if execution.status != ExecutionStatus.SUCCEEDED.value or not execution.resultPath:
+        return None
+    slot = await _slot_for_execution(execution.id, session)
+    if slot is None or slot.activeExecutionId != execution.id:
+        raise_ex("Execution target is no longer active", code=409)
+    previous_id = slot.currentExecutionId
+    slot.currentExecutionId = execution.id
+    slot.activeExecutionId = None
+    result_file = Path("data") / execution.resultPath
+    await session.execute(
+        delete(TmpFile).where(TmpFile.filePath == str(result_file.parent))
+    )
+    previous = (
+        await session.get(CalcExecution, previous_id)
+        if previous_id is not None and previous_id != execution.id
+        else None
+    )
+    if previous is not None:
+        _remove_execution_result(previous.resultPath)
+        await session.delete(previous)
+    await session.commit()
+    return slot
+
+
+async def get_current_execution_step(
+    session: AsyncSession,
+    user_id: int,
+    request: CalcExecutionStartDTO,
+) -> ExecutionStep | None:
+    """Return the active execution or retained success for one report source."""
+    report = await get_owned_report(user_id, request.reportOid, session)
+    version: CalcReportVersion | None = None
+    if request.source.type is ApiExecutionSourceType.LATEST:
+        version = (
+            await session.get(CalcReportVersion, report.latestVersionId)
+            if report.latestVersionId is not None
+            else None
+        )
+    elif request.source.type is ApiExecutionSourceType.VERSION:
+        if not request.source.versionName:
+            raise_ex("versionName is required for version execution", code=400)
+        try:
+            major, minor, patch = parse_version_name(request.source.versionName)
+        except ValueError as error:
+            raise_ex(str(error), code=400)
+        version = await session.scalar(
+            select(CalcReportVersion).where(
+                CalcReportVersion.reportId == report.id,
+                CalcReportVersion.major == major,
+                CalcReportVersion.minor == minor,
+                CalcReportVersion.patch == patch,
+            )
+        )
+    if request.source.type is not ApiExecutionSourceType.WORKSPACE and version is None:
+        return None
+    slot = await _find_report_execution_slot(user_id, report.id, version, session)
+    if slot is None:
+        return None
+    execution_id = slot.activeExecutionId or slot.currentExecutionId
+    if execution_id is None:
+        return None
+    execution = await session.get(CalcExecution, execution_id)
+    return (
+        await get_execution_step(session, user_id, execution.oid)
+        if execution is not None
+        else None
+    )
 
 
 async def get_execution_step(
@@ -288,72 +408,8 @@ async def get_execution_step(
     )
 
 
-async def count_executions(
-    session: AsyncSession, user_id: int, report_oid: str | None = None
-) -> int:
-    """Count persisted execution audits owned by one user."""
-    conditions = [CalcExecution.userId == user_id]
-    if report_oid:
-        conditions.append(
-            CalcExecution.reportId
-            == select(CalcReport.id)
-            .where(
-                CalcReport.oid == report_oid,
-                CalcReport.userId == user_id,
-                CalcReport.deletedAt.is_(None),
-            )
-            .scalar_subquery()
-        )
-    total = await session.scalar(
-        select(func.count(CalcExecution.id)).where(*conditions)
-    )
-    return total or 0
-
-
-async def list_execution_oids(
-    session: AsyncSession,
-    user_id: int,
-    pagination: PaginationDTO,
-    report_oid: str | None = None,
-) -> list[str]:
-    """List one sorted page of execution audit OIDs."""
-    sort_columns = {
-        "id": CalcExecution.id,
-        "createdAt": CalcExecution.createdAt,
-        "status": CalcExecution.status,
-        "sourceType": CalcExecution.sourceType,
-    }
-    sort_column = sort_columns.get(pagination.sortBy, CalcExecution.createdAt)
-    sort_expression = sort_column.desc() if pagination.descending else sort_column.asc()
-    stable_sort = (
-        CalcExecution.id.desc() if pagination.descending else CalcExecution.id.asc()
-    )
-    conditions = [CalcExecution.userId == user_id]
-    if report_oid:
-        conditions.append(
-            CalcExecution.reportId
-            == select(CalcReport.id)
-            .where(
-                CalcReport.oid == report_oid,
-                CalcReport.userId == user_id,
-                CalcReport.deletedAt.is_(None),
-            )
-            .scalar_subquery()
-        )
-    oids = (
-        await session.scalars(
-            select(CalcExecution.oid)
-            .where(*conditions)
-            .order_by(sort_expression, stable_sort)
-            .offset(pagination.skip)
-            .limit(pagination.limit)
-        )
-    ).all()
-    return list(oids)
-
-
 async def expire_orphaned_executions(session: AsyncSession) -> int:
-    """Mark startup-surviving PENDING/RUNNING rows as process-lost failures."""
+    """Delete startup-surviving active rows while preserving retained successes."""
     executions = (
         await session.scalars(
             select(CalcExecution).where(
@@ -363,12 +419,12 @@ async def expire_orphaned_executions(session: AsyncSession) -> int:
             )
         )
     ).all()
-    now = datetime.datetime.now(datetime.timezone.utc)
     for execution in executions:
-        execution.status = ExecutionStatus.FAILED.value
-        execution.errorCode = CalcErrorCode.EXECUTION_PROCESS_LOST.value
-        execution.errorMessage = "API process restarted while execution was active"
-        execution.completedAt = now
+        slot = await _slot_for_execution(execution.id, session)
+        if slot is not None and slot.activeExecutionId == execution.id:
+            slot.activeExecutionId = None
+        _remove_execution_result(execution.resultPath)
+        await session.delete(execution)
     await session.commit()
     return len(executions)
 
@@ -408,7 +464,7 @@ async def _merge_cached_defaults(
         )
     )
     merged: dict[str, dict[str, Any]] = {}
-    if cache is not None and cache.sourceArtifactId == source_artifact.id:
+    if cache is not None and cache.sourceHash == source_artifact.contentHash:
         _deep_update(merged, cache.defaults)
     _deep_update(merged, requested)
     return merged
@@ -437,15 +493,8 @@ async def _apply_backend_result(
     execution.completedAt = now if result.isCompleted else None
     history.defaults = submitted_defaults
     history.windows = result.windows
-    history.inputHistory = [
-        *(history.inputHistory or []),
-        {"step": history.currentStep + 1, "defaults": submitted_defaults},
-    ]
-    history.currentStep += 1
-    history.totalSteps = max(history.totalSteps, history.currentStep)
     flag_modified(history, "defaults")
     flag_modified(history, "windows")
-    flag_modified(history, "inputHistory")
     extracted = _extract_defaults_from_windows(result.windows)
     if extracted and persist_input_cache:
         cache = await session.scalar(
@@ -460,12 +509,12 @@ async def _apply_backend_result(
                 userId=execution.userId,
                 reportId=execution.reportId,
                 entryName=source.report.entryPath,
-                sourceArtifactId=source.source_artifact.id,
+                sourceHash=source.source_artifact.contentHash,
                 defaults=extracted,
             )
             session.add(cache)
         else:
-            cache.sourceArtifactId = source.source_artifact.id
+            cache.sourceHash = source.source_artifact.contentHash
             cache.defaults = extracted
             flag_modified(cache, "defaults")
     await session.commit()
@@ -479,15 +528,177 @@ async def _mark_execution_failed(
     process_lost: bool = False,
 ) -> None:
     """Persist a terminal failure before propagating an execution exception."""
-    execution.status = ExecutionStatus.FAILED.value
-    execution.errorCode = (
-        CalcErrorCode.EXECUTION_PROCESS_LOST.value
-        if process_lost
-        else type(error).__name__
-    )
-    execution.errorMessage = str(error)
-    execution.completedAt = datetime.datetime.now(datetime.timezone.utc)
+    slot = await _slot_for_execution(execution.id, session)
+    if slot is not None and slot.activeExecutionId == execution.id:
+        slot.activeExecutionId = None
+    _remove_execution_result(execution.resultPath)
+    await session.delete(execution)
     await session.commit()
+
+
+async def _get_or_create_report_execution_slot(
+    user_id: int,
+    source: ResolvedExecutionSource,
+    session: AsyncSession,
+) -> CalcExecutionSlot:
+    """Resolve one workspace or concrete-version retained execution slot."""
+    if source.resolved_version is None:
+        target_type = ExecutionTargetType.WORKSPACE
+        condition = CalcExecutionSlot.reportId == source.report.id
+    else:
+        target_type = ExecutionTargetType.VERSION
+        condition = CalcExecutionSlot.versionId == source.resolved_version.id
+    slot = await session.scalar(
+        select(CalcExecutionSlot)
+        .where(
+            CalcExecutionSlot.userId == user_id,
+            CalcExecutionSlot.targetType == target_type.value,
+            condition,
+        )
+        .with_for_update()
+    )
+    if slot is None:
+        slot = CalcExecutionSlot(
+            userId=user_id,
+            targetType=target_type.value,
+            reportId=source.report.id
+            if target_type is ExecutionTargetType.WORKSPACE
+            else None,
+            versionId=(
+                source.resolved_version.id
+                if target_type is ExecutionTargetType.VERSION
+                else None
+            ),
+        )
+        session.add(slot)
+        await session.flush()
+    return slot
+
+
+async def _find_report_execution_slot(
+    user_id: int,
+    report_id: int,
+    version: CalcReportVersion | None,
+    session: AsyncSession,
+) -> CalcExecutionSlot | None:
+    """Find a report target slot without freezing or creating source content."""
+    if version is None:
+        target_type = ExecutionTargetType.WORKSPACE
+        condition = CalcExecutionSlot.reportId == report_id
+    else:
+        target_type = ExecutionTargetType.VERSION
+        condition = CalcExecutionSlot.versionId == version.id
+    return await session.scalar(
+        select(CalcExecutionSlot).where(
+            CalcExecutionSlot.userId == user_id,
+            CalcExecutionSlot.targetType == target_type.value,
+            condition,
+        )
+    )
+
+
+async def discard_execution_slot(
+    slot: CalcExecutionSlot,
+    session: AsyncSession,
+) -> None:
+    """Discard active and retained executions when a target changes identity."""
+    execution_ids = {slot.activeExecutionId, slot.currentExecutionId} - {None}
+    executions = (
+        list(
+            await session.scalars(
+                select(CalcExecution).where(CalcExecution.id.in_(execution_ids))
+            )
+        )
+        if execution_ids
+        else []
+    )
+    for execution in executions:
+        if execution.id == slot.activeExecutionId and execution.sandboxExecutionId:
+            await get_sandbox_executor().terminate(execution.sandboxExecutionId)
+        if execution.resultPath:
+            result_file = Path("data") / execution.resultPath
+            await session.execute(
+                delete(TmpFile).where(TmpFile.filePath == str(result_file.parent))
+            )
+        _remove_execution_result(execution.resultPath)
+    slot.activeExecutionId = None
+    slot.currentExecutionId = None
+    await session.flush()
+    for execution in executions:
+        await session.delete(execution)
+
+
+async def get_or_create_share_execution_slot(
+    user_id: int,
+    share_link_id: int,
+    session: AsyncSession,
+) -> CalcExecutionSlot:
+    """Return the isolated retained execution slot for one share preview."""
+    slot = await session.scalar(
+        select(CalcExecutionSlot).where(
+            CalcExecutionSlot.userId == user_id,
+            CalcExecutionSlot.targetType == ExecutionTargetType.SHARE_PREVIEW.value,
+            CalcExecutionSlot.shareLinkId == share_link_id,
+        )
+    )
+    if slot is None:
+        slot = CalcExecutionSlot(
+            userId=user_id,
+            targetType=ExecutionTargetType.SHARE_PREVIEW.value,
+            shareLinkId=share_link_id,
+        )
+        session.add(slot)
+        await session.flush()
+    return slot
+
+
+async def get_or_create_instance_execution_slot(
+    user_id: int,
+    instance_id: int,
+    session: AsyncSession,
+) -> CalcExecutionSlot:
+    """Return the isolated retained execution slot for one saved instance."""
+    slot = await session.scalar(
+        select(CalcExecutionSlot).where(
+            CalcExecutionSlot.userId == user_id,
+            CalcExecutionSlot.targetType == ExecutionTargetType.INSTANCE.value,
+            CalcExecutionSlot.instanceId == instance_id,
+        )
+    )
+    if slot is None:
+        slot = CalcExecutionSlot(
+            userId=user_id,
+            targetType=ExecutionTargetType.INSTANCE.value,
+            instanceId=instance_id,
+        )
+        session.add(slot)
+        await session.flush()
+    return slot
+
+
+async def _slot_for_execution(
+    execution_id: int,
+    session: AsyncSession,
+) -> CalcExecutionSlot | None:
+    """Find the slot retaining or actively running one execution."""
+    return await session.scalar(
+        select(CalcExecutionSlot).where(
+            (CalcExecutionSlot.activeExecutionId == execution_id)
+            | (CalcExecutionSlot.currentExecutionId == execution_id)
+        )
+    )
+
+
+def _remove_execution_result(result_path: str | None) -> None:
+    """Remove an execution result directory when its retained row is discarded."""
+    if not result_path:
+        return
+    relative = Path(result_path)
+    if relative.is_absolute() or ".." in relative.parts:
+        return
+    result_file = Path("data") / relative
+    if result_file.parent.is_dir():
+        shutil.rmtree(result_file.parent, ignore_errors=True)
 
 
 def _extract_defaults_from_windows(

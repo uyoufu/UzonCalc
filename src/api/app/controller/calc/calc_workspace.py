@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from starlette.responses import Response
 
 from app.controller.calc.calc_error import CalcErrorCode
+from app.controller.calc.calc_state import BuildStatus
 from app.controller.calc.calc_workspace_dto import (
     ReportDependencyDTO,
     WorkspaceBuildResDTO,
@@ -147,10 +148,11 @@ async def get_calc_report_workspace_build(
         tokenPayloads.id, reportOid, session
     )
     if report.workspaceArtifactId is None:
-        raise_ex(
-            "Workspace not found",
-            code=404,
-            error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
+        return ok(
+            data=WorkspaceBuildResDTO(
+                sourceArtifactHash=f"sha256:{report.workspaceHash}",
+                buildStatus=BuildStatus.NOT_REQUESTED,
+            )
         )
     runtime = await get_sandbox_executor().runtime_descriptor()
     status, diagnostics = await get_build_state(

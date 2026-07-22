@@ -129,7 +129,7 @@ export interface CalcReport {
   entryPath: string
   formatVersion: number
   workspaceRevision: number
-  workspaceArtifactHash: string | null
+  workspaceHash: string | null
   latestVersionName: string | null
   latestArtifactHash: string | null
   buildStatus: BuildStatus
@@ -164,7 +164,7 @@ export interface WorkspaceFileInfo {
 export interface WorkspaceSnapshot {
   reportOid: string
   workspaceRevision: number
-  sourceArtifactHash: string
+  workspaceHash: string
   entryPath: string
   formatVersion: number
   files: WorkspaceFileInfo[]

@@ -51,7 +51,7 @@ from app.db.models.calc_report_share import (
 )
 from app.db.models.department import Department, DepartmentUser
 from app.db.models.calc_report_version import CalcReportVersion
-from app.db.models.calc_execution import CalcExecution
+from app.db.models.calc_execution import CalcExecution, CalcExecutionSlot
 from app.db.models.enums import (
     ArtifactKind,
     ReportOriginType,
@@ -64,15 +64,15 @@ from app.i18n import _
 from app.service.calc_report_artifact_service import artifact_store
 from app.service.calc_report_workspace_service import (
     _get_or_create_source_artifact,
-    _materialize_workspace_projection,
     _replace_dependencies,
     _resolve_dependencies,
+    materialize_workspace_artifact,
     parse_version_name,
 )
-from app.service.calc_report_service import write_latest_projection
-from app.service.calc_report_version_service import _materialize_version_projection
 from app.service.calc_execution_service import (
     ExecutionStep,
+    discard_execution_slot,
+    get_or_create_share_execution_slot,
     get_execution_step,
     start_execution,
 )
@@ -204,6 +204,12 @@ async def update_share_link(
     recipients = await _resolve_recipients(request.recipientUserOids, session)
     departments = await _resolve_departments(request.recipientDepartmentOids, session)
     is_version_changed = link.versionId != version.id
+    if is_version_changed:
+        slot = await session.scalar(
+            select(CalcExecutionSlot).where(CalcExecutionSlot.shareLinkId == link.id)
+        )
+        if slot is not None:
+            await discard_execution_slot(slot, session)
     link.versionId = version.id
     link.accessType = DbShareAccessType[request.accessType.name].value
     link.expiresAt = request.expiresAt
@@ -211,8 +217,6 @@ async def update_share_link(
     link.canEdit = request.canEdit
     link.canShare = request.canShare
     link.note = request.note.strip() if request.note and request.note.strip() else None
-    if is_version_changed:
-        link.previewExecutionId = None
     await session.execute(
         delete(CalcReportShareRecipient).where(
             CalcReportShareRecipient.shareLinkId == link.id
@@ -279,8 +283,12 @@ async def get_or_run_share_preview(
 ) -> tuple[CalcReportShareLink, ExecutionStep]:
     """Return the share-specific recent run or execute true defaults once."""
     link, report, version = await _authorize_share(user_id, token, session)
-    if link.previewExecutionId is not None:
-        execution = await session.get(CalcExecution, link.previewExecutionId)
+    slot = await get_or_create_share_execution_slot(
+        link.createdByUserId, link.id, session
+    )
+    execution_id = slot.activeExecutionId or slot.currentExecutionId
+    if execution_id is not None:
+        execution = await session.get(CalcExecution, execution_id)
         if execution is not None and _existing_execution_result_path(execution):
             return link, await get_execution_step(
                 session, link.createdByUserId, execution.oid
@@ -299,18 +307,9 @@ async def get_or_run_share_preview(
         ),
         use_cached_defaults=False,
         persist_input_cache=False,
+        slot_override=slot,
     )
     return link, step
-
-
-async def record_share_preview_execution(
-    link: CalcReportShareLink,
-    execution: CalcExecution,
-    session: AsyncSession,
-) -> None:
-    """Attach one finalized default execution to its share record."""
-    link.previewExecutionId = execution.id
-    await session.commit()
 
 
 async def get_share_preview_result_path(
@@ -318,9 +317,15 @@ async def get_share_preview_result_path(
 ) -> Path:
     """Resolve share-specific HTML only after revalidating current access."""
     link, _, _ = await _authorize_share(user_id, token, session)
+    slot = await session.scalar(
+        select(CalcExecutionSlot).where(
+            CalcExecutionSlot.userId == link.createdByUserId,
+            CalcExecutionSlot.shareLinkId == link.id,
+        )
+    )
     execution = (
-        await session.get(CalcExecution, link.previewExecutionId)
-        if link.previewExecutionId is not None
+        await session.get(CalcExecution, slot.currentExecutionId)
+        if slot is not None and slot.currentExecutionId is not None
         else None
     )
     if execution is None:
@@ -827,19 +832,11 @@ async def _apply_sync_closure(
     sync_source.lastCheckedAt = datetime.datetime.now(datetime.timezone.utc)
     sync_source.lastSyncedAt = datetime.datetime.now(datetime.timezone.utc)
     await session.commit()
-    for node in closure:
-        _materialize_version_projection(
-            user_id,
-            imported_by_source_id[node.report.id],
-            versions_by_source_version_id[node.version.id],
-            artifacts_by_source_version_id[node.version.id],
-        )
     for source_report_id, node in chosen_by_source_report_id.items():
         imported_report = imported_by_source_id[source_report_id]
-        version = versions_by_source_version_id[node.version.id]
         artifact = artifacts_by_source_version_id[node.version.id]
-        _materialize_workspace_projection(user_id, imported_report, artifact)
-        write_latest_projection(user_id, imported_report, version)
+        materialize_workspace_artifact(user_id, imported_report, artifact)
+    await session.commit()
 
 
 async def import_share(
@@ -1040,19 +1037,11 @@ async def _import_share_models(
             )
         )
     await session.commit()
-    for node in closure:
-        imported_report = imported_reports[node.report.id]
-        imported_version = imported_versions[node.version.id]
-        imported_artifact = imported_artifacts[node.version.id]
-        _materialize_version_projection(
-            user_id, imported_report, imported_version, imported_artifact
-        )
     for original_report_id, chosen_node in chosen_nodes.items():
         imported_report = imported_reports[original_report_id]
-        imported_version = imported_versions[chosen_node.version.id]
         imported_artifact = imported_artifacts[chosen_node.version.id]
-        _materialize_workspace_projection(user_id, imported_report, imported_artifact)
-        write_latest_projection(user_id, imported_report, imported_version)
+        materialize_workspace_artifact(user_id, imported_report, imported_artifact)
+    await session.commit()
     imported_root = imported_reports[root_report.id]
     return ShareImportResDTO(
         reportOid=imported_root.oid,

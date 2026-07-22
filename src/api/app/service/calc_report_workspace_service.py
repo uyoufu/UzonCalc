@@ -3,16 +3,22 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
+import shutil
+import tempfile
 from typing import cast
 
-from sqlalchemy import delete, select, update
+import portalocker
+
+from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.exc import IntegrityError
 
 from app.controller.calc.calc_error import CalcErrorCode
 from app.controller.calc.calc_state import (
     BuildStatus,
+    PublishState,
     ReservedDependencySelectorKey,
     WorkspaceFileSource,
 )
@@ -47,8 +53,7 @@ from app.service.calc_report_build_service import (
     configured_runtime_fingerprint_hint,
     get_build_state,
 )
-from app.service.calc_report_state_service import resolve_publish_state
-from config import app_config, logger
+from config import app_config
 
 
 def parse_version_name(version_name: str) -> tuple[int, int, int]:
@@ -169,102 +174,112 @@ async def save_workspace(
     )
     if report is not None:
         require_editable_report(report)
-    current_artifact = None
-    if report is not None and report.workspaceArtifactId is not None:
-        current_artifact = await session.get(
-            CalcReportArtifact, report.workspaceArtifactId
-        )
-    files = _resolve_snapshot_files(request, uploaded_files, current_artifact)
-    calcbook = _parse_calcbook(files)
     normalized_dependencies, dependency_models = await _resolve_dependencies(
         user_id, report, report_oid, request.dependencies, session
     )
-    try:
-        published = artifact_store.publish_source(
-            files, calcbook, normalized_dependencies
+    workspace_root = _workspace_path(user_id, report_oid)
+    workspace_root.parent.mkdir(parents=True, exist_ok=True)
+    lock_path = workspace_root.parent / ".workspace.lock"
+    with portalocker.Lock(lock_path, timeout=30):
+        if report is not None:
+            await _refresh_workspace_manifest(report, workspace_root, session)
+            if report.workspaceRevision != request.workspaceRevision:
+                await session.rollback()
+                raise_ex(
+                    "Workspace was modified by another request",
+                    code=409,
+                    data={"expectedRevision": request.workspaceRevision},
+                    error_code=CalcErrorCode.WORKSPACE_REVISION_CONFLICT,
+                )
+        temporary, workspace_manifest, calcbook = _stage_workspace_snapshot(
+            workspace_root,
+            request,
+            uploaded_files,
+            normalized_dependencies,
+            report.workspaceManifest if report is not None else None,
         )
-    except ArtifactValidationError as error:
-        raise_ex(
-            "Workspace snapshot is invalid",
-            code=400,
-            data={"diagnostics": str(error)},
-            error_code=CalcErrorCode.WORKSPACE_INVALID,
-        )
-    artifact = await _get_or_create_source_artifact(published, session)
+        workspace_hash = _workspace_content_hash(workspace_manifest)
 
-    if report is None:
-        if request.workspaceRevision != 0 or request.create is None:
-            raise_ex(
-                "First workspace save requires report metadata and revision zero",
-                code=409,
-                error_code=CalcErrorCode.WORKSPACE_REVISION_CONFLICT,
+        if report is None:
+            if request.workspaceRevision != 0 or request.create is None:
+                shutil.rmtree(temporary, ignore_errors=True)
+                raise_ex(
+                    "First workspace save requires report metadata and revision zero",
+                    code=409,
+                    error_code=CalcErrorCode.WORKSPACE_REVISION_CONFLICT,
+                )
+            category = await session.scalar(
+                select(CalcReportCategory).where(
+                    CalcReportCategory.oid == request.create.categoryOid,
+                    CalcReportCategory.userId == user_id,
+                    CalcReportCategory.deletedAt.is_(None),
+                )
             )
-        category = await session.scalar(
-            select(CalcReportCategory).where(
-                CalcReportCategory.oid == request.create.categoryOid,
-                CalcReportCategory.userId == user_id,
-                CalcReportCategory.deletedAt.is_(None),
-            )
-        )
-        if category is None:
-            raise_ex(
-                "Category not found",
-                code=404,
-                error_code=CalcErrorCode.CATEGORY_NOT_FOUND,
-            )
-        report = CalcReport(
-            oid=report_oid,
-            userId=user_id,
-            categoryId=category.id,
-            name=request.create.name.strip(),
-            description=request.create.description,
-            cover=request.create.cover,
-            entryPath=calcbook["entryPath"],
-            formatVersion=calcbook["formatVersion"],
-            workspaceRevision=1,
-            workspaceArtifactId=artifact.id,
-        )
-        session.add(report)
-        await session.flush()
-    else:
-        if request.create is not None:
-            raise_ex(
-                "Report metadata is only accepted on the first workspace save",
-                code=400,
-                error_code=CalcErrorCode.WORKSPACE_INVALID,
-            )
-        result = await session.execute(
-            update(CalcReport)
-            .where(
-                CalcReport.id == report.id,
-                CalcReport.workspaceRevision == request.workspaceRevision,
-                CalcReport.deletedAt.is_(None),
-            )
-            .values(
-                workspaceRevision=CalcReport.workspaceRevision + 1,
-                workspaceArtifactId=artifact.id,
+            if category is None:
+                shutil.rmtree(temporary, ignore_errors=True)
+                raise_ex(
+                    "Category not found",
+                    code=404,
+                    error_code=CalcErrorCode.CATEGORY_NOT_FOUND,
+                )
+            report = CalcReport(
+                oid=report_oid,
+                userId=user_id,
+                categoryId=category.id,
+                name=request.create.name.strip(),
+                description=request.create.description,
+                cover=request.create.cover,
                 entryPath=calcbook["entryPath"],
                 formatVersion=calcbook["formatVersion"],
+                workspaceRevision=1,
+                workspaceHash=workspace_hash,
+                workspaceManifest=workspace_manifest,
             )
-        )
-        if result.rowcount != 1:
-            await session.rollback()
-            raise_ex(
-                "Workspace was modified by another request",
-                code=409,
-                data={"expectedRevision": request.workspaceRevision},
-                error_code=CalcErrorCode.WORKSPACE_REVISION_CONFLICT,
-            )
-        report.workspaceRevision = request.workspaceRevision + 1
-        report.workspaceArtifactId = artifact.id
-        report.entryPath = calcbook["entryPath"]
-        report.formatVersion = calcbook["formatVersion"]
+            session.add(report)
+            await session.flush()
+        else:
+            if request.create is not None:
+                shutil.rmtree(temporary, ignore_errors=True)
+                raise_ex(
+                    "Report metadata is only accepted on the first workspace save",
+                    code=400,
+                    error_code=CalcErrorCode.WORKSPACE_INVALID,
+                )
+            report.workspaceRevision += 1
+            report.workspaceHash = workspace_hash
+            report.workspaceManifest = workspace_manifest
+            report.workspaceArtifactId = None
+            report.entryPath = calcbook["entryPath"]
+            report.formatVersion = calcbook["formatVersion"]
 
-    await _replace_dependencies(report.id, dependency_models, session)
-    await session.commit()
+        backup = workspace_root.with_name(".workspace.previous")
+        backup_created = False
+        workspace_replaced = False
+        try:
+            if backup.exists():
+                shutil.rmtree(backup)
+            if workspace_root.exists():
+                os.replace(workspace_root, backup)
+                backup_created = True
+            os.replace(temporary, workspace_root)
+            workspace_replaced = True
+            await _replace_dependencies(report.id, dependency_models, session)
+            await session.commit()
+        except Exception:
+            await session.rollback()
+            if workspace_replaced and workspace_root.exists():
+                shutil.rmtree(workspace_root)
+            if backup_created and backup.exists():
+                os.replace(backup, workspace_root)
+            raise
+        finally:
+            if temporary.exists():
+                shutil.rmtree(temporary, ignore_errors=True)
+        if backup.exists():
+            shutil.rmtree(backup)
+
     await session.refresh(report)
-    _materialize_workspace_projection(user_id, report, artifact)
-    return await _workspace_response(report, artifact, session)
+    return await _workspace_response(report, session)
 
 
 async def get_workspace(
@@ -272,20 +287,16 @@ async def get_workspace(
 ) -> WorkspaceResDTO:
     """Return the current owned workspace metadata without file contents."""
     report = await get_owned_report(user_id, report_oid, session)
-    if report.workspaceArtifactId is None:
+    workspace_root = _workspace_path(user_id, report_oid)
+    if not workspace_root.is_dir():
         raise_ex(
             "Workspace not found",
             code=404,
             error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
         )
-    artifact = await session.get(CalcReportArtifact, report.workspaceArtifactId)
-    if artifact is None:
-        raise_ex(
-            "Workspace artifact not found",
-            code=500,
-            error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
-        )
-    return await _workspace_response(report, artifact, session)
+    with portalocker.Lock(workspace_root.parent / ".workspace.lock", timeout=30):
+        await _refresh_workspace_manifest(report, workspace_root, session)
+    return await _workspace_response(report, session)
 
 
 async def get_workspace_file(
@@ -295,23 +306,24 @@ async def get_workspace_file(
     session: AsyncSession,
 ) -> bytes:
     """Return one file from the current owned workspace artifact."""
-    report = await get_owned_report(user_id, report_oid, session)
-    if report.workspaceArtifactId is None:
+    await get_owned_report(user_id, report_oid, session)
+    workspace_root = _workspace_path(user_id, report_oid)
+    if not workspace_root.is_dir():
         raise_ex(
             "Workspace not found",
             code=404,
             error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
         )
-    artifact = await session.get(CalcReportArtifact, report.workspaceArtifactId)
-    if artifact is None:
-        raise_ex(
-            "Workspace artifact not found",
-            code=500,
-            error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
-        )
     try:
-        return artifact_store.read_file(artifact.storageKey, file_path)
-    except (ArtifactValidationError, KeyError):
+        normalized = normalize_workspace_path(file_path)
+        candidate = (workspace_root / normalized).resolve()
+        if (
+            not candidate.is_relative_to(workspace_root.resolve())
+            or not candidate.is_file()
+        ):
+            raise FileNotFoundError(normalized)
+        return candidate.read_bytes()
+    except (ArtifactValidationError, FileNotFoundError):
         raise_ex(
             "Workspace file not found",
             code=404,
@@ -340,17 +352,10 @@ async def replace_workspace_dependencies(
         CustomException: If the workspace is absent or revision validation fails.
     """
     report = await get_owned_report(user_id, report_oid, session)
-    if report.workspaceArtifactId is None:
+    if not _workspace_path(user_id, report_oid).is_dir():
         raise_ex(
             "Workspace not found",
             code=404,
-            error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
-        )
-    artifact = await session.get(CalcReportArtifact, report.workspaceArtifactId)
-    if artifact is None:
-        raise_ex(
-            "Workspace artifact not found",
-            code=500,
             error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
         )
     file_descriptors = [
@@ -359,7 +364,7 @@ async def replace_workspace_dependencies(
             sha256=public_hash(file_info["sha256"]),
             source=WorkspaceFileSource.CURRENT,
         )
-        for file_info in artifact.manifest.get("files", [])
+        for file_info in (report.workspaceManifest or {}).get("files", [])
     ]
     save_request = WorkspaceSaveDTO(
         workspaceRevision=request.workspaceRevision,
@@ -397,137 +402,290 @@ async def restore_workspace_artifact(
     _, dependency_models = await _resolve_dependencies(
         user_id, report, report.oid, dependencies, session
     )
-    report.workspaceArtifactId = artifact.id
+    target = _workspace_path(user_id, report.oid)
+    with portalocker.Lock(target.parent / ".workspace.lock", timeout=30):
+        materialize_workspace_artifact(user_id, report, artifact)
     report.workspaceRevision += 1
-    report.entryPath = artifact.manifest["calcbook"]["entryPath"]
-    report.formatVersion = artifact.manifest["calcbook"]["formatVersion"]
     await _replace_dependencies(report.id, dependency_models, session)
     await session.commit()
     await session.refresh(report)
-    _materialize_workspace_projection(user_id, report, artifact)
-    return await _workspace_response(report, artifact, session)
+    return await _workspace_response(report, session)
 
 
-def _resolve_snapshot_files(
+def _workspace_path(user_id: int, report_oid: str) -> Path:
+    """Return the authoritative workspace directory for one owned report."""
+    return (
+        Path(app_config.calc_report_reports_root)
+        / str(user_id)
+        / report_oid
+        / "workspace"
+    ).resolve()
+
+
+def _workspace_content_hash(manifest: dict) -> str:
+    """Hash the canonical SOURCE manifest while excluding filesystem metadata."""
+    canonical_manifest = {
+        "formatVersion": 1,
+        "artifactKind": "source",
+        "calcbook": manifest["calcbook"],
+        "dependencies": manifest.get("dependencies", []),
+        "files": [
+            {key: file_info[key] for key in ("path", "size", "sha256")}
+            for file_info in manifest.get("files", [])
+        ],
+    }
+    canonical = json.dumps(
+        canonical_manifest,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return sha256_text(canonical)
+
+
+def _stage_workspace_snapshot(
+    workspace_root: Path,
     request: WorkspaceSaveDTO,
     uploaded_files: dict[str, bytes],
-    current_artifact: CalcReportArtifact | None,
-) -> list[ArtifactFile]:
-    """Resolve uploaded/reused descriptors into one complete file set."""
-    descriptor_paths: set[str] = set()
-    files: list[ArtifactFile] = []
-    for descriptor in request.files:
-        try:
-            path = normalize_workspace_path(descriptor.path)
-        except ArtifactValidationError as error:
-            raise_ex(
-                "Workspace snapshot is invalid",
-                code=400,
-                data={"path": descriptor.path, "diagnostics": str(error)},
-                error_code=CalcErrorCode.WORKSPACE_INVALID,
-            )
-        if path in descriptor_paths:
-            raise_ex(
-                "Workspace contains duplicate paths",
-                code=400,
-                error_code=CalcErrorCode.WORKSPACE_INVALID,
-            )
-        descriptor_paths.add(path)
-        if descriptor.source is WorkspaceFileSource.UPLOAD:
-            if path not in uploaded_files:
-                raise_ex(
-                    "Workspace upload is missing a declared file",
-                    code=400,
-                    data={"path": path},
-                    error_code=CalcErrorCode.WORKSPACE_INVALID,
-                )
-            content = uploaded_files[path]
-        else:
-            if current_artifact is None:
-                raise_ex(
-                    "Cannot reuse a file without an existing workspace",
-                    code=400,
-                    data={"path": path},
-                    error_code=CalcErrorCode.WORKSPACE_INVALID,
-                )
-            try:
-                content = artifact_store.read_file(current_artifact.storageKey, path)
-            except KeyError:
-                raise_ex(
-                    "Reused workspace file does not exist",
-                    code=400,
-                    data={"path": path},
-                    error_code=CalcErrorCode.WORKSPACE_INVALID,
-                )
-        if descriptor.sha256:
-            expected_hash = descriptor.sha256.removeprefix("sha256:")
-            if sha256_text(content) != expected_hash:
-                raise_ex(
-                    "Workspace file hash does not match its declaration",
-                    code=400,
-                    data={"path": path},
-                    error_code=CalcErrorCode.WORKSPACE_INVALID,
-                )
-        files.append(ArtifactFile(path=path, content=content))
-    unexpected_uploads = set(uploaded_files) - descriptor_paths
-    if unexpected_uploads:
-        raise_ex(
-            "Workspace contains undeclared uploads",
-            code=400,
-            data={"paths": sorted(unexpected_uploads)},
-            error_code=CalcErrorCode.WORKSPACE_INVALID,
-        )
-    return files
-
-
-def _parse_calcbook(files: list[ArtifactFile]) -> dict:
-    """Parse and validate the required calcbook.json contract."""
-    file_map = {item.path: item.content for item in files}
+    dependencies: list[dict],
+    current_manifest: dict | None,
+) -> tuple[Path, dict, dict]:
+    """Build and validate a complete sibling workspace without publishing an artifact."""
+    temporary = Path(
+        tempfile.mkdtemp(prefix=".workspace-staging-", dir=workspace_root.parent)
+    )
+    current_files = {
+        value["path"]: value for value in (current_manifest or {}).get("files", [])
+    }
+    declared_paths: set[str] = set()
+    total_size = 0
     try:
-        calcbook = json.loads(file_map["calcbook.json"].decode("utf-8"))
-    except (KeyError, UnicodeDecodeError, json.JSONDecodeError):
+        for descriptor in request.files:
+            path = normalize_workspace_path(descriptor.path)
+            if path in declared_paths:
+                raise ArtifactValidationError(f"Duplicate workspace path: {path}")
+            declared_paths.add(path)
+            destination = temporary / path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            if descriptor.source is WorkspaceFileSource.UPLOAD:
+                if path not in uploaded_files:
+                    raise ArtifactValidationError(f"Missing workspace upload: {path}")
+                content = uploaded_files[path]
+                if descriptor.sha256 and sha256_text(
+                    content
+                ) != descriptor.sha256.removeprefix("sha256:"):
+                    raise ArtifactValidationError(
+                        f"Workspace file hash mismatch: {path}"
+                    )
+                destination.write_bytes(content)
+            else:
+                source = workspace_root / path
+                file_info = current_files.get(path)
+                if file_info is None or not source.is_file():
+                    raise ArtifactValidationError(
+                        f"Current workspace file is missing: {path}"
+                    )
+                if descriptor.sha256 and file_info[
+                    "sha256"
+                ] != descriptor.sha256.removeprefix("sha256:"):
+                    raise ArtifactValidationError(
+                        f"Workspace file hash mismatch: {path}"
+                    )
+                try:
+                    os.link(source, destination)
+                except OSError:
+                    shutil.copy2(source, destination)
+            file_size = destination.stat().st_size
+            if file_size > app_config.calc_report_max_file_size:
+                raise ArtifactValidationError(f"Workspace file is too large: {path}")
+            total_size += file_size
+        unexpected_uploads = set(uploaded_files) - declared_paths
+        if unexpected_uploads:
+            raise ArtifactValidationError(
+                f"Workspace contains undeclared uploads: {sorted(unexpected_uploads)}"
+            )
+        if len(declared_paths) > app_config.calc_report_max_file_count:
+            raise ArtifactValidationError("Workspace contains too many files")
+        if total_size > app_config.calc_report_max_total_size:
+            raise ArtifactValidationError("Workspace total size exceeds the limit")
+        manifest = _manifest_from_directory(
+            temporary,
+            dependencies,
+            previous_files=current_files,
+            ignore_ctime_changes=True,
+            force_hash_paths={
+                normalize_workspace_path(descriptor.path)
+                for descriptor in request.files
+                if descriptor.source is WorkspaceFileSource.UPLOAD
+            },
+        )
+        return temporary, manifest, manifest["calcbook"]
+    except (ArtifactValidationError, OSError) as error:
+        shutil.rmtree(temporary, ignore_errors=True)
         raise_ex(
-            "calcbook.json must contain valid UTF-8 JSON",
+            "Workspace snapshot is invalid",
             code=400,
+            data={"diagnostics": str(error)},
             error_code=CalcErrorCode.WORKSPACE_INVALID,
         )
+
+
+def _manifest_from_directory(
+    workspace_root: Path,
+    dependencies: list[dict],
+    *,
+    previous_files: dict[str, dict] | None = None,
+    force_hash_paths: set[str] | None = None,
+    ignore_ctime_changes: bool = False,
+) -> dict:
+    """Scan one workspace into a validated logical SOURCE manifest."""
+    artifact_files: list[ArtifactFile] = []
+    file_entries: list[dict] = []
+    total_size = 0
+    forced_hashes = force_hash_paths or set()
+    for candidate in sorted(workspace_root.rglob("*")):
+        if candidate.is_symlink() or (candidate.exists() and not candidate.is_file()):
+            if candidate.is_dir() and not candidate.is_symlink():
+                continue
+            raise ArtifactValidationError("Workspace cannot contain symbolic links")
+        if not candidate.is_file():
+            continue
+        relative_path = candidate.relative_to(workspace_root).as_posix()
+        normalized = normalize_workspace_path(relative_path)
+        stat_result = candidate.stat()
+        file_size = stat_result.st_size
+        if file_size > app_config.calc_report_max_file_size:
+            raise ArtifactValidationError(f"Workspace file is too large: {normalized}")
+        total_size += file_size
+        previous = (previous_files or {}).get(normalized)
+        can_reuse_hash = (
+            previous is not None
+            and normalized not in forced_hashes
+            and previous.get("size") == file_size
+            and previous.get("mtimeNs") == stat_result.st_mtime_ns
+            and (
+                ignore_ctime_changes
+                or previous.get("ctimeNs") == stat_result.st_ctime_ns
+            )
+        )
+        content = candidate.read_bytes() if normalized == "calcbook.json" else None
+        content_hash = (
+            previous["sha256"]
+            if can_reuse_hash
+            else sha256_text(content if content is not None else candidate.read_bytes())
+        )
+        if content is not None:
+            artifact_files.append(ArtifactFile(normalized, content))
+        file_entries.append(
+            {
+                "path": normalized,
+                "size": file_size,
+                "sha256": content_hash,
+                "mtimeNs": stat_result.st_mtime_ns,
+                "ctimeNs": stat_result.st_ctime_ns,
+            }
+        )
+    if len(file_entries) > app_config.calc_report_max_file_count:
+        raise ArtifactValidationError("Workspace contains too many files")
+    if total_size > app_config.calc_report_max_total_size:
+        raise ArtifactValidationError("Workspace total size exceeds the limit")
+    try:
+        calcbook_content = next(
+            value.content for value in artifact_files if value.path == "calcbook.json"
+        )
+        calcbook = json.loads(calcbook_content.decode("utf-8"))
+    except (StopIteration, UnicodeDecodeError, json.JSONDecodeError):
+        raise ArtifactValidationError("calcbook.json must contain valid UTF-8 JSON")
     if not isinstance(calcbook, dict):
-        raise_ex(
-            "calcbook.json must contain an object",
-            code=400,
-            error_code=CalcErrorCode.WORKSPACE_INVALID,
-        )
+        raise ArtifactValidationError("calcbook.json must contain an object")
     format_version = calcbook.get("formatVersion", 1)
     entry_path = calcbook.get("entryPath", "src/main.py")
     if not isinstance(format_version, int) or format_version < 1:
-        raise_ex(
-            "calcbook formatVersion must be a positive integer",
-            code=400,
-            error_code=CalcErrorCode.WORKSPACE_INVALID,
+        raise ArtifactValidationError(
+            "calcbook formatVersion must be a positive integer"
         )
-    try:
-        entry_path = normalize_workspace_path(entry_path)
-    except (ArtifactValidationError, TypeError):
-        raise_ex(
-            "calcbook entryPath is invalid",
-            code=400,
-            error_code=CalcErrorCode.WORKSPACE_INVALID,
-        )
+    entry_path = normalize_workspace_path(entry_path)
     if not entry_path.startswith("src/") or not entry_path.endswith(".py"):
-        raise_ex(
-            "calcbook entryPath must point to a Python file under src",
-            code=400,
-            error_code=CalcErrorCode.WORKSPACE_INVALID,
+        raise ArtifactValidationError(
+            "calcbook entryPath must point to a Python file under src"
         )
-    if entry_path not in file_map:
-        raise_ex(
-            "calcbook entryPath does not exist in the workspace",
-            code=400,
-            error_code=CalcErrorCode.WORKSPACE_INVALID,
+    if entry_path not in {value["path"] for value in file_entries}:
+        raise ArtifactValidationError(
+            "calcbook entryPath does not exist in the workspace"
         )
     calcbook["formatVersion"] = format_version
     calcbook["entryPath"] = entry_path
-    return calcbook
+    return {
+        "formatVersion": 1,
+        "calcbook": calcbook,
+        "dependencies": dependencies,
+        "files": file_entries,
+    }
+
+
+async def _refresh_workspace_manifest(
+    report: CalcReport,
+    workspace_root: Path,
+    session: AsyncSession,
+) -> bool:
+    """Reconcile direct filesystem edits into database workspace metadata."""
+    manifest = _manifest_from_directory(
+        workspace_root,
+        (report.workspaceManifest or {}).get("dependencies", []),
+        previous_files={
+            value["path"]: value
+            for value in (report.workspaceManifest or {}).get("files", [])
+        },
+    )
+    workspace_hash = _workspace_content_hash(manifest)
+    if workspace_hash == report.workspaceHash:
+        if manifest != report.workspaceManifest:
+            report.workspaceManifest = manifest
+            await session.commit()
+        return False
+    report.workspaceRevision += 1
+    report.workspaceHash = workspace_hash
+    report.workspaceManifest = manifest
+    report.workspaceArtifactId = None
+    report.entryPath = manifest["calcbook"]["entryPath"]
+    report.formatVersion = manifest["calcbook"]["formatVersion"]
+    await session.commit()
+    return True
+
+
+async def ensure_workspace_artifact(
+    user_id: int,
+    report: CalcReport,
+    session: AsyncSession,
+) -> CalcReportArtifact:
+    """Freeze the current authoritative workspace into a reusable SOURCE artifact."""
+    workspace_root = _workspace_path(user_id, report.oid)
+    if not workspace_root.is_dir():
+        raise_ex(
+            "Workspace not found",
+            code=404,
+            error_code=CalcErrorCode.WORKSPACE_NOT_FOUND,
+        )
+    with portalocker.Lock(workspace_root.parent / ".workspace.lock", timeout=30):
+        await _refresh_workspace_manifest(report, workspace_root, session)
+        if report.workspaceArtifactId is not None:
+            artifact = await session.get(CalcReportArtifact, report.workspaceArtifactId)
+            if artifact is not None and artifact.contentHash == report.workspaceHash:
+                return artifact
+        manifest = report.workspaceManifest or {}
+        files = [
+            ArtifactFile(value["path"], (workspace_root / value["path"]).read_bytes())
+            for value in manifest.get("files", [])
+        ]
+        published = artifact_store.publish_source(
+            files,
+            manifest["calcbook"],
+            manifest.get("dependencies", []),
+        )
+        artifact = await _get_or_create_source_artifact(published, session)
+        report.workspaceArtifactId = artifact.id
+        await session.commit()
+        return artifact
 
 
 async def _resolve_dependencies(
@@ -723,51 +881,87 @@ async def _replace_dependencies(
             )
 
 
-def _materialize_workspace_projection(
+def materialize_workspace_artifact(
     user_id: int, report: CalcReport, artifact: CalcReportArtifact
-) -> None:
-    """Refresh the non-authoritative readable workspace projection."""
-    target = (
-        Path(app_config.calc_report_reports_root)
-        / str(user_id)
-        / report.oid
-        / "workspace"
+) -> dict:
+    """Replace an authoritative workspace from one immutable SOURCE artifact.
+
+    Args:
+        user_id: Workspace owner database ID.
+        report: Report whose workspace is replaced.
+        artifact: Immutable SOURCE artifact to materialize.
+
+    Returns:
+        Filesystem-aware workspace manifest stored on the report.
+
+    Raises:
+        OSError: If the artifact cannot be materialized.
+        ArtifactValidationError: If the restored workspace is invalid.
+    """
+    target = _workspace_path(user_id, report.oid)
+    artifact_store.materialize(artifact.storageKey, target)
+    manifest = _manifest_from_directory(
+        target, artifact.manifest.get("dependencies", [])
     )
-    try:
-        artifact_store.materialize(artifact.storageKey, target)
-    except OSError:
-        logger.exception("Failed to refresh workspace projection for %s", report.oid)
+    report.workspaceArtifactId = artifact.id
+    report.workspaceHash = _workspace_content_hash(manifest)
+    report.workspaceManifest = manifest
+    report.entryPath = manifest["calcbook"]["entryPath"]
+    report.formatVersion = manifest["calcbook"]["formatVersion"]
+    return manifest
 
 
 async def _workspace_response(
-    report: CalcReport,
-    artifact: CalcReportArtifact,
-    session: AsyncSession,
+    report: CalcReport, session: AsyncSession
 ) -> WorkspaceResDTO:
     """Build the public workspace response with derived states."""
     runtime_fingerprint = configured_runtime_fingerprint_hint()
     build_status = (
-        (await get_build_state(artifact.id, runtime_fingerprint, session))[0]
-        if runtime_fingerprint is not None
+        (
+            await get_build_state(
+                report.workspaceArtifactId, runtime_fingerprint, session
+            )
+        )[0]
+        if runtime_fingerprint is not None and report.workspaceArtifactId is not None
         else BuildStatus.NOT_REQUESTED
     )
-    publish_state = await resolve_publish_state(report, artifact, session)
+    latest = (
+        await session.get(CalcReportVersion, report.latestVersionId)
+        if report.latestVersionId is not None
+        else None
+    )
+    latest_artifact = (
+        await session.get(CalcReportArtifact, latest.sourceArtifactId)
+        if latest is not None
+        else None
+    )
+    publish_state = (
+        PublishState.PUBLISHED
+        if latest_artifact is not None
+        and latest_artifact.contentHash == report.workspaceHash
+        else (
+            PublishState.UNPUBLISHED_CHANGES
+            if latest is not None
+            else PublishState.UNPUBLISHED
+        )
+    )
+    manifest = report.workspaceManifest or {}
     files = [
         WorkspaceFileResDTO(
             path=file_info["path"],
             size=file_info["size"],
             sha256=public_hash(file_info["sha256"]),
         )
-        for file_info in artifact.manifest.get("files", [])
+        for file_info in manifest.get("files", [])
     ]
     dependencies = [
         ReportDependencyDTO.model_validate(dependency)
-        for dependency in artifact.manifest.get("dependencies", [])
+        for dependency in manifest.get("dependencies", [])
     ]
     return WorkspaceResDTO(
         reportOid=report.oid,
         workspaceRevision=report.workspaceRevision,
-        sourceArtifactHash=public_hash(artifact.contentHash),
+        workspaceHash=public_hash(report.workspaceHash or ""),
         entryPath=report.entryPath,
         formatVersion=report.formatVersion,
         files=files,

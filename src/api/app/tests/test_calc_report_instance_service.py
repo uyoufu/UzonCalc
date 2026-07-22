@@ -11,6 +11,7 @@ from app.db.models import (
     BaseModel,
     CalcExecution,
     CalcExecutionBundle,
+    CalcExecutionSlot,
     CalcReport,
     CalcReportArtifact,
     CalcReportCategory,
@@ -19,8 +20,15 @@ from app.db.models import (
     User,
     UserInputHistory,
 )
-from app.db.models.enums import ExecutionSourceType, ExecutionStatus, ExecutorType
+from app.db.models.enums import (
+    ExecutionSourceType,
+    ExecutionStatus,
+    ExecutionTargetType,
+    ExecutorType,
+)
 from app.service import calc_report_instance_service
+from app.service.calc_execution_service import promote_successful_execution
+from app.service.calc_report_service import delete_report
 
 
 def test_create_instance_derives_provenance_and_copies_cached_result(
@@ -103,7 +111,6 @@ def test_create_instance_derives_provenance_and_copies_cached_result(
                         executionId=execution.id,
                         defaults={"parameters": {"a": 1}},
                         windows=[{"title": "parameters", "fields": []}],
-                        inputHistory=[],
                     )
                 )
                 await session.commit()
@@ -151,8 +158,7 @@ def test_create_instance_derives_provenance_and_copies_cached_result(
                     share.token, session
                 )
                 assert public_result.resultPath == (
-                    "/api/v1/calc-report-instance/shared/"
-                    f"{share.token}/result"
+                    f"/api/v1/calc-report-instance/shared/{share.token}/result"
                 )
                 assert (
                     await calc_report_instance_service.get_public_instance_result_path(
@@ -160,6 +166,55 @@ def test_create_instance_derives_provenance_and_copies_cached_result(
                     )
                     == Path("data") / saved_instance.resultPath
                 )
+
+                replacement = CalcExecution(
+                    userId=user.id,
+                    reportId=report.id,
+                    bundleId=bundle.id,
+                    sourceType=ExecutionSourceType.WORKSPACE.value,
+                    executorType=ExecutorType.LOCAL.value,
+                    status=ExecutionStatus.SUCCEEDED.value,
+                    resultPath="public/calcs/1/exec-2/result.html",
+                )
+                session.add(replacement)
+                await session.flush()
+                slot = CalcExecutionSlot(
+                    userId=user.id,
+                    targetType=ExecutionTargetType.WORKSPACE.value,
+                    reportId=report.id,
+                    currentExecutionId=execution.id,
+                    activeExecutionId=replacement.id,
+                )
+                session.add(slot)
+                await session.commit()
+                replacement_dir = tmp_path / "data/public/calcs/1/exec-2"
+                replacement_dir.mkdir(parents=True)
+                (replacement_dir / "result.html").write_text(
+                    "<p>replacement</p>", encoding="utf-8"
+                )
+
+                await promote_successful_execution(session, replacement.oid, user.id)
+
+                assert slot.currentExecutionId == replacement.id
+                assert slot.activeExecutionId is None
+                assert await session.get(CalcExecution, execution.id) is None
+                assert not cache_dir.exists()
+
+                await delete_report(user.id, report.oid, session)
+
+                assert report.deletedAt is not None
+                retained_instance = await calc_report_instance_service.get_instance(
+                    user.id, result.instanceOid, session
+                )
+                assert retained_instance.bundleHash == result.bundleHash
+
+                await calc_report_instance_service.delete_instance(
+                    user.id, result.instanceOid, session
+                )
+
+                assert await session.get(CalcReportInstance, saved_instance.id) is None
+                assert await session.get(CalcReport, report.id) is None
+                assert not saved_html.parent.exists()
         finally:
             await engine.dispose()
 

@@ -1,7 +1,8 @@
 /** Typed APIs for saved calculation instances. */
 
 import { httpClient } from 'src/api/base/httpClient'
-import type { CalcInstance } from './types'
+import type { CalcExecution, CalcInstance } from './types'
+import type { ExecutionDefaults } from './executions'
 
 export interface InstanceListParams {
   categoryOid?: string
@@ -25,9 +26,13 @@ export function createInstance(data: { categoryOid: string; executionId: string;
 export function getInstance(instanceOid: string) { return httpClient.get<CalcInstance>(`/calc-report-instance/${instanceOid}`) }
 /** Update instance metadata with optimistic revision. */
 export function updateInstance(instanceOid: string, data: { revision: number; categoryOid: string; name: string; description?: string | null }) { return httpClient.put<CalcInstance>(`/calc-report-instance/${instanceOid}`, { data }) }
-/** Replace instance result and provenance from another execution. */
-export function updateInstanceResult(instanceOid: string, revision: number, executionId: string) { return httpClient.put<CalcInstance>(`/calc-report-instance/${instanceOid}/result`, { data: { revision, executionId } }) }
-/** Soft-delete a saved instance. */
+/** Load the active or last-successful execution retained by an instance. */
+export function getInstanceExecution(instanceOid: string) { return httpClient.get<CalcExecution | null>(`/calc-report-instance/${instanceOid}/execution`) }
+/** Run the immutable bundle retained by an instance. */
+export function startInstanceExecution(instanceOid: string, data: { defaults?: ExecutionDefaults; isSilent?: boolean; lastHtmlPath?: string | null }) {
+  return httpClient.post<CalcExecution>(`/calc-report-instance/${instanceOid}/execution`, { data })
+}
+/** Physically delete a saved instance. */
 export function deleteInstance(instanceOid: string) { return httpClient.delete<void>(`/calc-report-instance/${instanceOid}`) }
 /** Enable anonymous access for a saved instance. */
 export function shareInstance(instanceOid: string) { return httpClient.put<{ instanceOid: string; shareOid: string; token: string; createdAt: string }>(`/calc-report-instance/${instanceOid}/share`) }

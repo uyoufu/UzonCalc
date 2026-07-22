@@ -3,12 +3,12 @@
     <div class="execution-toolbar row items-center q-gutter-sm q-px-sm">
       <CommonBtn v-if="showBackButton" flat dense icon="arrow_back" :tooltip="t('calcWorkspace.backToReports')"
         @click="onBackToReports" />
-      <q-select v-if="!workspaceOnly" v-model="sourceType" dense options-dense outlined emit-value map-options
+      <q-select v-if="!workspaceOnly && !instanceOid" v-model="sourceType" dense options-dense outlined emit-value map-options
         :options="sourceOptions" :label="t('calcWorkspace.executionSource')" class="execution-toolbar__source" />
-      <q-select v-if="!workspaceOnly && sourceType === ExecutionSourceType.Version" v-model="versionName" dense
+      <q-select v-if="!workspaceOnly && !instanceOid && sourceType === ExecutionSourceType.Version" v-model="versionName" dense
         options-dense outlined emit-value map-options :options="versionOptions" :label="t('calcWorkspace.version')"
         class="execution-toolbar__version" />
-      <div v-if="workspaceOnly" class="text-caption text-grey-7 row items-center q-gutter-xs">
+      <div v-if="workspaceOnly || instanceOid" class="text-caption text-grey-7 row items-center q-gutter-xs">
         <q-icon name="source" />
         <span>{{ t('calcWorkspace.sourceWorkspace') }}</span>
       </div>
@@ -69,8 +69,8 @@ import {
   type CalcReport,
   type CalcReportVersion
 } from 'src/api/calc/types'
-import { continueExecution, listExecutions, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
-import { createInstance } from 'src/api/calc/instances'
+import { continueExecution, getCurrentExecution, startExecution, terminateExecution, type ExecutionDefaults } from 'src/api/calc/executions'
+import { createInstance, getInstanceExecution, startInstanceExecution } from 'src/api/calc/instances'
 import { listVersions } from 'src/api/calc/versions'
 import { adaptExecutionFields } from '../utils/adaptExecutionFields'
 import { isWorkspaceExecutionOutdated } from '../utils/executionSourceState'
@@ -82,6 +82,7 @@ import { t } from 'src/i18n/helpers'
 
 const props = withDefaults(defineProps<{
   reportOid: string
+  instanceOid?: string
   workspaceOnly?: boolean
   initialSource?: ExecutionSourceType
   refreshToken?: number
@@ -119,11 +120,20 @@ const sourceOptions = computed(() => [
   { label: t('calcWorkspace.sourceVersion'), value: ExecutionSourceType.Version, disable: versions.value.length === 0 }
 ])
 const versionOptions = computed(() => versions.value.map((version) => ({ label: version.versionName, value: version.versionName })))
-const isExecutionOutdated = computed(() => isWorkspaceExecutionOutdated(execution.value, report.value))
+const isExecutionOutdated = computed(() => !props.instanceOid && isWorkspaceExecutionOutdated(execution.value, report.value))
 
 /** Load report context while preserving an existing execution result. */
 async function refreshExecutionContext(): Promise<void> {
   try {
+    if (props.instanceOid) {
+      const retained = props.autoRestoreHistory
+        ? (await getInstanceExecution(props.instanceOid)).data
+        : null
+      execution.value = adaptOptionalExecution(retained || props.initialExecution)
+      if (execution.value) emit('executionChanged', execution.value)
+      initializedReportOid = props.reportOid
+      return
+    }
     const [reportResponse, versionResponse] = await Promise.all([
       getCalcReport(props.reportOid),
       listVersions(props.reportOid)
@@ -143,18 +153,30 @@ async function refreshExecutionContext(): Promise<void> {
     const isFirstLoad = initializedReportOid !== props.reportOid
     initializedReportOid = props.reportOid
     if (isFirstLoad) {
-      const history = props.initialExecution || (props.autoRestoreHistory
-        ? (await listExecutions({ reportOid: props.reportOid, skip: 0, limit: 1, sortBy: 'createdAt', descending: true })).data?.[0]
+      const retained = props.initialExecution || (props.autoRestoreHistory
+        ? (await getCurrentExecution(props.reportOid, selectedSource())).data
         : null)
-      execution.value = history ? adaptExecutionFields(history) : null
+      execution.value = adaptOptionalExecution(retained)
       if (execution.value) emit('executionChanged', execution.value)
-      if (!history) await onStart()
+      if (!retained) await onStart()
     } else if (isExecutionOutdated.value) {
       await onStart()
     }
   } catch (error) {
     notifyError(getApiFailure(error).message)
   }
+}
+
+/** Adapt an optional API execution without widening nullable state handling. */
+function adaptOptionalExecution(value: CalcExecution | null | undefined): CalcExecution | null {
+  return value ? adaptExecutionFields(value) : null
+}
+
+/** Return the currently selected report source request. */
+function selectedSource(): { type: ExecutionSourceType; versionName?: string } {
+  return sourceType.value === ExecutionSourceType.Version
+    ? { type: sourceType.value, versionName: versionName.value || undefined }
+    : { type: sourceType.value }
 }
 
 /** Resolve a valid initial source from current report capabilities. */
@@ -166,6 +188,14 @@ function resolveInitialSource(requestedSource: ExecutionSourceType): ExecutionSo
 }
 
 watch(() => [props.reportOid, props.refreshToken] as const, refreshExecutionContext, { immediate: true })
+
+watch([sourceType, versionName], async () => {
+  if (!initializedReportOid || props.instanceOid) return
+  if (sourceType.value === ExecutionSourceType.Version && !versionName.value) return
+  const retained = (await getCurrentExecution(props.reportOid, selectedSource())).data
+  execution.value = adaptOptionalExecution(retained)
+  if (execution.value) emit('executionChanged', execution.value)
+})
 
 /** Return to the calculation-report list. */
 async function onBackToReports(): Promise<void> {
@@ -188,16 +218,18 @@ async function onStart(): Promise<void> {
     if (isExecutionOutdated.value && execution.value && !execution.value.isCompleted) {
       await terminateExecution(execution.value.executionId)
     }
-    const source = sourceType.value === ExecutionSourceType.Version
-      ? { type: sourceType.value, versionName: versionName.value || undefined }
-      : { type: sourceType.value }
-    const response = await startExecution({
-      reportOid: props.reportOid,
-      source,
+    const executionInput = {
       isSilent: isSilent.value,
       defaults: execution.value ? collectDefaults() : {},
       lastHtmlPath: execution.value?.htmlPath
-    })
+    }
+    const response = props.instanceOid
+      ? await startInstanceExecution(props.instanceOid, executionInput)
+      : await startExecution({
+          reportOid: props.reportOid,
+          source: selectedSource(),
+          ...executionInput
+        })
     execution.value = adaptExecutionFields(response.data)
     emit('executionChanged', execution.value)
     buildMessage.value = ''

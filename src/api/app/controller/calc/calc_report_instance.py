@@ -8,11 +8,16 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.controller.calc.calc_instance_dto import (
     CalcInstanceCreateDTO,
+    CalcInstanceExecutionStartDTO,
     CalcInstanceListFilterDTO,
     CalcInstanceResDTO,
-    CalcInstanceResultUpdateDTO,
     CalcInstanceShareResDTO,
     CalcInstanceUpdateDTO,
+)
+from app.controller.calc.calc_execution_dto import CalcExecutionResDTO
+from app.controller.calc.calc_execution import (
+    execution_step_response,
+    finalize_execution_step,
 )
 from app.controller.depends import get_session, get_token_payload
 from app.controller.dto_base import PaginationDTO
@@ -134,19 +139,38 @@ async def update_calc_report_instance(
     )
 
 
-@router.put("/{instanceOid}/result")
-async def update_calc_report_instance_result(
+@router.get("/{instanceOid}/execution")
+async def get_calc_report_instance_execution(
     instanceOid: str,
-    request: CalcInstanceResultUpdateDTO,
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
-) -> ResponseResult[CalcInstanceResDTO]:
-    """Replace saved result and provenance from another execution."""
-    return ok(
-        data=await calc_report_instance_service.update_instance_result(
-            tokenPayloads.id, instanceOid, request, session
-        )
+) -> ResponseResult[CalcExecutionResDTO | None]:
+    """Return an instance's active or last-successful execution."""
+    step = await calc_report_instance_service.get_instance_execution_step(
+        tokenPayloads.id, instanceOid, session
     )
+    return ok(data=execution_step_response(step) if step is not None else None)
+
+
+@router.post("/{instanceOid}/execution")
+async def start_calc_report_instance_execution(
+    instanceOid: str,
+    request: CalcInstanceExecutionStartDTO,
+    tokenPayloads: TokenPayloads = Depends(get_token_payload),
+    session: AsyncSession = Depends(get_session),
+) -> ResponseResult[CalcExecutionResDTO]:
+    """Run an instance's retained bundle and automatically replace its result."""
+    step = await calc_report_instance_service.start_instance_execution(
+        tokenPayloads.id,
+        instanceOid,
+        request.defaults,
+        request.isSilent,
+        session,
+    )
+    response = await finalize_execution_step(
+        step, request.lastHtmlPath, tokenPayloads.id, session
+    )
+    return ok(data=response)
 
 
 @router.delete("/{instanceOid}")
@@ -155,7 +179,7 @@ async def delete_calc_report_instance(
     tokenPayloads: TokenPayloads = Depends(get_token_payload),
     session: AsyncSession = Depends(get_session),
 ) -> ResponseResult[None]:
-    """Soft-delete one saved instance."""
+    """Physically delete one saved instance and its retained execution."""
     await calc_report_instance_service.delete_instance(
         tokenPayloads.id, instanceOid, session
     )

@@ -5,6 +5,7 @@ from .calc_execution import (
     CalcExecution,
     CalcExecutionBundle,
     CalcExecutionBundleComponent,
+    CalcExecutionSlot as CalcExecutionSlot,
 )
 from .calc_report import CalcReport, CalcReportOrigin, CalcReportSyncSource
 from .calc_report_artifact import CalcReportArtifact, CalcReportArtifactBuild
